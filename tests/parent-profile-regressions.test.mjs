@@ -24,7 +24,7 @@ test("parent profiles are separate from account membership and capped at two", a
 test("calendar page exposes Add parent and explains that account access is optional", async () => {
   const panel = await source("components/calendar/members-panel.tsx");
 
-  assert.match(panel, />Add parent</);
+  assert.match(panel, /Add parent/);
   assert.match(panel, /Parent profiles/);
   assert.match(panel, /does not need an account or calendar access/);
   assert.match(panel, /fetch\("\/api\/parents"/);
