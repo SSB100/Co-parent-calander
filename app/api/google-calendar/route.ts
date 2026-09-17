@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, count, eq, gt, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, getSql } from "@/lib/db";
 import { calendarSyncJobs, googleCalendarConnections } from "@/lib/db/schema";
@@ -44,13 +44,22 @@ export async function GET() {
     });
   }
 
+  const unresolvedJobCondition = connection.lastSuccessfulSyncAt
+    ? or(
+        inArray(calendarSyncJobs.status, ["pending", "processing", "retry"]),
+        and(
+          eq(calendarSyncJobs.status, "failed"),
+          gt(calendarSyncJobs.createdAt, connection.lastSuccessfulSyncAt),
+        ),
+      )
+    : inArray(calendarSyncJobs.status, ["pending", "processing", "retry", "failed"]);
   const pendingRows = await getDb()
     .select({ value: count() })
     .from(calendarSyncJobs)
     .where(
       and(
         eq(calendarSyncJobs.connectionId, connection.id),
-        inArray(calendarSyncJobs.status, ["pending", "processing", "retry", "failed"]),
+        unresolvedJobCondition,
       ),
     );
 
@@ -170,6 +179,7 @@ export async function DELETE(request: NextRequest) {
         { status: 409 },
       );
     }
+    await revokeConnectionToken(connection);
   } else if (isGoogleCalendarConfigured()) {
     await revokeConnectionToken(connection);
   }

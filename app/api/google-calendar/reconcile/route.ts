@@ -54,7 +54,9 @@ export async function POST(request: NextRequest) {
   ]);
 
   after(async () => {
-    await processDueGoogleSyncJobs({ connectionId: connection.id, limit: 4 });
+    try {
+      await processDueGoogleSyncJobs({ connectionId: connection.id, limit: 4 });
+    } catch {}
   });
   return NextResponse.json({ ok: true });
 }

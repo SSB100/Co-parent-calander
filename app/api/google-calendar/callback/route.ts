@@ -88,6 +88,7 @@ export async function GET(request: Request) {
       })
       .returning();
     let connection = connectionRows[0];
+    if (!connection) return redirect("error");
 
     const calendarRows = await db
       .select({ name: calendars.name, timezone: calendars.timezone })
@@ -139,7 +140,9 @@ export async function GET(request: Request) {
     ]);
 
     after(async () => {
-      await processDueGoogleSyncJobs({ connectionId: connection.id, limit: 2 });
+      try {
+        await processDueGoogleSyncJobs({ connectionId: connection.id, limit: 2 });
+      } catch {}
     });
     return redirect("connected");
   } catch {

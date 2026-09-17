@@ -133,11 +133,16 @@ export async function deleteSecondaryCalendar(
   calendarId: string,
   fetchImpl: GoogleFetch = fetch,
 ) {
-  return googleJson<void>(
-    calendarApiUrl(`/calendars/${encodeURIComponent(calendarId)}`),
-    { method: "DELETE", headers: authHeaders(accessToken, false) },
-    fetchImpl,
-  );
+  try {
+    return await googleJson<void>(
+      calendarApiUrl(`/calendars/${encodeURIComponent(calendarId)}`),
+      { method: "DELETE", headers: authHeaders(accessToken, false) },
+      fetchImpl,
+    );
+  } catch (error) {
+    if (error instanceof GoogleApiError && error.status === 404) return;
+    throw error;
+  }
 }
 
 export async function upsertManagedEvent(

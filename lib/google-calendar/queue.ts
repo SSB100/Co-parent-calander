@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, lte } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
+  auditLog,
   calendarSyncJobs,
   googleCalendarConnections,
 } from "@/lib/db/schema";
@@ -73,7 +74,7 @@ export async function processDueGoogleSyncJobs(
     if (claimed.length === 0) continue;
 
     try {
-      await syncGoogleConnection({
+      const syncResult = await syncGoogleConnection({
         connectionId: job.connectionId,
         rangeStart: job.rangeStart,
         rangeEnd: job.rangeEnd,
@@ -88,6 +89,20 @@ export async function processDueGoogleSyncJobs(
           updatedAt: new Date(),
         })
         .where(eq(calendarSyncJobs.id, job.id));
+      await db.insert(auditLog).values({
+        calendarId: job.calendarId,
+        actorParticipantId: null,
+        action: "google.sync_success",
+        entityType: "google_calendar_connection",
+        entityId: job.connectionId,
+        afterState: {
+          jobType: job.jobType,
+          created: syncResult.created,
+          updated: syncResult.updated,
+          deleted: syncResult.deleted,
+          skipped: syncResult.skipped,
+        },
+      });
       succeeded += 1;
     } catch (error) {
       const retryCount = job.retryCount + 1;
@@ -116,6 +131,21 @@ export async function processDueGoogleSyncJobs(
           updatedAt: new Date(),
         })
         .where(eq(googleCalendarConnections.id, job.connectionId));
+      try {
+        await db.insert(auditLog).values({
+          calendarId: job.calendarId,
+          actorParticipantId: null,
+          action: "google.sync_failed",
+          entityType: "google_calendar_connection",
+          entityId: job.connectionId,
+          afterState: {
+            jobType: job.jobType,
+            retryCount,
+            reconnectRequired: reconnect,
+            willRetry: !terminal,
+          },
+        });
+      } catch {}
       failed += 1;
     }
   }
