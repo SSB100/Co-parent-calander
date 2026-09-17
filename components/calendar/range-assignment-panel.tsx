@@ -3,6 +3,7 @@
 import { differenceInCalendarDays, eachDayOfInterval, format, parseISO } from "date-fns";
 import { CalendarRange, LoaderCircle, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { UndoBulkButton } from "@/components/calendar/undo-bulk-button";
 
 type Parent = {
   id: string;
@@ -119,6 +120,7 @@ export function RangeAssignmentPanel({ onChanged }: RangeAssignmentPanelProps) {
         <CalendarRange className="h-4 w-4" aria-hidden="true" />
         Assign range
       </button>
+      <UndoBulkButton onChanged={onChanged} />
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 p-0 backdrop-blur-sm sm:items-center sm:p-6">
