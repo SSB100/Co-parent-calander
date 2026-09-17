@@ -155,24 +155,69 @@ export async function PATCH(request: NextRequest) {
     const sql = getSql();
     const rows = (await sql`
       SELECT
-        (SELECT count(*)::int FROM participants WHERE calendar_id = ${session.calendarId} AND active = true) AS participant_count,
-        (SELECT name FROM neon_auth."user" WHERE id = ${target.userId} LIMIT 1) AS user_name
-    `) as Array<{ participant_count: number; user_name: string | null }>;
-    if ((rows[0]?.participant_count ?? 2) >= 2) {
-      return NextResponse.json({ error: "This calendar already has two parent profiles." }, { status: 409 });
+        (
+          SELECT participant.id
+          FROM participants participant
+          WHERE participant.calendar_id = ${session.calendarId}
+            AND participant.active = true
+            AND NOT EXISTS (
+              SELECT 1 FROM calendar_memberships membership
+              WHERE membership.participant_id = participant.id
+            )
+          ORDER BY participant.created_at
+          LIMIT 1
+        ) AS available_participant_id,
+        (
+          SELECT count(*)::int FROM participants
+          WHERE calendar_id = ${session.calendarId} AND active = true
+        ) AS participant_count,
+        (
+          SELECT name FROM neon_auth."user"
+          WHERE id = ${target.userId}
+          LIMIT 1
+        ) AS user_name
+    `) as Array<{
+      available_participant_id: string | null;
+      participant_count: number;
+      user_name: string | null;
+    }>;
+
+    const availableParticipantId = rows[0]?.available_participant_id ?? null;
+    if (availableParticipantId) {
+      await db
+        .update(calendarMemberships)
+        .set({
+          participantId: availableParticipantId,
+          permission: "editor",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(calendarMemberships.id, target.id),
+            eq(calendarMemberships.calendarId, session.calendarId),
+          ),
+        );
+    } else {
+      if ((rows[0]?.participant_count ?? 2) >= 2) {
+        return NextResponse.json(
+          { error: "This calendar already has two linked parent profiles." },
+          { status: 409 },
+        );
+      }
+
+      const participantId = randomUUID();
+      await sql.transaction([
+        sql`
+          INSERT INTO participants (id, calendar_id, display_name, role, color_key, active)
+          VALUES (${participantId}, ${session.calendarId}, ${rows[0]?.user_name ?? "Parent"}, 'parent', 'violet', true)
+        `,
+        sql`
+          UPDATE calendar_memberships
+          SET participant_id = ${participantId}, permission = 'editor', updated_at = now()
+          WHERE id = ${target.id} AND calendar_id = ${session.calendarId} AND permission <> 'owner'
+        `,
+      ]);
     }
-    const participantId = randomUUID();
-    await sql.transaction([
-      sql`
-        INSERT INTO participants (id, calendar_id, display_name, role, color_key, active)
-        VALUES (${participantId}, ${session.calendarId}, ${rows[0]?.user_name ?? "Parent"}, 'parent', 'violet', true)
-      `,
-      sql`
-        UPDATE calendar_memberships
-        SET participant_id = ${participantId}, permission = 'editor', updated_at = now()
-        WHERE id = ${target.id} AND calendar_id = ${session.calendarId} AND permission <> 'owner'
-      `,
-    ]);
   } else {
     await db
       .update(calendarMemberships)

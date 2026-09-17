@@ -22,6 +22,7 @@ const calendarMutationRoutes = [
 const sameOriginMutationRoutes = [
   ...calendarMutationRoutes,
   { file: "app/api/invites/route.ts", methods: ["POST", "PATCH", "DELETE"] },
+  { file: "app/api/parents/route.ts", methods: ["POST"] },
   { file: "app/api/session/logout/route.ts", methods: ["POST"] },
 ];
 

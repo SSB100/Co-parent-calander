@@ -136,6 +136,16 @@ export async function joinCalendar(
           )
           AND (
             invite.permission = 'viewer'
+            OR EXISTS (
+              SELECT 1
+              FROM participants participant
+              WHERE participant.calendar_id = invite.calendar_id
+                AND participant.active = true
+                AND NOT EXISTS (
+                  SELECT 1 FROM calendar_memberships membership
+                  WHERE membership.participant_id = participant.id
+                )
+            )
             OR (
               SELECT count(*) FROM participants participant
               WHERE participant.calendar_id = invite.calendar_id AND participant.active = true
@@ -152,11 +162,25 @@ export async function joinCalendar(
         WHERE invite.id = eligible.id
         RETURNING invite.*
       ),
+      available_participant AS (
+        SELECT participant.id, participant.calendar_id
+        FROM participants participant
+        JOIN used ON used.calendar_id = participant.calendar_id
+        WHERE used.permission = 'editor'
+          AND participant.active = true
+          AND NOT EXISTS (
+            SELECT 1 FROM calendar_memberships membership
+            WHERE membership.participant_id = participant.id
+          )
+        ORDER BY participant.created_at
+        LIMIT 1
+      ),
       new_participant AS (
         INSERT INTO participants (id, calendar_id, display_name, role, color_key, active)
         SELECT ${participantId}, used.calendar_id, ${parsed.data.displayName}, 'parent', 'violet', true
         FROM used
         WHERE used.permission = 'editor'
+          AND NOT EXISTS (SELECT 1 FROM available_participant)
         RETURNING id, calendar_id
       ),
       new_membership AS (
@@ -164,7 +188,13 @@ export async function joinCalendar(
         SELECT
           used.calendar_id,
           ${user.id},
-          CASE WHEN used.permission = 'editor' THEN ${participantId}::uuid ELSE NULL END,
+          CASE
+            WHEN used.permission = 'editor' THEN COALESCE(
+              (SELECT id FROM available_participant LIMIT 1),
+              (SELECT id FROM new_participant LIMIT 1)
+            )
+            ELSE NULL
+          END,
           used.permission
         FROM used
         RETURNING calendar_id
@@ -177,7 +207,7 @@ export async function joinCalendar(
 
   const calendarId = rows[0]?.calendar_id;
   if (!calendarId) {
-    return { error: "That code is invalid, expired, already used, or the calendar already has two parents." };
+    return { error: "That code is invalid, expired, already used, or there is no available parent profile." };
   }
 
   const cookieStore = await cookies();
