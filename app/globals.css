@@ -125,6 +125,12 @@ main:has(> section [role="grid"]) > div.sticky button[class*="from-violet-100"][
     flex-direction: column;
   }
 
+  /* Keep normal vertical page scrolling while reserving horizontal gestures
+     on the month grid for previous/next month navigation. */
+  main:has(> section [role="grid"]) [role="grid"] {
+    touch-action: pan-y;
+  }
+
   main:has(> section [role="grid"]) > section:has([role="grid"]) {
     order: 1;
   }

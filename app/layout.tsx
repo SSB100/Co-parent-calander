@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { MobileCalendarSwipe } from "@/components/calendar/mobile-calendar-swipe";
 import { PwaRegister } from "@/components/pwa/pwa-register";
 import "./globals.css";
 
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <AuthProvider>{children}</AuthProvider>
+        <MobileCalendarSwipe />
         <PwaRegister />
       </body>
     </html>

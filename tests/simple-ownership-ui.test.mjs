@@ -37,3 +37,18 @@ test("calendar bulk controls use direct custody states and create event remains 
   assert.doesNotMatch(shell, /Bulk assignment period/);
   assert.match(events, /Create event/);
 });
+
+test("mobile month grid supports deliberate left and right swipe navigation", async () => {
+  const gesture = await readFile(path.join(root, "components/calendar/mobile-calendar-swipe.tsx"), "utf8");
+  const layout = await readFile(path.join(root, "app/layout.tsx"), "utf8");
+  const styles = await readFile(path.join(root, "app/globals.css"), "utf8");
+
+  assert.match(layout, /MobileCalendarSwipe/);
+  assert.match(gesture, /max-width: 767px/);
+  assert.match(gesture, /minimumSwipeDistance = 56/);
+  assert.match(gesture, /horizontalIntentRatio = 1\.2/);
+  assert.match(gesture, /deltaX < 0 \? "Next" : "Previous"/);
+  assert.match(gesture, /event\.preventDefault\(\)/);
+  assert.match(gesture, /button\[aria-pressed="true"\]/);
+  assert.match(styles, /touch-action: pan-y/);
+});
