@@ -2,7 +2,7 @@
 
 import { differenceInCalendarDays, eachDayOfInterval, format, parseISO } from "date-fns";
 import { CalendarRange, LoaderCircle, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { UndoBulkButton } from "@/components/calendar/undo-bulk-button";
 
 type Parent = {
@@ -14,11 +14,23 @@ type RangeAssignmentPanelProps = {
   onChanged?: () => void;
 };
 
+const focusableSelector = [
+  "button:not([disabled])",
+  "a[href]",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
 function todayKey() {
   return format(new Date(), "yyyy-MM-dd");
 }
 
 export function RangeAssignmentPanel({ onChanged }: RangeAssignmentPanelProps) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const savingRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [parents, setParents] = useState<Parent[]>([]);
@@ -27,6 +39,59 @@ export function RangeAssignmentPanel({ onChanged }: RangeAssignmentPanelProps) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    savingRef.current = saving;
+  }, [saving]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeButtonRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+
+      if (event.key === "Escape") {
+        if (!savingRef.current) {
+          event.preventDefault();
+          setOpen(false);
+        }
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+        (element) => element.getClientRects().length > 0,
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && (active === first || !dialog.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [open]);
 
   const rangeCount = useMemo(() => {
     if (!startDate || !endDate || endDate < startDate) return null;
@@ -125,9 +190,13 @@ export function RangeAssignmentPanel({ onChanged }: RangeAssignmentPanelProps) {
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 p-0 backdrop-blur-sm sm:items-center sm:p-6">
           <section
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="range-title"
+            aria-describedby="range-description"
+            aria-busy={loading || saving}
+            tabIndex={-1}
             className="w-full max-w-lg rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6"
           >
             <div className="flex items-start justify-between gap-4">
@@ -138,22 +207,28 @@ export function RangeAssignmentPanel({ onChanged }: RangeAssignmentPanelProps) {
                 <h2 id="range-title" className="text-xl font-semibold text-slate-900">
                   Assign date range
                 </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-500">
+                <p id="range-description" className="mt-1 text-sm leading-6 text-slate-500">
                   Choose a start and end date, then assign the whole range to a parent or clear it.
                 </p>
               </div>
               <button
+                ref={closeButtonRef}
                 type="button"
                 aria-label="Close date range panel"
+                disabled={saving}
                 onClick={() => setOpen(false)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 
             {loading ? (
-              <div className="mt-6 flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-600">
+              <div
+                role="status"
+                aria-live="polite"
+                className="mt-6 flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-600"
+              >
                 <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
                 Loading family calendar…
               </div>
@@ -192,6 +267,8 @@ export function RangeAssignmentPanel({ onChanged }: RangeAssignmentPanelProps) {
 
                 {message ? (
                   <p
+                    role={success ? "status" : "alert"}
+                    aria-live={success ? "polite" : "assertive"}
                     className={`mt-4 rounded-xl px-4 py-3 text-sm ${
                       success ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-700"
                     }`}
@@ -213,7 +290,7 @@ export function RangeAssignmentPanel({ onChanged }: RangeAssignmentPanelProps) {
                           : "bg-violet-100 text-violet-900 hover:bg-violet-200"
                       }`}
                     >
-                      {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : parent.displayName}
+                      {saving ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : parent.displayName}
                     </button>
                   ))}
                   <button
@@ -222,7 +299,7 @@ export function RangeAssignmentPanel({ onChanged }: RangeAssignmentPanelProps) {
                     onClick={() => void assignRange(null)}
                     className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-100 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 disabled:opacity-40"
                   >
-                    {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : "Clear range"}
+                    {saving ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : "Clear range"}
                   </button>
                 </div>
               </>
