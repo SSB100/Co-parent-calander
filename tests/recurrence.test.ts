@@ -243,10 +243,10 @@ test("recurring schedule API stores multiple schedule groups and scopes edits an
   assert.match(text, /scheduleRangesOverlap\(/);
   assert.match(text, /This schedule overlaps another saved schedule/);
   assert.match(text, /X-COPARENT-SCHEDULE=\$\{scheduleId\}/);
+  assert.match(text, /AND rrule LIKE \$\{scheduleMarker\}/);
   assert.match(text, /recurring_schedule\.create/);
   assert.match(text, /recurring_schedule\.update/);
   assert.match(text, /recurring_schedule\.delete/);
-  assert.doesNotMatch(text, /WHERE calendar_id = \$\{session\.calendarId\}\s*AND active = true\s*$/m);
 });
 
 test("schedule UI lists saved schedules and supports create, edit, and delete", async () => {
