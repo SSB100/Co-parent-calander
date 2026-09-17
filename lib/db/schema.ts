@@ -116,7 +116,7 @@ export const googleCalendarConnections = pgTable(
     syncParenting: boolean("sync_parenting").notNull().default(true),
     syncHandovers: boolean("sync_handovers").notNull().default(true),
     syncSharedEvents: boolean("sync_shared_events").notNull().default(true),
-    syncLocations: boolean("sync_locations").notNull().default(true),
+    syncLocations: boolean("sync_locations").notNull().default(false),
     syncSharedNotes: boolean("sync_shared_notes").notNull().default(false),
     parentLabelMode: googleParentLabelMode("parent_label_mode").notNull().default("names"),
     lastSuccessfulSyncAt: timestamp("last_successful_sync_at", { withTimezone: true }),

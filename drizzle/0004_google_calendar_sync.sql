@@ -17,7 +17,7 @@ CREATE TABLE "google_calendar_connections" (
   "sync_parenting" boolean DEFAULT true NOT NULL,
   "sync_handovers" boolean DEFAULT true NOT NULL,
   "sync_shared_events" boolean DEFAULT true NOT NULL,
-  "sync_locations" boolean DEFAULT true NOT NULL,
+  "sync_locations" boolean DEFAULT false NOT NULL,
   "sync_shared_notes" boolean DEFAULT false NOT NULL,
   "parent_label_mode" "google_parent_label_mode" DEFAULT 'names' NOT NULL,
   "last_successful_sync_at" timestamp with time zone,
