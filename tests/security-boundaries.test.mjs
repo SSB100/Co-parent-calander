@@ -81,6 +81,15 @@ test("editor access is a separate token path that explicitly creates an editor s
   assert.match(text, /createEditorSessionRecord\s*\(/);
 });
 
+test("invalid editor links receive clear feedback after returning to preview mode", async () => {
+  const accessRoute = await source("app/access/editor/[token]/route.ts");
+  const calendarShell = await source("components/calendar/calendar-shell.tsx");
+
+  assert.match(accessRoute, /new URL\(["']\/\?access=invalid["']/);
+  assert.match(calendarShell, /new URLSearchParams\(window\.location\.search\)/);
+  assert.match(calendarShell, /That editor link is invalid, expired, or revoked\./);
+});
+
 test("viewer route contains no calendar mutation fetches or form actions", async () => {
   const text = await source("app/share/[token]/page.tsx");
 
