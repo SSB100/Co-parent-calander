@@ -18,13 +18,18 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock3,
   LoaderCircle,
+  MapPin,
+  PencilLine,
   RotateCcw,
   Settings2,
   Share2,
+  StickyNote,
   UsersRound,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { DayDetailsPanel } from "@/components/calendar/day-details-panel";
 
 type Participant = {
   id: string;
@@ -47,6 +52,14 @@ type ApiAssignment = {
   note: string | null;
 };
 
+type HandoverSummary = {
+  date: string;
+  parentId: string;
+  handoverTime: string | null;
+  handoverLocation: string | null;
+  note: string | null;
+};
+
 type CalendarPayload = {
   calendar: {
     id: string;
@@ -58,6 +71,7 @@ type CalendarPayload = {
   participants: Participant[];
   children: Child[];
   assignments: ApiAssignment[];
+  nextHandover: HandoverSummary | null;
 };
 
 type AccessMode = "checking" | "preview" | "editor" | "error";
@@ -143,6 +157,7 @@ export function CalendarShell() {
   const [saving, setSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
+  const [detailsDate, setDetailsDate] = useState<string | null>(null);
 
   const calendarRange = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 });
@@ -211,23 +226,23 @@ export function CalendarShell() {
     [calendarData, previewAssignments],
   );
 
+  const detailMarkers = useMemo(() => {
+    const markers: Record<string, { handover: boolean; note: boolean }> = {};
+    for (const assignment of calendarData?.assignments ?? []) {
+      const marker = markers[assignment.date] ?? { handover: false, note: false };
+      marker.handover = marker.handover || Boolean(assignment.handoverTime || assignment.handoverLocation);
+      marker.note = marker.note || Boolean(assignment.note);
+      markers[assignment.date] = marker;
+    }
+    return markers;
+  }, [calendarData]);
+
   const today = new Date();
   const todayAssignment = assignments[keyFor(today)];
   const currentEditor = calendarData?.participants.find(
     (participant) => participant.id === calendarData.currentParticipantId,
   );
-
-  const nextHandover = useMemo(() => {
-    if (!calendarData) return null;
-    const todayKey = keyFor(new Date());
-    return (
-      calendarData.assignments
-        .filter((assignment) => assignment.date >= todayKey && assignment.handoverTime)
-        .sort((a, b) =>
-          `${a.date}T${a.handoverTime ?? ""}`.localeCompare(`${b.date}T${b.handoverTime ?? ""}`),
-        )[0] ?? null
-    );
-  }, [calendarData]);
+  const nextHandover = calendarData?.nextHandover ?? null;
 
   function ownerLabel(owner: Ownership | undefined) {
     if (!owner) return "Not assigned yet";
@@ -295,6 +310,7 @@ export function CalendarShell() {
   function goToday() {
     setCurrentMonth(startOfMonth(new Date()));
     setSelectedDays([]);
+    setDetailsDate(null);
   }
 
   return (
@@ -340,7 +356,7 @@ export function CalendarShell() {
           <button
             type="button"
             disabled
-            title="Secure sharing is added in the sharing milestone"
+            title="Secure sharing controls are being polished"
             className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-400 shadow-sm disabled:cursor-not-allowed"
           >
             <Share2 className="h-4 w-4" aria-hidden="true" />
@@ -378,14 +394,23 @@ export function CalendarShell() {
               <p className="mt-3 font-semibold text-slate-900">
                 {format(parseISO(nextHandover.date), "EEEE d MMM")} • {nextHandover.handoverTime?.slice(0, 5)}
               </p>
-              <p className="mt-1 text-sm text-slate-500">
-                {nextHandover.handoverLocation || "Location not added"}
+              <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-slate-500">
+                <span>With {ownerLabel(nextHandover.parentId)}</span>
+                {nextHandover.handoverLocation ? (
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                    {nextHandover.handoverLocation}
+                  </span>
+                ) : null}
               </p>
+              {nextHandover.note ? (
+                <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{nextHandover.note}</p>
+              ) : null}
             </>
           ) : (
             <>
               <p className="mt-3 font-semibold text-slate-900">No handover scheduled</p>
-              <p className="mt-1 text-sm text-slate-500">Handover details will appear here when added.</p>
+              <p className="mt-1 text-sm text-slate-500">Add a time to any assigned day and it will appear here.</p>
             </>
           )}
         </div>
@@ -400,6 +425,7 @@ export function CalendarShell() {
               onClick={() => {
                 setCurrentMonth(subMonths(currentMonth, 1));
                 setSelectedDays([]);
+                setDetailsDate(null);
               }}
               className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
             >
@@ -416,6 +442,7 @@ export function CalendarShell() {
               onClick={() => {
                 setCurrentMonth(addMonths(currentMonth, 1));
                 setSelectedDays([]);
+                setDetailsDate(null);
               }}
               className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
             >
@@ -448,7 +475,7 @@ export function CalendarShell() {
 
         <div className="px-2 pb-2 pt-3 sm:px-4 sm:pb-4">
           <p className="mb-3 px-1 text-sm text-slate-500">
-            Tap one or more days, then choose who has the children.
+            Tap one or more days to assign them. Select one day to add handover details or a note.
           </p>
 
           <div className="grid grid-cols-7 gap-1 sm:gap-2" role="grid" aria-label={format(currentMonth, "MMMM yyyy")}>
@@ -470,6 +497,7 @@ export function CalendarShell() {
               const isToday = isSameDay(day, today);
               const style = ownerStyle(assignment);
               const label = ownerLabel(assignment);
+              const marker = detailMarkers[key];
 
               return (
                 <button
@@ -478,7 +506,7 @@ export function CalendarShell() {
                   role="gridcell"
                   disabled={!inMonth || saving}
                   aria-selected={selected}
-                  aria-label={`${format(day, "EEEE d MMMM")}, ${assignment ? label : "unassigned"}`}
+                  aria-label={`${format(day, "EEEE d MMMM")}, ${assignment ? label : "unassigned"}${marker?.handover ? ", handover details" : ""}${marker?.note ? ", note" : ""}`}
                   onClick={() => toggleDay(day)}
                   className={`relative min-h-16 rounded-xl border p-1.5 text-left transition sm:min-h-24 sm:rounded-2xl sm:p-2.5 ${
                     style?.cell ?? "border-slate-200 bg-white"
@@ -507,6 +535,13 @@ export function CalendarShell() {
                       <span className="truncate">{assignment === "mixed" ? "Split" : label}</span>
                     </div>
                   ) : null}
+
+                  {inMonth && marker ? (
+                    <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 text-slate-500 sm:bottom-2 sm:right-2">
+                      {marker.handover ? <Clock3 className="h-3.5 w-3.5" aria-hidden="true" /> : null}
+                      {marker.note ? <StickyNote className="h-3.5 w-3.5" aria-hidden="true" /> : null}
+                    </div>
+                  ) : null}
                 </button>
               );
             })}
@@ -515,7 +550,7 @@ export function CalendarShell() {
       </section>
 
       {selectedDays.length > 0 ? (
-        <div className="sticky bottom-3 z-20 mx-auto mt-4 flex max-w-3xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+        <div className="sticky bottom-3 z-20 mx-auto mt-4 flex max-w-4xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur sm:flex-row sm:items-center sm:justify-between">
           <div className="px-1">
             <p className="font-semibold text-slate-900">
               {selectedDays.length} {selectedDays.length === 1 ? "day" : "days"} selected
@@ -530,7 +565,19 @@ export function CalendarShell() {
             </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            {selectedDays.length === 1 && accessMode === "editor" ? (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setDetailsDate(selectedDays[0])}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                <PencilLine className="h-4 w-4" aria-hidden="true" />
+                Details
+              </button>
+            ) : null}
+
             {participants.slice(0, 2).map((participant) => {
               const style = styleForParticipant(participants, participant.id);
               return (
@@ -555,6 +602,23 @@ export function CalendarShell() {
             </button>
           </div>
         </div>
+      ) : null}
+
+      {detailsDate && calendarData ? (
+        <DayDetailsPanel
+          key={`${detailsDate}-${refreshKey}`}
+          date={detailsDate}
+          participants={calendarData.participants}
+          assignments={calendarData.assignments}
+          activeChildCount={calendarData.children.length}
+          onClose={() => setDetailsDate(null)}
+          onSaved={(savedMessage) => {
+            setDetailsDate(null);
+            setSelectedDays([]);
+            setMessage(savedMessage);
+            setRefreshKey((value) => value + 1);
+          }}
+        />
       ) : null}
 
       <p className="mx-auto mt-5 max-w-2xl text-center text-xs leading-5 text-slate-400">

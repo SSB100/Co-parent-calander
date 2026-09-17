@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
-import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, eq, gt, gte, isNotNull, lte, or } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
@@ -29,6 +29,26 @@ const rangeSchema = z
     { message: "Calendar ranges are limited to 63 days." },
   );
 
+function localDateTimeParts(timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-NZ", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "00";
+
+  return {
+    date: `${value("year")}-${value("month")}-${value("day")}`,
+    time: `${value("hour")}:${value("minute")}:${value("second")}`,
+  };
+}
+
 export async function GET(request: Request) {
   const session = await getEditorSession();
 
@@ -52,17 +72,25 @@ export async function GET(request: Request) {
   const db = getDb();
   const { from, to } = parsed.data;
 
-  const [calendarRows, parentRows, childRows, assignmentRows] = await db.batch([
-    db
-      .select({
-        id: calendars.id,
-        name: calendars.name,
-        timezone: calendars.timezone,
-        shareEnabled: calendars.shareEnabled,
-      })
-      .from(calendars)
-      .where(eq(calendars.id, session.calendarId))
-      .limit(1),
+  const calendarRows = await db
+    .select({
+      id: calendars.id,
+      name: calendars.name,
+      timezone: calendars.timezone,
+      shareEnabled: calendars.shareEnabled,
+    })
+    .from(calendars)
+    .where(eq(calendars.id, session.calendarId))
+    .limit(1);
+
+  const calendar = calendarRows[0];
+  if (!calendar) {
+    return NextResponse.json({ error: "Calendar not found." }, { status: 404 });
+  }
+
+  const now = localDateTimeParts(calendar.timezone);
+
+  const [parentRows, childRows, assignmentRows, nextHandoverRows] = await db.batch([
     db
       .select({
         id: participants.id,
@@ -99,12 +127,34 @@ export async function GET(request: Request) {
         ),
       )
       .orderBy(asc(parentingAssignments.assignmentDate)),
+    db
+      .select({
+        date: parentingAssignments.assignmentDate,
+        parentId: parentingAssignments.parentId,
+        handoverTime: parentingAssignments.handoverTime,
+        handoverLocation: parentingAssignments.handoverLocation,
+        note: parentingAssignments.note,
+      })
+      .from(parentingAssignments)
+      .where(
+        and(
+          eq(parentingAssignments.calendarId, session.calendarId),
+          isNotNull(parentingAssignments.handoverTime),
+          or(
+            gt(parentingAssignments.assignmentDate, now.date),
+            and(
+              eq(parentingAssignments.assignmentDate, now.date),
+              gte(parentingAssignments.handoverTime, now.time),
+            ),
+          ),
+        ),
+      )
+      .orderBy(
+        asc(parentingAssignments.assignmentDate),
+        asc(parentingAssignments.handoverTime),
+      )
+      .limit(1),
   ]);
-
-  const calendar = calendarRows[0];
-  if (!calendar) {
-    return NextResponse.json({ error: "Calendar not found." }, { status: 404 });
-  }
 
   return NextResponse.json({
     calendar,
@@ -112,5 +162,6 @@ export async function GET(request: Request) {
     participants: parentRows,
     children: childRows,
     assignments: assignmentRows,
+    nextHandover: nextHandoverRows[0] ?? null,
   });
 }
