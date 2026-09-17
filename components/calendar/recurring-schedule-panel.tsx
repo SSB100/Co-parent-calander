@@ -1,8 +1,8 @@
 "use client";
 
-import { format, startOfWeek } from "date-fns";
+import { addDays, format, isValid, parseISO, startOfWeek } from "date-fns";
 import { CalendarRange, LoaderCircle, Repeat2, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -30,6 +30,13 @@ function cellClasses(participants: Participant[], parentId: string | null) {
   return "border-slate-200 bg-white text-slate-500 hover:bg-slate-50";
 }
 
+function previewCellClasses(participants: Participant[], parentId: string | null) {
+  const index = participants.findIndex((participant) => participant.id === parentId);
+  if (index === 0) return "border-emerald-100 bg-emerald-50 text-emerald-900";
+  if (index === 1) return "border-violet-100 bg-violet-50 text-violet-900";
+  return "border-slate-100 bg-slate-50 text-slate-400";
+}
+
 export function RecurringSchedulePanel() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -41,6 +48,23 @@ export function RecurringSchedulePanel() {
     Array<string | null>(14).fill(null),
   );
   const [message, setMessage] = useState<string | null>(null);
+
+  const previewWeeks = useMemo(() => {
+    const parsed = parseISO(anchorDate);
+    if (!isValid(parsed) || pattern.length !== 14) return [];
+
+    const monday = startOfWeek(parsed, { weekStartsOn: 1 });
+    return Array.from({ length: 4 }, (_, weekIndex) =>
+      Array.from({ length: 7 }, (_, dayIndex) => {
+        const offset = weekIndex * 7 + dayIndex;
+        const date = addDays(monday, offset);
+        return {
+          date,
+          parentId: pattern[offset % 14] ?? null,
+        };
+      }),
+    );
+  }, [anchorDate, pattern]);
 
   async function openPanel() {
     setOpen(true);
@@ -309,6 +333,49 @@ export function RecurringSchedulePanel() {
                       ))}
                     </div>
                   ))}
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                  <div className="flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Affected dates preview
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">Next four weeks</p>
+                    </div>
+                    <p className="text-xs text-slate-500">Pattern repeats every 2 weeks</p>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase text-slate-400 sm:text-xs">
+                    {weekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}
+                  </div>
+
+                  <div className="mt-1 space-y-1.5">
+                    {previewWeeks.map((week, weekIndex) => (
+                      <div key={weekIndex} className="grid grid-cols-7 gap-1">
+                        {week.map((item) => (
+                          <div
+                            key={format(item.date, "yyyy-MM-dd")}
+                            className={`min-h-14 rounded-lg border px-1 py-1.5 text-center sm:min-h-16 ${previewCellClasses(
+                              participants,
+                              item.parentId,
+                            )}`}
+                          >
+                            <span className="block text-[10px] font-semibold opacity-70 sm:text-xs">
+                              {format(item.date, "d MMM")}
+                            </span>
+                            <span className="mt-1 block truncate text-[9px] font-semibold sm:text-[11px]">
+                              {labelFor(item.parentId)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="mt-3 text-xs leading-5 text-slate-500">
+                    This preview shows the repeating rule only. Any manual changes already made to individual dates will still take priority.
+                  </p>
                 </div>
 
                 {message ? (
