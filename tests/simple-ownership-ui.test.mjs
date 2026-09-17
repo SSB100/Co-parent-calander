@@ -21,9 +21,9 @@ test("day editor uses direct custody states and shows events", async () => {
   const panel = await readFile(path.join(root, "components/calendar/day-details-panel.tsx"), "utf8");
 
   assert.match(panel, /Full day you/);
-  assert.match(panel, /Full day them/);
-  assert.match(panel, /You → Them/);
-  assert.match(panel, /Them → You/);
+  assert.match(panel, /them_full/);
+  assert.match(panel, /me_then_them/);
+  assert.match(panel, /them_then_me/);
   assert.match(panel, /Events on this day/);
   assert.doesNotMatch(panel, /Which part of the day\?/);
 });

@@ -33,14 +33,30 @@ const nullableNote = z
   .nullable()
   .transform((value) => (value ? value : null));
 
-const detailsSchema = z.object({
-  date: isoDate,
-  parentId: z.string().uuid().nullable(),
-  period: z.enum(["full_day", "morning", "afternoon"]).default("full_day"),
-  handoverTime: nullableTime,
-  handoverLocation: nullableLocation,
-  note: nullableNote,
+const ownershipSchema = z.object({
+  morningParentId: z.string().uuid().nullable(),
+  afternoonParentId: z.string().uuid().nullable(),
 });
+
+const detailsSchema = z
+  .object({
+    date: isoDate,
+    parentId: z.string().uuid().nullable().optional(),
+    period: z.enum(["full_day", "morning", "afternoon"]).optional(),
+    ownership: ownershipSchema.optional(),
+    handoverTime: nullableTime,
+    handoverLocation: nullableLocation,
+    note: nullableNote,
+  })
+  .superRefine((value, context) => {
+    if (!value.ownership && value.parentId === undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["ownership"],
+        message: "Choose a custody state before saving this day.",
+      });
+    }
+  });
 
 export async function PATCH(request: NextRequest) {
   if (!isSameOriginMutation(request)) {
@@ -67,24 +83,37 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const { date, parentId, period, handoverTime, handoverLocation, note } = parsed.data;
+  const { date, handoverTime, handoverLocation, note } = parsed.data;
+  const parentId = parsed.data.parentId ?? null;
+  const period = parsed.data.period ?? "full_day";
+  const ownership = parsed.data.ownership ?? null;
+  const selectedParentIds = [
+    ...new Set(
+      (ownership
+        ? [ownership.morningParentId, ownership.afternoonParentId]
+        : [parentId]
+      ).filter((value): value is string => Boolean(value)),
+    ),
+  ];
   const db = getDb();
 
-  if (parentId) {
+  if (selectedParentIds.length > 0) {
     const parentRows = await db
       .select({ id: participants.id })
       .from(participants)
       .where(
         and(
-          eq(participants.id, parentId),
           eq(participants.calendarId, session.calendarId),
           eq(participants.active, true),
+          inArray(participants.id, selectedParentIds),
         ),
-      )
-      .limit(1);
+      );
 
-    if (!parentRows[0]) {
-      return NextResponse.json({ error: "That parent is not part of this calendar." }, { status: 400 });
+    if (parentRows.length !== selectedParentIds.length) {
+      return NextResponse.json(
+        { error: "One of the selected parents is no longer part of this calendar." },
+        { status: 400 },
+      );
     }
   }
 
@@ -133,7 +162,10 @@ export async function PATCH(request: NextRequest) {
     let morningParentId = current?.morningParentId ?? null;
     let afternoonParentId = current?.afternoonParentId ?? null;
 
-    if (period === "full_day") {
+    if (ownership) {
+      morningParentId = ownership.morningParentId;
+      afternoonParentId = ownership.afternoonParentId;
+    } else if (period === "full_day") {
       morningParentId = parentId;
       afternoonParentId = parentId;
     } else if (period === "morning") {
@@ -150,7 +182,7 @@ export async function PATCH(request: NextRequest) {
   );
   if (!hasAnyAssignment && (handoverTime || handoverLocation || note)) {
     return NextResponse.json(
-      { error: "Assign at least one half of the day before adding handover details or a note." },
+      { error: "Assign this day before adding handover details or a note." },
       { status: 400 },
     );
   }
@@ -161,6 +193,7 @@ export async function PATCH(request: NextRequest) {
     childIds,
     parentId,
     period,
+    ownership,
     assignments: nextAssignments,
     handoverTime: hasAnyAssignment ? handoverTime : null,
     handoverLocation: hasAnyAssignment ? handoverLocation : null,
@@ -249,6 +282,7 @@ export async function PATCH(request: NextRequest) {
     date,
     parentId,
     period,
+    ownership,
     affectedChildren: childRows.length,
   });
 }

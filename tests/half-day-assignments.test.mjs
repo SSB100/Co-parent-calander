@@ -19,33 +19,35 @@ test("half-day migration preserves existing full-day assignments", async () => {
   assert.match(schema, /afternoonParentId:\s*uuid\("afternoon_parent_id"\)/);
 });
 
-test("bulk and single-day assignment APIs accept full-day, morning, and afternoon scopes", async () => {
+test("assignment APIs keep legacy half-day scopes and add direct ownership states", async () => {
   const bulk = await source("app/api/assignments/route.ts");
   const details = await source("app/api/assignment-details/route.ts");
 
   for (const text of [bulk, details]) {
     assert.match(text, /z\.enum\(\["full_day", "morning", "afternoon"\]\)/);
+    assert.match(text, /ownershipSchema/);
     assert.match(text, /afternoon_parent_id/);
     assert.match(text, /morningParentId/);
     assert.match(text, /afternoonParentId/);
   }
 
   assert.match(bulk, /loadEffectiveAssignmentMap/);
-  assert.match(details, /Assign at least one half of the day before adding handover details or a note\./);
+  assert.match(details, /Assign this day before adding handover details or a note\./);
 });
 
-test("calendar UI renders separate morning and afternoon colour halves and exposes period controls", async () => {
+test("calendar UI keeps split colours but exposes direct custody states instead of period controls", async () => {
   const shell = await source("components/calendar/calendar-shell.tsx");
   const panel = await source("components/calendar/day-details-panel.tsx");
 
   assert.match(shell, /top-0 h-1\/2/);
   assert.match(shell, /bottom-0 h-1\/2/);
-  assert.match(shell, /AM \{shortOwnerLabel\(assignment\.morning\)\}/);
-  assert.match(shell, /PM \{shortOwnerLabel\(assignment\.afternoon\)\}/);
-  assert.match(shell, /Bulk assignment period/);
+  assert.match(shell, /me_then_them/);
+  assert.match(shell, /them_then_me/);
+  assert.doesNotMatch(shell, /Bulk assignment period/);
 
-  assert.match(panel, /Full day/);
-  assert.match(panel, /Morning/);
-  assert.match(panel, /Afternoon/);
-  assert.match(panel, /periodLabels/);
+  assert.match(panel, /Full day you/);
+  assert.match(panel, /them_full/);
+  assert.match(panel, /me_then_them/);
+  assert.match(panel, /them_then_me/);
+  assert.doesNotMatch(panel, /Which part of the day\?/);
 });
