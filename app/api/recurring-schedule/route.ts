@@ -7,9 +7,7 @@ import { z } from "zod";
 import { getDb, getSql } from "@/lib/db";
 import {
   children,
-  parentingAssignments,
   participants,
-  recurringRuleChildren,
   recurringRules,
 } from "@/lib/db/schema";
 import {
