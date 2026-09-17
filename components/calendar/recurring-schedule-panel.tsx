@@ -1,11 +1,10 @@
 "use client";
 
 import { addDays, format, isValid, parseISO, startOfWeek } from "date-fns";
-import { CalendarRange, LoaderCircle, Repeat2, Trash2, X } from "lucide-react";
+import { CalendarRange, LoaderCircle, Pencil, Plus, Repeat2, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 const focusableSelector = [
   "button:not([disabled])",
   "a[href]",
@@ -21,16 +20,25 @@ type Participant = {
   colorKey: string;
 };
 
-type SchedulePayload = {
-  active: boolean;
+type SavedSchedule = {
+  scheduleId: string;
   anchorDate: string;
   endDate: string | null;
   pattern: Array<string | null>;
+  createdAt: string;
+};
+
+type SchedulePayload = {
+  schedules: SavedSchedule[];
   participants: Participant[];
 };
 
 function defaultAnchorDate() {
   return format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+}
+
+function emptyPattern() {
+  return Array<string | null>(14).fill(null);
 }
 
 function cellClasses(participants: Participant[], parentId: string | null) {
@@ -52,6 +60,25 @@ function previewCellClasses(
   return "border-slate-100 bg-slate-50 text-slate-400";
 }
 
+function statusFor(schedule: SavedSchedule) {
+  const today = format(new Date(), "yyyy-MM-dd");
+  if (schedule.endDate && schedule.endDate < today) return "ended" as const;
+  if (schedule.anchorDate > today) return "upcoming" as const;
+  return "current" as const;
+}
+
+function statusClasses(status: ReturnType<typeof statusFor>) {
+  if (status === "current") return "bg-emerald-100 text-emerald-800";
+  if (status === "upcoming") return "bg-blue-100 text-blue-800";
+  return "bg-slate-100 text-slate-600";
+}
+
+function scheduleRangeLabel(schedule: SavedSchedule) {
+  const start = format(parseISO(schedule.anchorDate), "d MMM yyyy");
+  const end = schedule.endDate ? format(parseISO(schedule.endDate), "d MMM yyyy") : "No end date";
+  return `${start} – ${end}`;
+}
+
 export function RecurringSchedulePanel() {
   const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -59,13 +86,13 @@ export function RecurringSchedulePanel() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [active, setActive] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [schedules, setSchedules] = useState<SavedSchedule[]>([]);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [anchorDate, setAnchorDate] = useState(defaultAnchorDate);
   const [endDate, setEndDate] = useState("");
-  const [pattern, setPattern] = useState<Array<string | null>>(
-    Array<string | null>(14).fill(null),
-  );
+  const [pattern, setPattern] = useState<Array<string | null>>(emptyPattern);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -91,7 +118,6 @@ export function RecurringSchedulePanel() {
       }
 
       if (event.key !== "Tab") return;
-
       const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)).filter(
         (element) => element.getClientRects().length > 0,
       );
@@ -104,7 +130,6 @@ export function RecurringSchedulePanel() {
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       const activeElement = document.activeElement;
-
       if (event.shiftKey && (activeElement === first || !dialog.contains(activeElement))) {
         event.preventDefault();
         last.focus();
@@ -141,38 +166,52 @@ export function RecurringSchedulePanel() {
     );
   }, [anchorDate, endDate, pattern]);
 
+  async function loadSchedules() {
+    const response = await fetch("/api/recurring-schedule", { cache: "no-store" });
+    const body = (await response.json().catch(() => null)) as SchedulePayload | { error?: string } | null;
+    if (!response.ok || !body || !("schedules" in body)) {
+      throw new Error(
+        body && "error" in body && body.error
+          ? body.error
+          : "The repeating schedules could not be loaded.",
+      );
+    }
+    setParticipants(body.participants.slice(0, 2));
+    setSchedules(body.schedules);
+    return body;
+  }
+
   async function openPanel() {
     setOpen(true);
     setLoading(true);
     setMessage(null);
+    setEditorOpen(false);
 
     try {
-      const response = await fetch("/api/recurring-schedule", { cache: "no-store" });
-      const body = (await response.json().catch(() => null)) as
-        | SchedulePayload
-        | { error?: string }
-        | null;
-
-      if (!response.ok || !body || !("pattern" in body)) {
-        throw new Error(
-          body && "error" in body && body.error
-            ? body.error
-            : "The repeating schedule could not be loaded.",
-        );
-      }
-
-      setActive(body.active);
-      setParticipants(body.participants.slice(0, 2));
-      setAnchorDate(body.anchorDate || defaultAnchorDate());
-      setEndDate(body.endDate ?? "");
-      setPattern(body.pattern.length === 14 ? body.pattern : Array<string | null>(14).fill(null));
+      await loadSchedules();
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "The repeating schedule could not be loaded.",
-      );
+      setMessage(error instanceof Error ? error.message : "The repeating schedules could not be loaded.");
     } finally {
       setLoading(false);
     }
+  }
+
+  function startNewSchedule() {
+    setEditingScheduleId(null);
+    setAnchorDate(defaultAnchorDate());
+    setEndDate("");
+    setPattern(emptyPattern());
+    setMessage(null);
+    setEditorOpen(true);
+  }
+
+  function editSchedule(schedule: SavedSchedule) {
+    setEditingScheduleId(schedule.scheduleId);
+    setAnchorDate(schedule.anchorDate);
+    setEndDate(schedule.endDate ?? "");
+    setPattern(schedule.pattern.length === 14 ? [...schedule.pattern] : emptyPattern());
+    setMessage(null);
+    setEditorOpen(true);
   }
 
   function cycleSlot(slot: number) {
@@ -201,7 +240,7 @@ export function RecurringSchedulePanel() {
 
   function applyAlternatingWeekends() {
     if (participants.length < 2) return;
-    const next = Array<string | null>(14).fill(null);
+    const next = emptyPattern();
     next[5] = participants[0].id;
     next[6] = participants[0].id;
     next[12] = participants[1].id;
@@ -222,50 +261,59 @@ export function RecurringSchedulePanel() {
       const response = await fetch("/api/recurring-schedule", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ anchorDate, endDate: endDate || null, pattern }),
+        body: JSON.stringify({
+          scheduleId: editingScheduleId,
+          anchorDate,
+          endDate: endDate || null,
+          pattern,
+        }),
       });
-      const body = (await response.json().catch(() => null)) as
-        | { error?: string; anchorDate?: string; endDate?: string | null }
-        | null;
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) {
         throw new Error(body?.error ?? "The repeating schedule could not be saved.");
       }
 
-      setActive(true);
-      if (body?.anchorDate) setAnchorDate(body.anchorDate);
-      setEndDate(body?.endDate ?? "");
-      setMessage("Repeating schedule saved. Manual day changes will still override it.");
+      await loadSchedules();
+      setEditorOpen(false);
+      setEditingScheduleId(null);
+      setMessage("Schedule saved. It will take effect automatically on its start date.");
       window.setTimeout(() => window.location.reload(), 650);
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "The repeating schedule could not be saved.",
-      );
+      setMessage(error instanceof Error ? error.message : "The repeating schedule could not be saved.");
     } finally {
       setSaving(false);
     }
   }
 
-  async function disableSchedule() {
+  async function deleteSchedule(schedule: SavedSchedule) {
     if (saving) return;
+    const confirmed = window.confirm(
+      `Delete the schedule starting ${format(parseISO(schedule.anchorDate), "d MMM yyyy")}? Manual day changes will not be deleted.`,
+    );
+    if (!confirmed) return;
+
     setSaving(true);
     setMessage(null);
-
     try {
-      const response = await fetch("/api/recurring-schedule", { method: "DELETE" });
+      const response = await fetch("/api/recurring-schedule", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ scheduleId: schedule.scheduleId }),
+      });
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) {
-        throw new Error(body?.error ?? "The repeating schedule could not be turned off.");
+        throw new Error(body?.error ?? "That saved schedule could not be deleted.");
       }
 
-      setActive(false);
-      setEndDate("");
-      setPattern(Array<string | null>(14).fill(null));
-      setMessage("Repeating schedule turned off. Manual calendar days are unchanged.");
+      await loadSchedules();
+      if (editingScheduleId === schedule.scheduleId) {
+        setEditorOpen(false);
+        setEditingScheduleId(null);
+      }
+      setMessage("Schedule deleted. Manual calendar changes are unchanged.");
       window.setTimeout(() => window.location.reload(), 650);
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "The repeating schedule could not be turned off.",
-      );
+      setMessage(error instanceof Error ? error.message : "That saved schedule could not be deleted.");
     } finally {
       setSaving(false);
     }
@@ -279,7 +327,7 @@ export function RecurringSchedulePanel() {
         className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
       >
         <Repeat2 className="h-4 w-4" aria-hidden="true" />
-        <span>Schedule</span>
+        <span>Schedules</span>
       </button>
 
       {open ? (
@@ -292,7 +340,7 @@ export function RecurringSchedulePanel() {
             aria-describedby="repeat-description"
             aria-busy={loading || saving}
             tabIndex={-1}
-            className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6"
+            className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -300,128 +348,156 @@ export function RecurringSchedulePanel() {
                   <CalendarRange className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <h2 id="repeat-title" className="text-xl font-semibold text-slate-900">
-                  Repeating schedule
+                  Repeating schedules
                 </h2>
-                <p id="repeat-description" className="mt-1 text-sm leading-6 text-slate-500">
-                  Set a two-week pattern. Tap any week cell to cycle between parents and “Not set”. Manual changes to individual calendar days always take priority.
+                <p id="repeat-description" className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                  Keep your current plan and prepare the next one in advance. Each schedule has its own start and end dates and switches automatically when its start date arrives.
                 </p>
               </div>
               <button
                 ref={closeButtonRef}
                 type="button"
-                aria-label="Close repeating schedule"
+                aria-label="Close repeating schedules"
                 disabled={saving}
                 onClick={() => setOpen(false)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:opacity-50"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 
+            {message ? (
+              <p role="status" aria-live="polite" className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
+                {message}
+              </p>
+            ) : null}
+
             {loading ? (
-              <div
-                role="status"
-                aria-live="polite"
-                className="mt-8 flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-600"
-              >
+              <div role="status" className="mt-8 flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-600">
                 <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Loading repeating schedule…
+                Loading schedules…
               </div>
+            ) : !editorOpen ? (
+              <>
+                <div className="mt-6 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Saved schedules</p>
+                    <p className="text-xs leading-5 text-slate-500">Schedules cannot overlap. Give the current plan an end date before a new plan begins.</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={saving || participants.length === 0}
+                    onClick={startNewSchedule}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    <Plus className="h-4 w-4" aria-hidden="true" />New schedule
+                  </button>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {schedules.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-7 text-center">
+                      <p className="font-semibold text-slate-800">No repeating schedules yet</p>
+                      <p className="mt-1 text-sm text-slate-500">Create one now, or set up a future plan before your current arrangement changes.</p>
+                    </div>
+                  ) : (
+                    schedules.map((schedule, index) => {
+                      const status = statusFor(schedule);
+                      const assignedDays = schedule.pattern.filter(Boolean).length;
+                      return (
+                        <div key={schedule.scheduleId} className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-semibold text-slate-900">Schedule {index + 1}</p>
+                                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusClasses(status)}`}>
+                                  {status}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-sm text-slate-600">{scheduleRangeLabel(schedule)}</p>
+                              <p className="mt-1 text-xs text-slate-500">{assignedDays} of 14 fortnight slots assigned</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                disabled={saving}
+                                onClick={() => editSchedule(schedule)}
+                                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                              >
+                                <Pencil className="h-4 w-4" aria-hidden="true" />Edit
+                              </button>
+                              <button
+                                type="button"
+                                disabled={saving}
+                                onClick={() => void deleteSchedule(schedule)}
+                                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                              >
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
             ) : (
               <>
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <div className="mt-6 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {editingScheduleId ? "Edit schedule" : "New schedule"}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Set a two-week pattern. Manual changes to individual calendar days still take priority.
+                    </p>
+                  </div>
+                  <button type="button" disabled={saving} onClick={() => setEditorOpen(false)} className="min-h-10 rounded-xl px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50">
+                    Back to schedules
+                  </button>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      First week starts
-                    </span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">First week starts</span>
                     <input
                       type="date"
                       value={anchorDate}
                       disabled={saving}
                       onChange={(event) => setAnchorDate(event.target.value)}
-                      className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                      className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-medium text-slate-800 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                     />
-                    <span className="mt-1 block text-xs text-slate-400">
-                      We align the pattern to the Monday of this week.
-                    </span>
+                    <span className="mt-1 block text-xs text-slate-400">The pattern starts on the Monday of this week.</span>
                   </label>
 
                   <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      End date
-                    </span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">End date</span>
                     <input
                       type="date"
                       value={endDate}
                       min={anchorDate}
                       disabled={saving}
                       onChange={(event) => setEndDate(event.target.value)}
-                      className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                      className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-medium text-slate-800 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                     />
-                    <span className="mt-1 block text-xs text-slate-400">
-                      Optional. Leave blank to keep repeating indefinitely.
-                    </span>
+                    <span className="mt-1 block text-xs text-slate-400">Optional for the final schedule. A later schedule cannot overlap an open-ended one.</span>
                   </label>
                 </div>
 
-                <div className="mt-3 flex justify-end">
-                  <span
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                      active
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {active ? "Repeating schedule on" : "No repeating schedule"}
-                  </span>
-                </div>
-
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={saving || participants.length < 2}
-                    onClick={applyWeekOnWeekOff}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40"
-                  >
-                    Week on / week off
-                  </button>
-                  <button
-                    type="button"
-                    disabled={saving || participants.length < 2}
-                    onClick={applyAlternatingWeekends}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40"
-                  >
-                    Alternate weekends
-                  </button>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={copyWeekOne}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40"
-                  >
-                    Copy week 1 to week 2
-                  </button>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => setPattern(Array<string | null>(14).fill(null))}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 disabled:opacity-40"
-                  >
-                    Clear pattern
-                  </button>
+                  <button type="button" disabled={saving || participants.length < 2} onClick={applyWeekOnWeekOff} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Week on / week off</button>
+                  <button type="button" disabled={saving || participants.length < 2} onClick={applyAlternatingWeekends} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Alternate weekends</button>
+                  <button type="button" disabled={saving} onClick={copyWeekOne} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Copy week 1 to week 2</button>
+                  <button type="button" disabled={saving} onClick={() => setPattern(emptyPattern())} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 disabled:opacity-40">Clear pattern</button>
                 </div>
 
                 <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
                   <div className="grid grid-cols-[3.5rem_1fr_1fr] bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    <span>Day</span>
-                    <span>Week 1</span>
-                    <span>Week 2</span>
+                    <span>Day</span><span>Week 1</span><span>Week 2</span>
                   </div>
                   {weekdays.map((weekday, index) => (
-                    <div
-                      key={weekday}
-                      className="grid grid-cols-[3.5rem_1fr_1fr] items-center gap-2 border-t border-slate-100 px-3 py-2"
-                    >
+                    <div key={weekday} className="grid grid-cols-[3.5rem_1fr_1fr] items-center gap-2 border-t border-slate-100 px-3 py-2">
                       <span className="text-sm font-semibold text-slate-600">{weekday}</span>
                       {[index, index + 7].map((slot) => (
                         <button
@@ -429,10 +505,7 @@ export function RecurringSchedulePanel() {
                           type="button"
                           disabled={saving || participants.length === 0}
                           onClick={() => cycleSlot(slot)}
-                          className={`min-h-10 rounded-xl border px-2 text-left text-xs font-semibold transition disabled:opacity-40 ${cellClasses(
-                            participants,
-                            pattern[slot],
-                          )}`}
+                          className={`min-h-10 rounded-xl border px-2 text-left text-xs font-semibold transition disabled:opacity-40 ${cellClasses(participants, pattern[slot])}`}
                           aria-label={`${weekday}, ${slot < 7 ? "week 1" : "week 2"}: ${labelFor(pattern[slot])}. Tap to change.`}
                         >
                           <span className="block truncate">{labelFor(pattern[slot])}</span>
@@ -445,81 +518,34 @@ export function RecurringSchedulePanel() {
                 <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
                   <div className="flex flex-wrap items-end justify-between gap-2">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Affected dates preview
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">Next four weeks</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Schedule preview</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">First four weeks</p>
                     </div>
-                    <p className="text-xs text-slate-500">
-                      {endDate ? `Stops after ${format(parseISO(endDate), "d MMM yyyy")}` : "Pattern repeats every 2 weeks"}
-                    </p>
+                    <p className="text-xs text-slate-500">{endDate ? `Stops after ${format(parseISO(endDate), "d MMM yyyy")}` : "Repeats until you end or delete it"}</p>
                   </div>
-
                   <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase text-slate-400 sm:text-xs">
                     {weekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}
                   </div>
-
                   <div className="mt-1 space-y-1.5">
                     {previewWeeks.map((week, weekIndex) => (
                       <div key={weekIndex} className="grid grid-cols-7 gap-1">
                         {week.map((item) => (
-                          <div
-                            key={format(item.date, "yyyy-MM-dd")}
-                            className={`min-h-14 rounded-lg border px-1 py-1.5 text-center sm:min-h-16 ${previewCellClasses(
-                              participants,
-                              item.parentId,
-                              item.ended,
-                            )}`}
-                          >
-                            <span className="block text-[10px] font-semibold opacity-70 sm:text-xs">
-                              {format(item.date, "d MMM")}
-                            </span>
-                            <span className="mt-1 block truncate text-[9px] font-semibold sm:text-[11px]">
-                              {item.ended ? "Ended" : labelFor(item.parentId)}
-                            </span>
+                          <div key={format(item.date, "yyyy-MM-dd")} className={`min-h-14 rounded-lg border px-1 py-1.5 text-center sm:min-h-16 ${previewCellClasses(participants, item.parentId, item.ended)}`}>
+                            <span className="block text-[10px] font-semibold opacity-70 sm:text-xs">{format(item.date, "d MMM")}</span>
+                            <span className="mt-1 block truncate text-[9px] font-semibold sm:text-[11px]">{item.ended ? "Ended" : labelFor(item.parentId)}</span>
                           </div>
                         ))}
                       </div>
                     ))}
                   </div>
-
-                  <p className="mt-3 text-xs leading-5 text-slate-500">
-                    This preview shows the repeating rule only. Any manual changes already made to individual dates will still take priority.
-                  </p>
                 </div>
 
-                {message ? (
-                  <p role="status" aria-live="polite" className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
-                    {message}
-                  </p>
-                ) : null}
-
-                <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto]">
-                  <button
-                    type="button"
-                    disabled={saving || participants.length === 0}
-                    onClick={() => void saveSchedule()}
-                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-                  >
-                    {saving ? (
-                      <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                    ) : (
-                      <Repeat2 className="h-4 w-4" aria-hidden="true" />
-                    )}
-                    Save repeating schedule
+                <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button type="button" disabled={saving} onClick={() => setEditorOpen(false)} className="min-h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Cancel</button>
+                  <button type="button" disabled={saving || participants.length === 0} onClick={() => void saveSchedule()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
+                    {saving ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Repeat2 className="h-4 w-4" aria-hidden="true" />}
+                    {editingScheduleId ? "Save changes" : "Save schedule"}
                   </button>
-
-                  {active ? (
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() => void disableSchedule()}
-                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      Turn off
-                    </button>
-                  ) : null}
                 </div>
               </>
             )}

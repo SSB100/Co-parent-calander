@@ -61,6 +61,17 @@ export function dateForSlot(anchorDate: string, slot: number) {
   return format(addDays(parseISO(anchorDate), slot), "yyyy-MM-dd");
 }
 
+export function scheduleRangesOverlap(
+  firstStart: string,
+  firstEnd: string | null,
+  secondStart: string,
+  secondEnd: string | null,
+) {
+  const firstFinishesBeforeSecond = firstEnd !== null && firstEnd < secondStart;
+  const secondFinishesBeforeFirst = secondEnd !== null && secondEnd < firstStart;
+  return !firstFinishesBeforeSecond && !secondFinishesBeforeFirst;
+}
+
 export function buildFortnightRuleText({
   scheduleId,
   anchorDate,
