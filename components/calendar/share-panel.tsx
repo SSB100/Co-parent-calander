@@ -88,10 +88,10 @@ export function SharePanel() {
       <button
         type="button"
         onClick={() => void openPanel()}
-        className="fixed bottom-4 right-4 z-30 inline-flex min-h-12 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-xl transition hover:bg-slate-800 sm:bottom-6 sm:right-6"
+        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
       >
         <Share2 className="h-4 w-4" aria-hidden="true" />
-        Share calendar
+        <span>Share</span>
       </button>
 
       {open ? (
@@ -111,7 +111,7 @@ export function SharePanel() {
                   Read-only sharing
                 </h2>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
-                  Anyone with the viewer link can see the schedule, but cannot edit it.
+                  Anyone with the viewer link can see the schedule and shared events, but cannot edit them.
                 </p>
               </div>
               <button

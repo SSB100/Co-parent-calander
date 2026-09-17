@@ -174,10 +174,10 @@ export function RecurringSchedulePanel() {
       <button
         type="button"
         onClick={() => void openPanel()}
-        className="fixed bottom-4 left-4 z-30 inline-flex min-h-12 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-xl transition hover:bg-slate-50 sm:bottom-6 sm:left-6"
+        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
       >
         <Repeat2 className="h-4 w-4" aria-hidden="true" />
-        Repeat schedule
+        <span>Schedule</span>
       </button>
 
       {open ? (
