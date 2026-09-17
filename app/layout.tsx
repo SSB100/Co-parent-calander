@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AuthProvider } from "@/components/auth/auth-provider";
+import { PwaRegister } from "@/components/pwa/pwa-register";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,14 +15,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Co-parent Calendar",
+  title: { default: "Co-parent Calendar", template: "%s · Co-parent Calendar" },
   description: "A calm, shared calendar for co-parenting schedules.",
+  applicationName: "Co-parent Calendar",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Co-parent Calendar",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        <AuthProvider>{children}</AuthProvider>
+        <PwaRegister />
+      </body>
     </html>
   );
 }

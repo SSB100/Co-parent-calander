@@ -34,23 +34,16 @@ test("event CRUD keeps validation, calendar scoping, transaction, and audit guar
   assert.equal(transactionCalls.length, 3, "event create/update/delete must remain transactional");
 });
 
-test("read-only sharing keeps token rotation, revoke, calendar flag, audit, and viewer URL guarantees", async () => {
-  const text = await source("app/api/share/route.ts");
+test("account sharing keeps permission choice, code rotation, revoke, and one-use guarantees", async () => {
+  const text = await source("app/api/invites/route.ts");
 
-  assert.match(text, /eq\(accessTokens\.type,\s*["']viewer["']\)/);
-  assert.match(text, /isNull\(accessTokens\.revokedAt\)/);
-  assert.match(text, /const token\s*=\s*generateSecureToken\(\)/);
-  assert.match(text, /const tokenHash\s*=\s*hashToken\(token\)/);
-  assert.match(text, /type = 'viewer'/);
+  assert.match(text, /getOwnerSession\s*\(/);
+  assert.match(text, /generateInviteCode\(\)/);
+  assert.match(text, /hashToken\(normalizedCode\)/);
+  assert.match(text, /permission: z\.enum\(\[["']editor["'], ["']viewer["']\]\)/);
   assert.match(text, /SET revoked_at = now\(\)/);
-  assert.match(text, /SET share_enabled = true/);
-  assert.match(text, /SET share_enabled = false/);
-  assert.match(text, /share\.viewer_link_generated/);
-  assert.match(text, /share\.viewer_link_revoked/);
-  assert.match(text, /viewerUrl:\s*`\$\{request\.nextUrl\.origin\}\/share\/\$\{token\}`/);
-
-  const transactionCalls = text.match(/await sql\.transaction\(/g) ?? [];
-  assert.equal(transactionCalls.length, 2, "viewer link generation and revoke must remain transactional");
+  assert.match(text, /useCount, calendarInvites\.maxUses/);
+  assert.match(text, /revokedAt: new Date\(\)/);
 });
 
 test("event feedback survives list refreshes and icon-only mobile controls stay named", async () => {

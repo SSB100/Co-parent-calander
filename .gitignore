@@ -10,4 +10,6 @@ coverage
 .DS_Store
 *.pem
 *.log
+*.tsbuildinfo
 .vercel
+.env*.local

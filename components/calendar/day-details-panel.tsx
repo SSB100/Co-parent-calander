@@ -24,6 +24,7 @@ type DayDetailsPanelProps = {
   activeChildCount: number;
   onClose: () => void;
   onSaved: (message: string) => void;
+  readOnly?: boolean;
 };
 
 const focusableSelector = [
@@ -42,6 +43,7 @@ export function DayDetailsPanel({
   activeChildCount,
   onClose,
   onSaved,
+  readOnly = false,
 }: DayDetailsPanelProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -236,6 +238,7 @@ export function DayDetailsPanel({
                 type="button"
                 aria-pressed={parentId === participant.id}
                 onClick={() => setParentId(participant.id)}
+                disabled={readOnly}
                 className={`min-h-12 rounded-xl border px-4 text-sm font-semibold transition ${
                   parentId === participant.id
                     ? "border-slate-900 bg-slate-900 text-white"
@@ -249,6 +252,7 @@ export function DayDetailsPanel({
               type="button"
               aria-pressed={parentId === null}
               onClick={() => setParentId(null)}
+              disabled={readOnly}
               className={`min-h-12 rounded-xl border px-4 text-sm font-semibold transition ${
                 parentId === null
                   ? "border-slate-500 bg-slate-100 text-slate-900"
@@ -263,7 +267,7 @@ export function DayDetailsPanel({
           ) : null}
         </div>
 
-        <div className={`mt-6 space-y-4 ${detailsDisabled ? "opacity-50" : ""}`}>
+        <div className={`mt-6 space-y-4 ${detailsDisabled || readOnly ? "opacity-50" : ""}`}>
           <label className="block">
             <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
               <Clock3 className="h-4 w-4" aria-hidden="true" />
@@ -272,7 +276,7 @@ export function DayDetailsPanel({
             <input
               type="time"
               value={handoverTime}
-              disabled={detailsDisabled}
+              disabled={detailsDisabled || readOnly}
               onChange={(event) => setHandoverTime(event.target.value)}
               className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50"
             />
@@ -287,7 +291,7 @@ export function DayDetailsPanel({
               type="text"
               maxLength={120}
               value={handoverLocation}
-              disabled={detailsDisabled}
+              disabled={detailsDisabled || readOnly}
               placeholder="e.g. School gate, home, rugby club"
               onChange={(event) => setHandoverLocation(event.target.value)}
               className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50"
@@ -303,7 +307,7 @@ export function DayDetailsPanel({
               rows={4}
               maxLength={500}
               value={note}
-              disabled={detailsDisabled}
+              disabled={detailsDisabled || readOnly}
               placeholder="Short practical note for this day"
               onChange={(event) => setNote(event.target.value)}
               className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50"
@@ -319,16 +323,16 @@ export function DayDetailsPanel({
             onClick={onClose}
             className="min-h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
-            Cancel
+            {readOnly ? "Close" : "Cancel"}
           </button>
-          <button
+          {!readOnly ? <button
             type="button"
             disabled={parentId === "" || submitting}
             onClick={() => void save()}
             className="min-h-12 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? "Saving…" : "Save day"}
-          </button>
+          </button> : null}
         </div>
       </section>
     </div>
