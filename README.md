@@ -1,120 +1,59 @@
 # Co-parent Calendar
 
-A calm, mobile-first shared calendar for two co-parents to see and manage who has the children on each day.
+A mobile-first shared calendar for two co-parents to manage parenting assignments, handovers, repeating schedules, shared events, and read-only viewer access.
 
-## Current status
+## Status
 
-Development branch: `build/co-parent-calendar-mvp`
+The application is database-backed and deployed from `main`. Milestones 1–8 and Node.js runtime parity are complete; Milestone 9 covers final production qualification.
 
-Milestone 1 foundation is in progress. The current UI is an interactive preview shell using local browser state while persistence and secure access are added in the next milestones.
-
-## Product principles
-
-- The month should be understandable within seconds.
-- Editing should feel like painting days with each parent's colour.
-- Mobile is a first-class interface.
-- Read-only viewers never receive edit permissions.
-- Important changes are auditable.
-- Full-day parenting assignments are stored as calendar dates, not UTC instants.
-- Child data is intentionally minimal.
+Production is the Vercel project `co-parent-calander`, linked to `SSB100/Co-parent-calander`.
 
 ## Stack
 
-- Next.js 16.3.3 App Router
-- React 19.2
-- TypeScript (strict)
-- Tailwind CSS 4
-- Neon Postgres
-- Drizzle ORM
-- Zod
-- date-fns
-- Vercel-ready deployment architecture
-
-## Data model
-
-The schema lives in `lib/db/schema.ts` and the initial SQL migration is in `drizzle/0000_initial.sql`.
-
-The key design decision is that parenting assignments are stored **per child per date**. The UI may offer an `All children` action, but that action writes one assignment row for every active child. This avoids an ambiguous nullable `child_id` and makes future split schedules safe.
-
-Important tables:
-
-- `calendars`
-- `participants`
-- `children`
-- `parenting_assignments`
-- `recurring_rules`
-- `recurring_rule_children`
-- `events`
-- `access_tokens`
-- `sessions`
-- `audit_log`
-
-Full-day assignments use Postgres `DATE`. The default calendar timezone is `Pacific/Auckland`. Session and audit timestamps use timezone-aware timestamps.
-
-## Access architecture
-
-The planned editor flow is passwordless and link-based:
-
-1. Each parent receives a separate cryptographically random editor invite token.
-2. Only a SHA-256-style hash of the raw token is stored.
-3. Redeeming the editor link creates a secure HTTP-only session cookie.
-4. Editor links and sessions can be revoked.
-5. Read-only sharing uses a separate revocable viewer token.
-6. All write operations will enforce authorization on the server, not just in the UI.
-
-The current foundation includes the database structures for this flow; the route/session implementation is a later milestone.
+- Node.js 24.x
+- Next.js 16 App Router and React 19
+- TypeScript and Tailwind CSS
+- Neon Postgres and Drizzle ORM
+- Zod and date-fns
+- Vercel
 
 ## Local setup
 
 Requirements:
 
-- Node.js 20.9+ (Node 22 recommended)
+- Node.js 24.x
 - npm
-- a Neon Postgres database when persistence work begins
+- a Neon Postgres database
 
-Install dependencies:
+Install dependencies and create the local environment file:
 
 ```bash
 npm install
-```
-
-Copy environment variables:
-
-```bash
 cp .env.example .env.local
 ```
 
-On Windows PowerShell:
+On Windows PowerShell, use `Copy-Item .env.example .env.local` instead of `cp`.
 
-```powershell
-Copy-Item .env.example .env.local
-```
+Configure:
 
-Fill in:
+- `DATABASE_URL` — server-only Neon Postgres connection string
+- `APP_SECRET` — long, random application secret; never expose it to the browser
+- `NEXT_PUBLIC_APP_URL` — canonical application URL, such as `http://localhost:3000` locally
 
-- `DATABASE_URL` – Neon Postgres connection string
-- `APP_SECRET` – long random application secret
-- `NEXT_PUBLIC_APP_URL` – canonical app URL
+Start the development server with `npm run dev` and open `http://localhost:3000`.
 
-Run the app:
+## Access and data model
 
-```bash
-npm run dev
-```
+Editor and viewer links use separate cryptographically random tokens. Only token hashes are stored. Redeeming an editor link creates a secure HTTP-only session; viewer links remain read-only and can be revoked or regenerated.
 
-Then open `http://localhost:3000`.
+The schema is in `lib/db/schema.ts`. SQL migrations are in `drizzle/`:
 
-## Database
+- `0000_initial.sql` creates the application schema.
+- `0001_nullable_assignment_parent.sql` supports explicit cleared recurring overrides.
 
-Drizzle schema:
+Parenting assignments are stored per child and calendar date. Full-day dates use Postgres `DATE`; session and audit timestamps are timezone-aware.
 
-`lib/db/schema.ts`
-
-Initial migration:
-
-`drizzle/0000_initial.sql`
-
-Useful commands:
+Database commands:
 
 ```bash
 npm run db:generate
@@ -122,47 +61,30 @@ npm run db:migrate
 npm run db:studio
 ```
 
-Do not commit `.env.local` or a live Neon connection string.
+Inspect production schema state before running migrations. Never commit `.env.local` or a live database connection string.
 
 ## Verification
 
+Run the same gate used by GitHub Actions:
+
 ```bash
+npm install --no-audit --no-fund
 npm run lint
 npm run typecheck
+npm test
 npm run build
 ```
 
-GitHub Actions runs these checks for `main`, `build/**`, and pull requests.
+GitHub Actions runs this gate on pushes to `main`, pushes to `build/**`, and pull requests. Vercel deploys production from `main`.
 
-## Current UI checkpoint
+## Implemented capabilities
 
-The calendar shell currently supports preview-only interactions:
-
-- responsive monthly grid
-- previous/next month navigation
-- Today jump
-- accessible Parent A / Parent B visual treatments
-- multi-day selection
-- bulk assign to Parent A
-- bulk assign to Parent B
-- clear selected assignments
-- selected-state indicators independent of parent colour
-- mobile sticky bulk-action controls
-
-Assignments currently live only in browser component state and reset on refresh. This is intentional for the foundation checkpoint.
-
-## Planned milestones
-
-1. Foundation and database architecture
-2. Persistent calendar/parent/child data and secure editor sessions
-3. Production-quality month calendar and single-day editing
-4. Bulk editing, date ranges and undo
-5. Secure read-only sharing
-6. Handover details and notes
-7. Recurring parenting schedules with manual overrides
-8. Audit history, settings, accessibility and mobile polish
-9. Production qualification and Vercel deployment
-
-## Vercel
-
-The app is structured for standard Next.js deployment to Vercel. Production deployment should happen only after the database-backed MVP passes lint, type checking, tests, build verification, migration checks and a security review.
+- month navigation and Today jump
+- single-day, range, and multi-day parenting assignments
+- clearing assignments and undoing the latest bulk change
+- handover time, location, and notes
+- fortnightly recurring schedules, previews, end dates, and manual overrides
+- shared events
+- revocable read-only viewer links
+- calendar settings and activity history
+- responsive keyboard, touch, and dialog accessibility
