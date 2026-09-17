@@ -40,3 +40,44 @@ select:focus-visible {
   outline: 3px solid rgba(59, 130, 246, 0.45);
   outline-offset: 2px;
 }
+
+/* On phones, make the calendar the first thing visible. Calendar-specific
+   navigation stays with the grid while account, settings, summaries and
+   secondary actions move below it. Desktop/tablet layout is unchanged. */
+@media (max-width: 767px) {
+  main:has(> section [role="grid"]) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  main:has(> section [role="grid"]) > section:has([role="grid"]) {
+    order: 1;
+  }
+
+  main:has(> section [role="grid"]) > [role="status"],
+  main:has(> section [role="grid"]) > [role="alert"] {
+    order: 2;
+    margin-top: 1rem;
+    margin-bottom: 0;
+  }
+
+  main:has(> section [role="grid"]) > header {
+    order: 3;
+    margin-top: 1rem;
+    margin-bottom: 0;
+  }
+
+  main:has(> section [role="grid"]) > section:not(:has([role="grid"])) {
+    order: 4;
+    margin-top: 1rem;
+    margin-bottom: 0;
+  }
+
+  main:has(> section [role="grid"]) > div {
+    order: 5;
+  }
+
+  main:has(> section [role="grid"]) > p {
+    order: 6;
+  }
+}
