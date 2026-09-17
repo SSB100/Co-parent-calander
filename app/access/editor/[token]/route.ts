@@ -30,6 +30,7 @@ export async function GET(
       accessTokenId: accessTokens.id,
       calendarId: accessTokens.calendarId,
       participantId: accessTokens.participantId,
+      colorKey: participants.colorKey,
     })
     .from(accessTokens)
     .innerJoin(participants, eq(accessTokens.participantId, participants.id))
@@ -60,7 +61,8 @@ export async function GET(
     .set({ lastUsedAt: now })
     .where(eq(accessTokens.id, match.accessTokenId));
 
-  const response = NextResponse.redirect(new URL("/", request.url));
+  const destination = match.colorKey === "setup" ? "/setup" : "/";
+  const response = NextResponse.redirect(new URL(destination, request.url));
   response.cookies.set(
     SESSION_COOKIE_NAME,
     session.token,
