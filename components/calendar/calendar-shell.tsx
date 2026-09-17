@@ -345,19 +345,19 @@ export function CalendarShell() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              <UsersRound className="h-4 w-4" /> Shared family calendar
+              <UsersRound className="h-4 w-4" aria-hidden="true" /> Shared family calendar
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
                 {calendarData?.calendar.name ?? "Our Family Calendar"}
               </h1>
               {accessMode === "checking" ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />Checking access
+                <span role="status" aria-live="polite" className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />Checking access
                 </span>
               ) : accessMode === "editor" ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                   {currentEditor ? `${currentEditor.displayName} editing` : "Editor access"}
                 </span>
               ) : (
@@ -386,7 +386,11 @@ export function CalendarShell() {
       </header>
 
       {message ? (
-        <div className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+        <div
+          role={accessMode === "error" ? "alert" : "status"}
+          aria-live={accessMode === "error" ? "assertive" : "polite"}
+          className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm"
+        >
           {message}
         </div>
       ) : null}
@@ -396,7 +400,7 @@ export function CalendarShell() {
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Today</p>
           <div className="mt-2 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-              <CalendarDays className="h-5 w-5" />
+              <CalendarDays className="h-5 w-5" aria-hidden="true" />
             </div>
             <div>
               <p className="font-semibold text-slate-900">
@@ -418,7 +422,7 @@ export function CalendarShell() {
                 <span>With {ownerLabel(nextHandover.parentId)}</span>
                 {nextHandover.handoverLocation ? (
                   <span className="inline-flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5" />{nextHandover.handoverLocation}
+                    <MapPin className="h-3.5 w-3.5" aria-hidden="true" />{nextHandover.handoverLocation}
                   </span>
                 ) : null}
               </p>
@@ -461,7 +465,7 @@ export function CalendarShell() {
               onClick={() => moveMonth("previous")}
               className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-5 w-5" aria-hidden="true" />
             </button>
             <div className="min-w-40 text-center sm:min-w-48">
               <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">
@@ -474,7 +478,7 @@ export function CalendarShell() {
               onClick={() => moveMonth("next")}
               className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             >
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
 
@@ -484,7 +488,7 @@ export function CalendarShell() {
                 const style = styleForParticipant(participants, participant.id);
                 return (
                   <div key={participant.id} className="flex items-center gap-1.5 text-slate-600">
-                    <span className={`h-2.5 w-2.5 rounded-full ${style.dot}`} />
+                    <span className={`h-2.5 w-2.5 rounded-full ${style.dot}`} aria-hidden="true" />
                     {participant.displayName}
                   </div>
                 );
@@ -494,21 +498,21 @@ export function CalendarShell() {
               type="button"
               onClick={toggleSelectionMode}
               aria-pressed={selectionMode}
-              className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition ${
+              className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition ${
                 selectionMode
                   ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >
-              <CheckSquare2 className="h-4 w-4" />
+              <CheckSquare2 className="h-4 w-4" aria-hidden="true" />
               {selectionMode ? "Done selecting" : "Select days"}
             </button>
             <button
               type="button"
               onClick={goToday}
-              className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800"
             >
-              <RotateCcw className="h-4 w-4" />Today
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />Today
             </button>
           </div>
         </div>
@@ -551,6 +555,7 @@ export function CalendarShell() {
                   role="gridcell"
                   disabled={!inMonth || saving}
                   aria-selected={selected}
+                  aria-current={isToday ? "date" : undefined}
                   aria-label={`${format(day, "EEEE d MMMM")}, ${assignment ? label : "unassigned"}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}` : ""}`}
                   onClick={() => handleDayClick(day)}
                   className={`relative min-h-20 rounded-xl border p-1.5 text-left transition sm:min-h-28 sm:rounded-2xl sm:p-2.5 ${
@@ -568,7 +573,7 @@ export function CalendarShell() {
                       {format(day, "d")}
                     </span>
                     {selected ? (
-                      <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                      <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold text-white" aria-hidden="true">
                         ✓
                       </span>
                     ) : null}
@@ -576,14 +581,14 @@ export function CalendarShell() {
 
                   {assignment && inMonth && style ? (
                     <div className={`mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold sm:text-xs ${style.pill}`}>
-                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${style.dot}`} />
+                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${style.dot}`} aria-hidden="true" />
                       <span className="truncate">{assignment === "mixed" ? "Split" : label}</span>
                     </div>
                   ) : null}
 
                   {dayEvents[0] && inMonth ? (
                     <div className="mt-1.5 max-w-full truncate rounded-lg bg-sky-100 px-1.5 py-1 text-[9px] font-semibold text-sky-800 sm:text-[11px]">
-                      <CalendarDays className="mr-1 inline h-3 w-3" />
+                      <CalendarDays className="mr-1 inline h-3 w-3" aria-hidden="true" />
                       {dayEvents[0].title}
                     </div>
                   ) : null}
@@ -595,8 +600,8 @@ export function CalendarShell() {
 
                   {inMonth && marker ? (
                     <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 text-slate-500 sm:bottom-2 sm:right-2">
-                      {marker.handover ? <Clock3 className="h-3.5 w-3.5" /> : null}
-                      {marker.note ? <StickyNote className="h-3.5 w-3.5" /> : null}
+                      {marker.handover ? <Clock3 className="h-3.5 w-3.5" aria-hidden="true" /> : null}
+                      {marker.note ? <StickyNote className="h-3.5 w-3.5" aria-hidden="true" /> : null}
                     </div>
                   ) : null}
                 </button>
@@ -609,14 +614,14 @@ export function CalendarShell() {
       {selectionMode && selectedDays.length > 0 ? (
         <div className="sticky bottom-3 z-20 mx-auto mt-4 flex max-w-4xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur sm:flex-row sm:items-center sm:justify-between">
           <div className="px-1">
-            <p className="font-semibold text-slate-900">
+            <p className="font-semibold text-slate-900" role="status" aria-live="polite" aria-atomic="true">
               {selectedDays.length} {selectedDays.length === 1 ? "day" : "days"} selected
             </p>
             <button
               type="button"
               disabled={saving}
               onClick={() => setSelectedDays([])}
-              className="text-sm font-medium text-slate-500 hover:underline disabled:opacity-50"
+              className="min-h-11 text-sm font-medium text-slate-500 hover:underline disabled:opacity-50"
             >
               Clear selection
             </button>
