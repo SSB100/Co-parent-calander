@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Copy, UsersRound } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 type SetupResult = {
@@ -106,12 +107,12 @@ export default function SetupPage() {
             })}
           </div>
 
-          <a
+          <Link
             href="/"
             className="mt-7 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 sm:w-auto"
           >
             Open shared calendar
-          </a>
+          </Link>
         </section>
       </main>
     );
