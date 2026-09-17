@@ -67,7 +67,8 @@ Required for the scheduled reconciliation worker:
 Recommended callback URLs:
 
 - Local: `http://localhost:3000/api/google-calendar/callback`
-- Preview: `https://<stable-preview-or-branch-domain>/api/google-calendar/callback`
+- Current feature-branch Preview: `https://co-parent-calander-git-feature-google-c-1d9c47-haakers-projects.vercel.app/api/google-calendar/callback`
+- Other Preview branches: use the exact stable branch/preview domain Vercel assigns.
 - Production: `https://co-parent-calander.vercel.app/api/google-calendar/callback`
 - If a production custom domain becomes the value of `NEXT_PUBLIC_APP_URL`, register the same `/api/google-calendar/callback` path for that domain.
 

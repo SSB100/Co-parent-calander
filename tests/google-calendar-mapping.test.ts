@@ -10,7 +10,7 @@ import {
   type MappingSettings,
 } from "../lib/google-calendar/mapping";
 import { decryptGoogleSecret, encryptGoogleSecret } from "../lib/google-calendar/crypto";
-import { upsertManagedEvent } from "../lib/google-calendar/google-api";
+import { deleteManagedEvent, upsertManagedEvent } from "../lib/google-calendar/google-api";
 import { nextGoogleSyncRetryDelayMs } from "../lib/google-calendar/queue";
 
 const parentA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -314,4 +314,49 @@ test("mocked Google API conflict becomes an idempotent update instead of another
   assert.deepEqual(calls.map((call) => call.method), ["POST", "PUT"]);
   assert.match(calls[1].url, /cpc12345$/);
   assert.match(calls[1].body ?? "", /"id":"cpc12345"/);
+});
+
+test("mocked Google API recreates a linked event that was deleted in Google", async () => {
+  const methods: string[] = [];
+  const mockFetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    methods.push(init?.method ?? "GET");
+    if (methods.length === 1) {
+      return new Response(JSON.stringify({ error: "missing" }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ id: "managed-event" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  await upsertManagedEvent(
+    "example-access-value",
+    "generated-calendar",
+    "cpc12345",
+    { summary: "Sport" },
+    true,
+    mockFetch,
+  );
+
+  assert.deepEqual(methods, ["PUT", "POST"]);
+});
+
+test("mocked Google API treats an already-deleted managed event as deleted", async () => {
+  const mockFetch = (async () =>
+    new Response(JSON.stringify({ error: "missing" }), {
+      status: 404,
+      headers: { "content-type": "application/json" },
+    })) as typeof fetch;
+
+  await assert.doesNotReject(
+    deleteManagedEvent(
+      "example-access-value",
+      "generated-calendar",
+      "cpc12345",
+      mockFetch,
+    ),
+  );
 });
