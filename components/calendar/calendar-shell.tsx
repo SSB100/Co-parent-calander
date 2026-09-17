@@ -21,7 +21,7 @@ import {
   Share2,
   UsersRound,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 type ParentKey = "a" | "b";
 type AssignmentMap = Record<string, ParentKey>;
@@ -50,30 +50,15 @@ function keyFor(day: Date) {
 }
 
 export function CalendarShell() {
-  const [currentMonth, setCurrentMonth] = useState<Date | null>(null);
+  const [currentMonth, setCurrentMonth] = useState<Date>(() => startOfMonth(new Date()));
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [assignments, setAssignments] = useState<AssignmentMap>({});
 
-  useEffect(() => {
-    setCurrentMonth(startOfMonth(new Date()));
-  }, []);
-
   const calendarDays = useMemo(() => {
-    const month = currentMonth ?? new Date(2026, 8, 1);
-    const start = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
-    const end = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
+    const start = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 });
+    const end = endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 });
     return eachDayOfInterval({ start, end });
   }, [currentMonth]);
-
-  if (!currentMonth) {
-    return (
-      <main className="mx-auto flex min-h-screen max-w-7xl items-center justify-center px-4">
-        <div className="rounded-3xl border border-slate-200 bg-white px-6 py-4 text-sm text-slate-500 shadow-sm">
-          Loading your calendar…
-        </div>
-      </main>
-    );
-  }
 
   const today = new Date();
   const todayAssignment = assignments[keyFor(today)];
