@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { RangeAssignmentPanel } from "@/components/calendar/range-assignment-panel";
 
 type EventCategory =
   | "school"
@@ -162,6 +163,7 @@ export function EventPanel({ onChanged }: { onChanged?: () => void }) {
         <CalendarPlus2 className="h-4 w-4" aria-hidden="true" />
         <span>Add event</span>
       </button>
+      <RangeAssignmentPanel onChanged={onChanged} />
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 p-0 backdrop-blur-sm sm:items-center sm:p-6">
