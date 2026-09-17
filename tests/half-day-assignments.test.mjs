@@ -38,12 +38,18 @@ test("assignment APIs keep legacy half-day scopes and add direct ownership state
 test("calendar UI keeps split colours but exposes direct custody states instead of period controls", async () => {
   const shell = await source("components/calendar/calendar-shell.tsx");
   const panel = await source("components/calendar/day-details-panel.tsx");
+  const styles = await source("app/globals.css");
 
   assert.match(shell, /top-0 h-1\/2/);
   assert.match(shell, /bottom-0 h-1\/2/);
   assert.match(shell, /me_then_them/);
   assert.match(shell, /them_then_me/);
   assert.doesNotMatch(shell, /Bulk assignment period/);
+
+  assert.match(styles, /Split custody days are stored as first-half\/second-half ownership/);
+  assert.match(styles, /width: 50% !important/);
+  assert.match(styles, /left: 50% !important/);
+  assert.match(styles, /border-left-width: 1px !important/);
 
   assert.match(panel, /Full day you/);
   assert.match(panel, /them_full/);
