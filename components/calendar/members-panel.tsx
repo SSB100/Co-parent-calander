@@ -251,7 +251,7 @@ export function MembersPanel() {
             {parentProfiles.length < 2 ? (
               <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <label className="block">
-                  <span className="text-sm font-semibold text-slate-800">Other parent's name</span>
+                  <span className="text-sm font-semibold text-slate-800">{"Other parent's name"}</span>
                   <input
                     value={parentName}
                     maxLength={50}
@@ -309,7 +309,7 @@ export function MembersPanel() {
             </div>
 
             <div className="mt-7 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex gap-3"><KeyRound className="mt-0.5 h-5 w-5 text-violet-600" /><div><h3 className="font-semibold text-slate-900">Private join code</h3><p className="mt-1 text-sm leading-6 text-slate-600">Each code works once and expires after 30 days. Creating a new code cancels the old one. If you already created the other parent's profile, an editor who joins will be linked to that profile.</p></div></div>
+              <div className="flex gap-3"><KeyRound className="mt-0.5 h-5 w-5 text-violet-600" /><div><h3 className="font-semibold text-slate-900">Private join code</h3><p className="mt-1 text-sm leading-6 text-slate-600">{"Each code works once and expires after 30 days. Creating a new code cancels the old one. If you already created the other parent's profile, an editor who joins will be linked to that profile."}</p></div></div>
               <label className="mt-4 block text-sm font-semibold text-slate-800">New member can</label>
               <select value={permission} onChange={(event) => setPermission(event.target.value as "editor" | "viewer")} disabled={busy} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900"><option value="editor">Edit the calendar</option><option value="viewer">View only</option></select>
 
