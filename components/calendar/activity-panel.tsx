@@ -34,6 +34,8 @@ function describe(action: string) {
     "event.update": "updated a shared event",
     "event.delete": "removed a shared event",
     "settings.update": "updated calendar settings",
+    "share.viewer_link_generated": "generated a viewer link",
+    "share.viewer_link_revoked": "revoked viewer access",
     "share.viewer_create": "created a viewer link",
     "share.viewer_regenerate": "replaced the viewer link",
     "share.viewer_revoke": "revoked viewer access",
