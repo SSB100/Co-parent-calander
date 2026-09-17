@@ -173,6 +173,11 @@ export function CalendarShell() {
         if (response.status === 401) {
           setCalendarData(null);
           setAccessMode("preview");
+          setMessage(
+            new URLSearchParams(window.location.search).get("access") === "invalid"
+              ? "That editor link is invalid, expired, or revoked. Ask a calendar editor for a current link."
+              : null,
+          );
           return;
         }
         if (!response.ok || !body || !("calendar" in body)) {
