@@ -94,15 +94,24 @@ async function ensureGeneratedCalendar(
   };
 }
 
-async function loadDesired(connection: GoogleConnection) {
+async function loadCalendar(connection: GoogleConnection) {
+  const rows = await getDb()
+    .select({ name: calendars.name, timezone: calendars.timezone })
+    .from(calendars)
+    .where(eq(calendars.id, connection.calendarId))
+    .limit(1);
+  const calendar = rows[0];
+  if (!calendar) throw new Error("Calendar no longer exists.");
+  return calendar;
+}
+
+async function loadDesired(
+  connection: GoogleConnection,
+  calendar: { name: string; timezone: string },
+  dates: { from: string; to: string },
+) {
   const db = getDb();
-  const dates = syncHorizon();
-  const [calendarRows, parentRows, childRows, eventRows] = await db.batch([
-    db
-      .select({ name: calendars.name, timezone: calendars.timezone })
-      .from(calendars)
-      .where(eq(calendars.id, connection.calendarId))
-      .limit(1),
+  const [parentRows, childRows, eventRows] = await db.batch([
     db
       .select({ id: participants.id, displayName: participants.displayName })
       .from(participants)
@@ -133,8 +142,6 @@ async function loadDesired(connection: GoogleConnection) {
       .orderBy(asc(events.startDate)),
   ]);
 
-  const calendar = calendarRows[0];
-  if (!calendar) throw new Error("Calendar no longer exists.");
   const childIds = childRows.map((child) => child.id);
   const assignmentMap = await loadEffectiveAssignmentMap({
     calendarId: connection.calendarId,
@@ -143,25 +150,34 @@ async function loadDesired(connection: GoogleConnection) {
     to: dates.to,
   });
 
-  return {
-    calendar,
-    dates,
-    desired: buildDesiredGoogleEvents({
-      parents: parentRows,
-      children: childRows,
-      assignments: [...assignmentMap.values()],
-      events: eventRows,
-      settings: {
-        syncParenting: connection.syncParenting,
-        syncHandovers: connection.syncHandovers,
-        syncSharedEvents: connection.syncSharedEvents,
-        syncLocations: connection.syncLocations,
-        syncSharedNotes: connection.syncSharedNotes,
-        parentLabelMode: connection.parentLabelMode,
-      },
-      timeZone: calendar.timezone,
-    }),
-  };
+  return buildDesiredGoogleEvents({
+    parents: parentRows,
+    children: childRows,
+    assignments: [...assignmentMap.values()],
+    events: eventRows,
+    settings: {
+      syncParenting: connection.syncParenting,
+      syncHandovers: connection.syncHandovers,
+      syncSharedEvents: connection.syncSharedEvents,
+      syncLocations: connection.syncLocations,
+      syncSharedNotes: connection.syncSharedNotes,
+      parentLabelMode: connection.parentLabelMode,
+    },
+    timeZone: calendar.timezone,
+  });
+}
+
+async function loadLinks(connectionId: string, from: string, to: string) {
+  return getDb()
+    .select()
+    .from(googleEventLinks)
+    .where(
+      and(
+        eq(googleEventLinks.connectionId, connectionId),
+        lte(googleEventLinks.rangeStart, to),
+        gte(googleEventLinks.rangeEnd, from),
+      ),
+    );
 }
 
 function managedBody(connectionId: string, desired: DesiredGoogleEvent) {
@@ -192,31 +208,56 @@ export async function syncGoogleConnection(input: {
   let connection = connectionRows[0];
   if (!connection) return { created: 0, updated: 0, deleted: 0, skipped: 0 };
 
-  const loaded = await loadDesired(connection);
-  const ensured = await ensureGeneratedCalendar(connection, loaded.calendar);
+  const calendar = await loadCalendar(connection);
+  const horizon = syncHorizon();
+
+  if (
+    !input.force &&
+    input.rangeStart &&
+    input.rangeEnd &&
+    (input.rangeEnd < horizon.from || input.rangeStart > horizon.to)
+  ) {
+    const now = new Date();
+    await db
+      .update(googleCalendarConnections)
+      .set({
+        status: "active",
+        lastAttemptedSyncAt: now,
+        lastSuccessfulSyncAt: now,
+        lastError: null,
+        updatedAt: now,
+      })
+      .where(eq(googleCalendarConnections.id, connection.id));
+    return { created: 0, updated: 0, deleted: 0, skipped: 0 };
+  }
+
+  const ensured = await ensureGeneratedCalendar(connection, calendar);
   connection = ensured.connection;
   if (!connection.googleCalendarId) throw new Error("Google calendar could not be created.");
 
-  const targetStart = ensured.recreated
-    ? loaded.dates.from
-    : input.rangeStart ?? loaded.dates.from;
-  const targetEnd = ensured.recreated
-    ? loaded.dates.to
-    : input.rangeEnd ?? loaded.dates.to;
   const force = Boolean(input.force || ensured.recreated);
-  const desired = loaded.desired.filter((item) =>
-    overlaps(item.rangeStart, item.rangeEnd, targetStart, targetEnd),
-  );
-  const links = await db
-    .select()
-    .from(googleEventLinks)
-    .where(
-      and(
-        eq(googleEventLinks.connectionId, connection.id),
-        lte(googleEventLinks.rangeStart, targetEnd),
-        gte(googleEventLinks.rangeEnd, targetStart),
-      ),
-    );
+  let targetStart = force ? horizon.from : input.rangeStart ?? horizon.from;
+  let targetEnd = force ? horizon.to : input.rangeEnd ?? horizon.to;
+  targetStart = targetStart < horizon.from ? horizon.from : targetStart;
+  targetEnd = targetEnd > horizon.to ? horizon.to : targetEnd;
+
+  let links = await loadLinks(connection.id, targetStart, targetEnd);
+
+  if (!force) {
+    const parentingLinks = links.filter((link) => link.eventKind === "parenting");
+    for (const link of parentingLinks) {
+      if (link.rangeStart < targetStart) targetStart = link.rangeStart;
+      if (link.rangeEnd > targetEnd) targetEnd = link.rangeEnd;
+    }
+    targetStart = targetStart < horizon.from ? horizon.from : targetStart;
+    targetEnd = targetEnd > horizon.to ? horizon.to : targetEnd;
+    links = await loadLinks(connection.id, targetStart, targetEnd);
+  }
+
+  const desired = await loadDesired(connection, calendar, {
+    from: targetStart,
+    to: targetEnd,
+  });
   const desiredKeys = new Set(desired.map((item) => item.localKey));
   const linkByKey = new Map(links.map((link) => [link.localKey, link]));
   let created = 0;
@@ -286,7 +327,7 @@ export async function syncGoogleConnection(input: {
     .update(googleCalendarConnections)
     .set({
       status: "active",
-      googleCalendarName: `Co-parent Calendar — ${loaded.calendar.name}`,
+      googleCalendarName: `Co-parent Calendar — ${calendar.name}`,
       lastAttemptedSyncAt: now,
       lastSuccessfulSyncAt: now,
       lastError: null,
