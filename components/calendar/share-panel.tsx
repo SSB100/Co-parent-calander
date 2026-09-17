@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Copy, Eye, Link2, LoaderCircle, Share2, Trash2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 type ShareStatus = {
   enabled: boolean;
@@ -17,34 +17,25 @@ export function SharePanel() {
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (!open || status) return;
-    let cancelled = false;
+  async function openPanel() {
+    setOpen(true);
+    if (status) return;
+
     setLoading(true);
-
-    fetch("/api/share", { cache: "no-store" })
-      .then(async (response) => ({
-        response,
-        body: (await response.json().catch(() => null)) as ShareStatus | { error?: string } | null,
-      }))
-      .then(({ response, body }) => {
-        if (cancelled) return;
-        if (!response.ok || !body || !("enabled" in body)) {
-          throw new Error(body && "error" in body && body.error ? body.error : "Sharing could not be loaded.");
-        }
-        setStatus(body);
-      })
-      .catch((error) => {
-        if (!cancelled) setMessage(error instanceof Error ? error.message : "Sharing could not be loaded.");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, status]);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/share", { cache: "no-store" });
+      const body = (await response.json().catch(() => null)) as ShareStatus | { error?: string } | null;
+      if (!response.ok || !body || !("enabled" in body)) {
+        throw new Error(body && "error" in body && body.error ? body.error : "Sharing could not be loaded.");
+      }
+      setStatus(body);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Sharing could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function generateLink() {
     setLoading(true);
@@ -96,7 +87,7 @@ export function SharePanel() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => void openPanel()}
         className="fixed bottom-4 right-4 z-30 inline-flex min-h-12 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-xl transition hover:bg-slate-800 sm:bottom-6 sm:right-6"
       >
         <Share2 className="h-4 w-4" aria-hidden="true" />
