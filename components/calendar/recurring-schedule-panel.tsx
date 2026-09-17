@@ -20,44 +20,43 @@ type Participant = {
   colorKey: string;
 };
 
+type ScheduleSlot = {
+  morningParentId: string | null;
+  afternoonParentId: string | null;
+};
+
 type SavedSchedule = {
   scheduleId: string;
   anchorDate: string;
   endDate: string | null;
-  pattern: Array<string | null>;
+  pattern: ScheduleSlot[];
   createdAt: string;
 };
 
 type SchedulePayload = {
   schedules: SavedSchedule[];
   participants: Participant[];
+  currentParticipantId: string | null;
 };
 
 function defaultAnchorDate() {
   return format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
 }
 
+function emptySlot(): ScheduleSlot {
+  return { morningParentId: null, afternoonParentId: null };
+}
+
+function fullDaySlot(parentId: string): ScheduleSlot {
+  return { morningParentId: parentId, afternoonParentId: parentId };
+}
+
 function emptyPattern() {
-  return Array<string | null>(14).fill(null);
+  return Array.from({ length: 14 }, () => emptySlot());
 }
 
-function cellClasses(participants: Participant[], parentId: string | null) {
-  const index = participants.findIndex((participant) => participant.id === parentId);
-  if (index === 0) return "border-emerald-200 bg-emerald-50 text-emerald-900";
-  if (index === 1) return "border-violet-200 bg-violet-50 text-violet-900";
-  return "border-slate-200 bg-white text-slate-500 hover:bg-slate-50";
-}
-
-function previewCellClasses(
-  participants: Participant[],
-  parentId: string | null,
-  ended: boolean,
-) {
-  if (ended) return "border-slate-200 bg-slate-100 text-slate-400";
-  const index = participants.findIndex((participant) => participant.id === parentId);
-  if (index === 0) return "border-emerald-100 bg-emerald-50 text-emerald-900";
-  if (index === 1) return "border-violet-100 bg-violet-50 text-violet-900";
-  return "border-slate-100 bg-slate-50 text-slate-400";
+function slotMatches(a: ScheduleSlot, b: ScheduleSlot) {
+  return a.morningParentId === b.morningParentId && a.afternoonParentId === b.afternoonParentId;
 }
 
 function statusFor(schedule: SavedSchedule) {
@@ -79,6 +78,13 @@ function scheduleRangeLabel(schedule: SavedSchedule) {
   return `${start} – ${end}`;
 }
 
+function slotColor(participants: Participant[], parentId: string | null) {
+  const index = participants.findIndex((participant) => participant.id === parentId);
+  if (index === 0) return "bg-emerald-100";
+  if (index === 1) return "bg-violet-100";
+  return "bg-white";
+}
+
 export function RecurringSchedulePanel() {
   const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -87,12 +93,13 @@ export function RecurringSchedulePanel() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [currentParticipantId, setCurrentParticipantId] = useState<string | null>(null);
   const [schedules, setSchedules] = useState<SavedSchedule[]>([]);
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [anchorDate, setAnchorDate] = useState(defaultAnchorDate);
   const [endDate, setEndDate] = useState("");
-  const [pattern, setPattern] = useState<Array<string | null>>(emptyPattern);
+  const [pattern, setPattern] = useState<ScheduleSlot[]>(emptyPattern);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -146,6 +153,15 @@ export function RecurringSchedulePanel() {
     };
   }, [open]);
 
+  const me = useMemo(
+    () => participants.find((participant) => participant.id === currentParticipantId) ?? participants[0] ?? null,
+    [participants, currentParticipantId],
+  );
+  const otherParent = useMemo(
+    () => participants.find((participant) => participant.id !== me?.id) ?? null,
+    [participants, me],
+  );
+
   const previewWeeks = useMemo(() => {
     const parsed = parseISO(anchorDate);
     if (!isValid(parsed) || pattern.length !== 14) return [];
@@ -159,7 +175,7 @@ export function RecurringSchedulePanel() {
         const ended = Boolean(endDate && dateKey > endDate);
         return {
           date,
-          parentId: ended ? null : (pattern[offset % 14] ?? null),
+          slot: ended ? emptySlot() : (pattern[offset % 14] ?? emptySlot()),
           ended,
         };
       }),
@@ -177,6 +193,7 @@ export function RecurringSchedulePanel() {
       );
     }
     setParticipants(body.participants.slice(0, 2));
+    setCurrentParticipantId(body.currentParticipantId ?? null);
     setSchedules(body.schedules);
     return body;
   }
@@ -209,47 +226,73 @@ export function RecurringSchedulePanel() {
     setEditingScheduleId(schedule.scheduleId);
     setAnchorDate(schedule.anchorDate);
     setEndDate(schedule.endDate ?? "");
-    setPattern(schedule.pattern.length === 14 ? [...schedule.pattern] : emptyPattern());
+    setPattern(
+      schedule.pattern.length === 14
+        ? schedule.pattern.map((slot) => ({ ...slot }))
+        : emptyPattern(),
+    );
     setMessage(null);
     setEditorOpen(true);
   }
 
-  function cycleSlot(slot: number) {
-    if (participants.length === 0 || saving) return;
-    const options: Array<string | null> = [null, ...participants.map((participant) => participant.id)];
+  function labelFor(parentId: string | null) {
+    if (!parentId) return "Unassigned";
+    if (parentId === currentParticipantId) return "You";
+    return participants.find((participant) => participant.id === parentId)?.displayName ?? "Parent";
+  }
+
+  function slotLabel(slot: ScheduleSlot) {
+    if (!slot.morningParentId && !slot.afternoonParentId) return "Unassigned";
+    if (slot.morningParentId && slot.morningParentId === slot.afternoonParentId) {
+      return `Full day ${labelFor(slot.morningParentId)}`;
+    }
+    return `AM ${labelFor(slot.morningParentId)} · PM ${labelFor(slot.afternoonParentId)}`;
+  }
+
+  function cycleSlot(slotIndex: number) {
+    if (!me || saving) return;
+
+    const states: ScheduleSlot[] = otherParent
+      ? [
+          fullDaySlot(me.id),
+          fullDaySlot(otherParent.id),
+          { morningParentId: me.id, afternoonParentId: otherParent.id },
+          { morningParentId: otherParent.id, afternoonParentId: me.id },
+          emptySlot(),
+        ]
+      : [fullDaySlot(me.id), emptySlot()];
+
     setPattern((current) => {
-      const next = [...current];
-      const currentIndex = Math.max(0, options.indexOf(next[slot]));
-      next[slot] = options[(currentIndex + 1) % options.length];
+      const next = current.map((slot) => ({ ...slot }));
+      const currentIndex = states.findIndex((state) => slotMatches(state, next[slotIndex]));
+      next[slotIndex] = states[currentIndex < 0 ? 0 : (currentIndex + 1) % states.length];
       return next;
     });
   }
 
-  function labelFor(parentId: string | null) {
-    if (!parentId) return "Not set";
-    return participants.find((participant) => participant.id === parentId)?.displayName ?? "Parent";
-  }
-
   function applyWeekOnWeekOff() {
-    if (participants.length < 2) return;
+    if (!me || !otherParent) return;
     setPattern([
-      ...Array<string | null>(7).fill(participants[0].id),
-      ...Array<string | null>(7).fill(participants[1].id),
+      ...Array.from({ length: 7 }, () => fullDaySlot(me.id)),
+      ...Array.from({ length: 7 }, () => fullDaySlot(otherParent.id)),
     ]);
   }
 
   function applyAlternatingWeekends() {
-    if (participants.length < 2) return;
+    if (!me || !otherParent) return;
     const next = emptyPattern();
-    next[5] = participants[0].id;
-    next[6] = participants[0].id;
-    next[12] = participants[1].id;
-    next[13] = participants[1].id;
+    next[5] = fullDaySlot(me.id);
+    next[6] = fullDaySlot(me.id);
+    next[12] = fullDaySlot(otherParent.id);
+    next[13] = fullDaySlot(otherParent.id);
     setPattern(next);
   }
 
   function copyWeekOne() {
-    setPattern((current) => [...current.slice(0, 7), ...current.slice(0, 7)]);
+    setPattern((current) => [
+      ...current.slice(0, 7).map((slot) => ({ ...slot })),
+      ...current.slice(0, 7).map((slot) => ({ ...slot })),
+    ]);
   }
 
   async function saveSchedule() {
@@ -351,7 +394,7 @@ export function RecurringSchedulePanel() {
                   Repeating schedules
                 </h2>
                 <p id="repeat-description" className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                  Keep your current plan and prepare the next one in advance. Each schedule has its own start and end dates and switches automatically when its start date arrives.
+                  Keep your current plan and prepare the next one in advance. Each schedule can include full days or split morning and afternoon handover days.
                 </p>
               </div>
               <button
@@ -403,7 +446,9 @@ export function RecurringSchedulePanel() {
                   ) : (
                     schedules.map((schedule, index) => {
                       const status = statusFor(schedule);
-                      const assignedDays = schedule.pattern.filter(Boolean).length;
+                      const assignedDays = schedule.pattern.filter(
+                        (slot) => slot.morningParentId || slot.afternoonParentId,
+                      ).length;
                       return (
                         <div key={schedule.scheduleId} className="rounded-2xl border border-slate-200 bg-white p-4">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -415,7 +460,7 @@ export function RecurringSchedulePanel() {
                                 </span>
                               </div>
                               <p className="mt-1 text-sm text-slate-600">{scheduleRangeLabel(schedule)}</p>
-                              <p className="mt-1 text-xs text-slate-500">{assignedDays} of 14 fortnight slots assigned</p>
+                              <p className="mt-1 text-xs text-slate-500">{assignedDays} of 14 fortnight days assigned</p>
                             </div>
                             <div className="flex gap-2">
                               <button
@@ -450,7 +495,7 @@ export function RecurringSchedulePanel() {
                       {editingScheduleId ? "Edit schedule" : "New schedule"}
                     </p>
                     <p className="mt-1 text-xs leading-5 text-slate-500">
-                      Set a two-week pattern. Manual changes to individual calendar days still take priority.
+                      Tap each day to cycle: full day you, full day the other parent, you AM / them PM, them AM / you PM, then unassigned. Manual calendar changes still take priority.
                     </p>
                   </div>
                   <button type="button" disabled={saving} onClick={() => setEditorOpen(false)} className="min-h-10 rounded-xl px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50">
@@ -486,8 +531,8 @@ export function RecurringSchedulePanel() {
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <button type="button" disabled={saving || participants.length < 2} onClick={applyWeekOnWeekOff} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Week on / week off</button>
-                  <button type="button" disabled={saving || participants.length < 2} onClick={applyAlternatingWeekends} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Alternate weekends</button>
+                  <button type="button" disabled={saving || !me || !otherParent} onClick={applyWeekOnWeekOff} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Week on / week off</button>
+                  <button type="button" disabled={saving || !me || !otherParent} onClick={applyAlternatingWeekends} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Alternate weekends</button>
                   <button type="button" disabled={saving} onClick={copyWeekOne} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Copy week 1 to week 2</button>
                   <button type="button" disabled={saving} onClick={() => setPattern(emptyPattern())} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 disabled:opacity-40">Clear pattern</button>
                 </div>
@@ -499,18 +544,24 @@ export function RecurringSchedulePanel() {
                   {weekdays.map((weekday, index) => (
                     <div key={weekday} className="grid grid-cols-[3.5rem_1fr_1fr] items-center gap-2 border-t border-slate-100 px-3 py-2">
                       <span className="text-sm font-semibold text-slate-600">{weekday}</span>
-                      {[index, index + 7].map((slot) => (
-                        <button
-                          key={slot}
-                          type="button"
-                          disabled={saving || participants.length === 0}
-                          onClick={() => cycleSlot(slot)}
-                          className={`min-h-10 rounded-xl border px-2 text-left text-xs font-semibold transition disabled:opacity-40 ${cellClasses(participants, pattern[slot])}`}
-                          aria-label={`${weekday}, ${slot < 7 ? "week 1" : "week 2"}: ${labelFor(pattern[slot])}. Tap to change.`}
-                        >
-                          <span className="block truncate">{labelFor(pattern[slot])}</span>
-                        </button>
-                      ))}
+                      {[index, index + 7].map((slotIndex) => {
+                        const slot = pattern[slotIndex] ?? emptySlot();
+                        return (
+                          <button
+                            key={slotIndex}
+                            type="button"
+                            disabled={saving || participants.length === 0}
+                            onClick={() => cycleSlot(slotIndex)}
+                            className="relative min-h-12 overflow-hidden rounded-xl border border-slate-200 bg-white px-2 text-left text-xs font-semibold text-slate-800 transition hover:ring-2 hover:ring-slate-200 disabled:opacity-40"
+                            aria-label={`${weekday}, ${slotIndex < 7 ? "week 1" : "week 2"}: ${slotLabel(slot)}. Tap to change.`}
+                          >
+                            <span className={`pointer-events-none absolute inset-x-0 top-0 h-1/2 ${slotColor(participants, slot.morningParentId)}`} aria-hidden="true" />
+                            <span className={`pointer-events-none absolute inset-x-0 bottom-0 h-1/2 ${slotColor(participants, slot.afternoonParentId)}`} aria-hidden="true" />
+                            {slot.morningParentId !== slot.afternoonParentId ? <span className="pointer-events-none absolute inset-x-0 top-1/2 border-t border-white/90" aria-hidden="true" /> : null}
+                            <span className="relative z-10 block leading-4">{slotLabel(slot)}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
@@ -530,9 +581,16 @@ export function RecurringSchedulePanel() {
                     {previewWeeks.map((week, weekIndex) => (
                       <div key={weekIndex} className="grid grid-cols-7 gap-1">
                         {week.map((item) => (
-                          <div key={format(item.date, "yyyy-MM-dd")} className={`min-h-14 rounded-lg border px-1 py-1.5 text-center sm:min-h-16 ${previewCellClasses(participants, item.parentId, item.ended)}`}>
-                            <span className="block text-[10px] font-semibold opacity-70 sm:text-xs">{format(item.date, "d MMM")}</span>
-                            <span className="mt-1 block truncate text-[9px] font-semibold sm:text-[11px]">{item.ended ? "Ended" : labelFor(item.parentId)}</span>
+                          <div key={format(item.date, "yyyy-MM-dd")} className={`relative min-h-14 overflow-hidden rounded-lg border px-1 py-1.5 text-center sm:min-h-16 ${item.ended ? "border-slate-200 bg-slate-100 text-slate-400" : "border-slate-200 bg-white text-slate-700"}`}>
+                            {!item.ended ? (
+                              <>
+                                <span className={`pointer-events-none absolute inset-x-0 top-0 h-1/2 ${slotColor(participants, item.slot.morningParentId)}`} aria-hidden="true" />
+                                <span className={`pointer-events-none absolute inset-x-0 bottom-0 h-1/2 ${slotColor(participants, item.slot.afternoonParentId)}`} aria-hidden="true" />
+                                {item.slot.morningParentId !== item.slot.afternoonParentId ? <span className="pointer-events-none absolute inset-x-0 top-1/2 border-t border-white/90" aria-hidden="true" /> : null}
+                              </>
+                            ) : null}
+                            <span className="relative z-10 block text-[10px] font-semibold opacity-70 sm:text-xs">{format(item.date, "d MMM")}</span>
+                            <span className="relative z-10 mt-1 block text-[8px] font-semibold leading-3 sm:text-[10px]">{item.ended ? "Ended" : slotLabel(item.slot)}</span>
                           </div>
                         ))}
                       </div>

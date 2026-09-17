@@ -67,7 +67,21 @@ test("fortnight rule metadata survives a build and parse round trip", () => {
     scheduleId: "schedule-123",
     anchorDate: "2026-09-14",
     slot: 12,
+    period: "full_day",
   });
+});
+
+test("legacy fortnight rules without period metadata remain full-day rules", () => {
+  const value = [
+    "FREQ=WEEKLY",
+    "INTERVAL=2",
+    "BYDAY=MO",
+    "X-COPARENT-SCHEDULE=schedule-legacy",
+    "X-COPARENT-ANCHOR=2026-09-14",
+    "X-COPARENT-SLOT=0",
+  ].join(";");
+
+  assert.equal(parseFortnightRuleText(value)?.period, "full_day");
 });
 
 test("schedule range overlap allows a future schedule after the current one ends", () => {
@@ -108,6 +122,40 @@ test("recurring assignments fill both morning and afternoon every fourteen days"
       ["2026-10-12", parentA, parentA, "recurring"],
     ],
   );
+});
+
+test("morning and afternoon recurring rules merge into a split handover day", () => {
+  const morning = rule({
+    id: "33333333-3333-4333-8333-333333333341",
+    parentId: parentA,
+    rrule: buildFortnightRuleText({
+      scheduleId: "44444444-4444-4444-8444-444444444443",
+      anchorDate: "2026-09-14",
+      slot: 0,
+      period: "morning",
+    }),
+  });
+  const afternoon = rule({
+    id: "33333333-3333-4333-8333-333333333342",
+    parentId: parentB,
+    rrule: buildFortnightRuleText({
+      scheduleId: "44444444-4444-4444-8444-444444444443",
+      anchorDate: "2026-09-14",
+      slot: 0,
+      period: "afternoon",
+    }),
+  });
+
+  const result = resolveRecurringAssignments({
+    manualAssignments: [],
+    rules: [afternoon, morning],
+    ruleChildren: [...links(morning.id, childA), ...links(afternoon.id, childA)],
+    from: "2026-09-14",
+    to: "2026-09-14",
+  });
+
+  assert.equal(result[0]?.morningParentId, parentA);
+  assert.equal(result[0]?.afternoonParentId, parentB);
 });
 
 test("multiple non-overlapping recurring schedules resolve into one calendar range", () => {
@@ -235,27 +283,38 @@ test("one rule resolves independently for every linked child", () => {
   );
 });
 
-test("recurring schedule API stores multiple schedule groups and scopes edits and deletes by schedule ID", async () => {
+test("recurring schedule API stores multiple schedule groups and half-day ownership", async () => {
   const text = await readFile(path.join(root, "app/api/recurring-schedule/route.ts"), "utf8");
 
   assert.match(text, /schedules:\s*groupSchedules\(ruleRows\)/);
   assert.match(text, /scheduleId:\s*z\.string\(\)\.uuid\(\)\.nullable\(\)\.optional\(\)/);
+  assert.match(text, /morningParentId/);
+  assert.match(text, /afternoonParentId/);
   assert.match(text, /scheduleRangesOverlap\(/);
   assert.match(text, /This schedule overlaps another saved schedule/);
   assert.match(text, /X-COPARENT-SCHEDULE=\$\{scheduleId\}/);
+  assert.match(text, /buildFortnightRuleText\(\{ scheduleId, anchorDate, slot, period \}\)/);
+  assert.match(text, /addRule\(slot, morningParentId, "morning"\)/);
+  assert.match(text, /addRule\(slot, afternoonParentId, "afternoon"\)/);
   assert.match(text, /AND rrule LIKE \$\{scheduleMarker\}/);
   assert.match(text, /recurring_schedule\.create/);
   assert.match(text, /recurring_schedule\.update/);
   assert.match(text, /recurring_schedule\.delete/);
 });
 
-test("schedule UI lists saved schedules and supports create, edit, and delete", async () => {
+test("schedule UI uses the five-state full and split day cycle", async () => {
   const text = await readFile(path.join(root, "components/calendar/recurring-schedule-panel.tsx"), "utf8");
 
   assert.match(text, /Saved schedules/);
   assert.match(text, /New schedule/);
   assert.match(text, /editSchedule\(schedule\)/);
   assert.match(text, /deleteSchedule\(schedule\)/);
+  assert.match(text, /full day you, full day the other parent, you AM \/ them PM, them AM \/ you PM, then unassigned/i);
+  assert.match(text, /fullDaySlot\(me\.id\)/);
+  assert.match(text, /morningParentId: me\.id, afternoonParentId: otherParent\.id/);
+  assert.match(text, /morningParentId: otherParent\.id, afternoonParentId: me\.id/);
+  assert.match(text, /slotColor\(participants, slot\.morningParentId\)/);
+  assert.match(text, /slotColor\(participants, slot\.afternoonParentId\)/);
   assert.match(text, /It will take effect automatically on its start date/);
   assert.match(text, /Schedules cannot overlap/);
 });

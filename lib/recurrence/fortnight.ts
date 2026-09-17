@@ -9,11 +9,17 @@ import {
 
 export const FORTNIGHT_SLOTS = 14;
 const WEEKDAY_CODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
+export type RecurrencePeriod = "full_day" | "morning" | "afternoon";
 
 type RuleMetadata = {
   scheduleId: string;
   anchorDate: string;
   slot: number;
+  period: RecurrencePeriod;
+};
+
+type RuleMetadataInput = Omit<RuleMetadata, "period"> & {
+  period?: RecurrencePeriod;
 };
 
 export type RecurrenceRule = {
@@ -76,7 +82,8 @@ export function buildFortnightRuleText({
   scheduleId,
   anchorDate,
   slot,
-}: RuleMetadata) {
+  period = "full_day",
+}: RuleMetadataInput) {
   const weekday = WEEKDAY_CODES[slot % 7];
   return [
     "FREQ=WEEKLY",
@@ -85,6 +92,7 @@ export function buildFortnightRuleText({
     `X-COPARENT-SCHEDULE=${scheduleId}`,
     `X-COPARENT-ANCHOR=${anchorDate}`,
     `X-COPARENT-SLOT=${slot}`,
+    `X-COPARENT-PERIOD=${period}`,
   ].join(";");
 }
 
@@ -101,6 +109,11 @@ export function parseFortnightRuleText(value: string): RuleMetadata | null {
   const scheduleId = entries.get("X-COPARENT-SCHEDULE");
   const anchorDate = entries.get("X-COPARENT-ANCHOR");
   const slot = Number(entries.get("X-COPARENT-SLOT"));
+  const rawPeriod = entries.get("X-COPARENT-PERIOD") ?? "full_day";
+  const period: RecurrencePeriod | null =
+    rawPeriod === "full_day" || rawPeriod === "morning" || rawPeriod === "afternoon"
+      ? rawPeriod
+      : null;
 
   if (
     !scheduleId ||
@@ -108,12 +121,13 @@ export function parseFortnightRuleText(value: string): RuleMetadata | null {
     !/^\d{4}-\d{2}-\d{2}$/.test(anchorDate) ||
     !Number.isInteger(slot) ||
     slot < 0 ||
-    slot >= FORTNIGHT_SLOTS
+    slot >= FORTNIGHT_SLOTS ||
+    !period
   ) {
     return null;
   }
 
-  return { scheduleId, anchorDate, slot };
+  return { scheduleId, anchorDate, slot, period };
 }
 
 export function resolveRecurringAssignments({
@@ -145,6 +159,7 @@ export function resolveRecurringAssignments({
     const childIds = childrenByRule.get(rule.id) ?? [];
     if (childIds.length === 0) continue;
 
+    const period = parseFortnightRuleText(rule.rrule)?.period ?? "full_day";
     const ruleStart = parseISO(rule.startDate);
     const daysUntilFrom = differenceInCalendarDays(fromDate, ruleStart);
     const occurrenceOffset = daysUntilFrom <= 0 ? 0 : Math.ceil(daysUntilFrom / 14) * 14;
@@ -156,12 +171,18 @@ export function resolveRecurringAssignments({
 
       for (const childId of childIds) {
         const key = `${childId}:${date}`;
+        const existing = resolved.get(key);
+        const morningParentId =
+          period === "afternoon" ? (existing?.morningParentId ?? null) : rule.parentId;
+        const afternoonParentId =
+          period === "morning" ? (existing?.afternoonParentId ?? null) : rule.parentId;
+
         resolved.set(key, {
-          id: `recurring:${rule.id}:${childId}:${date}`,
+          id: existing?.id ?? `recurring:${rule.id}:${childId}:${date}`,
           childId,
           date,
-          morningParentId: rule.parentId,
-          afternoonParentId: rule.parentId,
+          morningParentId,
+          afternoonParentId,
           handoverTime: null,
           handoverLocation: null,
           note: null,
