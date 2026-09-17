@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { differenceInCalendarDays, parseISO } from "date-fns";
-import { and, asc, eq, gte, isNotNull, lte, or } from "drizzle-orm";
+import { and, asc, eq, gte, isNotNull, or } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";

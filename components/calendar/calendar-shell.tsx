@@ -206,7 +206,10 @@ export function CalendarShell() {
     if (accessMode !== "editor") {
       setPreviewAssignments((current) => {
         const next = { ...current };
-        for (const day of selectedDays) parentId ? next[day] = parentId : delete next[day];
+        for (const day of selectedDays) {
+          if (parentId) next[day] = parentId;
+          else delete next[day];
+        }
         return next;
       });
       setSelectedDays([]);
