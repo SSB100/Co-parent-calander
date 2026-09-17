@@ -365,9 +365,13 @@ export function CalendarShell() {
                   <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                   {currentEditor ? `${currentEditor.displayName} editing` : "Editor access"}
                 </span>
-              ) : (
+              ) : accessMode === "preview" ? (
                 <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
-                  Preview mode
+                  Public preview
+                </span>
+              ) : (
+                <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">
+                  Calendar unavailable
                 </span>
               )}
               {calendarData?.recurringScheduleActive ? (
@@ -389,6 +393,20 @@ export function CalendarShell() {
           ) : null}
         </div>
       </header>
+
+      {accessMode === "preview" ? (
+        <section
+          aria-labelledby="public-preview-title"
+          className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 sm:mb-6"
+        >
+          <p id="public-preview-title" className="text-sm font-semibold">
+            This is the public preview, not your saved family calendar.
+          </p>
+          <p className="mt-1 text-sm leading-6 text-amber-900">
+            Open your private editor link to manage the calendar, or a viewer link to see the live schedule without editing.
+          </p>
+        </section>
+      ) : null}
 
       {message ? (
         <div
@@ -528,7 +546,7 @@ export function CalendarShell() {
               ? "Selection mode: tap any dates you want to update together, then choose a parent or Clear below."
               : accessMode === "editor"
                 ? "Tap a day to edit its parent, handover details and note. Use Select days for bulk changes."
-                : "Tap a day to try assigning it in preview mode. Shared events appear in blue."}
+                : "Try the calendar layout below. Preview changes stay only in this browser and are not part of your saved schedule."}
           </p>
 
           <div className="grid grid-cols-7 gap-1 sm:gap-2" role="grid" aria-label={format(currentMonth, "MMMM yyyy")}>
@@ -679,7 +697,7 @@ export function CalendarShell() {
       <p className="mx-auto mt-5 max-w-2xl text-center text-xs leading-5 text-slate-400">
         {accessMode === "editor"
           ? `Changes are saved to the shared calendar${calendarData?.children.length ? ` for ${calendarData.children.length} active ${calendarData.children.length === 1 ? "child" : "children"}` : ""}.`
-          : "Preview changes stay on this device. A secure editor link unlocks the shared calendar."}
+          : "Your live calendar is private. Use a secure editor or viewer link to access it."}
       </p>
     </main>
   );

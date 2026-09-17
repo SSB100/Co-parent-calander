@@ -90,6 +90,15 @@ test("invalid editor links receive clear feedback after returning to preview mod
   assert.match(calendarShell, /That editor link is invalid, expired, or revoked\./);
 });
 
+test("the public root clearly distinguishes preview data from the live calendar", async () => {
+  const calendarShell = await source("components/calendar/calendar-shell.tsx");
+
+  assert.match(calendarShell, /Public preview/);
+  assert.match(calendarShell, /not your saved family calendar/);
+  assert.match(calendarShell, /private editor link/);
+  assert.match(calendarShell, /viewer link/);
+});
+
 test("viewer route contains no calendar mutation fetches or form actions", async () => {
   const text = await source("app/share/[token]/page.tsx");
 
