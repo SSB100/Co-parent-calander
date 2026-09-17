@@ -5,11 +5,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb, getSql } from "@/lib/db";
-import {
-  children,
-  participants,
-  recurringRules,
-} from "@/lib/db/schema";
+import { children, participants, recurringRules } from "@/lib/db/schema";
 import {
   buildFortnightRuleText,
   dateForSlot,
@@ -23,12 +19,23 @@ import { getEditorSession } from "@/lib/security/session";
 const isoDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .refine((value) => !Number.isNaN(parseISO(value).getTime()), "Choose a valid start date.");
+  .refine((value) => !Number.isNaN(parseISO(value).getTime()), "Choose a valid date.");
 
-const scheduleSchema = z.object({
-  anchorDate: isoDate,
-  pattern: z.array(z.string().uuid().nullable()).length(FORTNIGHT_SLOTS),
-});
+const scheduleSchema = z
+  .object({
+    anchorDate: isoDate,
+    endDate: isoDate.nullable(),
+    pattern: z.array(z.string().uuid().nullable()).length(FORTNIGHT_SLOTS),
+  })
+  .superRefine((value, context) => {
+    if (value.endDate && value.endDate < value.anchorDate) {
+      context.addIssue({
+        code: "custom",
+        path: ["endDate"],
+        message: "The repeating schedule end date cannot be before its start date.",
+      });
+    }
+  });
 
 async function loadSchedule(calendarId: string) {
   const db = getDb();
@@ -48,6 +55,7 @@ async function loadSchedule(calendarId: string) {
         parentId: recurringRules.parentId,
         rrule: recurringRules.rrule,
         startDate: recurringRules.startDate,
+        endDate: recurringRules.endDate,
         createdAt: recurringRules.createdAt,
       })
       .from(recurringRules)
@@ -67,6 +75,7 @@ async function loadSchedule(calendarId: string) {
     return {
       active: false,
       anchorDate: normalizeAnchorDate(new Date().toISOString().slice(0, 10)),
+      endDate: null,
       pattern: Array<string | null>(FORTNIGHT_SLOTS).fill(null),
       participants: parentRows,
     };
@@ -83,6 +92,7 @@ async function loadSchedule(calendarId: string) {
     active: true,
     scheduleId,
     anchorDate: latest.metadata.anchorDate,
+    endDate: latest.rule.endDate,
     pattern,
     participants: parentRows,
   };
@@ -130,6 +140,7 @@ export async function POST(request: NextRequest) {
   }
 
   const anchorDate = normalizeAnchorDate(parsed.data.anchorDate);
+  const endDate = parsed.data.endDate;
   const pattern = parsed.data.pattern;
   const selectedParentIds = [...new Set(pattern.filter((value): value is string => Boolean(value)))];
   const db = getDb();
@@ -155,6 +166,7 @@ export async function POST(request: NextRequest) {
         parentId: recurringRules.parentId,
         rrule: recurringRules.rrule,
         startDate: recurringRules.startDate,
+        endDate: recurringRules.endDate,
       })
       .from(recurringRules)
       .where(and(eq(recurringRules.calendarId, session.calendarId), eq(recurringRules.active, true))),
@@ -217,7 +229,7 @@ export async function POST(request: NextRequest) {
         ${parentId},
         ${rrule},
         ${startDate},
-        NULL,
+        ${endDate},
         true,
         ${session.participantId},
         now(),
@@ -237,7 +249,7 @@ export async function POST(request: NextRequest) {
   }
 
   const beforeState = JSON.stringify({ rules: beforeRuleRows });
-  const afterState = JSON.stringify({ scheduleId, anchorDate, pattern });
+  const afterState = JSON.stringify({ scheduleId, anchorDate, endDate, pattern });
   statements.push(sql`
     INSERT INTO audit_log (
       calendar_id,
@@ -273,6 +285,7 @@ export async function POST(request: NextRequest) {
     active: true,
     scheduleId,
     anchorDate,
+    endDate,
     pattern,
   });
 }
@@ -294,6 +307,7 @@ export async function DELETE(request: NextRequest) {
       parentId: recurringRules.parentId,
       rrule: recurringRules.rrule,
       startDate: recurringRules.startDate,
+      endDate: recurringRules.endDate,
     })
     .from(recurringRules)
     .where(and(eq(recurringRules.calendarId, session.calendarId), eq(recurringRules.active, true)));
