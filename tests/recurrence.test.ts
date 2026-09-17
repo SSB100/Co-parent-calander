@@ -39,7 +39,8 @@ function manual(overrides: Partial<ManualAssignment> = {}): ManualAssignment {
     id: "55555555-5555-4555-8555-555555555555",
     childId: childA,
     date: "2026-09-28",
-    parentId: parentB,
+    morningParentId: parentB,
+    afternoonParentId: parentB,
     handoverTime: null,
     handoverLocation: null,
     note: null,
@@ -65,7 +66,7 @@ test("fortnight rule metadata survives a build and parse round trip", () => {
   });
 });
 
-test("resolves the same recurring slot every fourteen days", () => {
+test("recurring assignments fill both morning and afternoon every fourteen days", () => {
   const recurringRule = rule();
   const result = resolveRecurringAssignments({
     manualAssignments: [],
@@ -76,19 +77,24 @@ test("resolves the same recurring slot every fourteen days", () => {
   });
 
   assert.deepEqual(
-    result.map((assignment) => [assignment.date, assignment.parentId, assignment.source]),
+    result.map((assignment) => [
+      assignment.date,
+      assignment.morningParentId,
+      assignment.afternoonParentId,
+      assignment.source,
+    ]),
     [
-      ["2026-09-14", parentA, "recurring"],
-      ["2026-09-28", parentA, "recurring"],
-      ["2026-10-12", parentA, "recurring"],
+      ["2026-09-14", parentA, parentA, "recurring"],
+      ["2026-09-28", parentA, parentA, "recurring"],
+      ["2026-10-12", parentA, parentA, "recurring"],
     ],
   );
 });
 
-test("manual assignment replaces only the matching recurring occurrence", () => {
+test("manual split assignment replaces only the matching recurring occurrence", () => {
   const recurringRule = rule();
   const result = resolveRecurringAssignments({
-    manualAssignments: [manual()],
+    manualAssignments: [manual({ morningParentId: parentA, afternoonParentId: parentB })],
     rules: [recurringRule],
     ruleChildren: links(recurringRule.id, childA),
     from: "2026-09-14",
@@ -96,20 +102,35 @@ test("manual assignment replaces only the matching recurring occurrence", () => 
   });
 
   const overridden = result.find((assignment) => assignment.date === "2026-09-28");
-  assert.equal(overridden?.parentId, parentB);
+  assert.equal(overridden?.morningParentId, parentA);
+  assert.equal(overridden?.afternoonParentId, parentB);
   assert.equal(overridden?.source, "manual");
   assert.equal(overridden?.recurringRuleId, null);
 
-  assert.equal(
-    result.find((assignment) => assignment.date === "2026-10-12")?.parentId,
-    parentA,
-  );
+  const later = result.find((assignment) => assignment.date === "2026-10-12");
+  assert.equal(later?.morningParentId, parentA);
+  assert.equal(later?.afternoonParentId, parentA);
 });
 
-test("manual unassigned override clears one occurrence but later recurrence remains", () => {
+test("manual half-day clear keeps the other half assigned", () => {
   const recurringRule = rule();
   const result = resolveRecurringAssignments({
-    manualAssignments: [manual({ parentId: null })],
+    manualAssignments: [manual({ morningParentId: null, afternoonParentId: parentB })],
+    rules: [recurringRule],
+    ruleChildren: links(recurringRule.id, childA),
+    from: "2026-09-28",
+    to: "2026-09-28",
+  });
+
+  assert.equal(result[0]?.morningParentId, null);
+  assert.equal(result[0]?.afternoonParentId, parentB);
+  assert.equal(result[0]?.source, "manual");
+});
+
+test("manual fully unassigned override clears one occurrence but later recurrence remains", () => {
+  const recurringRule = rule();
+  const result = resolveRecurringAssignments({
+    manualAssignments: [manual({ morningParentId: null, afternoonParentId: null })],
     rules: [recurringRule],
     ruleChildren: links(recurringRule.id, childA),
     from: "2026-09-14",
@@ -117,10 +138,9 @@ test("manual unassigned override clears one occurrence but later recurrence rema
   });
 
   assert.equal(result.some((assignment) => assignment.date === "2026-09-28"), false);
-  assert.equal(
-    result.find((assignment) => assignment.date === "2026-10-12")?.parentId,
-    parentA,
-  );
+  const later = result.find((assignment) => assignment.date === "2026-10-12");
+  assert.equal(later?.morningParentId, parentA);
+  assert.equal(later?.afternoonParentId, parentA);
 });
 
 test("recurrence end date prevents occurrences after the chosen day", () => {

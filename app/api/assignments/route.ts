@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { loadEffectiveAssignmentMap } from "@/lib/assignments/effective";
 import { getDb, getSql } from "@/lib/db";
 import { children, parentingAssignments, participants } from "@/lib/db/schema";
 import { isSameOriginMutation } from "@/lib/security/request";
@@ -16,6 +17,7 @@ const isoDate = z
 const mutationSchema = z.object({
   dates: z.array(isoDate).min(1).max(62),
   parentId: z.string().uuid().nullable(),
+  period: z.enum(["full_day", "morning", "afternoon"]).default("full_day"),
 });
 
 export async function POST(request: NextRequest) {
@@ -45,6 +47,7 @@ export async function POST(request: NextRequest) {
 
   const dates = [...new Set(parsed.data.dates)].sort();
   const parentId = parsed.data.parentId;
+  const period = parsed.data.period;
   const db = getDb();
 
   if (parentId) {
@@ -83,7 +86,8 @@ export async function POST(request: NextRequest) {
       id: parentingAssignments.id,
       childId: parentingAssignments.childId,
       date: parentingAssignments.assignmentDate,
-      parentId: parentingAssignments.parentId,
+      morningParentId: parentingAssignments.parentId,
+      afternoonParentId: parentingAssignments.afternoonParentId,
       handoverTime: parentingAssignments.handoverTime,
       handoverLocation: parentingAssignments.handoverLocation,
       note: parentingAssignments.note,
@@ -97,25 +101,50 @@ export async function POST(request: NextRequest) {
       ),
     );
 
+  const effective = await loadEffectiveAssignmentMap({
+    calendarId: session.calendarId,
+    childIds,
+    from: dates[0],
+    to: dates[dates.length - 1],
+  });
+
   const beforeState = JSON.stringify({ assignments: existing });
   const afterState = JSON.stringify({
     dates,
     childIds,
     parentId,
+    period,
   });
 
   const sql = getSql();
   const statements = dates.flatMap((date) =>
     childRows.map((child) => {
-      if (parentId) {
+      const current = effective.get(`${child.id}:${date}`);
+      let morningParentId = current?.morningParentId ?? null;
+      let afternoonParentId = current?.afternoonParentId ?? null;
+
+      if (period === "full_day") {
+        morningParentId = parentId;
+        afternoonParentId = parentId;
+      } else if (period === "morning") {
+        morningParentId = parentId;
+      } else {
+        afternoonParentId = parentId;
+      }
+
+      if (!morningParentId && !afternoonParentId) {
         return sql`
           INSERT INTO parenting_assignments (
             calendar_id,
             child_id,
             assignment_date,
             parent_id,
+            afternoon_parent_id,
             source,
             recurring_rule_id,
+            handover_time,
+            handover_location,
+            note,
             created_by,
             updated_at
           )
@@ -123,17 +152,25 @@ export async function POST(request: NextRequest) {
             ${session.calendarId},
             ${child.id},
             ${date},
-            ${parentId},
+            NULL,
+            NULL,
             'manual',
+            NULL,
+            NULL,
+            NULL,
             NULL,
             ${session.participantId},
             now()
           )
           ON CONFLICT (calendar_id, child_id, assignment_date)
           DO UPDATE SET
-            parent_id = EXCLUDED.parent_id,
+            parent_id = NULL,
+            afternoon_parent_id = NULL,
             source = 'manual',
             recurring_rule_id = NULL,
+            handover_time = NULL,
+            handover_location = NULL,
+            note = NULL,
             created_by = EXCLUDED.created_by,
             updated_at = now()
         `;
@@ -145,11 +182,9 @@ export async function POST(request: NextRequest) {
           child_id,
           assignment_date,
           parent_id,
+          afternoon_parent_id,
           source,
           recurring_rule_id,
-          handover_time,
-          handover_location,
-          note,
           created_by,
           updated_at
         )
@@ -157,23 +192,19 @@ export async function POST(request: NextRequest) {
           ${session.calendarId},
           ${child.id},
           ${date},
-          NULL,
+          ${morningParentId},
+          ${afternoonParentId},
           'manual',
-          NULL,
-          NULL,
-          NULL,
           NULL,
           ${session.participantId},
           now()
         )
         ON CONFLICT (calendar_id, child_id, assignment_date)
         DO UPDATE SET
-          parent_id = NULL,
+          parent_id = EXCLUDED.parent_id,
+          afternoon_parent_id = EXCLUDED.afternoon_parent_id,
           source = 'manual',
           recurring_rule_id = NULL,
-          handover_time = NULL,
-          handover_location = NULL,
-          note = NULL,
           created_by = EXCLUDED.created_by,
           updated_at = now()
       `;
@@ -212,6 +243,7 @@ export async function POST(request: NextRequest) {
     ok: true,
     dates,
     parentId,
+    period,
     affectedChildren: childRows.length,
   });
 }

@@ -221,7 +221,11 @@ export const parentingAssignments = pgTable(
       .notNull()
       .references(() => children.id, { onDelete: "cascade" }),
     assignmentDate: date("assignment_date", { mode: "string" }).notNull(),
+    // The original parent_id column is retained as the morning slot for backwards compatibility.
     parentId: uuid("parent_id").references(() => participants.id, { onDelete: "restrict" }),
+    afternoonParentId: uuid("afternoon_parent_id").references(() => participants.id, {
+      onDelete: "restrict",
+    }),
     source: assignmentSource("source").notNull().default("manual"),
     recurringRuleId: uuid("recurring_rule_id").references(() => recurringRules.id, {
       onDelete: "set null",
@@ -243,6 +247,7 @@ export const parentingAssignments = pgTable(
     ),
     index("assignment_calendar_date_idx").on(table.calendarId, table.assignmentDate),
     index("assignment_parent_idx").on(table.parentId),
+    index("assignment_afternoon_parent_idx").on(table.afternoonParentId),
   ],
 );
 

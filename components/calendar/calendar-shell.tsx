@@ -45,7 +45,8 @@ type ApiAssignment = {
   id: string;
   childId: string;
   date: string;
-  parentId: string;
+  morningParentId: string | null;
+  afternoonParentId: string | null;
   handoverTime: string | null;
   handoverLocation: string | null;
   note: string | null;
@@ -60,7 +61,8 @@ type CalendarEvent = {
 };
 type HandoverSummary = {
   date: string;
-  parentId: string;
+  morningParentId: string | null;
+  afternoonParentId: string | null;
   handoverTime: string | null;
   handoverLocation: string | null;
   note: string | null;
@@ -79,31 +81,39 @@ type CalendarPayload = {
   nextEvent: CalendarEvent | null;
 };
 type AccessMode = "checking" | "viewer" | "editor" | "error";
-type Ownership = string | "mixed";
-type AssignmentMap = Record<string, Ownership>;
-type VisualStyle = { dot: string; cell: string; pill: string; button: string };
+type SlotOwnership = string | "mixed" | null;
+type DayOwnership = { morning: SlotOwnership; afternoon: SlotOwnership };
+type AssignmentMap = Record<string, DayOwnership>;
+type AssignmentPeriod = "full_day" | "morning" | "afternoon";
+type VisualStyle = { dot: string; slot: string; pill: string; button: string };
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const bulkPeriodLabels: Record<AssignmentPeriod, string> = {
+  full_day: "Full day",
+  morning: "Morning",
+  afternoon: "Afternoon",
+};
 const visualStyles: VisualStyle[] = [
   {
     dot: "bg-emerald-500",
-    cell: "border-emerald-200 bg-emerald-50",
+    slot: "bg-emerald-100",
     pill: "bg-emerald-100 text-emerald-800",
     button: "bg-emerald-100 text-emerald-900 hover:bg-emerald-200",
   },
   {
     dot: "bg-violet-500",
-    cell: "border-violet-200 bg-violet-50",
+    slot: "bg-violet-100",
     pill: "bg-violet-100 text-violet-800",
     button: "bg-violet-100 text-violet-900 hover:bg-violet-200",
   },
 ];
 const mixedStyle: VisualStyle = {
   dot: "bg-slate-500",
-  cell: "border-slate-300 bg-slate-100",
+  slot: "bg-slate-200",
   pill: "bg-slate-200 text-slate-700",
   button: "bg-slate-100 text-slate-700 hover:bg-slate-200",
 };
+
 function keyFor(day: Date) {
   return format(day, "yyyy-MM-dd");
 }
@@ -113,24 +123,33 @@ function styleForParticipant(participants: Participant[], participantId: string)
   return visualStyles[Math.max(0, index) % visualStyles.length] ?? visualStyles[0];
 }
 
+function aggregateSlot(
+  rows: ApiAssignment[],
+  field: "morningParentId" | "afternoonParentId",
+  childCount: number,
+): SlotOwnership {
+  if (childCount === 0) return null;
+  const values: Array<string | null> = rows.map((row) => row[field] ?? null);
+  while (values.length < childCount) values.push(null);
+  if (values.every((value) => value === null)) return null;
+  const unique = new Set(values);
+  if (unique.size === 1) return values[0];
+  return "mixed";
+}
+
 function aggregateAssignments(data: CalendarPayload): AssignmentMap {
-  const byDate = new Map<string, { parentIds: Set<string>; childIds: Set<string> }>();
+  const byDate = new Map<string, ApiAssignment[]>();
   for (const assignment of data.assignments) {
-    const entry = byDate.get(assignment.date) ?? {
-      parentIds: new Set<string>(),
-      childIds: new Set<string>(),
-    };
-    entry.parentIds.add(assignment.parentId);
-    entry.childIds.add(assignment.childId);
-    byDate.set(assignment.date, entry);
+    const rows = byDate.get(assignment.date) ?? [];
+    rows.push(assignment);
+    byDate.set(assignment.date, rows);
   }
 
   const result: AssignmentMap = {};
-  for (const [date, entry] of byDate) {
-    result[date] =
-      entry.parentIds.size === 1 && entry.childIds.size === data.children.length
-        ? [...entry.parentIds][0]
-        : "mixed";
+  for (const [date, rows] of byDate) {
+    const morning = aggregateSlot(rows, "morningParentId", data.children.length);
+    const afternoon = aggregateSlot(rows, "afternoonParentId", data.children.length);
+    if (morning || afternoon) result[date] = { morning, afternoon };
   }
   return result;
 }
@@ -140,6 +159,7 @@ export function CalendarShell() {
   const [currentMonth, setCurrentMonth] = useState<Date>(() => startOfMonth(new Date()));
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const [bulkPeriod, setBulkPeriod] = useState<AssignmentPeriod>("full_day");
   const [calendarData, setCalendarData] = useState<CalendarPayload | null>(null);
   const [accessMode, setAccessMode] = useState<AccessMode>("checking");
   const [saving, setSaving] = useState(false);
@@ -244,22 +264,44 @@ export function CalendarShell() {
   const nextHandover = calendarData?.nextHandover ?? null;
   const nextEvent = calendarData?.nextEvent ?? null;
 
-  function ownerLabel(owner: Ownership | undefined) {
-    if (!owner) return "Not assigned yet";
-    if (owner === "mixed") return "Split between parents";
+  function ownerLabel(owner: SlotOwnership | undefined) {
+    if (!owner) return "Unassigned";
+    if (owner === "mixed") return "Mixed";
     return participants.find((participant) => participant.id === owner)?.displayName ?? "Assigned";
   }
 
-  function ownerStyle(owner: Ownership | undefined) {
+  function shortOwnerLabel(owner: SlotOwnership | undefined) {
+    const label = ownerLabel(owner);
+    if (label === "Unassigned") return "—";
+    if (label === "Mixed") return label;
+    return label.split(/\s+/)[0] ?? label;
+  }
+
+  function ownerStyle(owner: SlotOwnership | undefined) {
     if (!owner) return null;
     if (owner === "mixed") return mixedStyle;
     return styleForParticipant(participants, owner);
   }
 
+  function assignmentLabel(assignment: DayOwnership | undefined) {
+    if (!assignment) return "Not assigned yet";
+    if (
+      assignment.morning &&
+      assignment.morning !== "mixed" &&
+      assignment.morning === assignment.afternoon
+    ) {
+      return ownerLabel(assignment.morning);
+    }
+    return `Morning ${ownerLabel(assignment.morning)}, afternoon ${ownerLabel(assignment.afternoon)}`;
+  }
+
   function toggleSelectionMode() {
     setSelectionMode((current) => {
       const next = !current;
-      if (!next) setSelectedDays([]);
+      if (!next) {
+        setSelectedDays([]);
+        setBulkPeriod("full_day");
+      }
       setDetailsDate(null);
       return next;
     });
@@ -279,14 +321,11 @@ export function CalendarShell() {
     if ((accessMode === "editor" || accessMode === "viewer") && calendarData) {
       setSelectedDays([]);
       setDetailsDate(key);
-      return;
     }
   }
 
   async function applySelected(parentId: string | null) {
-    if (selectedDays.length === 0 || saving) return;
-
-    if (accessMode !== "editor") return;
+    if (selectedDays.length === 0 || saving || accessMode !== "editor") return;
 
     setSaving(true);
     setMessage(null);
@@ -294,15 +333,17 @@ export function CalendarShell() {
       const response = await fetch("/api/assignments", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ dates: selectedDays, parentId }),
+        body: JSON.stringify({ dates: selectedDays, parentId, period: bulkPeriod }),
       });
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) throw new Error(body?.error ?? "Those dates could not be updated.");
 
       const count = selectedDays.length;
+      const scope = bulkPeriodLabels[bulkPeriod];
       setSelectedDays([]);
       setSelectionMode(false);
-      setMessage(`${count} ${count === 1 ? "day" : "days"} saved.`);
+      setBulkPeriod("full_day");
+      setMessage(`${scope} ${parentId ? "saved" : "cleared"} for ${count} ${count === 1 ? "day" : "days"}.`);
       setRefreshKey((value) => value + 1);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Those dates could not be updated.");
@@ -315,6 +356,7 @@ export function CalendarShell() {
     setCurrentMonth((month) => (direction === "previous" ? subMonths(month, 1) : addMonths(month, 1)));
     setSelectedDays([]);
     setSelectionMode(false);
+    setBulkPeriod("full_day");
     setDetailsDate(null);
   }
 
@@ -322,8 +364,18 @@ export function CalendarShell() {
     setCurrentMonth(startOfMonth(new Date()));
     setSelectedDays([]);
     setSelectionMode(false);
+    setBulkPeriod("full_day");
     setDetailsDate(null);
   }
+
+  const nextHandoverOwner = nextHandover
+    ? nextHandover.afternoonParentId ?? nextHandover.morningParentId
+    : null;
+  const nextHandoverIsTransfer = Boolean(
+    nextHandover?.morningParentId &&
+      nextHandover.afternoonParentId &&
+      nextHandover.morningParentId !== nextHandover.afternoonParentId,
+  );
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
@@ -347,18 +399,12 @@ export function CalendarShell() {
                   {currentEditor ? `${currentEditor.displayName} editing` : "Editor access"}
                 </span>
               ) : accessMode === "viewer" ? (
-                <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">
-                  View only
-                </span>
+                <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">View only</span>
               ) : (
-                <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">
-                  Calendar unavailable
-                </span>
+                <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">Calendar unavailable</span>
               )}
               {calendarData?.recurringScheduleActive ? (
-                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                  Repeating schedule on
-                </span>
+                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">Repeating schedule on</span>
               ) : null}
             </div>
           </div>
@@ -367,11 +413,11 @@ export function CalendarShell() {
             <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><LayoutDashboard className="h-4 w-4" aria-hidden="true" />Calendars</Link>
             {accessMode === "editor" ? (
               <>
-              <EventPanel onChanged={() => setRefreshKey((value) => value + 1)} />
-              <RecurringSchedulePanel />
-              {calendarData?.permission === "owner" ? <MembersPanel /> : null}
-              <ActivityPanel />
-              <SettingsPanel />
+                <EventPanel onChanged={() => setRefreshKey((value) => value + 1)} />
+                <RecurringSchedulePanel />
+                {calendarData?.permission === "owner" ? <MembersPanel /> : null}
+                <ActivityPanel />
+                <SettingsPanel />
               </>
             ) : null}
             <button type="button" onClick={() => void authClient.signOut().then(() => router.push("/"))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><LogOut className="h-4 w-4" aria-hidden="true" />Log out</button>
@@ -396,9 +442,11 @@ export function CalendarShell() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
               <CalendarDays className="h-5 w-5" aria-hidden="true" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="font-semibold text-slate-900">
-                {todayAssignment ? `With ${ownerLabel(todayAssignment)}` : ownerLabel(undefined)}
+                {todayAssignment && todayAssignment.morning === todayAssignment.afternoon && todayAssignment.morning
+                  ? `With ${ownerLabel(todayAssignment.morning)}`
+                  : assignmentLabel(todayAssignment)}
               </p>
               <p className="text-sm text-slate-500">{format(today, "EEEE, d MMMM")}</p>
             </div>
@@ -413,7 +461,7 @@ export function CalendarShell() {
                 {format(parseISO(nextHandover.date), "EEE d MMM")} • {nextHandover.handoverTime?.slice(0, 5)}
               </p>
               <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-slate-500">
-                <span>With {ownerLabel(nextHandover.parentId)}</span>
+                <span>{nextHandoverIsTransfer ? "To" : "With"} {ownerLabel(nextHandoverOwner)}</span>
                 {nextHandover.handoverLocation ? (
                   <span className="inline-flex items-center gap-1">
                     <MapPin className="h-3.5 w-3.5" aria-hidden="true" />{nextHandover.handoverLocation}
@@ -453,27 +501,9 @@ export function CalendarShell() {
       <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-slate-200 px-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="flex items-center justify-between gap-2 sm:justify-start">
-            <button
-              type="button"
-              aria-label="Previous month"
-              onClick={() => moveMonth("previous")}
-              className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            >
-              <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-            </button>
-            <div className="min-w-40 text-center sm:min-w-48">
-              <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">
-                {format(currentMonth, "MMMM yyyy")}
-              </h2>
-            </div>
-            <button
-              type="button"
-              aria-label="Next month"
-              onClick={() => moveMonth("next")}
-              className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            >
-              <ChevronRight className="h-5 w-5" aria-hidden="true" />
-            </button>
+            <button type="button" aria-label="Previous month" onClick={() => moveMonth("previous")} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"><ChevronLeft className="h-5 w-5" aria-hidden="true" /></button>
+            <div className="min-w-40 text-center sm:min-w-48"><h2 className="text-lg font-semibold text-slate-900 sm:text-xl">{format(currentMonth, "MMMM yyyy")}</h2></div>
+            <button type="button" aria-label="Next month" onClick={() => moveMonth("next")} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"><ChevronRight className="h-5 w-5" aria-hidden="true" /></button>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
@@ -503,34 +533,22 @@ export function CalendarShell() {
                 {selectionMode ? "Done selecting" : "Select days"}
               </button>
             ) : null}
-            <button
-              type="button"
-              onClick={goToday}
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800"
-            >
-              <RotateCcw className="h-4 w-4" aria-hidden="true" />Today
-            </button>
+            <button type="button" onClick={goToday} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800"><RotateCcw className="h-4 w-4" aria-hidden="true" />Today</button>
           </div>
         </div>
 
         <div className="px-2 pb-2 pt-3 sm:px-4 sm:pb-4">
           <p className="mb-3 px-1 text-sm text-slate-500">
             {selectionMode
-              ? "Selection mode: tap any dates you want to update together, then choose a parent or Clear below."
+              ? "Selection mode: tap the dates to update, then choose Full day, Morning or Afternoon and a parent below."
               : accessMode === "editor"
-                ? "Tap a day to edit its parent, handover details and note. Use Select days for bulk changes."
+                ? "Tap a day to assign a full day, morning or afternoon and add handover details. Use Select days for bulk changes."
                 : "View the shared schedule and tap a day to see its handover details and note."}
           </p>
 
           <div className="grid grid-cols-7 gap-1 sm:gap-2" role="grid" aria-label={format(currentMonth, "MMMM yyyy")}>
             {weekdays.map((weekday) => (
-              <div
-                key={weekday}
-                role="columnheader"
-                className="pb-1 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs"
-              >
-                {weekday}
-              </div>
+              <div key={weekday} role="columnheader" className="pb-1 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs">{weekday}</div>
             ))}
 
             {calendarDays.map((day) => {
@@ -539,10 +557,15 @@ export function CalendarShell() {
               const selected = selectionMode && selectedDays.includes(key);
               const inMonth = isSameMonth(day, currentMonth);
               const isToday = isSameDay(day, today);
-              const style = ownerStyle(assignment);
-              const label = ownerLabel(assignment);
               const marker = detailMarkers[key];
               const dayEvents = eventsByDate[key] ?? [];
+              const morningStyle = ownerStyle(assignment?.morning);
+              const afternoonStyle = ownerStyle(assignment?.afternoon);
+              const fullDayOwner =
+                assignment?.morning && assignment.morning === assignment.afternoon
+                  ? assignment.morning
+                  : null;
+              const fullDayStyle = ownerStyle(fullDayOwner);
 
               return (
                 <button
@@ -552,50 +575,50 @@ export function CalendarShell() {
                   disabled={!inMonth || saving}
                   aria-selected={selected}
                   aria-current={isToday ? "date" : undefined}
-                  aria-label={`${format(day, "EEEE d MMMM")}, ${assignment ? label : "unassigned"}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}` : ""}`}
+                  aria-label={`${format(day, "EEEE d MMMM")}, ${assignmentLabel(assignment)}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}` : ""}`}
                   onClick={() => handleDayClick(day)}
-                  className={`relative min-h-20 rounded-xl border p-1.5 text-left transition sm:min-h-28 sm:rounded-2xl sm:p-2.5 ${
-                    style?.cell ?? "border-slate-200 bg-white"
-                  } ${inMonth ? "hover:-translate-y-0.5 hover:shadow-sm" : "cursor-default opacity-30"} ${
-                    selected ? "ring-2 ring-blue-500 ring-offset-1" : ""
-                  } ${selectionMode && inMonth ? "cursor-pointer" : ""}`}
+                  className={`relative min-h-20 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 text-left transition sm:min-h-28 sm:rounded-2xl sm:p-2.5 ${
+                    inMonth ? "hover:-translate-y-0.5 hover:shadow-sm" : "cursor-default opacity-30"
+                  } ${selected ? "ring-2 ring-blue-500 ring-offset-1" : ""} ${selectionMode && inMonth ? "cursor-pointer" : ""}`}
                 >
-                  <div className="flex items-start justify-between gap-1">
-                    <span
-                      className={`flex h-7 min-w-7 items-center justify-center rounded-full text-sm font-semibold ${
-                        isToday ? "bg-slate-900 text-white" : "text-slate-700"
-                      }`}
-                    >
+                  {inMonth ? (
+                    <span className="pointer-events-none absolute inset-0" aria-hidden="true">
+                      <span className={`absolute inset-x-0 top-0 h-1/2 ${morningStyle?.slot ?? "bg-white"}`} />
+                      <span className={`absolute inset-x-0 bottom-0 h-1/2 ${afternoonStyle?.slot ?? "bg-white"}`} />
+                      {assignment?.morning !== assignment?.afternoon ? <span className="absolute inset-x-0 top-1/2 border-t border-white/80" /> : null}
+                    </span>
+                  ) : null}
+
+                  <div className="relative z-10 flex items-start justify-between gap-1">
+                    <span className={`flex h-7 min-w-7 items-center justify-center rounded-full bg-white/90 text-sm font-semibold shadow-sm ${isToday ? "ring-2 ring-slate-900 text-slate-900" : "text-slate-700"}`}>
                       {format(day, "d")}
                     </span>
-                    {selected ? (
-                      <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold text-white" aria-hidden="true">
-                        ✓
-                      </span>
-                    ) : null}
+                    {selected ? <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold text-white" aria-hidden="true">✓</span> : null}
                   </div>
 
-                  {assignment && inMonth && style ? (
-                    <div className={`mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold sm:text-xs ${style.pill}`}>
-                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${style.dot}`} aria-hidden="true" />
-                      <span className="truncate">{assignment === "mixed" ? "Split" : label}</span>
-                    </div>
+                  {assignment && inMonth ? (
+                    fullDayOwner && fullDayStyle ? (
+                      <div className={`relative z-10 mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold sm:text-xs ${fullDayStyle.pill}`}>
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${fullDayStyle.dot}`} aria-hidden="true" />
+                        <span className="truncate">{shortOwnerLabel(fullDayOwner)}</span>
+                      </div>
+                    ) : (
+                      <div className="relative z-10 mt-1.5 flex flex-col items-start gap-0.5 text-[9px] font-semibold text-slate-700 sm:text-[10px]">
+                        <span className="max-w-full truncate rounded-full bg-white/90 px-1.5 py-0.5">AM {shortOwnerLabel(assignment.morning)}</span>
+                        <span className="max-w-full truncate rounded-full bg-white/90 px-1.5 py-0.5">PM {shortOwnerLabel(assignment.afternoon)}</span>
+                      </div>
+                    )
                   ) : null}
 
                   {dayEvents[0] && inMonth ? (
-                    <div className="mt-1.5 max-w-full truncate rounded-lg bg-sky-100 px-1.5 py-1 text-[9px] font-semibold text-sky-800 sm:text-[11px]">
-                      <CalendarDays className="mr-1 inline h-3 w-3" aria-hidden="true" />
-                      {dayEvents[0].title}
+                    <div className="relative z-10 mt-1.5 max-w-full truncate rounded-lg bg-sky-100/95 px-1.5 py-1 text-[9px] font-semibold text-sky-800 sm:text-[11px]">
+                      <CalendarDays className="mr-1 inline h-3 w-3" aria-hidden="true" />{dayEvents[0].title}
                     </div>
                   ) : null}
-                  {dayEvents.length > 1 && inMonth ? (
-                    <span className="mt-1 block text-[9px] font-semibold text-sky-700">
-                      +{dayEvents.length - 1} more
-                    </span>
-                  ) : null}
+                  {dayEvents.length > 1 && inMonth ? <span className="relative z-10 mt-1 block text-[9px] font-semibold text-sky-700">+{dayEvents.length - 1} more</span> : null}
 
                   {inMonth && marker ? (
-                    <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 text-slate-500 sm:bottom-2 sm:right-2">
+                    <div className="absolute bottom-1.5 right-1.5 z-10 flex items-center gap-1 rounded-full bg-white/80 px-1 text-slate-500 sm:bottom-2 sm:right-2">
                       {marker.handover ? <Clock3 className="h-3.5 w-3.5" aria-hidden="true" /> : null}
                       {marker.note ? <StickyNote className="h-3.5 w-3.5" aria-hidden="true" /> : null}
                     </div>
@@ -608,44 +631,38 @@ export function CalendarShell() {
       </section>
 
       {accessMode === "editor" && selectionMode && selectedDays.length > 0 ? (
-        <div className="sticky bottom-3 z-20 mx-auto mt-4 flex max-w-4xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-          <div className="px-1">
-            <p className="font-semibold text-slate-900" role="status" aria-live="polite" aria-atomic="true">
-              {selectedDays.length} {selectedDays.length === 1 ? "day" : "days"} selected
-            </p>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => setSelectedDays([])}
-              className="min-h-11 text-sm font-medium text-slate-500 hover:underline disabled:opacity-50"
-            >
-              Clear selection
-            </button>
+        <div className="sticky bottom-3 z-20 mx-auto mt-4 flex max-w-4xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="px-1">
+              <p className="font-semibold text-slate-900" role="status" aria-live="polite" aria-atomic="true">{selectedDays.length} {selectedDays.length === 1 ? "day" : "days"} selected</p>
+              <button type="button" disabled={saving} onClick={() => setSelectedDays([])} className="min-h-11 text-sm font-medium text-slate-500 hover:underline disabled:opacity-50">Clear selection</button>
+            </div>
+            <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1" role="group" aria-label="Bulk assignment period">
+              {(Object.keys(bulkPeriodLabels) as AssignmentPeriod[]).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={saving}
+                  aria-pressed={bulkPeriod === value}
+                  onClick={() => setBulkPeriod(value)}
+                  className={`min-h-10 rounded-lg px-2 text-xs font-semibold transition ${bulkPeriod === value ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:bg-white/70"}`}
+                >
+                  {bulkPeriodLabels[value]}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex flex-wrap justify-end gap-2">
             {participants.slice(0, 2).map((participant) => {
               const style = styleForParticipant(participants, participant.id);
               return (
-                <button
-                  key={participant.id}
-                  type="button"
-                  disabled={saving}
-                  onClick={() => void applySelected(participant.id)}
-                  className={`min-h-11 rounded-xl px-3 text-sm font-semibold transition disabled:opacity-50 ${style.button}`}
-                >
+                <button key={participant.id} type="button" disabled={saving} onClick={() => void applySelected(participant.id)} className={`min-h-11 rounded-xl px-3 text-sm font-semibold transition disabled:opacity-50 ${style.button}`}>
                   {saving ? "Saving…" : participant.displayName}
                 </button>
               );
             })}
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void applySelected(null)}
-              className="min-h-11 rounded-xl bg-slate-100 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-50"
-            >
-              {saving ? "Saving…" : "Clear"}
-            </button>
+            <button type="button" disabled={saving} onClick={() => void applySelected(null)} className="min-h-11 rounded-xl bg-slate-100 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-50">{saving ? "Saving…" : `Clear ${bulkPeriodLabels[bulkPeriod].toLowerCase()}`}</button>
           </div>
         </div>
       ) : null}

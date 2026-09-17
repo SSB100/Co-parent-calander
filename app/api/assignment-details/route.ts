@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { loadEffectiveAssignmentMap } from "@/lib/assignments/effective";
 import { getDb, getSql } from "@/lib/db";
 import { children, parentingAssignments, participants } from "@/lib/db/schema";
 import { isSameOriginMutation } from "@/lib/security/request";
@@ -32,25 +33,14 @@ const nullableNote = z
   .nullable()
   .transform((value) => (value ? value : null));
 
-const detailsSchema = z
-  .object({
-    date: isoDate,
-    parentId: z.string().uuid().nullable(),
-    handoverTime: nullableTime,
-    handoverLocation: nullableLocation,
-    note: nullableNote,
-  })
-  .superRefine((value, context) => {
-    if (
-      value.parentId === null &&
-      (value.handoverTime || value.handoverLocation || value.note)
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "Assign the day to a parent before adding handover details or a note.",
-      });
-    }
-  });
+const detailsSchema = z.object({
+  date: isoDate,
+  parentId: z.string().uuid().nullable(),
+  period: z.enum(["full_day", "morning", "afternoon"]).default("full_day"),
+  handoverTime: nullableTime,
+  handoverLocation: nullableLocation,
+  note: nullableNote,
+});
 
 export async function PATCH(request: NextRequest) {
   if (!isSameOriginMutation(request)) {
@@ -77,7 +67,7 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const { date, parentId, handoverTime, handoverLocation, note } = parsed.data;
+  const { date, parentId, period, handoverTime, handoverLocation, note } = parsed.data;
   const db = getDb();
 
   if (parentId) {
@@ -116,7 +106,8 @@ export async function PATCH(request: NextRequest) {
       id: parentingAssignments.id,
       childId: parentingAssignments.childId,
       date: parentingAssignments.assignmentDate,
-      parentId: parentingAssignments.parentId,
+      morningParentId: parentingAssignments.parentId,
+      afternoonParentId: parentingAssignments.afternoonParentId,
       handoverTime: parentingAssignments.handoverTime,
       handoverLocation: parentingAssignments.handoverLocation,
       note: parentingAssignments.note,
@@ -130,58 +121,57 @@ export async function PATCH(request: NextRequest) {
       ),
     );
 
+  const effective = await loadEffectiveAssignmentMap({
+    calendarId: session.calendarId,
+    childIds,
+    from: date,
+    to: date,
+  });
+
+  const nextAssignments = childRows.map((child) => {
+    const current = effective.get(`${child.id}:${date}`);
+    let morningParentId = current?.morningParentId ?? null;
+    let afternoonParentId = current?.afternoonParentId ?? null;
+
+    if (period === "full_day") {
+      morningParentId = parentId;
+      afternoonParentId = parentId;
+    } else if (period === "morning") {
+      morningParentId = parentId;
+    } else {
+      afternoonParentId = parentId;
+    }
+
+    return { childId: child.id, morningParentId, afternoonParentId };
+  });
+
+  const hasAnyAssignment = nextAssignments.some(
+    (assignment) => assignment.morningParentId || assignment.afternoonParentId,
+  );
+  if (!hasAnyAssignment && (handoverTime || handoverLocation || note)) {
+    return NextResponse.json(
+      { error: "Assign at least one half of the day before adding handover details or a note." },
+      { status: 400 },
+    );
+  }
+
   const beforeState = JSON.stringify({ assignments: existing });
   const afterState = JSON.stringify({
     date,
     childIds,
     parentId,
-    handoverTime,
-    handoverLocation,
-    note,
+    period,
+    assignments: nextAssignments,
+    handoverTime: hasAnyAssignment ? handoverTime : null,
+    handoverLocation: hasAnyAssignment ? handoverLocation : null,
+    note: hasAnyAssignment ? note : null,
   });
 
   const sql = getSql();
-  const statements = childRows.map((child) => {
-    if (!parentId) {
-      return sql`
-        INSERT INTO parenting_assignments (
-          calendar_id,
-          child_id,
-          assignment_date,
-          parent_id,
-          source,
-          recurring_rule_id,
-          handover_time,
-          handover_location,
-          note,
-          created_by,
-          updated_at
-        )
-        VALUES (
-          ${session.calendarId},
-          ${child.id},
-          ${date},
-          NULL,
-          'manual',
-          NULL,
-          NULL,
-          NULL,
-          NULL,
-          ${session.participantId},
-          now()
-        )
-        ON CONFLICT (calendar_id, child_id, assignment_date)
-        DO UPDATE SET
-          parent_id = NULL,
-          source = 'manual',
-          recurring_rule_id = NULL,
-          handover_time = NULL,
-          handover_location = NULL,
-          note = NULL,
-          created_by = EXCLUDED.created_by,
-          updated_at = now()
-      `;
-    }
+  const statements = nextAssignments.map((assignment) => {
+    const rowHasAssignment = Boolean(
+      assignment.morningParentId || assignment.afternoonParentId,
+    );
 
     return sql`
       INSERT INTO parenting_assignments (
@@ -189,6 +179,7 @@ export async function PATCH(request: NextRequest) {
         child_id,
         assignment_date,
         parent_id,
+        afternoon_parent_id,
         source,
         recurring_rule_id,
         handover_time,
@@ -199,20 +190,22 @@ export async function PATCH(request: NextRequest) {
       )
       VALUES (
         ${session.calendarId},
-        ${child.id},
+        ${assignment.childId},
         ${date},
-        ${parentId},
+        ${assignment.morningParentId},
+        ${assignment.afternoonParentId},
         'manual',
         NULL,
-        ${handoverTime},
-        ${handoverLocation},
-        ${note},
+        ${rowHasAssignment ? handoverTime : null},
+        ${rowHasAssignment ? handoverLocation : null},
+        ${rowHasAssignment ? note : null},
         ${session.participantId},
         now()
       )
       ON CONFLICT (calendar_id, child_id, assignment_date)
       DO UPDATE SET
         parent_id = EXCLUDED.parent_id,
+        afternoon_parent_id = EXCLUDED.afternoon_parent_id,
         source = 'manual',
         recurring_rule_id = NULL,
         handover_time = EXCLUDED.handover_time,
@@ -235,7 +228,7 @@ export async function PATCH(request: NextRequest) {
     VALUES (
       ${session.calendarId},
       ${session.participantId},
-      ${parentId ? "assignment.details_update" : "assignment.single_clear"},
+      ${hasAnyAssignment ? "assignment.details_update" : "assignment.single_clear"},
       'parenting_assignment_batch',
       ${beforeState}::jsonb,
       ${afterState}::jsonb
@@ -255,6 +248,7 @@ export async function PATCH(request: NextRequest) {
     ok: true,
     date,
     parentId,
+    period,
     affectedChildren: childRows.length,
   });
 }

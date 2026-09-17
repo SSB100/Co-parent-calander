@@ -12,7 +12,9 @@ const previousAssignment = z.object({
   id: z.string().uuid(),
   childId: z.string().uuid(),
   date: isoDate,
-  parentId: z.string().uuid().nullable(),
+  morningParentId: z.string().uuid().nullable().optional(),
+  parentId: z.string().uuid().nullable().optional(),
+  afternoonParentId: z.string().uuid().nullable().optional(),
   handoverTime: z.string().nullable(),
   handoverLocation: z.string().nullable(),
   note: z.string().nullable(),
@@ -24,6 +26,7 @@ const afterStateSchema = z.object({
   dates: z.array(isoDate).min(1).max(62),
   childIds: z.array(z.string().uuid()).min(1),
   parentId: z.string().uuid().nullable(),
+  period: z.enum(["full_day", "morning", "afternoon"]).optional(),
 });
 
 async function latestAssignmentAudit(calendarId: string) {
@@ -105,7 +108,8 @@ export async function POST(request: NextRequest) {
       id: parentingAssignments.id,
       childId: parentingAssignments.childId,
       date: parentingAssignments.assignmentDate,
-      parentId: parentingAssignments.parentId,
+      morningParentId: parentingAssignments.parentId,
+      afternoonParentId: parentingAssignments.afternoonParentId,
       handoverTime: parentingAssignments.handoverTime,
       handoverLocation: parentingAssignments.handoverLocation,
       note: parentingAssignments.note,
@@ -132,6 +136,12 @@ export async function POST(request: NextRequest) {
   ];
 
   for (const assignment of eligible.before.assignments) {
+    const morningParentId = assignment.morningParentId ?? assignment.parentId ?? null;
+    const afternoonParentId =
+      assignment.afternoonParentId === undefined
+        ? morningParentId
+        : assignment.afternoonParentId;
+
     statements.push(sql`
       INSERT INTO parenting_assignments (
         id,
@@ -139,6 +149,7 @@ export async function POST(request: NextRequest) {
         child_id,
         assignment_date,
         parent_id,
+        afternoon_parent_id,
         source,
         recurring_rule_id,
         handover_time,
@@ -152,7 +163,8 @@ export async function POST(request: NextRequest) {
         ${session.calendarId},
         ${assignment.childId},
         ${assignment.date},
-        ${assignment.parentId},
+        ${morningParentId},
+        ${afternoonParentId},
         'manual',
         NULL,
         ${assignment.handoverTime},
