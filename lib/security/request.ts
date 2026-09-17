@@ -4,7 +4,7 @@ export function isSameOriginMutation(request: NextRequest) {
   const origin = request.headers.get("origin");
 
   if (!origin) {
-    return true;
+    return false;
   }
 
   try {
