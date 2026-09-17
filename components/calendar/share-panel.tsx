@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Copy, Eye, Link2, LoaderCircle, Share2, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type ShareStatus = {
   enabled: boolean;
@@ -9,13 +9,78 @@ type ShareStatus = {
   lastUsedAt?: string | null;
 };
 
+const focusableSelector = [
+  "button:not([disabled])",
+  "a[href]",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
 export function SharePanel() {
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const loadingRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<ShareStatus | null>(null);
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeButtonRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+
+      if (event.key === "Escape") {
+        if (!loadingRef.current) {
+          event.preventDefault();
+          setOpen(false);
+        }
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+        (element) => element.getClientRects().length > 0,
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const activeElement = document.activeElement;
+
+      if (event.shiftKey && (activeElement === first || !dialog.contains(activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [open]);
 
   async function openPanel() {
     setOpen(true);
@@ -97,9 +162,13 @@ export function SharePanel() {
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 p-0 backdrop-blur-sm sm:items-center sm:p-6">
           <section
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="share-title"
+            aria-describedby="share-description"
+            aria-busy={loading}
+            tabIndex={-1}
             className="w-full max-w-lg rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6"
           >
             <div className="flex items-start justify-between gap-4">
@@ -110,15 +179,17 @@ export function SharePanel() {
                 <h2 id="share-title" className="text-xl font-semibold text-slate-900">
                   Read-only sharing
                 </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-500">
+                <p id="share-description" className="mt-1 text-sm leading-6 text-slate-500">
                   Anyone with the viewer link can see the schedule and shared events, but cannot edit them.
                 </p>
               </div>
               <button
+                ref={closeButtonRef}
                 type="button"
                 aria-label="Close sharing panel"
+                disabled={loading}
                 onClick={() => setOpen(false)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
@@ -126,7 +197,7 @@ export function SharePanel() {
 
             <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
               {loading && !status ? (
-                <div className="flex items-center gap-2 text-sm text-slate-600">
+                <div role="status" aria-live="polite" className="flex items-center gap-2 text-sm text-slate-600">
                   <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
                   Checking sharing status…
                 </div>
@@ -158,14 +229,20 @@ export function SharePanel() {
                   onClick={() => void copyViewerLink()}
                   className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800"
                 >
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  {copied ? "Copied" : "Copy link"}
+                  {copied ? (
+                    <Check className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <Copy className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  <span aria-live="polite">{copied ? "Copied" : "Copy link"}</span>
                 </button>
               </div>
             ) : null}
 
             {message ? (
-              <p className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">{message}</p>
+              <p role="status" aria-live="polite" className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
+                {message}
+              </p>
             ) : null}
 
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
@@ -175,7 +252,11 @@ export function SharePanel() {
                 onClick={() => void generateLink()}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
               >
-                {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                {loading ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Link2 className="h-4 w-4" aria-hidden="true" />
+                )}
                 {status?.enabled ? "Generate new link" : "Create viewer link"}
               </button>
               <button
