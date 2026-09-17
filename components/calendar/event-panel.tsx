@@ -182,8 +182,8 @@ export function EventPanel({ onChanged }: { onChanged?: () => void }) {
 
       setEditingId(null);
       setForm(blankForm());
-      setMessage(editingId ? "Event updated." : "Event added to the shared calendar.");
       await loadEvents();
+      setMessage(editingId ? "Event updated." : "Event added to the shared calendar.");
       onChanged?.();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "The event could not be saved.");
@@ -208,8 +208,8 @@ export function EventPanel({ onChanged }: { onChanged?: () => void }) {
         setEditingId(null);
         setForm(blankForm());
       }
-      setMessage("Event removed.");
       await loadEvents();
+      setMessage("Event removed.");
       onChanged?.();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "The event could not be deleted.");

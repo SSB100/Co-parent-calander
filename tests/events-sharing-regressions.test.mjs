@@ -52,3 +52,17 @@ test("read-only sharing keeps token rotation, revoke, calendar flag, audit, and 
   const transactionCalls = text.match(/await sql\.transaction\(/g) ?? [];
   assert.equal(transactionCalls.length, 2, "viewer link generation and revoke must remain transactional");
 });
+
+test("event feedback survives list refreshes and icon-only mobile controls stay named", async () => {
+  const eventPanel = await source("components/calendar/event-panel.tsx");
+  const activityPanel = await source("components/calendar/activity-panel.tsx");
+  const settingsPanel = await source("components/calendar/settings-panel.tsx");
+
+  assert.match(
+    eventPanel,
+    /await loadEvents\(\);\s*setMessage\(editingId \? "Event updated\." : "Event added to the shared calendar\."\);/,
+  );
+  assert.match(eventPanel, /await loadEvents\(\);\s*setMessage\("Event removed\."\);/);
+  assert.match(activityPanel, /aria-label="Activity"/);
+  assert.match(settingsPanel, /aria-label="Settings"/);
+});
