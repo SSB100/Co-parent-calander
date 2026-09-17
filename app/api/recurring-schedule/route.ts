@@ -288,12 +288,14 @@ export async function POST(request: NextRequest) {
   const sql = getSql();
   const scheduleMarker = `%X-COPARENT-SCHEDULE=${scheduleId}%`;
   const statements = [];
+  const calendarId = session.calendarId;
+  const actorParticipantId = session.participantId;
 
   if (existingSchedule) {
     statements.push(sql`
       UPDATE recurring_rules
       SET active = false, updated_at = now()
-      WHERE calendar_id = ${session.calendarId}
+      WHERE calendar_id = ${calendarId}
         AND active = true
         AND rrule LIKE ${scheduleMarker}
     `);
@@ -319,13 +321,13 @@ export async function POST(request: NextRequest) {
       )
       VALUES (
         ${ruleId},
-        ${session.calendarId},
+        ${calendarId},
         ${parentId},
         ${rrule},
         ${startDate},
         ${endDate},
         true,
-        ${session.participantId},
+        ${actorParticipantId},
         now(),
         now()
       )
@@ -368,8 +370,8 @@ export async function POST(request: NextRequest) {
       after_state
     )
     VALUES (
-      ${session.calendarId},
-      ${session.participantId},
+      ${calendarId},
+      ${actorParticipantId},
       ${existingSchedule ? "recurring_schedule.update" : "recurring_schedule.create"},
       'recurring_schedule',
       NULL,
