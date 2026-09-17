@@ -13,6 +13,7 @@ import {
   normalizeAnchorDate,
   parseFortnightRuleText,
   scheduleRangesOverlap,
+  type RecurrencePeriod,
 } from "@/lib/recurrence/fortnight";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getEditorSession } from "@/lib/security/session";
@@ -22,12 +23,31 @@ const isoDate = z
   .regex(/^\d{4}-\d{2}-\d{2}$/)
   .refine((value) => !Number.isNaN(parseISO(value).getTime()), "Choose a valid date.");
 
+const scheduleSlotSchema = z
+  .union([
+    z.object({
+      morningParentId: z.string().uuid().nullable(),
+      afternoonParentId: z.string().uuid().nullable(),
+    }),
+    z.string().uuid(),
+    z.null(),
+  ])
+  .transform((value) => {
+    if (typeof value === "string") {
+      return { morningParentId: value, afternoonParentId: value };
+    }
+    if (value === null) {
+      return { morningParentId: null, afternoonParentId: null };
+    }
+    return value;
+  });
+
 const scheduleSchema = z
   .object({
     scheduleId: z.string().uuid().nullable().optional(),
     anchorDate: isoDate,
     endDate: isoDate.nullable(),
-    pattern: z.array(z.string().uuid().nullable()).length(FORTNIGHT_SLOTS),
+    pattern: z.array(scheduleSlotSchema).length(FORTNIGHT_SLOTS),
   })
   .superRefine((value, context) => {
     if (value.endDate && value.endDate < value.anchorDate) {
@@ -40,6 +60,11 @@ const scheduleSchema = z
   });
 
 const deleteSchema = z.object({ scheduleId: z.string().uuid() });
+
+type ScheduleSlot = {
+  morningParentId: string | null;
+  afternoonParentId: string | null;
+};
 
 type RuleRow = {
   id: string;
@@ -54,9 +79,16 @@ type SavedSchedule = {
   scheduleId: string;
   anchorDate: string;
   endDate: string | null;
-  pattern: Array<string | null>;
+  pattern: ScheduleSlot[];
   createdAt: string;
 };
+
+function emptyPattern() {
+  return Array.from({ length: FORTNIGHT_SLOTS }, () => ({
+    morningParentId: null,
+    afternoonParentId: null,
+  }));
+}
 
 function groupSchedules(ruleRows: RuleRow[]) {
   const grouped = new Map<string, SavedSchedule>();
@@ -69,11 +101,20 @@ function groupSchedules(ruleRows: RuleRow[]) {
       scheduleId: metadata.scheduleId,
       anchorDate: metadata.anchorDate,
       endDate: rule.endDate,
-      pattern: Array<string | null>(FORTNIGHT_SLOTS).fill(null),
+      pattern: emptyPattern(),
       createdAt: rule.createdAt.toISOString(),
     };
 
-    existing.pattern[metadata.slot] = rule.parentId;
+    const slot = existing.pattern[metadata.slot];
+    if (metadata.period === "full_day") {
+      slot.morningParentId = rule.parentId;
+      slot.afternoonParentId = rule.parentId;
+    } else if (metadata.period === "morning") {
+      slot.morningParentId = rule.parentId;
+    } else {
+      slot.afternoonParentId = rule.parentId;
+    }
+
     if (rule.endDate && (!existing.endDate || rule.endDate < existing.endDate)) {
       existing.endDate = rule.endDate;
     }
@@ -126,7 +167,10 @@ export async function GET() {
     return NextResponse.json({ error: "Editor access is required." }, { status: 401 });
   }
 
-  return NextResponse.json(await loadSchedules(session.calendarId));
+  return NextResponse.json({
+    ...(await loadSchedules(session.calendarId)),
+    currentParticipantId: session.participantId,
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -154,7 +198,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (parsed.data.pattern.every((parentId) => parentId === null)) {
+  if (
+    parsed.data.pattern.every(
+      (slot) => slot.morningParentId === null && slot.afternoonParentId === null,
+    )
+  ) {
     return NextResponse.json(
       { error: "Choose at least one repeating day before saving this schedule." },
       { status: 400 },
@@ -165,7 +213,13 @@ export async function POST(request: NextRequest) {
   const anchorDate = normalizeAnchorDate(parsed.data.anchorDate);
   const endDate = parsed.data.endDate;
   const pattern = parsed.data.pattern;
-  const selectedParentIds = [...new Set(pattern.filter((value): value is string => Boolean(value)))];
+  const selectedParentIds = [
+    ...new Set(
+      pattern.flatMap((slot) => [slot.morningParentId, slot.afternoonParentId]).filter(
+        (value): value is string => Boolean(value),
+      ),
+    ),
+  ];
   const db = getDb();
 
   const [parentRows, childRows, activeRuleRows] = await db.batch([
@@ -245,13 +299,10 @@ export async function POST(request: NextRequest) {
     `);
   }
 
-  for (let slot = 0; slot < FORTNIGHT_SLOTS; slot += 1) {
-    const parentId = pattern[slot];
-    if (!parentId) continue;
-
+  function addRule(slot: number, parentId: string, period: RecurrencePeriod) {
     const ruleId = randomUUID();
     const startDate = dateForSlot(anchorDate, slot);
-    const rrule = buildFortnightRuleText({ scheduleId, anchorDate, slot });
+    const rrule = buildFortnightRuleText({ scheduleId, anchorDate, slot, period });
 
     statements.push(sql`
       INSERT INTO recurring_rules (
@@ -289,6 +340,19 @@ export async function POST(request: NextRequest) {
         VALUES (${ruleId}, ${child.id})
       `);
     }
+  }
+
+  for (let slot = 0; slot < FORTNIGHT_SLOTS; slot += 1) {
+    const { morningParentId, afternoonParentId } = pattern[slot];
+    if (!morningParentId && !afternoonParentId) continue;
+
+    if (morningParentId && morningParentId === afternoonParentId) {
+      addRule(slot, morningParentId, "full_day");
+      continue;
+    }
+
+    if (morningParentId) addRule(slot, morningParentId, "morning");
+    if (afternoonParentId) addRule(slot, afternoonParentId, "afternoon");
   }
 
   const beforeState = JSON.stringify({ schedule: existingSchedule ?? null });
