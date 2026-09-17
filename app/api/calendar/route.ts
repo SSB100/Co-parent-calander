@@ -8,7 +8,10 @@ import {
   children,
   parentingAssignments,
   participants,
+  recurringRuleChildren,
+  recurringRules,
 } from "@/lib/db/schema";
+import { resolveRecurringAssignments } from "@/lib/recurrence/fortnight";
 import { getEditorSession } from "@/lib/security/session";
 
 const isoDate = z
@@ -90,7 +93,14 @@ export async function GET(request: Request) {
 
   const now = localDateTimeParts(calendar.timezone);
 
-  const [parentRows, childRows, assignmentRows, nextHandoverRows] = await db.batch([
+  const [
+    parentRows,
+    childRows,
+    manualAssignmentRows,
+    recurringRuleRows,
+    recurringRuleChildRows,
+    nextHandoverRows,
+  ] = await db.batch([
     db
       .select({
         id: participants.id,
@@ -122,11 +132,30 @@ export async function GET(request: Request) {
       .where(
         and(
           eq(parentingAssignments.calendarId, session.calendarId),
+          eq(parentingAssignments.source, "manual"),
           gte(parentingAssignments.assignmentDate, from),
           lte(parentingAssignments.assignmentDate, to),
         ),
       )
       .orderBy(asc(parentingAssignments.assignmentDate)),
+    db
+      .select({
+        id: recurringRules.id,
+        parentId: recurringRules.parentId,
+        startDate: recurringRules.startDate,
+        endDate: recurringRules.endDate,
+        rrule: recurringRules.rrule,
+      })
+      .from(recurringRules)
+      .where(and(eq(recurringRules.calendarId, session.calendarId), eq(recurringRules.active, true))),
+    db
+      .select({
+        ruleId: recurringRuleChildren.recurringRuleId,
+        childId: recurringRuleChildren.childId,
+      })
+      .from(recurringRuleChildren)
+      .innerJoin(recurringRules, eq(recurringRuleChildren.recurringRuleId, recurringRules.id))
+      .where(and(eq(recurringRules.calendarId, session.calendarId), eq(recurringRules.active, true))),
     db
       .select({
         date: parentingAssignments.assignmentDate,
@@ -139,6 +168,8 @@ export async function GET(request: Request) {
       .where(
         and(
           eq(parentingAssignments.calendarId, session.calendarId),
+          eq(parentingAssignments.source, "manual"),
+          isNotNull(parentingAssignments.parentId),
           isNotNull(parentingAssignments.handoverTime),
           or(
             gt(parentingAssignments.assignmentDate, now.date),
@@ -156,12 +187,21 @@ export async function GET(request: Request) {
       .limit(1),
   ]);
 
+  const assignments = resolveRecurringAssignments({
+    manualAssignments: manualAssignmentRows,
+    rules: recurringRuleRows,
+    ruleChildren: recurringRuleChildRows,
+    from,
+    to,
+  });
+
   return NextResponse.json({
     calendar,
     currentParticipantId: session.participantId,
     participants: parentRows,
     children: childRows,
-    assignments: assignmentRows,
+    assignments,
+    recurringScheduleActive: recurringRuleRows.length > 0,
     nextHandover: nextHandoverRows[0] ?? null,
   });
 }
