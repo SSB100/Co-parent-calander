@@ -24,7 +24,7 @@ type CalendarEvent = {
   id: string;
   title: string;
   description: string | null;
-  category: "school" | "sport" | "medical" | "birthday" | "holiday" | "activity" | "other";
+  category: string;
   startDate: string;
   endDate: string | null;
 };
@@ -49,7 +49,7 @@ const focusableSelector = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
 
-const categoryLabels: Record<CalendarEvent["category"], string> = {
+const categoryLabels: Record<string, string> = {
   school: "School",
   sport: "Sport",
   medical: "Medical",
@@ -59,7 +59,7 @@ const categoryLabels: Record<CalendarEvent["category"], string> = {
   other: "Other",
 };
 
-const categoryIcons: Record<CalendarEvent["category"], string> = {
+const categoryIcons: Record<string, string> = {
   school: "🏫",
   sport: "⚽",
   medical: "🩺",
@@ -69,8 +69,8 @@ const categoryIcons: Record<CalendarEvent["category"], string> = {
   other: "📌",
 };
 
-function choiceLabel(choice: OwnershipChoice, meName: string, themName: string) {
-  if (choice === "me_full") return `Full day you`;
+function choiceLabel(choice: OwnershipChoice, themName: string) {
+  if (choice === "me_full") return "Full day you";
   if (choice === "them_full") return `Full day ${themName}`;
   if (choice === "me_then_them") return `You → ${themName}`;
   if (choice === "them_then_me") return `${themName} → You`;
@@ -147,22 +147,36 @@ export function DayDetailsPanel({
   const [note, setNote] = useState(initialState.note);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [dayEvents, setDayEvents] = useState<CalendarEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
 
-  async function loadDayEvents() {
+  async function refreshDayEvents() {
     setEventsLoading(true);
     try {
       const response = await fetch(`/api/events?date=${encodeURIComponent(date)}`, { cache: "no-store" });
       const body = (await response.json().catch(() => null)) as { events?: CalendarEvent[] } | null;
-      if (response.ok) setEvents(body?.events ?? []);
+      if (response.ok) setDayEvents(body?.events ?? []);
     } finally {
       setEventsLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadDayEvents();
+    let cancelled = false;
+    fetch(`/api/events?date=${encodeURIComponent(date)}`, { cache: "no-store" })
+      .then(async (response) => ({
+        response,
+        body: (await response.json().catch(() => null)) as { events?: CalendarEvent[] } | null,
+      }))
+      .then(({ response, body }) => {
+        if (!cancelled && response.ok) setDayEvents(body?.events ?? []);
+      })
+      .finally(() => {
+        if (!cancelled) setEventsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [date]);
 
   useEffect(() => {
@@ -217,14 +231,14 @@ export function DayDetailsPanel({
   }, []);
 
   const selectedOwnership =
-    choice !== "mixed" && me && them
+    choice !== "mixed" && choice !== "unassigned" && me && them
       ? ownershipForChoice(choice, me.id, them.id)
       : choice === "unassigned"
         ? { morningParentId: null, afternoonParentId: null }
-        : null;
-  const hasAssignment = Boolean(
-    selectedOwnership?.morningParentId || selectedOwnership?.afternoonParentId,
-  );
+        : choice === "me_full" && me
+          ? { morningParentId: me.id, afternoonParentId: me.id }
+          : null;
+  const hasAssignment = Boolean(selectedOwnership?.morningParentId || selectedOwnership?.afternoonParentId);
   const detailsDisabled = choice === "mixed" || !hasAssignment;
 
   async function save() {
@@ -247,7 +261,7 @@ export function DayDetailsPanel({
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) throw new Error(body?.error ?? "That day could not be updated.");
 
-      onSaved(choice === "unassigned" ? "Day cleared." : `${choiceLabel(choice, me?.displayName ?? "You", them?.displayName ?? "them")} saved.`);
+      onSaved(choice === "unassigned" ? "Day cleared." : `${choiceLabel(choice, them?.displayName ?? "them")} saved.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "That day could not be updated.");
     } finally {
@@ -272,55 +286,23 @@ export function DayDetailsPanel({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 sm:items-center sm:p-4">
-      <section
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="day-details-title"
-        aria-describedby={error ? "day-details-error" : undefined}
-        aria-busy={submitting}
-        tabIndex={-1}
-        className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6"
-      >
+      <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="day-details-title" aria-describedby={error ? "day-details-error" : undefined} aria-busy={submitting} tabIndex={-1} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Day details</p>
             <h2 id="day-details-title" className="mt-1 text-2xl font-semibold text-slate-900">
-              {new Intl.DateTimeFormat("en-NZ", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-                timeZone: "UTC",
-              }).format(new Date(`${date}T00:00:00Z`))}
+              {new Intl.DateTimeFormat("en-NZ", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`))}
             </h2>
           </div>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            aria-label="Close day details"
-            disabled={submitting}
-            onClick={onClose}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50"
-          >
-            <X className="h-5 w-5" aria-hidden="true" />
-          </button>
+          <button ref={closeButtonRef} type="button" aria-label="Close day details" disabled={submitting} onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50"><X className="h-5 w-5" aria-hidden="true" /></button>
         </div>
 
         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Current custody</p>
-          <p className="mt-1 font-semibold text-slate-900">
-            {initialState.choice === "mixed"
-              ? "Mixed across children"
-              : choiceLabel(initialState.choice, me?.displayName ?? "You", them?.displayName ?? "them")}
-          </p>
+          <p className="mt-1 font-semibold text-slate-900">{initialState.choice === "mixed" ? "Mixed across children" : choiceLabel(initialState.choice, them?.displayName ?? "them")}</p>
         </div>
 
-        {error ? (
-          <div id="day-details-error" role="alert" className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-            {error}
-          </div>
-        ) : null}
+        {error ? <div id="day-details-error" role="alert" className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div> : null}
 
         {!readOnly ? (
           <div className="mt-6">
@@ -328,132 +310,49 @@ export function DayDetailsPanel({
             <p className="mt-1 text-xs text-slate-500">Choose the complete day state in one tap.</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2" role="group" aria-label="Custody state">
               {choices.map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  aria-pressed={choice === item.value}
-                  onClick={() => {
-                    setChoice(item.value);
-                    setError(null);
-                  }}
-                  disabled={submitting}
-                  className={`min-h-12 rounded-xl border px-3 text-sm font-semibold transition ${
-                    choice === item.value
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  {item.label}
-                </button>
+                <button key={item.value} type="button" aria-pressed={choice === item.value} onClick={() => { setChoice(item.value); setError(null); }} disabled={submitting} className={`min-h-12 rounded-xl border px-3 text-sm font-semibold transition ${choice === item.value ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>{item.label}</button>
               ))}
             </div>
           </div>
         ) : null}
 
         <div className={`mt-6 space-y-4 ${detailsDisabled || readOnly ? "opacity-60" : ""}`}>
-          <label className="block">
-            <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-              <Clock3 className="h-4 w-4" aria-hidden="true" />Handover time
-            </span>
-            <input
-              type="time"
-              value={handoverTime}
-              disabled={detailsDisabled || readOnly}
-              onChange={(event) => setHandoverTime(event.target.value)}
-              className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50"
-            />
-          </label>
-
-          <label className="block">
-            <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-              <MapPin className="h-4 w-4" aria-hidden="true" />Handover location
-            </span>
-            <input
-              type="text"
-              maxLength={120}
-              value={handoverLocation}
-              disabled={detailsDisabled || readOnly}
-              placeholder="e.g. School gate, home, rugby club"
-              onChange={(event) => setHandoverLocation(event.target.value)}
-              className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50"
-            />
-          </label>
-
-          <label className="block">
-            <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-              <StickyNote className="h-4 w-4" aria-hidden="true" />Note
-            </span>
-            <textarea
-              rows={3}
-              maxLength={500}
-              value={note}
-              disabled={detailsDisabled || readOnly}
-              placeholder="Short practical note for this day"
-              onChange={(event) => setNote(event.target.value)}
-              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50"
-            />
-          </label>
+          <label className="block"><span className="flex items-center gap-2 text-sm font-semibold text-slate-800"><Clock3 className="h-4 w-4" aria-hidden="true" />Handover time</span><input type="time" value={handoverTime} disabled={detailsDisabled || readOnly} onChange={(event) => setHandoverTime(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50" /></label>
+          <label className="block"><span className="flex items-center gap-2 text-sm font-semibold text-slate-800"><MapPin className="h-4 w-4" aria-hidden="true" />Handover location</span><input type="text" maxLength={120} value={handoverLocation} disabled={detailsDisabled || readOnly} placeholder="e.g. School gate, home, rugby club" onChange={(event) => setHandoverLocation(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50" /></label>
+          <label className="block"><span className="flex items-center gap-2 text-sm font-semibold text-slate-800"><StickyNote className="h-4 w-4" aria-hidden="true" />Note</span><textarea rows={3} maxLength={500} value={note} disabled={detailsDisabled || readOnly} placeholder="Short practical note for this day" onChange={(event) => setNote(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50" /></label>
         </div>
 
         <div className="mt-6 border-t border-slate-200 pt-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="flex items-center gap-2 font-semibold text-slate-900">
-                <CalendarDays className="h-4 w-4 text-sky-600" aria-hidden="true" />Events on this day
-              </p>
+              <p className="flex items-center gap-2 font-semibold text-slate-900"><CalendarDays className="h-4 w-4 text-sky-600" aria-hidden="true" />Events on this day</p>
               <p className="mt-1 text-xs text-slate-500">Birthdays, school events, sport, appointments and other shared plans.</p>
             </div>
-            {!readOnly ? (
-              <EventPanel
-                onChanged={() => void loadDayEvents()}
-                initialDate={date}
-                includeRangeTools={false}
-                buttonLabel="Create event"
-              />
-            ) : null}
+            {!readOnly ? <EventPanel onChanged={() => void refreshDayEvents()} initialDate={date} includeRangeTools={false} buttonLabel="Create event" /> : null}
           </div>
 
           <div className="mt-3 space-y-2">
             {eventsLoading ? (
-              <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />Loading events…
-              </div>
-            ) : events.length === 0 ? (
+              <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />Loading events…</div>
+            ) : dayEvents.length === 0 ? (
               <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">No events on this day.</p>
-            ) : (
-              events.map((event) => (
-                <div key={event.id} className="rounded-2xl border border-sky-200 bg-sky-50/70 px-4 py-3">
-                  <div className="flex items-start gap-3">
-                    <span className="text-lg" aria-hidden="true">{categoryIcons[event.category]}</span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-slate-900">{event.title}</p>
-                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-sky-700">{categoryLabels[event.category]}</span>
-                      </div>
-                      {event.description ? <p className="mt-1 text-sm leading-5 text-slate-600">{event.description}</p> : null}
-                    </div>
+            ) : dayEvents.map((event) => (
+              <div key={event.id} className="rounded-2xl border border-sky-200 bg-sky-50/70 px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-lg" aria-hidden="true">{categoryIcons[event.category] ?? "📌"}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2"><p className="font-semibold text-slate-900">{event.title}</p><span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-sky-700">{categoryLabels[event.category] ?? "Other"}</span></div>
+                    {event.description ? <p className="mt-1 text-sm leading-5 text-slate-600">{event.description}</p> : null}
                   </div>
                 </div>
-              ))
-            )}
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" disabled={submitting} onClick={onClose} className="min-h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-            Close
-          </button>
-          {!readOnly ? (
-            <button
-              type="button"
-              disabled={submitting || choice === "mixed" || !selectedOwnership}
-              onClick={() => void save()}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-            >
-              {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-              Save day
-            </button>
-          ) : null}
+          <button type="button" disabled={submitting} onClick={onClose} className="min-h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Close</button>
+          {!readOnly ? <button type="button" disabled={submitting || choice === "mixed" || !selectedOwnership} onClick={() => void save()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">{submitting ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}Save day</button> : null}
         </div>
       </section>
     </div>
