@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/security-boundaries.test.mjs tests/recurrence.test.ts",
+    "test": "tsx --test tests/security-boundaries.test.mjs tests/recurrence.test.ts tests/setup-day-regressions.test.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"
