@@ -13,7 +13,7 @@ import {
   recurringRules,
 } from "@/lib/db/schema";
 import { resolveRecurringAssignments } from "@/lib/recurrence/fortnight";
-import { getEditorSession } from "@/lib/security/session";
+import { getCalendarSession } from "@/lib/security/session";
 
 const isoDate = z
   .string()
@@ -46,8 +46,8 @@ function localDateTimeParts(timeZone: string) {
 }
 
 export async function GET(request: Request) {
-  const session = await getEditorSession();
-  if (!session) return NextResponse.json({ error: "Editor access is required." }, { status: 401 });
+  const session = await getCalendarSession();
+  if (!session) return NextResponse.json({ error: "Calendar access is required." }, { status: 401 });
 
   const url = new URL(request.url);
   const parsed = rangeSchema.safeParse({ from: url.searchParams.get("from"), to: url.searchParams.get("to") });
@@ -149,6 +149,8 @@ export async function GET(request: Request) {
   return NextResponse.json({
     calendar,
     currentParticipantId: session.participantId,
+    currentUserName: session.userName,
+    permission: session.permission,
     participants: parentRows,
     children: childRows,
     assignments,

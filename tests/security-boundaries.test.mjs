@@ -21,6 +21,7 @@ const calendarMutationRoutes = [
 ];
 const sameOriginMutationRoutes = [
   ...calendarMutationRoutes,
+  { file: "app/api/invites/route.ts", methods: ["POST", "PATCH", "DELETE"] },
   { file: "app/api/session/logout/route.ts", methods: ["POST"] },
 ];
 
@@ -64,14 +65,11 @@ test("same-origin mutation protection fails closed when Origin is missing or inv
   assert.match(text, /catch \{\s*return false;/);
 });
 
-test("read-only share links validate viewer tokens and never create editor sessions", async () => {
+test("legacy public share links now require account login", async () => {
   const text = await source("app/share/[token]/page.tsx");
 
-  assert.match(text, /eq\(accessTokens\.type,\s*["']viewer["']\)/);
-  assert.doesNotMatch(text, /createEditorSessionRecord/);
-  assert.doesNotMatch(text, /SESSION_COOKIE_NAME/);
-  assert.doesNotMatch(text, /response\.cookies\.set/);
-  assert.doesNotMatch(text, /cookies\s*\(/);
+  assert.match(text, /redirect\(["']\/auth\/sign-in["']\)/);
+  assert.doesNotMatch(text, /accessTokens/);
 });
 
 test("editor access is a separate token path that explicitly creates an editor session", async () => {
@@ -81,22 +79,26 @@ test("editor access is a separate token path that explicitly creates an editor s
   assert.match(text, /createEditorSessionRecord\s*\(/);
 });
 
-test("invalid editor links receive clear feedback after returning to preview mode", async () => {
-  const accessRoute = await source("app/access/editor/[token]/route.ts");
-  const calendarShell = await source("components/calendar/calendar-shell.tsx");
+test("account routes use managed Neon auth and protect the signed-in workspace", async () => {
+  const handler = await source("app/api/auth/[...path]/route.ts");
+  const proxy = await source("proxy.ts");
+  const session = await source("lib/security/session.ts");
 
-  assert.match(accessRoute, /new URL\(["']\/\?access=invalid["']/);
-  assert.match(calendarShell, /new URLSearchParams\(window\.location\.search\)/);
-  assert.match(calendarShell, /That editor link is invalid, expired, or revoked\./);
+  assert.match(handler, /auth\.handler\(\)/);
+  assert.match(proxy, /auth\.middleware/);
+  assert.match(proxy, /\/dashboard\/\:path\*/);
+  assert.match(proxy, /\/calendar\/\:path\*/);
+  assert.match(session, /calendarMemberships\.userId/);
+  assert.match(session, /session\.permission === ["']viewer["']/);
 });
 
-test("the public root clearly distinguishes preview data from the live calendar", async () => {
-  const calendarShell = await source("components/calendar/calendar-shell.tsx");
+test("the public root is a minimal login and signup landing page, not a calendar preview", async () => {
+  const home = await source("app/page.tsx");
 
-  assert.match(calendarShell, /Public preview/);
-  assert.match(calendarShell, /not your saved family calendar/);
-  assert.match(calendarShell, /private editor link/);
-  assert.match(calendarShell, /viewer link/);
+  assert.match(home, /\/auth\/sign-in/);
+  assert.match(home, /\/auth\/sign-up/);
+  assert.match(home, /One calendar/);
+  assert.doesNotMatch(home, /CalendarShell/);
 });
 
 test("viewer route contains no calendar mutation fetches or form actions", async () => {
@@ -105,4 +107,14 @@ test("viewer route contains no calendar mutation fetches or form actions", async
   assert.doesNotMatch(text, /fetch\s*\(\s*["']\/api\//);
   assert.doesNotMatch(text, /method\s*:\s*["'](?:POST|PATCH|PUT|DELETE)["']/);
   assert.doesNotMatch(text, /<form\b/);
+});
+
+test("calendar invite management is owner-only and uses hashed one-use codes", async () => {
+  const text = await source("app/api/invites/route.ts");
+
+  assert.match(text, /getOwnerSession\s*\(/);
+  assert.match(text, /hashToken\(normalizedCode\)/);
+  assert.match(text, /max_uses/);
+  assert.match(text, /lt\(calendarInvites\.useCount, calendarInvites\.maxUses\)/);
+  assert.match(text, /z\.enum\(\[["']editor["'], ["']viewer["']\]\)/);
 });

@@ -21,18 +21,23 @@ import {
   ChevronRight,
   Clock3,
   LoaderCircle,
+  LayoutDashboard,
+  LogOut,
   MapPin,
   RotateCcw,
   StickyNote,
   UsersRound,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityPanel } from "@/components/calendar/activity-panel";
 import { DayDetailsPanel } from "@/components/calendar/day-details-panel";
 import { EventPanel } from "@/components/calendar/event-panel";
+import { MembersPanel } from "@/components/calendar/members-panel";
 import { RecurringSchedulePanel } from "@/components/calendar/recurring-schedule-panel";
 import { SettingsPanel } from "@/components/calendar/settings-panel";
-import { SharePanel } from "@/components/calendar/share-panel";
+import { authClient } from "@/lib/auth/client";
 
 type Participant = { id: string; displayName: string; colorKey: string };
 type Child = { id: string; displayName: string };
@@ -62,7 +67,9 @@ type HandoverSummary = {
 };
 type CalendarPayload = {
   calendar: { id: string; name: string; timezone: string; shareEnabled: boolean };
-  currentParticipantId: string;
+  currentParticipantId: string | null;
+  currentUserName: string;
+  permission: "owner" | "editor" | "viewer";
   participants: Participant[];
   children: Child[];
   assignments: ApiAssignment[];
@@ -71,7 +78,7 @@ type CalendarPayload = {
   nextHandover: HandoverSummary | null;
   nextEvent: CalendarEvent | null;
 };
-type AccessMode = "checking" | "preview" | "editor" | "error";
+type AccessMode = "checking" | "viewer" | "editor" | "error";
 type Ownership = string | "mixed";
 type AssignmentMap = Record<string, Ownership>;
 type VisualStyle = { dot: string; cell: string; pill: string; button: string };
@@ -97,11 +104,6 @@ const mixedStyle: VisualStyle = {
   pill: "bg-slate-200 text-slate-700",
   button: "bg-slate-100 text-slate-700 hover:bg-slate-200",
 };
-const previewParticipants: Participant[] = [
-  { id: "preview-a", displayName: "Parent A", colorKey: "emerald" },
-  { id: "preview-b", displayName: "Parent B", colorKey: "violet" },
-];
-
 function keyFor(day: Date) {
   return format(day, "yyyy-MM-dd");
 }
@@ -134,10 +136,10 @@ function aggregateAssignments(data: CalendarPayload): AssignmentMap {
 }
 
 export function CalendarShell() {
+  const router = useRouter();
   const [currentMonth, setCurrentMonth] = useState<Date>(() => startOfMonth(new Date()));
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  const [previewAssignments, setPreviewAssignments] = useState<AssignmentMap>({});
   const [calendarData, setCalendarData] = useState<CalendarPayload | null>(null);
   const [accessMode, setAccessMode] = useState<AccessMode>("checking");
   const [saving, setSaving] = useState(false);
@@ -172,12 +174,8 @@ export function CalendarShell() {
         if (cancelled) return;
         if (response.status === 401) {
           setCalendarData(null);
-          setAccessMode("preview");
-          setMessage(
-            new URLSearchParams(window.location.search).get("access") === "invalid"
-              ? "That editor link is invalid, expired, or revoked. Ask a calendar editor for a current link."
-              : null,
-          );
+          setAccessMode("error");
+          setMessage("Your calendar access could not be confirmed. Return to your calendars and try again.");
           return;
         }
         if (!response.ok || !body || !("calendar" in body)) {
@@ -191,7 +189,7 @@ export function CalendarShell() {
           return;
         }
         setCalendarData(body);
-        setAccessMode("editor");
+        setAccessMode(body.permission === "viewer" ? "viewer" : "editor");
         setMessage(null);
       })
       .catch(() => {
@@ -206,10 +204,10 @@ export function CalendarShell() {
     };
   }, [calendarRange.from, calendarRange.to, refreshKey]);
 
-  const participants = calendarData?.participants ?? previewParticipants;
+  const participants = calendarData?.participants ?? [];
   const assignments = useMemo(
-    () => (calendarData ? aggregateAssignments(calendarData) : previewAssignments),
-    [calendarData, previewAssignments],
+    () => (calendarData ? aggregateAssignments(calendarData) : {}),
+    [calendarData],
   );
 
   const detailMarkers = useMemo(() => {
@@ -278,34 +276,17 @@ export function CalendarShell() {
       return;
     }
 
-    if (accessMode === "editor" && calendarData) {
+    if ((accessMode === "editor" || accessMode === "viewer") && calendarData) {
       setSelectedDays([]);
       setDetailsDate(key);
       return;
     }
-
-    setSelectionMode(true);
-    setSelectedDays([key]);
-    setMessage("Preview selection mode is on. Choose a parent below to try the calendar.");
   }
 
   async function applySelected(parentId: string | null) {
     if (selectedDays.length === 0 || saving) return;
 
-    if (accessMode !== "editor") {
-      setPreviewAssignments((current) => {
-        const next = { ...current };
-        for (const day of selectedDays) {
-          if (parentId) next[day] = parentId;
-          else delete next[day];
-        }
-        return next;
-      });
-      setSelectedDays([]);
-      setSelectionMode(false);
-      setMessage("Preview updated. Sign in with an editor link to save changes.");
-      return;
-    }
+    if (accessMode !== "editor") return;
 
     setSaving(true);
     setMessage(null);
@@ -365,9 +346,9 @@ export function CalendarShell() {
                   <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                   {currentEditor ? `${currentEditor.displayName} editing` : "Editor access"}
                 </span>
-              ) : accessMode === "preview" ? (
-                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
-                  Public preview
+              ) : accessMode === "viewer" ? (
+                <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">
+                  View only
                 </span>
               ) : (
                 <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">
@@ -382,31 +363,21 @@ export function CalendarShell() {
             </div>
           </div>
 
-          {accessMode === "editor" ? (
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><LayoutDashboard className="h-4 w-4" aria-hidden="true" />Calendars</Link>
+            {accessMode === "editor" ? (
+              <>
               <EventPanel onChanged={() => setRefreshKey((value) => value + 1)} />
               <RecurringSchedulePanel />
-              <SharePanel />
+              {calendarData?.permission === "owner" ? <MembersPanel /> : null}
               <ActivityPanel />
               <SettingsPanel />
-            </div>
-          ) : null}
+              </>
+            ) : null}
+            <button type="button" onClick={() => void authClient.signOut().then(() => router.push("/"))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><LogOut className="h-4 w-4" aria-hidden="true" />Log out</button>
+          </div>
         </div>
       </header>
-
-      {accessMode === "preview" ? (
-        <section
-          aria-labelledby="public-preview-title"
-          className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 sm:mb-6"
-        >
-          <p id="public-preview-title" className="text-sm font-semibold">
-            This is the public preview, not your saved family calendar.
-          </p>
-          <p className="mt-1 text-sm leading-6 text-amber-900">
-            Open your private editor link to manage the calendar, or a viewer link to see the live schedule without editing.
-          </p>
-        </section>
-      ) : null}
 
       {message ? (
         <div
@@ -517,19 +488,21 @@ export function CalendarShell() {
                 );
               })}
             </div>
-            <button
-              type="button"
-              onClick={toggleSelectionMode}
-              aria-pressed={selectionMode}
-              className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition ${
-                selectionMode
-                  ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              <CheckSquare2 className="h-4 w-4" aria-hidden="true" />
-              {selectionMode ? "Done selecting" : "Select days"}
-            </button>
+            {accessMode === "editor" ? (
+              <button
+                type="button"
+                onClick={toggleSelectionMode}
+                aria-pressed={selectionMode}
+                className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition ${
+                  selectionMode
+                    ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <CheckSquare2 className="h-4 w-4" aria-hidden="true" />
+                {selectionMode ? "Done selecting" : "Select days"}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={goToday}
@@ -546,7 +519,7 @@ export function CalendarShell() {
               ? "Selection mode: tap any dates you want to update together, then choose a parent or Clear below."
               : accessMode === "editor"
                 ? "Tap a day to edit its parent, handover details and note. Use Select days for bulk changes."
-                : "Try the calendar layout below. Preview changes stay only in this browser and are not part of your saved schedule."}
+                : "View the shared schedule and tap a day to see its handover details and note."}
           </p>
 
           <div className="grid grid-cols-7 gap-1 sm:gap-2" role="grid" aria-label={format(currentMonth, "MMMM yyyy")}>
@@ -634,7 +607,7 @@ export function CalendarShell() {
         </div>
       </section>
 
-      {selectionMode && selectedDays.length > 0 ? (
+      {accessMode === "editor" && selectionMode && selectedDays.length > 0 ? (
         <div className="sticky bottom-3 z-20 mx-auto mt-4 flex max-w-4xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur sm:flex-row sm:items-center sm:justify-between">
           <div className="px-1">
             <p className="font-semibold text-slate-900" role="status" aria-live="polite" aria-atomic="true">
@@ -684,6 +657,7 @@ export function CalendarShell() {
           participants={calendarData.participants}
           assignments={calendarData.assignments}
           activeChildCount={calendarData.children.length}
+          readOnly={accessMode === "viewer"}
           onClose={() => setDetailsDate(null)}
           onSaved={(savedMessage) => {
             setDetailsDate(null);
@@ -697,7 +671,7 @@ export function CalendarShell() {
       <p className="mx-auto mt-5 max-w-2xl text-center text-xs leading-5 text-slate-400">
         {accessMode === "editor"
           ? `Changes are saved to the shared calendar${calendarData?.children.length ? ` for ${calendarData.children.length} active ${calendarData.children.length === 1 ? "child" : "children"}` : ""}.`
-          : "Your live calendar is private. Use a secure editor or viewer link to access it."}
+          : "You have view-only access. Ask the calendar owner if you need editing permission."}
       </p>
     </main>
   );
