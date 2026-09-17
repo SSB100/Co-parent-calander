@@ -2,10 +2,12 @@ import { randomUUID } from "node:crypto";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { and, asc, eq, gte, isNotNull, lte, or } from "drizzle-orm";
 import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb, getSql } from "@/lib/db";
 import { events } from "@/lib/db/schema";
+import { buildCalendarSyncJobStatement, expandGoogleSyncRange } from "@/lib/google-calendar/outbox";
+import { processDueGoogleSyncJobs } from "@/lib/google-calendar/queue";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession, getEditorSession } from "@/lib/security/session";
 
@@ -74,14 +76,25 @@ export async function POST(request: NextRequest) {
   const data = parsed.data;
   const afterState = JSON.stringify({ id, ...data });
   const sql = getSql();
+  const syncRange = expandGoogleSyncRange(data.startDate, data.endDate ?? data.startDate);
   try {
     await sql.transaction([
       sql`INSERT INTO events (id, calendar_id, start_date, end_date, title, description, category, created_by, updated_at) VALUES (${id}, ${session.calendarId}, ${data.startDate}, ${data.endDate}, ${data.title}, ${data.description}, ${data.category}, ${session.participantId}, now())`,
       sql`INSERT INTO audit_log (calendar_id, actor_participant_id, action, entity_type, entity_id, after_state) VALUES (${session.calendarId}, ${session.participantId}, 'event.create', 'event', ${id}, ${afterState}::jsonb)`,
+      buildCalendarSyncJobStatement(sql, {
+        calendarId: session.calendarId,
+        rangeStart: syncRange.from,
+        rangeEnd: syncRange.to,
+      }),
     ]);
   } catch {
     return NextResponse.json({ error: "The event could not be saved." }, { status: 409 });
   }
+  after(async () => {
+    try {
+      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
+    } catch {}
+  });
   return NextResponse.json({ ok: true, id });
 }
 
@@ -100,14 +113,30 @@ export async function PATCH(request: NextRequest) {
   const beforeState = JSON.stringify(existing[0]);
   const afterState = JSON.stringify({ id, ...data });
   const sql = getSql();
+  const oldEnd = existing[0].endDate ?? existing[0].startDate;
+  const newEnd = data.endDate ?? data.startDate;
+  const syncRange = expandGoogleSyncRange(
+    [existing[0].startDate, data.startDate].sort()[0],
+    [oldEnd, newEnd].sort().at(-1)!,
+  );
   try {
     await sql.transaction([
       sql`UPDATE events SET start_date = ${data.startDate}, end_date = ${data.endDate}, title = ${data.title}, description = ${data.description}, category = ${data.category}, updated_at = now() WHERE id = ${id} AND calendar_id = ${session.calendarId}`,
       sql`INSERT INTO audit_log (calendar_id, actor_participant_id, action, entity_type, entity_id, before_state, after_state) VALUES (${session.calendarId}, ${session.participantId}, 'event.update', 'event', ${id}, ${beforeState}::jsonb, ${afterState}::jsonb)`,
+      buildCalendarSyncJobStatement(sql, {
+        calendarId: session.calendarId,
+        rangeStart: syncRange.from,
+        rangeEnd: syncRange.to,
+      }),
     ]);
   } catch {
     return NextResponse.json({ error: "The event could not be updated." }, { status: 409 });
   }
+  after(async () => {
+    try {
+      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
+    } catch {}
+  });
   return NextResponse.json({ ok: true, id });
 }
 
@@ -124,13 +153,27 @@ export async function DELETE(request: NextRequest) {
 
   const beforeState = JSON.stringify(existing[0]);
   const sql = getSql();
+  const syncRange = expandGoogleSyncRange(
+    existing[0].startDate,
+    existing[0].endDate ?? existing[0].startDate,
+  );
   try {
     await sql.transaction([
       sql`DELETE FROM events WHERE id = ${parsed.data.id} AND calendar_id = ${session.calendarId}`,
       sql`INSERT INTO audit_log (calendar_id, actor_participant_id, action, entity_type, entity_id, before_state) VALUES (${session.calendarId}, ${session.participantId}, 'event.delete', 'event', ${parsed.data.id}, ${beforeState}::jsonb)`,
+      buildCalendarSyncJobStatement(sql, {
+        calendarId: session.calendarId,
+        rangeStart: syncRange.from,
+        rangeEnd: syncRange.to,
+      }),
     ]);
   } catch {
     return NextResponse.json({ error: "The event could not be deleted." }, { status: 409 });
   }
+  after(async () => {
+    try {
+      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
+    } catch {}
+  });
   return NextResponse.json({ ok: true });
 }

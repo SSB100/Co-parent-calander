@@ -1,3 +1,4 @@
+import { addDays, format, parseISO } from "date-fns";
 import { getSql } from "@/lib/db";
 
 export type CalendarSyncJobType = "range" | "full" | "reconcile";
@@ -40,4 +41,11 @@ export function buildCalendarSyncJobStatement(
     WHERE connection.calendar_id = ${input.calendarId}
       AND connection.status IN ('initial_sync', 'active', 'error')
   `;
+}
+
+export function expandGoogleSyncRange(start: string, end = start) {
+  return {
+    from: format(addDays(parseISO(start), -1), "yyyy-MM-dd"),
+    to: format(addDays(parseISO(end), 1), "yyyy-MM-dd"),
+  };
 }
