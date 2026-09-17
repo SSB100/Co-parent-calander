@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - "build/**"
+      - "feature/**"
   pull_request:
 
 jobs:
@@ -30,6 +31,9 @@ jobs:
 
       - name: Tests
         run: npm test
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high
 
       - name: Build
         run: npm run build
