@@ -103,21 +103,28 @@ type ParentingGroup = {
   childIds: string[];
   morningParentId: string | null;
   afternoonParentId: string | null;
+  note: string | null;
 };
 
-function parentingGroupsForDate(rows: MappingAssignment[], children: MappingChild[]) {
+function parentingGroupsForDate(
+  rows: MappingAssignment[],
+  children: MappingChild[],
+  includeNotes: boolean,
+) {
   const grouped = new Map<string, ParentingGroup>();
   for (const child of children) {
     const row = rows.find((item) => item.childId === child.id);
     const morningParentId = row?.morningParentId ?? null;
     const afternoonParentId = row?.afternoonParentId ?? null;
     if (!morningParentId && !afternoonParentId) continue;
-    const state = `${morningParentId ?? "none"}:${afternoonParentId ?? "none"}`;
+    const note = includeNotes ? row?.note?.trim() || null : null;
+    const state = `${morningParentId ?? "none"}:${afternoonParentId ?? "none"}:${note ?? ""}`;
     const existing = grouped.get(state) ?? {
       identity: state,
       childIds: [],
       morningParentId,
       afternoonParentId,
+      note,
     };
     existing.childIds.push(child.id);
     grouped.set(state, existing);
@@ -167,7 +174,7 @@ export function buildParentingGoogleEvents(input: {
       rangeEnd: segment.end,
       body: {
         summary: `Parenting — ${childPrefix}${stateLabel}`,
-        description: MANAGED_NOTICE,
+        description: descriptionWithOptionalNote(segment.note, input.settings.syncSharedNotes),
         start: { date: segment.start },
         end: { date: googleAllDayExclusiveEnd(segment.end) },
       },
@@ -180,7 +187,11 @@ export function buildParentingGoogleEvents(input: {
       active = new Map();
     }
 
-    const groups = parentingGroupsForDate(byDate.get(date) ?? [], input.children);
+    const groups = parentingGroupsForDate(
+      byDate.get(date) ?? [],
+      input.children,
+      input.settings.syncSharedNotes,
+    );
     const currentIds = new Set(groups.map((group) => group.identity));
     for (const [identity, segment] of active) {
       if (!currentIds.has(identity)) {
@@ -232,8 +243,8 @@ export function buildHandoverGoogleEvents(input: {
       assignment.handoverTime.slice(0, 5),
       assignment.morningParentId ?? "none",
       assignment.afternoonParentId ?? "none",
-      assignment.handoverLocation ?? "",
-      assignment.note ?? "",
+      input.settings.syncLocations ? assignment.handoverLocation ?? "" : "",
+      input.settings.syncSharedNotes ? assignment.note?.trim() ?? "" : "",
     ].join("|");
     const rows = grouped.get(key) ?? [];
     rows.push(assignment);

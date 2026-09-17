@@ -168,6 +168,70 @@ test("handover mapping uses calendar timezone and a 30 minute duration", () => {
   assert.equal(hiddenLocation[0].body.location, undefined);
 });
 
+test("disabled private handover fields cannot split otherwise identical child events", () => {
+  const rows = [
+    assignment(childA, "2026-09-18", parentA, parentB, {
+      handoverTime: "15:45:00",
+      handoverLocation: "Gate A",
+      note: "Private note A",
+    }),
+    assignment(childB, "2026-09-18", parentA, parentB, {
+      handoverTime: "15:45:00",
+      handoverLocation: "Gate B",
+      note: "Private note B",
+    }),
+  ];
+
+  const privateResult = buildHandoverGoogleEvents({
+    parents,
+    children,
+    assignments: rows,
+    settings: { ...settings, syncLocations: false, syncSharedNotes: false },
+    timeZone: "Pacific/Auckland",
+  });
+  assert.equal(privateResult.length, 1);
+  assert.equal(privateResult[0].body.location, undefined);
+  assert.doesNotMatch(privateResult[0].body.description, /Private note/);
+  assert.equal(privateResult[0].body.summary, "Handover — Alex to Jordan");
+
+  const sharedResult = buildHandoverGoogleEvents({
+    parents,
+    children,
+    assignments: rows,
+    settings: { ...settings, syncLocations: true, syncSharedNotes: true },
+    timeZone: "Pacific/Auckland",
+  });
+  assert.equal(sharedResult.length, 2);
+  assert.ok(sharedResult.some((event) => event.body.summary.includes("Sam:")));
+  assert.ok(sharedResult.some((event) => event.body.summary.includes("Riley:")));
+});
+
+test("assignment notes affect parenting blocks only when note syncing is enabled", () => {
+  const rows = [
+    assignment(childA, "2026-09-18", parentA, parentA, { note: "Sam note" }),
+    assignment(childB, "2026-09-18", parentA, parentA, { note: "Riley note" }),
+  ];
+
+  const hidden = buildParentingGoogleEvents({
+    parents,
+    children,
+    assignments: rows,
+    settings,
+  });
+  assert.equal(hidden.length, 1);
+  assert.doesNotMatch(hidden[0].body.description, /Sam note|Riley note/);
+
+  const visible = buildParentingGoogleEvents({
+    parents,
+    children,
+    assignments: rows,
+    settings: { ...settings, syncSharedNotes: true },
+  });
+  assert.equal(visible.length, 2);
+  assert.ok(visible.some((event) => event.body.description.includes("Sam note")));
+  assert.ok(visible.some((event) => event.body.description.includes("Riley note")));
+});
+
 test("shared events stay all-day and notes sync only when explicitly enabled", () => {
   const event = {
     id: "33333333-3333-4333-8333-333333333333",
