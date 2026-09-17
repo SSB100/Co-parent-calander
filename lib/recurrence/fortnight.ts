@@ -33,7 +33,8 @@ export type ManualAssignment = {
   id: string;
   childId: string;
   date: string;
-  parentId: string | null;
+  morningParentId: string | null;
+  afternoonParentId: string | null;
   handoverTime: string | null;
   handoverLocation: string | null;
   note: string | null;
@@ -43,7 +44,8 @@ export type ResolvedAssignment = {
   id: string;
   childId: string;
   date: string;
-  parentId: string;
+  morningParentId: string | null;
+  afternoonParentId: string | null;
   handoverTime: string | null;
   handoverLocation: string | null;
   note: string | null;
@@ -57,6 +59,17 @@ export function normalizeAnchorDate(value: string) {
 
 export function dateForSlot(anchorDate: string, slot: number) {
   return format(addDays(parseISO(anchorDate), slot), "yyyy-MM-dd");
+}
+
+export function scheduleRangesOverlap(
+  firstStart: string,
+  firstEnd: string | null,
+  secondStart: string,
+  secondEnd: string | null,
+) {
+  const firstFinishesBeforeSecond = firstEnd !== null && firstEnd < secondStart;
+  const secondFinishesBeforeFirst = secondEnd !== null && secondEnd < firstStart;
+  return !firstFinishesBeforeSecond && !secondFinishesBeforeFirst;
 }
 
 export function buildFortnightRuleText({
@@ -147,7 +160,8 @@ export function resolveRecurringAssignments({
           id: `recurring:${rule.id}:${childId}:${date}`,
           childId,
           date,
-          parentId: rule.parentId,
+          morningParentId: rule.parentId,
+          afternoonParentId: rule.parentId,
           handoverTime: null,
           handoverLocation: null,
           note: null,
@@ -162,14 +176,13 @@ export function resolveRecurringAssignments({
 
   for (const assignment of manualAssignments) {
     const key = `${assignment.childId}:${assignment.date}`;
-    if (!assignment.parentId) {
+    if (!assignment.morningParentId && !assignment.afternoonParentId) {
       resolved.delete(key);
       continue;
     }
 
     resolved.set(key, {
       ...assignment,
-      parentId: assignment.parentId,
       source: "manual",
       recurringRuleId: null,
     });

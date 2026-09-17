@@ -80,7 +80,8 @@ export async function GET(request: Request) {
       id: parentingAssignments.id,
       childId: parentingAssignments.childId,
       date: parentingAssignments.assignmentDate,
-      parentId: parentingAssignments.parentId,
+      morningParentId: parentingAssignments.parentId,
+      afternoonParentId: parentingAssignments.afternoonParentId,
       handoverTime: parentingAssignments.handoverTime,
       handoverLocation: parentingAssignments.handoverLocation,
       note: parentingAssignments.note,
@@ -110,7 +111,8 @@ export async function GET(request: Request) {
       .orderBy(asc(events.startDate)),
     db.select({
       date: parentingAssignments.assignmentDate,
-      parentId: parentingAssignments.parentId,
+      morningParentId: parentingAssignments.parentId,
+      afternoonParentId: parentingAssignments.afternoonParentId,
       handoverTime: parentingAssignments.handoverTime,
       handoverLocation: parentingAssignments.handoverLocation,
       note: parentingAssignments.note,
@@ -119,7 +121,10 @@ export async function GET(request: Request) {
       .where(and(
         eq(parentingAssignments.calendarId, session.calendarId),
         eq(parentingAssignments.source, "manual"),
-        isNotNull(parentingAssignments.parentId),
+        or(
+          isNotNull(parentingAssignments.parentId),
+          isNotNull(parentingAssignments.afternoonParentId),
+        ),
         isNotNull(parentingAssignments.handoverTime),
         or(
           gt(parentingAssignments.assignmentDate, now.date),

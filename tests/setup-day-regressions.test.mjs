@@ -31,19 +31,21 @@ test("setup keeps one-time bootstrap validation, editor links, transaction, and 
   assert.match(text, /calendar\.setup_completed/);
 });
 
-test("day-detail edits keep validation, manual override, clear semantics, transaction, and audit behavior", async () => {
+test("day-detail edits keep validation, scoped half-day overrides, transaction, and audit behavior", async () => {
   const text = await source("app/api/assignment-details/route.ts");
 
   assert.match(text, /regex\(\/\^\\d\{4\}-\\d\{2\}-\\d\{2\}\$\//);
   assert.match(text, /Choose a valid handover time\./);
   assert.match(text, /max\(120,\s*["']Keep the handover location under 120 characters\.["']\)/);
   assert.match(text, /max\(500,\s*["']Keep the note under 500 characters\.["']\)/);
-  assert.match(text, /Assign the day to a parent before adding handover details or a note\./);
+  assert.match(text, /Assign at least one half of the day before adding handover details or a note\./);
+  assert.match(text, /z\.enum\(\["full_day", "morning", "afternoon"\]\)/);
 
   assert.match(text, /eq\(children\.active,\s*true\)/);
   assert.match(text, /Add at least one child before editing a calendar day\./);
   assert.match(text, /'manual'/);
   assert.match(text, /recurring_rule_id\s*=\s*NULL/);
+  assert.match(text, /afternoon_parent_id/);
   assert.match(text, /assignment\.details_update/);
   assert.match(text, /assignment\.single_clear/);
   assert.match(text, /before_state/);

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { parseISO } from "date-fns";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -12,6 +12,7 @@ import {
   FORTNIGHT_SLOTS,
   normalizeAnchorDate,
   parseFortnightRuleText,
+  scheduleRangesOverlap,
 } from "@/lib/recurrence/fortnight";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getEditorSession } from "@/lib/security/session";
@@ -23,6 +24,7 @@ const isoDate = z
 
 const scheduleSchema = z
   .object({
+    scheduleId: z.string().uuid().nullable().optional(),
     anchorDate: isoDate,
     endDate: isoDate.nullable(),
     pattern: z.array(z.string().uuid().nullable()).length(FORTNIGHT_SLOTS),
@@ -37,7 +39,56 @@ const scheduleSchema = z
     }
   });
 
-async function loadSchedule(calendarId: string) {
+const deleteSchema = z.object({ scheduleId: z.string().uuid() });
+
+type RuleRow = {
+  id: string;
+  parentId: string;
+  rrule: string;
+  startDate: string;
+  endDate: string | null;
+  createdAt: Date;
+};
+
+type SavedSchedule = {
+  scheduleId: string;
+  anchorDate: string;
+  endDate: string | null;
+  pattern: Array<string | null>;
+  createdAt: string;
+};
+
+function groupSchedules(ruleRows: RuleRow[]) {
+  const grouped = new Map<string, SavedSchedule>();
+
+  for (const rule of ruleRows) {
+    const metadata = parseFortnightRuleText(rule.rrule);
+    if (!metadata) continue;
+
+    const existing = grouped.get(metadata.scheduleId) ?? {
+      scheduleId: metadata.scheduleId,
+      anchorDate: metadata.anchorDate,
+      endDate: rule.endDate,
+      pattern: Array<string | null>(FORTNIGHT_SLOTS).fill(null),
+      createdAt: rule.createdAt.toISOString(),
+    };
+
+    existing.pattern[metadata.slot] = rule.parentId;
+    if (rule.endDate && (!existing.endDate || rule.endDate < existing.endDate)) {
+      existing.endDate = rule.endDate;
+    }
+    if (rule.createdAt.toISOString() < existing.createdAt) {
+      existing.createdAt = rule.createdAt.toISOString();
+    }
+    grouped.set(metadata.scheduleId, existing);
+  }
+
+  return [...grouped.values()].sort(
+    (a, b) => a.anchorDate.localeCompare(b.anchorDate) || a.createdAt.localeCompare(b.createdAt),
+  );
+}
+
+async function loadSchedules(calendarId: string) {
   const db = getDb();
   const [parentRows, ruleRows] = await db.batch([
     db
@@ -60,40 +111,11 @@ async function loadSchedule(calendarId: string) {
       })
       .from(recurringRules)
       .where(and(eq(recurringRules.calendarId, calendarId), eq(recurringRules.active, true)))
-      .orderBy(desc(recurringRules.createdAt)),
+      .orderBy(asc(recurringRules.startDate), desc(recurringRules.createdAt)),
   ]);
 
-  const parsedRules = ruleRows
-    .map((rule) => ({ rule, metadata: parseFortnightRuleText(rule.rrule) }))
-    .filter(
-      (item): item is typeof item & { metadata: NonNullable<typeof item.metadata> } =>
-        item.metadata !== null,
-    );
-
-  const latest = parsedRules[0];
-  if (!latest) {
-    return {
-      active: false,
-      anchorDate: normalizeAnchorDate(new Date().toISOString().slice(0, 10)),
-      endDate: null,
-      pattern: Array<string | null>(FORTNIGHT_SLOTS).fill(null),
-      participants: parentRows,
-    };
-  }
-
-  const scheduleId = latest.metadata.scheduleId;
-  const pattern = Array<string | null>(FORTNIGHT_SLOTS).fill(null);
-  for (const item of parsedRules) {
-    if (item.metadata.scheduleId !== scheduleId) continue;
-    pattern[item.metadata.slot] = item.rule.parentId;
-  }
-
   return {
-    active: true,
-    scheduleId,
-    anchorDate: latest.metadata.anchorDate,
-    endDate: latest.rule.endDate,
-    pattern,
+    schedules: groupSchedules(ruleRows),
     participants: parentRows,
   };
 }
@@ -104,7 +126,7 @@ export async function GET() {
     return NextResponse.json({ error: "Editor access is required." }, { status: 401 });
   }
 
-  return NextResponse.json(await loadSchedule(session.calendarId));
+  return NextResponse.json(await loadSchedules(session.calendarId));
 }
 
 export async function POST(request: NextRequest) {
@@ -134,18 +156,19 @@ export async function POST(request: NextRequest) {
 
   if (parsed.data.pattern.every((parentId) => parentId === null)) {
     return NextResponse.json(
-      { error: "Choose at least one repeating day, or turn the repeating schedule off." },
+      { error: "Choose at least one repeating day before saving this schedule." },
       { status: 400 },
     );
   }
 
+  const scheduleId = parsed.data.scheduleId ?? randomUUID();
   const anchorDate = normalizeAnchorDate(parsed.data.anchorDate);
   const endDate = parsed.data.endDate;
   const pattern = parsed.data.pattern;
   const selectedParentIds = [...new Set(pattern.filter((value): value is string => Boolean(value)))];
   const db = getDb();
 
-  const [parentRows, childRows, beforeRuleRows] = await db.batch([
+  const [parentRows, childRows, activeRuleRows] = await db.batch([
     db
       .select({ id: participants.id })
       .from(participants)
@@ -167,6 +190,7 @@ export async function POST(request: NextRequest) {
         rrule: recurringRules.rrule,
         startDate: recurringRules.startDate,
         endDate: recurringRules.endDate,
+        createdAt: recurringRules.createdAt,
       })
       .from(recurringRules)
       .where(and(eq(recurringRules.calendarId, session.calendarId), eq(recurringRules.active, true))),
@@ -186,21 +210,40 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const scheduleId = randomUUID();
+  const savedSchedules = groupSchedules(activeRuleRows);
+  const existingSchedule = savedSchedules.find((schedule) => schedule.scheduleId === scheduleId);
+  if (parsed.data.scheduleId && !existingSchedule) {
+    return NextResponse.json({ error: "That saved schedule could not be found." }, { status: 404 });
+  }
+
+  const conflict = savedSchedules.find(
+    (schedule) =>
+      schedule.scheduleId !== scheduleId &&
+      scheduleRangesOverlap(anchorDate, endDate, schedule.anchorDate, schedule.endDate),
+  );
+  if (conflict) {
+    return NextResponse.json(
+      {
+        error:
+          "This schedule overlaps another saved schedule. End the earlier schedule before the new one starts, or move this schedule's start date.",
+      },
+      { status: 409 },
+    );
+  }
+
   const sql = getSql();
-  const statements = [
-    sql`
-      DELETE FROM parenting_assignments
-      WHERE calendar_id = ${session.calendarId}
-        AND source = 'recurring'
-    `,
-    sql`
+  const scheduleMarker = `%X-COPARENT-SCHEDULE=${scheduleId}%`;
+  const statements = [];
+
+  if (existingSchedule) {
+    statements.push(sql`
       UPDATE recurring_rules
       SET active = false, updated_at = now()
       WHERE calendar_id = ${session.calendarId}
         AND active = true
-    `,
-  ];
+        AND rrule LIKE ${scheduleMarker}
+    `);
+  }
 
   for (let slot = 0; slot < FORTNIGHT_SLOTS; slot += 1) {
     const parentId = pattern[slot];
@@ -248,7 +291,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const beforeState = JSON.stringify({ rules: beforeRuleRows });
+  const beforeState = JSON.stringify({ schedule: existingSchedule ?? null });
   const afterState = JSON.stringify({ scheduleId, anchorDate, endDate, pattern });
   statements.push(sql`
     INSERT INTO audit_log (
@@ -263,7 +306,7 @@ export async function POST(request: NextRequest) {
     VALUES (
       ${session.calendarId},
       ${session.participantId},
-      'recurring_schedule.replace',
+      ${existingSchedule ? "recurring_schedule.update" : "recurring_schedule.create"},
       'recurring_schedule',
       NULL,
       ${beforeState}::jsonb,
@@ -282,7 +325,6 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    active: true,
     scheduleId,
     anchorDate,
     endDate,
@@ -300,20 +342,47 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Editor access is required." }, { status: 401 });
   }
 
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Choose a saved schedule to delete." }, { status: 400 });
+  }
+
+  const parsed = deleteSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Choose a valid saved schedule." }, { status: 400 });
+  }
+
+  const { scheduleId } = parsed.data;
   const db = getDb();
-  const beforeRuleRows = await db
+  const scheduleMarker = `%X-COPARENT-SCHEDULE=${scheduleId}%`;
+  const ruleRows = await db
     .select({
       id: recurringRules.id,
       parentId: recurringRules.parentId,
       rrule: recurringRules.rrule,
       startDate: recurringRules.startDate,
       endDate: recurringRules.endDate,
+      createdAt: recurringRules.createdAt,
     })
     .from(recurringRules)
-    .where(and(eq(recurringRules.calendarId, session.calendarId), eq(recurringRules.active, true)));
+    .where(
+      and(
+        eq(recurringRules.calendarId, session.calendarId),
+        eq(recurringRules.active, true),
+        like(recurringRules.rrule, scheduleMarker),
+      ),
+    );
 
+  if (ruleRows.length === 0) {
+    return NextResponse.json({ error: "That saved schedule could not be found." }, { status: 404 });
+  }
+
+  const beforeState = JSON.stringify({ schedules: groupSchedules(ruleRows) });
   const sql = getSql();
-  const beforeState = JSON.stringify({ rules: beforeRuleRows });
+  const ruleIds = ruleRows.map((rule) => rule.id);
+  const ruleIdArray = `{${ruleIds.join(",")}}`;
 
   try {
     await sql.transaction([
@@ -321,12 +390,14 @@ export async function DELETE(request: NextRequest) {
         DELETE FROM parenting_assignments
         WHERE calendar_id = ${session.calendarId}
           AND source = 'recurring'
+          AND recurring_rule_id = ANY(${ruleIdArray}::uuid[])
       `,
       sql`
         UPDATE recurring_rules
         SET active = false, updated_at = now()
         WHERE calendar_id = ${session.calendarId}
           AND active = true
+          AND rrule LIKE ${scheduleMarker}
       `,
       sql`
         INSERT INTO audit_log (
@@ -341,20 +412,20 @@ export async function DELETE(request: NextRequest) {
         VALUES (
           ${session.calendarId},
           ${session.participantId},
-          'recurring_schedule.disable',
+          'recurring_schedule.delete',
           'recurring_schedule',
           NULL,
           ${beforeState}::jsonb,
-          '{"active":false}'::jsonb
+          ${JSON.stringify({ scheduleId, deleted: true })}::jsonb
         )
       `,
     ]);
   } catch {
     return NextResponse.json(
-      { error: "The repeating schedule could not be turned off." },
+      { error: "That saved schedule could not be deleted." },
       { status: 409 },
     );
   }
 
-  return NextResponse.json({ ok: true, active: false });
+  return NextResponse.json({ ok: true, scheduleId });
 }

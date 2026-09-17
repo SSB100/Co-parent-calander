@@ -11,11 +11,15 @@ type Participant = {
 type AssignmentRow = {
   childId: string;
   date: string;
-  parentId: string;
+  morningParentId: string | null;
+  afternoonParentId: string | null;
   handoverTime: string | null;
   handoverLocation: string | null;
   note: string | null;
 };
+
+type AssignmentPeriod = "full_day" | "morning" | "afternoon";
+type SlotValue = string | null | "";
 
 type DayDetailsPanelProps = {
   date: string;
@@ -35,6 +39,12 @@ const focusableSelector = [
   "textarea:not([disabled])",
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
+
+const periodLabels: Record<AssignmentPeriod, string> = {
+  full_day: "Full day",
+  morning: "Morning",
+  afternoon: "Afternoon",
+};
 
 export function DayDetailsPanel({
   date,
@@ -56,14 +66,24 @@ export function DayDetailsPanel({
   );
 
   const initialState = useMemo(() => {
-    const parentIds = new Set(dayAssignments.map((assignment) => assignment.parentId));
-    const isComplete = dayAssignments.length === activeChildCount;
-    const isMixed = dayAssignments.length > 0 && (!isComplete || parentIds.size !== 1);
-    const parentId = isMixed
-      ? ""
-      : parentIds.size === 1
-        ? [...parentIds][0]
-        : null;
+    const slotValue = (field: "morningParentId" | "afternoonParentId"): SlotValue => {
+      const values: Array<string | null> = dayAssignments.map(
+        (assignment) => assignment[field] ?? null,
+      );
+      while (values.length < activeChildCount) values.push(null);
+      if (values.length === 0) return null;
+      const unique = new Set(values);
+      return unique.size === 1 ? values[0] : "";
+    };
+
+    const morningParentId = slotValue("morningParentId");
+    const afternoonParentId = slotValue("afternoonParentId");
+    const fullDayParentId: SlotValue =
+      morningParentId !== "" &&
+      afternoonParentId !== "" &&
+      morningParentId === afternoonParentId
+        ? morningParentId
+        : "";
 
     const commonValue = <K extends "handoverTime" | "handoverLocation" | "note">(key: K) => {
       if (dayAssignments.length === 0) return null;
@@ -72,15 +92,21 @@ export function DayDetailsPanel({
     };
 
     return {
-      isMixed,
-      parentId,
+      isMixed:
+        morningParentId === "" ||
+        afternoonParentId === "" ||
+        morningParentId !== afternoonParentId,
+      fullDayParentId,
+      morningParentId,
+      afternoonParentId,
       handoverTime: commonValue("handoverTime")?.slice(0, 5) ?? "",
       handoverLocation: commonValue("handoverLocation") ?? "",
       note: commonValue("note") ?? "",
     };
   }, [activeChildCount, dayAssignments]);
 
-  const [parentId, setParentId] = useState<string | null | "">(initialState.parentId);
+  const [period, setPeriod] = useState<AssignmentPeriod>("full_day");
+  const [parentId, setParentId] = useState<SlotValue>(initialState.fullDayParentId);
   const [handoverTime, setHandoverTime] = useState(initialState.handoverTime);
   const [handoverLocation, setHandoverLocation] = useState(initialState.handoverLocation);
   const [note, setNote] = useState(initialState.note);
@@ -142,6 +168,31 @@ export function DayDetailsPanel({
     };
   }, []);
 
+  function labelForSlot(value: SlotValue) {
+    if (value === "") return "Mixed";
+    if (value === null) return "Unassigned";
+    return participants.find((participant) => participant.id === value)?.displayName ?? "Assigned";
+  }
+
+  function choosePeriod(nextPeriod: AssignmentPeriod) {
+    setPeriod(nextPeriod);
+    if (nextPeriod === "full_day") setParentId(initialState.fullDayParentId);
+    if (nextPeriod === "morning") setParentId(initialState.morningParentId);
+    if (nextPeriod === "afternoon") setParentId(initialState.afternoonParentId);
+    setError(null);
+  }
+
+  const otherHalfHasAssignment =
+    period === "morning"
+      ? initialState.afternoonParentId !== null
+      : period === "afternoon"
+        ? initialState.morningParentId !== null
+        : false;
+  const projectedAnyAssignment =
+    parentId !== "" &&
+    (period === "full_day" ? parentId !== null : parentId !== null || otherHalfHasAssignment);
+  const detailsDisabled = !projectedAnyAssignment;
+
   async function save() {
     if (parentId === "" || submitting) return;
 
@@ -154,10 +205,12 @@ export function DayDetailsPanel({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           date,
+          period,
           parentId,
-          handoverTime: parentId && handoverTime ? handoverTime : null,
-          handoverLocation: parentId && handoverLocation ? handoverLocation : null,
-          note: parentId && note ? note : null,
+          handoverTime: projectedAnyAssignment && handoverTime ? handoverTime : null,
+          handoverLocation:
+            projectedAnyAssignment && handoverLocation ? handoverLocation : null,
+          note: projectedAnyAssignment && note ? note : null,
         }),
       });
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -166,15 +219,19 @@ export function DayDetailsPanel({
         throw new Error(body?.error ?? "That day could not be updated.");
       }
 
-      onSaved(parentId ? "Day details saved." : "Day cleared.");
+      if (parentId) {
+        onSaved(`${periodLabels[period]} assignment saved.`);
+      } else if (period === "full_day") {
+        onSaved("Day cleared.");
+      } else {
+        onSaved(`${periodLabels[period]} cleared.`);
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "That day could not be updated.");
     } finally {
       setSubmitting(false);
     }
   }
-
-  const detailsDisabled = !parentId;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 sm:items-center sm:p-4">
@@ -213,9 +270,20 @@ export function DayDetailsPanel({
           </button>
         </div>
 
+        <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
+          <div>
+            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Morning</span>
+            <span className="mt-1 block font-semibold text-slate-800">{labelForSlot(initialState.morningParentId)}</span>
+          </div>
+          <div>
+            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Afternoon</span>
+            <span className="mt-1 block font-semibold text-slate-800">{labelForSlot(initialState.afternoonParentId)}</span>
+          </div>
+        </div>
+
         {initialState.isMixed ? (
-          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-            The children currently have different assignments on this day. Choose a parent below to apply one shared assignment to all active children.
+          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+            This day is split or mixed. Choose Full day, Morning or Afternoon so you only change the part you intend to update.
           </div>
         ) : null}
 
@@ -230,7 +298,29 @@ export function DayDetailsPanel({
         ) : null}
 
         <div className="mt-6">
-          <p className="text-sm font-semibold text-slate-800">Who has the children?</p>
+          <p className="text-sm font-semibold text-slate-800">Which part of the day?</p>
+          <div className="mt-2 grid grid-cols-3 gap-2" role="group" aria-label="Assignment period">
+            {(Object.keys(periodLabels) as AssignmentPeriod[]).map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={period === value}
+                onClick={() => choosePeriod(value)}
+                disabled={submitting}
+                className={`min-h-11 rounded-xl border px-2 text-sm font-semibold transition ${
+                  period === value
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {periodLabels[value]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <p className="text-sm font-semibold text-slate-800">Who has this time?</p>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
             {participants.slice(0, 2).map((participant) => (
               <button
@@ -325,14 +415,16 @@ export function DayDetailsPanel({
           >
             {readOnly ? "Close" : "Cancel"}
           </button>
-          {!readOnly ? <button
-            type="button"
-            disabled={parentId === "" || submitting}
-            onClick={() => void save()}
-            className="min-h-12 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submitting ? "Saving…" : "Save day"}
-          </button> : null}
+          {!readOnly ? (
+            <button
+              type="button"
+              disabled={parentId === "" || submitting}
+              onClick={() => void save()}
+              className="min-h-12 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitting ? "Saving…" : `Save ${periodLabels[period].toLowerCase()}`}
+            </button>
+          ) : null}
         </div>
       </section>
     </div>
