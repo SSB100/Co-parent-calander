@@ -58,7 +58,39 @@ export function GoogleCalendarSettings() {
   }
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+
+    fetch("/api/google-calendar", { cache: "no-store" })
+      .then(async (response) => {
+        const body = (await response.json().catch(() => null)) as Payload | { error?: string } | null;
+        if (!response.ok || !body || !("configured" in body)) {
+          throw new Error(
+            body && "error" in body
+              ? body.error
+              : "Google Calendar settings could not be loaded.",
+          );
+        }
+        if (!cancelled) {
+          setPayload(body);
+          setDraft(body.connection);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Google Calendar settings could not be loaded.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const connection = payload?.connection ?? null;
