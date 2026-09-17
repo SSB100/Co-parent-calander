@@ -8,7 +8,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RangeAssignmentPanel } from "@/components/calendar/range-assignment-panel";
 
 type EventCategory =
@@ -39,6 +39,15 @@ const categoryLabels: Record<EventCategory, string> = {
   other: "Other",
 };
 
+const focusableSelector = [
+  "button:not([disabled])",
+  "a[href]",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
 function blankForm() {
   return {
     title: "",
@@ -50,6 +59,9 @@ function blankForm() {
 }
 
 export function EventPanel({ onChanged }: { onChanged?: () => void }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const savingRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -57,6 +69,59 @@ export function EventPanel({ onChanged }: { onChanged?: () => void }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(blankForm);
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    savingRef.current = saving;
+  }, [saving]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeButtonRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+
+      if (event.key === "Escape") {
+        if (!savingRef.current) {
+          event.preventDefault();
+          setOpen(false);
+        }
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+        (element) => element.getClientRects().length > 0,
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && (active === first || !dialog.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [open]);
 
   async function loadEvents() {
     setLoading(true);
@@ -168,9 +233,13 @@ export function EventPanel({ onChanged }: { onChanged?: () => void }) {
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 p-0 backdrop-blur-sm sm:items-center sm:p-6">
           <section
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="event-panel-title"
+            aria-describedby="event-panel-description"
+            aria-busy={loading || saving}
+            tabIndex={-1}
             className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6"
           >
             <div className="flex items-start justify-between gap-4">
@@ -181,15 +250,17 @@ export function EventPanel({ onChanged }: { onChanged?: () => void }) {
                 <h2 id="event-panel-title" className="text-xl font-semibold text-slate-900">
                   {editingId ? "Edit event" : "Add a shared event"}
                 </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-500">
+                <p id="event-panel-description" className="mt-1 text-sm leading-6 text-slate-500">
                   Add school dates, sport, appointments, birthdays, holidays or anything both parents should see.
                 </p>
               </div>
               <button
+                ref={closeButtonRef}
                 type="button"
                 aria-label="Close event panel"
+                disabled={saving}
                 onClick={() => setOpen(false)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
@@ -281,7 +352,9 @@ export function EventPanel({ onChanged }: { onChanged?: () => void }) {
             </div>
 
             {message ? (
-              <p className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">{message}</p>
+              <p role="status" aria-live="polite" className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
+                {message}
+              </p>
             ) : null}
 
             <div className="mt-6 border-t border-slate-200 pt-5">
