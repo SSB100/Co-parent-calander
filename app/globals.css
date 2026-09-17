@@ -41,6 +41,26 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
+/* Custody colours should be obvious at a glance without relying on labels.
+   Keep labels in accessible names/day details, but use stronger colour fills
+   in the month grid and repeating-schedule preview. */
+button[role="gridcell"] .absolute.bg-emerald-100,
+[aria-labelledby="repeat-title"] .absolute.bg-emerald-100 {
+  background-color: rgb(52 211 153) !important;
+}
+
+button[role="gridcell"] .absolute.bg-violet-100,
+[aria-labelledby="repeat-title"] .absolute.bg-violet-100 {
+  background-color: rgb(167 139 250) !important;
+}
+
+/* The month view stays deliberately minimal: date, custody colour, events and
+   detail markers only. Parent/swap wording remains available in aria-labels
+   and after opening the day. */
+button[role="gridcell"] > div.inline-flex.rounded-full {
+  display: none !important;
+}
+
 /* Split custody days are stored as first-half/second-half ownership, but
    visually read more clearly side-by-side: first parent on the left and
    second parent on the right. These selectors intentionally override the
@@ -72,6 +92,28 @@ select:focus-visible {
   height: auto !important;
   border-top-width: 0 !important;
   border-left-width: 1px !important;
+}
+
+/* Make bulk custody choices use the same stronger visual language as the
+   calendar, including left/right split gradients. */
+main:has(> section [role="grid"]) > div.sticky button.bg-emerald-100 {
+  background-color: rgb(16 185 129) !important;
+  color: white !important;
+}
+
+main:has(> section [role="grid"]) > div.sticky button.bg-violet-100 {
+  background-color: rgb(139 92 246) !important;
+  color: white !important;
+}
+
+main:has(> section [role="grid"]) > div.sticky button[class*="from-emerald-100"][class*="to-violet-100"] {
+  background-image: linear-gradient(to right, rgb(16 185 129) 0 50%, rgb(139 92 246) 50% 100%) !important;
+  color: white !important;
+}
+
+main:has(> section [role="grid"]) > div.sticky button[class*="from-violet-100"][class*="to-emerald-100"] {
+  background-image: linear-gradient(to right, rgb(139 92 246) 0 50%, rgb(16 185 129) 50% 100%) !important;
+  color: white !important;
 }
 
 /* On phones, make the calendar the first thing visible. Calendar-specific
@@ -112,5 +154,47 @@ select:focus-visible {
 
   main:has(> section [role="grid"]) > p {
     order: 6;
+  }
+
+  /* Secondary calendar/account actions become a predictable two-column grid
+     instead of uneven wrapped buttons. */
+  main:has(> section [role="grid"]) > header > div > div:last-child {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem !important;
+    width: 100%;
+  }
+
+  main:has(> section [role="grid"]) > header > div > div:last-child > a,
+  main:has(> section [role="grid"]) > header > div > div:last-child > button {
+    width: 100%;
+    min-height: 2.75rem !important;
+    min-width: 0;
+    justify-content: center;
+    padding-left: 0.65rem !important;
+    padding-right: 0.65rem !important;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  /* Calendar controls stay visually separate from account actions: legend on
+     its own row, then equal-width Select days / Today buttons. */
+  main:has(> section [role="grid"]) > section:has([role="grid"]) > div:first-child > div:last-child {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem !important;
+    width: 100%;
+  }
+
+  main:has(> section [role="grid"]) > section:has([role="grid"]) > div:first-child > div:last-child > div:first-child {
+    grid-column: 1 / -1;
+    justify-content: center;
+    margin-right: 0 !important;
+  }
+
+  main:has(> section [role="grid"]) > section:has([role="grid"]) > div:first-child > div:last-child > button {
+    width: 100%;
+    min-height: 2.75rem !important;
+    justify-content: center;
   }
 }
