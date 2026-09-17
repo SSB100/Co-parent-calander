@@ -33,3 +33,6 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          NEON_AUTH_BASE_URL: https://build-only.invalid/auth
+          NEON_AUTH_COOKIE_SECRET: build-only-cookie-secret-not-for-runtime
