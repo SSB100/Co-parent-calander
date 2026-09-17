@@ -50,6 +50,10 @@ test("calendar UI keeps split colours but exposes direct custody states instead 
   assert.match(styles, /width: 50% !important/);
   assert.match(styles, /left: 50% !important/);
   assert.match(styles, /border-left-width: 1px !important/);
+  assert.match(styles, /button\[role="gridcell"\] > div\.inline-flex\.rounded-full/);
+  assert.match(styles, /background-color: rgb\(52 211 153\) !important/);
+  assert.match(styles, /background-color: rgb\(167 139 250\) !important/);
+  assert.match(styles, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
 
   assert.match(panel, /Full day you/);
   assert.match(panel, /them_full/);
