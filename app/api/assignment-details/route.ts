@@ -144,10 +144,42 @@ export async function PATCH(request: NextRequest) {
   const statements = childRows.map((child) => {
     if (!parentId) {
       return sql`
-        DELETE FROM parenting_assignments
-        WHERE calendar_id = ${session.calendarId}
-          AND child_id = ${child.id}
-          AND assignment_date = ${date}
+        INSERT INTO parenting_assignments (
+          calendar_id,
+          child_id,
+          assignment_date,
+          parent_id,
+          source,
+          recurring_rule_id,
+          handover_time,
+          handover_location,
+          note,
+          created_by,
+          updated_at
+        )
+        VALUES (
+          ${session.calendarId},
+          ${child.id},
+          ${date},
+          NULL,
+          'manual',
+          NULL,
+          NULL,
+          NULL,
+          NULL,
+          ${session.participantId},
+          now()
+        )
+        ON CONFLICT (calendar_id, child_id, assignment_date)
+        DO UPDATE SET
+          parent_id = NULL,
+          source = 'manual',
+          recurring_rule_id = NULL,
+          handover_time = NULL,
+          handover_location = NULL,
+          note = NULL,
+          created_by = EXCLUDED.created_by,
+          updated_at = now()
       `;
     }
 

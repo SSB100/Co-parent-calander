@@ -22,7 +22,10 @@ import {
   children,
   parentingAssignments,
   participants,
+  recurringRuleChildren,
+  recurringRules,
 } from "@/lib/db/schema";
+import { resolveRecurringAssignments } from "@/lib/recurrence/fortnight";
 import { hashToken, looksLikeSecureToken } from "@/lib/security/tokens";
 
 type PageProps = {
@@ -93,7 +96,13 @@ export default async function SharedCalendarPage({ params, searchParams }: PageP
   const from = format(gridStart, "yyyy-MM-dd");
   const to = format(gridEnd, "yyyy-MM-dd");
 
-  const [parentRows, childRows, assignmentRows] = await db.batch([
+  const [
+    parentRows,
+    childRows,
+    manualAssignmentRows,
+    recurringRuleRows,
+    recurringRuleChildRows,
+  ] = await db.batch([
     db
       .select({
         id: participants.id,
@@ -108,6 +117,7 @@ export default async function SharedCalendarPage({ params, searchParams }: PageP
       .where(and(eq(children.calendarId, access.calendarId), eq(children.active, true))),
     db
       .select({
+        id: parentingAssignments.id,
         date: parentingAssignments.assignmentDate,
         childId: parentingAssignments.childId,
         parentId: parentingAssignments.parentId,
@@ -119,17 +129,44 @@ export default async function SharedCalendarPage({ params, searchParams }: PageP
       .where(
         and(
           eq(parentingAssignments.calendarId, access.calendarId),
+          eq(parentingAssignments.source, "manual"),
           gte(parentingAssignments.assignmentDate, from),
           lte(parentingAssignments.assignmentDate, to),
         ),
       )
       .orderBy(asc(parentingAssignments.assignmentDate)),
+    db
+      .select({
+        id: recurringRules.id,
+        parentId: recurringRules.parentId,
+        startDate: recurringRules.startDate,
+        endDate: recurringRules.endDate,
+        rrule: recurringRules.rrule,
+      })
+      .from(recurringRules)
+      .where(and(eq(recurringRules.calendarId, access.calendarId), eq(recurringRules.active, true))),
+    db
+      .select({
+        ruleId: recurringRuleChildren.recurringRuleId,
+        childId: recurringRuleChildren.childId,
+      })
+      .from(recurringRuleChildren)
+      .innerJoin(recurringRules, eq(recurringRuleChildren.recurringRuleId, recurringRules.id))
+      .where(and(eq(recurringRules.calendarId, access.calendarId), eq(recurringRules.active, true))),
   ]);
 
   await db
     .update(accessTokens)
     .set({ lastUsedAt: now })
     .where(eq(accessTokens.id, access.tokenId));
+
+  const assignmentRows = resolveRecurringAssignments({
+    manualAssignments: manualAssignmentRows,
+    rules: recurringRuleRows,
+    ruleChildren: recurringRuleChildRows,
+    from,
+    to,
+  });
 
   const byDate = new Map<string, { parentIds: Set<string>; childIds: Set<string> }>();
   for (const assignment of assignmentRows) {

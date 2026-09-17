@@ -163,9 +163,7 @@ export const parentingAssignments = pgTable(
       .notNull()
       .references(() => children.id, { onDelete: "cascade" }),
     assignmentDate: date("assignment_date", { mode: "string" }).notNull(),
-    parentId: uuid("parent_id")
-      .notNull()
-      .references(() => participants.id, { onDelete: "restrict" }),
+    parentId: uuid("parent_id").references(() => participants.id, { onDelete: "restrict" }),
     source: assignmentSource("source").notNull().default("manual"),
     recurringRuleId: uuid("recurring_rule_id").references(() => recurringRules.id, {
       onDelete: "set null",
