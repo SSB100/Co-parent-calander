@@ -1,7 +1,7 @@
 "use client";
 
 import { Clock3, MapPin, StickyNote, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Participant = {
   id: string;
@@ -26,6 +26,15 @@ type DayDetailsPanelProps = {
   onSaved: (message: string) => void;
 };
 
+const focusableSelector = [
+  "button:not([disabled])",
+  "a[href]",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
 export function DayDetailsPanel({
   date,
   participants,
@@ -34,6 +43,11 @@ export function DayDetailsPanel({
   onClose,
   onSaved,
 }: DayDetailsPanelProps) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+  const submittingRef = useRef(false);
+
   const dayAssignments = useMemo(
     () => assignments.filter((assignment) => assignment.date === date),
     [assignments, date],
@@ -70,6 +84,61 @@ export function DayDetailsPanel({
   const [note, setNote] = useState(initialState.note);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    submittingRef.current = submitting;
+  }, [submitting]);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeButtonRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+
+      if (event.key === "Escape") {
+        if (!submittingRef.current) {
+          event.preventDefault();
+          onCloseRef.current();
+        }
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+        (element) => element.getClientRects().length > 0,
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && (active === first || !dialog.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, []);
 
   async function save() {
     if (parentId === "" || submitting) return;
@@ -108,9 +177,13 @@ export function DayDetailsPanel({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 sm:items-center sm:p-4">
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="day-details-title"
+        aria-describedby={error ? "day-details-error" : undefined}
+        aria-busy={submitting}
+        tabIndex={-1}
         className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6"
       >
         <div className="flex items-start justify-between gap-4">
@@ -127,10 +200,12 @@ export function DayDetailsPanel({
             </h2>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             aria-label="Close day details"
+            disabled={submitting}
             onClick={onClose}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -143,7 +218,11 @@ export function DayDetailsPanel({
         ) : null}
 
         {error ? (
-          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          <div
+            id="day-details-error"
+            role="alert"
+            className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+          >
             {error}
           </div>
         ) : null}
@@ -155,6 +234,7 @@ export function DayDetailsPanel({
               <button
                 key={participant.id}
                 type="button"
+                aria-pressed={parentId === participant.id}
                 onClick={() => setParentId(participant.id)}
                 className={`min-h-12 rounded-xl border px-4 text-sm font-semibold transition ${
                   parentId === participant.id
@@ -167,6 +247,7 @@ export function DayDetailsPanel({
             ))}
             <button
               type="button"
+              aria-pressed={parentId === null}
               onClick={() => setParentId(null)}
               className={`min-h-12 rounded-xl border px-4 text-sm font-semibold transition ${
                 parentId === null
