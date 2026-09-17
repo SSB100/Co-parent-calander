@@ -15,6 +15,7 @@ type Participant = {
 type SchedulePayload = {
   active: boolean;
   anchorDate: string;
+  endDate: string | null;
   pattern: Array<string | null>;
   participants: Participant[];
 };
@@ -30,7 +31,12 @@ function cellClasses(participants: Participant[], parentId: string | null) {
   return "border-slate-200 bg-white text-slate-500 hover:bg-slate-50";
 }
 
-function previewCellClasses(participants: Participant[], parentId: string | null) {
+function previewCellClasses(
+  participants: Participant[],
+  parentId: string | null,
+  ended: boolean,
+) {
+  if (ended) return "border-slate-200 bg-slate-100 text-slate-400";
   const index = participants.findIndex((participant) => participant.id === parentId);
   if (index === 0) return "border-emerald-100 bg-emerald-50 text-emerald-900";
   if (index === 1) return "border-violet-100 bg-violet-50 text-violet-900";
@@ -44,6 +50,7 @@ export function RecurringSchedulePanel() {
   const [active, setActive] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [anchorDate, setAnchorDate] = useState(defaultAnchorDate);
+  const [endDate, setEndDate] = useState("");
   const [pattern, setPattern] = useState<Array<string | null>>(
     Array<string | null>(14).fill(null),
   );
@@ -58,13 +65,16 @@ export function RecurringSchedulePanel() {
       Array.from({ length: 7 }, (_, dayIndex) => {
         const offset = weekIndex * 7 + dayIndex;
         const date = addDays(monday, offset);
+        const dateKey = format(date, "yyyy-MM-dd");
+        const ended = Boolean(endDate && dateKey > endDate);
         return {
           date,
-          parentId: pattern[offset % 14] ?? null,
+          parentId: ended ? null : (pattern[offset % 14] ?? null),
+          ended,
         };
       }),
     );
-  }, [anchorDate, pattern]);
+  }, [anchorDate, endDate, pattern]);
 
   async function openPanel() {
     setOpen(true);
@@ -89,6 +99,7 @@ export function RecurringSchedulePanel() {
       setActive(body.active);
       setParticipants(body.participants.slice(0, 2));
       setAnchorDate(body.anchorDate || defaultAnchorDate());
+      setEndDate(body.endDate ?? "");
       setPattern(body.pattern.length === 14 ? body.pattern : Array<string | null>(14).fill(null));
     } catch (error) {
       setMessage(
@@ -146,10 +157,10 @@ export function RecurringSchedulePanel() {
       const response = await fetch("/api/recurring-schedule", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ anchorDate, pattern }),
+        body: JSON.stringify({ anchorDate, endDate: endDate || null, pattern }),
       });
       const body = (await response.json().catch(() => null)) as
-        | { error?: string; anchorDate?: string }
+        | { error?: string; anchorDate?: string; endDate?: string | null }
         | null;
       if (!response.ok) {
         throw new Error(body?.error ?? "The repeating schedule could not be saved.");
@@ -157,6 +168,7 @@ export function RecurringSchedulePanel() {
 
       setActive(true);
       if (body?.anchorDate) setAnchorDate(body.anchorDate);
+      setEndDate(body?.endDate ?? "");
       setMessage("Repeating schedule saved. Manual day changes will still override it.");
       window.setTimeout(() => window.location.reload(), 650);
     } catch (error) {
@@ -181,6 +193,7 @@ export function RecurringSchedulePanel() {
       }
 
       setActive(false);
+      setEndDate("");
       setPattern(Array<string | null>(14).fill(null));
       setMessage("Repeating schedule turned off. Manual calendar days are unchanged.");
       window.setTimeout(() => window.location.reload(), 650);
@@ -241,7 +254,7 @@ export function RecurringSchedulePanel() {
               </div>
             ) : (
               <>
-                <div className="mt-6 flex flex-wrap items-end justify-between gap-3">
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   <label className="block">
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       First week starts
@@ -251,13 +264,32 @@ export function RecurringSchedulePanel() {
                       value={anchorDate}
                       disabled={saving}
                       onChange={(event) => setAnchorDate(event.target.value)}
-                      className="mt-2 min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                      className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                     />
                     <span className="mt-1 block text-xs text-slate-400">
                       We align the pattern to the Monday of this week.
                     </span>
                   </label>
 
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      End date
+                    </span>
+                    <input
+                      type="date"
+                      value={endDate}
+                      min={anchorDate}
+                      disabled={saving}
+                      onChange={(event) => setEndDate(event.target.value)}
+                      className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    />
+                    <span className="mt-1 block text-xs text-slate-400">
+                      Optional. Leave blank to keep repeating indefinitely.
+                    </span>
+                  </label>
+                </div>
+
+                <div className="mt-3 flex justify-end">
                   <span
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
                       active
@@ -343,7 +375,9 @@ export function RecurringSchedulePanel() {
                       </p>
                       <p className="mt-1 text-sm font-semibold text-slate-900">Next four weeks</p>
                     </div>
-                    <p className="text-xs text-slate-500">Pattern repeats every 2 weeks</p>
+                    <p className="text-xs text-slate-500">
+                      {endDate ? `Stops after ${format(parseISO(endDate), "d MMM yyyy")}` : "Pattern repeats every 2 weeks"}
+                    </p>
                   </div>
 
                   <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase text-slate-400 sm:text-xs">
@@ -359,13 +393,14 @@ export function RecurringSchedulePanel() {
                             className={`min-h-14 rounded-lg border px-1 py-1.5 text-center sm:min-h-16 ${previewCellClasses(
                               participants,
                               item.parentId,
+                              item.ended,
                             )}`}
                           >
                             <span className="block text-[10px] font-semibold opacity-70 sm:text-xs">
                               {format(item.date, "d MMM")}
                             </span>
                             <span className="mt-1 block truncate text-[9px] font-semibold sm:text-[11px]">
-                              {labelFor(item.parentId)}
+                              {item.ended ? "Ended" : labelFor(item.parentId)}
                             </span>
                           </div>
                         ))}
