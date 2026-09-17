@@ -85,18 +85,9 @@ test("legacy fortnight rules without period metadata remain full-day rules", () 
 });
 
 test("schedule range overlap allows a future schedule after the current one ends", () => {
-  assert.equal(
-    scheduleRangesOverlap("2026-09-14", "2026-10-31", "2026-11-01", null),
-    false,
-  );
-  assert.equal(
-    scheduleRangesOverlap("2026-09-14", "2026-10-31", "2026-10-31", "2026-12-31"),
-    true,
-  );
-  assert.equal(
-    scheduleRangesOverlap("2026-09-14", null, "2026-11-01", "2026-12-31"),
-    true,
-  );
+  assert.equal(scheduleRangesOverlap("2026-09-14", "2026-10-31", "2026-11-01", null), false);
+  assert.equal(scheduleRangesOverlap("2026-09-14", "2026-10-31", "2026-10-31", "2026-12-31"), true);
+  assert.equal(scheduleRangesOverlap("2026-09-14", null, "2026-11-01", "2026-12-31"), true);
 });
 
 test("recurring assignments fill both morning and afternoon every fourteen days", () => {
@@ -110,12 +101,7 @@ test("recurring assignments fill both morning and afternoon every fourteen days"
   });
 
   assert.deepEqual(
-    result.map((assignment) => [
-      assignment.date,
-      assignment.morningParentId,
-      assignment.afternoonParentId,
-      assignment.source,
-    ]),
+    result.map((assignment) => [assignment.date, assignment.morningParentId, assignment.afternoonParentId, assignment.source]),
     [
       ["2026-09-14", parentA, parentA, "recurring"],
       ["2026-09-28", parentA, parentA, "recurring"],
@@ -184,10 +170,7 @@ test("multiple non-overlapping recurring schedules resolve into one calendar ran
   const result = resolveRecurringAssignments({
     manualAssignments: [],
     rules: [first, second],
-    ruleChildren: [
-      ...links(first.id, childA),
-      ...links(second.id, childA),
-    ],
+    ruleChildren: [...links(first.id, childA), ...links(second.id, childA)],
     from: "2026-09-14",
     to: "2026-10-12",
   });
@@ -277,10 +260,7 @@ test("one rule resolves independently for every linked child", () => {
     to: "2026-09-14",
   });
 
-  assert.deepEqual(
-    result.map((assignment) => assignment.childId).sort(),
-    [childA, childB].sort(),
-  );
+  assert.deepEqual(result.map((assignment) => assignment.childId).sort(), [childA, childB].sort());
 });
 
 test("recurring schedule API stores multiple schedule groups and half-day ownership", async () => {
@@ -302,14 +282,19 @@ test("recurring schedule API stores multiple schedule groups and half-day owners
   assert.match(text, /recurring_schedule\.delete/);
 });
 
-test("schedule UI uses the five-state full and split day cycle", async () => {
+test("schedule UI uses the five-state full and split day cycle without AM/PM controls", async () => {
   const text = await readFile(path.join(root, "components/calendar/recurring-schedule-panel.tsx"), "utf8");
 
   assert.match(text, /Saved schedules/);
   assert.match(text, /New schedule/);
   assert.match(text, /editSchedule\(schedule\)/);
   assert.match(text, /deleteSchedule\(schedule\)/);
-  assert.match(text, /full day you, full day the other parent, you AM \/ them PM, them AM \/ you PM, then unassigned/i);
+  assert.match(text, /Full day You/);
+  assert.match(text, /Full day Them/);
+  assert.match(text, /You → Them/);
+  assert.match(text, /Them → You/);
+  assert.match(text, /Unassigned/);
+  assert.doesNotMatch(text, /you AM \/ them PM/i);
   assert.match(text, /fullDaySlot\(me\.id\)/);
   assert.match(text, /morningParentId: me\.id, afternoonParentId: otherParent\.id/);
   assert.match(text, /morningParentId: otherParent\.id, afternoonParentId: me\.id/);

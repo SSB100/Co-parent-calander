@@ -23,7 +23,10 @@ test("event CRUD keeps validation, calendar scoping, transaction, and audit guar
   assert.match(text, /const editSchema = eventFields\.extend\(\{ id: z\.string\(\)\.uuid\(\) \}\)/);
   assert.match(text, /const deleteSchema = z\.object\(\{ id: z\.string\(\)\.uuid\(\) \}\)/);
 
+  assert.match(text, /getCalendarSession\(\)/);
+  assert.match(text, /getEditorSession\(\)/);
   assert.match(text, /eq\(events\.calendarId, session\.calendarId\)/);
+  assert.match(text, /request\.nextUrl\.searchParams\.get\("date"\)/);
   assert.match(text, /event\.create/);
   assert.match(text, /event\.update/);
   assert.match(text, /event\.delete/);
@@ -46,16 +49,20 @@ test("account sharing keeps permission choice, code rotation, revoke, and one-us
   assert.match(text, /revokedAt: new Date\(\)/);
 });
 
-test("event feedback survives list refreshes and icon-only mobile controls stay named", async () => {
+test("event creation is explicit and day details surface matching events", async () => {
   const eventPanel = await source("components/calendar/event-panel.tsx");
+  const dayPanel = await source("components/calendar/day-details-panel.tsx");
   const activityPanel = await source("components/calendar/activity-panel.tsx");
   const settingsPanel = await source("components/calendar/settings-panel.tsx");
 
-  assert.match(
-    eventPanel,
-    /await loadEvents\(\);\s*setMessage\(editingId \? "Event updated\." : "Event added to the shared calendar\."\);/,
-  );
-  assert.match(eventPanel, /await loadEvents\(\);\s*setMessage\("Event removed\."\);/);
+  assert.match(eventPanel, /Create event/);
+  assert.match(eventPanel, /Birthday/);
+  assert.match(eventPanel, /School/);
+  assert.match(eventPanel, /await loadEvents\(\)/);
+  assert.match(eventPanel, /setMessage\(wasEditing \? "Event updated\." : "Event added to the shared calendar\."\)/);
+  assert.match(eventPanel, /setMessage\("Event removed\."\)/);
+  assert.match(dayPanel, /Events on this day/);
+  assert.match(dayPanel, /\/api\/events\?date=/);
   assert.match(activityPanel, /aria-label="Activity"/);
   assert.match(settingsPanel, /aria-label="Settings"/);
 });

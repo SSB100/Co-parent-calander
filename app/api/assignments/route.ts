@@ -14,11 +14,27 @@ const isoDate = z
   .regex(/^\d{4}-\d{2}-\d{2}$/)
   .refine((value) => !Number.isNaN(parseISO(value).getTime()), "Invalid date");
 
-const mutationSchema = z.object({
-  dates: z.array(isoDate).min(1).max(62),
-  parentId: z.string().uuid().nullable(),
-  period: z.enum(["full_day", "morning", "afternoon"]).default("full_day"),
+const ownershipSchema = z.object({
+  morningParentId: z.string().uuid().nullable(),
+  afternoonParentId: z.string().uuid().nullable(),
 });
+
+const mutationSchema = z
+  .object({
+    dates: z.array(isoDate).min(1).max(62),
+    parentId: z.string().uuid().nullable().optional(),
+    period: z.enum(["full_day", "morning", "afternoon"]).optional(),
+    ownership: ownershipSchema.optional(),
+  })
+  .superRefine((value, context) => {
+    if (!value.ownership && value.parentId === undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["ownership"],
+        message: "Choose a custody state before updating these dates.",
+      });
+    }
+  });
 
 export async function POST(request: NextRequest) {
   if (!isSameOriginMutation(request)) {
@@ -40,31 +56,42 @@ export async function POST(request: NextRequest) {
   const parsed = mutationSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Choose valid dates and a parent." },
+      { error: parsed.error.issues[0]?.message ?? "Choose valid dates and a custody state." },
       { status: 400 },
     );
   }
 
   const dates = [...new Set(parsed.data.dates)].sort();
-  const parentId = parsed.data.parentId;
-  const period = parsed.data.period;
+  const parentId = parsed.data.parentId ?? null;
+  const period = parsed.data.period ?? "full_day";
+  const ownership = parsed.data.ownership ?? null;
+  const selectedParentIds = [
+    ...new Set(
+      (ownership
+        ? [ownership.morningParentId, ownership.afternoonParentId]
+        : [parentId]
+      ).filter((value): value is string => Boolean(value)),
+    ),
+  ];
   const db = getDb();
 
-  if (parentId) {
+  if (selectedParentIds.length > 0) {
     const parentRows = await db
       .select({ id: participants.id })
       .from(participants)
       .where(
         and(
-          eq(participants.id, parentId),
           eq(participants.calendarId, session.calendarId),
           eq(participants.active, true),
+          inArray(participants.id, selectedParentIds),
         ),
-      )
-      .limit(1);
+      );
 
-    if (!parentRows[0]) {
-      return NextResponse.json({ error: "That parent is not part of this calendar." }, { status: 400 });
+    if (parentRows.length !== selectedParentIds.length) {
+      return NextResponse.json(
+        { error: "One of the selected parents is no longer part of this calendar." },
+        { status: 400 },
+      );
     }
   }
 
@@ -114,6 +141,7 @@ export async function POST(request: NextRequest) {
     childIds,
     parentId,
     period,
+    ownership,
   });
 
   const sql = getSql();
@@ -123,7 +151,10 @@ export async function POST(request: NextRequest) {
       let morningParentId = current?.morningParentId ?? null;
       let afternoonParentId = current?.afternoonParentId ?? null;
 
-      if (period === "full_day") {
+      if (ownership) {
+        morningParentId = ownership.morningParentId;
+        afternoonParentId = ownership.afternoonParentId;
+      } else if (period === "full_day") {
         morningParentId = parentId;
         afternoonParentId = parentId;
       } else if (period === "morning") {
@@ -211,6 +242,10 @@ export async function POST(request: NextRequest) {
     }),
   );
 
+  const hasAssignedOwner = ownership
+    ? Boolean(ownership.morningParentId || ownership.afternoonParentId)
+    : Boolean(parentId);
+
   statements.push(sql`
     INSERT INTO audit_log (
       calendar_id,
@@ -223,7 +258,7 @@ export async function POST(request: NextRequest) {
     VALUES (
       ${session.calendarId},
       ${session.participantId},
-      ${parentId ? "assignment.bulk_set" : "assignment.bulk_clear"},
+      ${hasAssignedOwner ? "assignment.bulk_set" : "assignment.bulk_clear"},
       'parenting_assignment_batch',
       ${beforeState}::jsonb,
       ${afterState}::jsonb
@@ -244,6 +279,7 @@ export async function POST(request: NextRequest) {
     dates,
     parentId,
     period,
+    ownership,
     affectedChildren: childRows.length,
   });
 }
