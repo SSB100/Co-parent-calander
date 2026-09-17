@@ -8,87 +8,288 @@ import {
   format,
   isSameDay,
   isSameMonth,
+  parseISO,
   startOfMonth,
   startOfWeek,
   subMonths,
 } from "date-fns";
 import {
   CalendarDays,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  LoaderCircle,
   RotateCcw,
   Settings2,
   Share2,
   UsersRound,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-type ParentKey = "a" | "b";
-type AssignmentMap = Record<string, ParentKey>;
+type Participant = {
+  id: string;
+  displayName: string;
+  colorKey: string;
+};
+
+type Child = {
+  id: string;
+  displayName: string;
+};
+
+type ApiAssignment = {
+  id: string;
+  childId: string;
+  date: string;
+  parentId: string;
+  handoverTime: string | null;
+  handoverLocation: string | null;
+  note: string | null;
+};
+
+type CalendarPayload = {
+  calendar: {
+    id: string;
+    name: string;
+    timezone: string;
+    shareEnabled: boolean;
+  };
+  currentParticipantId: string;
+  participants: Participant[];
+  children: Child[];
+  assignments: ApiAssignment[];
+};
+
+type AccessMode = "checking" | "preview" | "editor" | "error";
+type Ownership = string | "mixed";
+type AssignmentMap = Record<string, Ownership>;
+
+type VisualStyle = {
+  dot: string;
+  cell: string;
+  pill: string;
+  button: string;
+};
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const parentStyles: Record<ParentKey, { name: string; short: string; dot: string; cell: string; pill: string }> = {
-  a: {
-    name: "Parent A",
-    short: "A",
+const visualStyles: VisualStyle[] = [
+  {
     dot: "bg-emerald-500",
     cell: "border-emerald-200 bg-emerald-50",
     pill: "bg-emerald-100 text-emerald-800",
+    button: "bg-emerald-100 text-emerald-900 hover:bg-emerald-200",
   },
-  b: {
-    name: "Parent B",
-    short: "B",
+  {
     dot: "bg-violet-500",
     cell: "border-violet-200 bg-violet-50",
     pill: "bg-violet-100 text-violet-800",
+    button: "bg-violet-100 text-violet-900 hover:bg-violet-200",
   },
+];
+
+const mixedStyle: VisualStyle = {
+  dot: "bg-slate-500",
+  cell: "border-slate-300 bg-slate-100",
+  pill: "bg-slate-200 text-slate-700",
+  button: "bg-slate-100 text-slate-700 hover:bg-slate-200",
 };
+
+const previewParticipants: Participant[] = [
+  { id: "preview-a", displayName: "Parent A", colorKey: "emerald" },
+  { id: "preview-b", displayName: "Parent B", colorKey: "violet" },
+];
 
 function keyFor(day: Date) {
   return format(day, "yyyy-MM-dd");
 }
 
+function styleForParticipant(participants: Participant[], participantId: string) {
+  const index = participants.findIndex((participant) => participant.id === participantId);
+  return visualStyles[Math.max(0, index) % visualStyles.length] ?? visualStyles[0];
+}
+
+function aggregateAssignments(data: CalendarPayload): AssignmentMap {
+  const byDate = new Map<string, { parentIds: Set<string>; childIds: Set<string> }>();
+
+  for (const assignment of data.assignments) {
+    const entry = byDate.get(assignment.date) ?? {
+      parentIds: new Set<string>(),
+      childIds: new Set<string>(),
+    };
+    entry.parentIds.add(assignment.parentId);
+    entry.childIds.add(assignment.childId);
+    byDate.set(assignment.date, entry);
+  }
+
+  const result: AssignmentMap = {};
+  for (const [date, entry] of byDate) {
+    if (entry.parentIds.size === 1 && entry.childIds.size === data.children.length) {
+      result[date] = [...entry.parentIds][0];
+    } else {
+      result[date] = "mixed";
+    }
+  }
+
+  return result;
+}
+
 export function CalendarShell() {
   const [currentMonth, setCurrentMonth] = useState<Date>(() => startOfMonth(new Date()));
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  const [assignments, setAssignments] = useState<AssignmentMap>({});
+  const [previewAssignments, setPreviewAssignments] = useState<AssignmentMap>({});
+  const [calendarData, setCalendarData] = useState<CalendarPayload | null>(null);
+  const [accessMode, setAccessMode] = useState<AccessMode>("checking");
+  const [saving, setSaving] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const calendarDays = useMemo(() => {
+  const calendarRange = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 });
     const end = endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 });
-    return eachDayOfInterval({ start, end });
+    return {
+      start,
+      end,
+      from: keyFor(start),
+      to: keyFor(end),
+    };
   }, [currentMonth]);
+
+  const calendarDays = useMemo(
+    () => eachDayOfInterval({ start: calendarRange.start, end: calendarRange.end }),
+    [calendarRange],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const params = new URLSearchParams({ from: calendarRange.from, to: calendarRange.to });
+
+    fetch(`/api/calendar?${params.toString()}`, { cache: "no-store" })
+      .then(async (response) => ({
+        response,
+        body: (await response.json().catch(() => null)) as CalendarPayload | { error?: string } | null,
+      }))
+      .then(({ response, body }) => {
+        if (cancelled) return;
+
+        if (response.status === 401) {
+          setCalendarData(null);
+          setAccessMode("preview");
+          return;
+        }
+
+        if (!response.ok || !body || !("calendar" in body)) {
+          setCalendarData(null);
+          setAccessMode("error");
+          setMessage(
+            body && "error" in body && body.error
+              ? body.error
+              : "The shared calendar could not be loaded yet.",
+          );
+          return;
+        }
+
+        setCalendarData(body);
+        setAccessMode("editor");
+        setMessage(null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCalendarData(null);
+        setAccessMode("error");
+        setMessage("The shared calendar could not be loaded yet.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [calendarRange.from, calendarRange.to, refreshKey]);
+
+  const participants = calendarData?.participants ?? previewParticipants;
+  const assignments = useMemo(
+    () => (calendarData ? aggregateAssignments(calendarData) : previewAssignments),
+    [calendarData, previewAssignments],
+  );
 
   const today = new Date();
   const todayAssignment = assignments[keyFor(today)];
+  const currentEditor = calendarData?.participants.find(
+    (participant) => participant.id === calendarData.currentParticipantId,
+  );
+
+  const nextHandover = useMemo(() => {
+    if (!calendarData) return null;
+    const todayKey = keyFor(new Date());
+    return (
+      calendarData.assignments
+        .filter((assignment) => assignment.date >= todayKey && assignment.handoverTime)
+        .sort((a, b) =>
+          `${a.date}T${a.handoverTime ?? ""}`.localeCompare(`${b.date}T${b.handoverTime ?? ""}`),
+        )[0] ?? null
+    );
+  }, [calendarData]);
+
+  function ownerLabel(owner: Ownership | undefined) {
+    if (!owner) return "Not assigned yet";
+    if (owner === "mixed") return "Split between parents";
+    return participants.find((participant) => participant.id === owner)?.displayName ?? "Assigned";
+  }
+
+  function ownerStyle(owner: Ownership | undefined) {
+    if (!owner) return null;
+    if (owner === "mixed") return mixedStyle;
+    return styleForParticipant(participants, owner);
+  }
 
   function toggleDay(day: Date) {
-    if (!isSameMonth(day, currentMonth)) return;
+    if (!isSameMonth(day, currentMonth) || saving) return;
     const key = keyFor(day);
     setSelectedDays((current) =>
       current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
     );
   }
 
-  function assignSelected(parent: ParentKey) {
-    if (selectedDays.length === 0) return;
-    setAssignments((current) => {
-      const next = { ...current };
-      for (const day of selectedDays) next[day] = parent;
-      return next;
-    });
-    setSelectedDays([]);
-  }
+  async function applySelected(parentId: string | null) {
+    if (selectedDays.length === 0 || saving) return;
 
-  function clearSelected() {
-    if (selectedDays.length === 0) return;
-    setAssignments((current) => {
-      const next = { ...current };
-      for (const day of selectedDays) delete next[day];
-      return next;
-    });
-    setSelectedDays([]);
+    if (accessMode !== "editor") {
+      setPreviewAssignments((current) => {
+        const next = { ...current };
+        for (const day of selectedDays) {
+          if (parentId) next[day] = parentId;
+          else delete next[day];
+        }
+        return next;
+      });
+      setSelectedDays([]);
+      setMessage("Preview updated. Sign in with an editor link to save changes.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/assignments", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ dates: selectedDays, parentId }),
+      });
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Those dates could not be updated.");
+      }
+
+      const count = selectedDays.length;
+      setSelectedDays([]);
+      setMessage(`${count} ${count === 1 ? "day" : "days"} saved.`);
+      setRefreshKey((value) => value + 1);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Those dates could not be updated.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function goToday() {
@@ -106,11 +307,23 @@ export function CalendarShell() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-              Our Family Calendar
+              {calendarData?.calendar.name ?? "Our Family Calendar"}
             </h1>
-            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
-              Preview mode
-            </span>
+            {accessMode === "checking" ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                Checking access
+              </span>
+            ) : accessMode === "editor" ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                {currentEditor ? `${currentEditor.displayName} editing` : "Editor access"}
+              </span>
+            ) : (
+              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                Preview mode
+              </span>
+            )}
           </div>
         </div>
 
@@ -136,6 +349,12 @@ export function CalendarShell() {
         </div>
       </header>
 
+      {message ? (
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+          {message}
+        </div>
+      ) : null}
+
       <section className="mb-4 grid gap-3 sm:mb-5 sm:grid-cols-2">
         <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Today</p>
@@ -145,7 +364,7 @@ export function CalendarShell() {
             </div>
             <div>
               <p className="font-semibold text-slate-900">
-                {todayAssignment ? `With ${parentStyles[todayAssignment].name}` : "Not assigned yet"}
+                {todayAssignment ? `With ${ownerLabel(todayAssignment)}` : ownerLabel(undefined)}
               </p>
               <p className="text-sm text-slate-500">{format(today, "EEEE, d MMMM")}</p>
             </div>
@@ -154,8 +373,21 @@ export function CalendarShell() {
 
         <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Next handover</p>
-          <p className="mt-3 font-semibold text-slate-900">No handover scheduled</p>
-          <p className="mt-1 text-sm text-slate-500">Handover details will appear here when added.</p>
+          {nextHandover ? (
+            <>
+              <p className="mt-3 font-semibold text-slate-900">
+                {format(parseISO(nextHandover.date), "EEEE d MMM")} • {nextHandover.handoverTime?.slice(0, 5)}
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                {nextHandover.handoverLocation || "Location not added"}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-3 font-semibold text-slate-900">No handover scheduled</p>
+              <p className="mt-1 text-sm text-slate-500">Handover details will appear here when added.</p>
+            </>
+          )}
         </div>
       </section>
 
@@ -193,12 +425,15 @@ export function CalendarShell() {
 
           <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
             <div className="flex items-center gap-3 text-sm">
-              {(["a", "b"] as const).map((parent) => (
-                <div key={parent} className="flex items-center gap-1.5 text-slate-600">
-                  <span className={`h-2.5 w-2.5 rounded-full ${parentStyles[parent].dot}`} />
-                  {parentStyles[parent].name}
-                </div>
-              ))}
+              {participants.slice(0, 2).map((participant) => {
+                const style = styleForParticipant(participants, participant.id);
+                return (
+                  <div key={participant.id} className="flex items-center gap-1.5 text-slate-600">
+                    <span className={`h-2.5 w-2.5 rounded-full ${style.dot}`} />
+                    {participant.displayName}
+                  </div>
+                );
+              })}
             </div>
             <button
               type="button"
@@ -233,20 +468,23 @@ export function CalendarShell() {
               const selected = selectedDays.includes(key);
               const inMonth = isSameMonth(day, currentMonth);
               const isToday = isSameDay(day, today);
-              const assignedStyle = assignment ? parentStyles[assignment].cell : "border-slate-200 bg-white";
+              const style = ownerStyle(assignment);
+              const label = ownerLabel(assignment);
 
               return (
                 <button
                   key={key}
                   type="button"
                   role="gridcell"
-                  disabled={!inMonth}
+                  disabled={!inMonth || saving}
                   aria-selected={selected}
-                  aria-label={`${format(day, "EEEE d MMMM")}${assignment ? `, ${parentStyles[assignment].name}` : ", unassigned"}`}
+                  aria-label={`${format(day, "EEEE d MMMM")}, ${assignment ? label : "unassigned"}`}
                   onClick={() => toggleDay(day)}
-                  className={`relative min-h-16 rounded-xl border p-1.5 text-left transition sm:min-h-24 sm:rounded-2xl sm:p-2.5 ${assignedStyle} ${
-                    inMonth ? "hover:-translate-y-0.5 hover:shadow-sm" : "cursor-default opacity-30"
-                  } ${selected ? "ring-2 ring-blue-500 ring-offset-1" : ""}`}
+                  className={`relative min-h-16 rounded-xl border p-1.5 text-left transition sm:min-h-24 sm:rounded-2xl sm:p-2.5 ${
+                    style?.cell ?? "border-slate-200 bg-white"
+                  } ${inMonth ? "hover:-translate-y-0.5 hover:shadow-sm" : "cursor-default opacity-30"} ${
+                    selected ? "ring-2 ring-blue-500 ring-offset-1" : ""
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-1">
                     <span
@@ -263,11 +501,10 @@ export function CalendarShell() {
                     ) : null}
                   </div>
 
-                  {assignment && inMonth ? (
-                    <div className={`mt-2 inline-flex max-w-full items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold sm:text-xs ${parentStyles[assignment].pill}`}>
-                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${parentStyles[assignment].dot}`} />
-                      <span className="sm:hidden">{parentStyles[assignment].short}</span>
-                      <span className="hidden truncate sm:inline">{parentStyles[assignment].name}</span>
+                  {assignment && inMonth && style ? (
+                    <div className={`mt-2 inline-flex max-w-full items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold sm:text-xs ${style.pill}`}>
+                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${style.dot}`} />
+                      <span className="truncate">{assignment === "mixed" ? "Split" : label}</span>
                     </div>
                   ) : null}
                 </button>
@@ -278,48 +515,52 @@ export function CalendarShell() {
       </section>
 
       {selectedDays.length > 0 ? (
-        <div className="sticky bottom-3 z-20 mx-auto mt-4 flex max-w-2xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+        <div className="sticky bottom-3 z-20 mx-auto mt-4 flex max-w-3xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur sm:flex-row sm:items-center sm:justify-between">
           <div className="px-1">
             <p className="font-semibold text-slate-900">
               {selectedDays.length} {selectedDays.length === 1 ? "day" : "days"} selected
             </p>
             <button
               type="button"
+              disabled={saving}
               onClick={() => setSelectedDays([])}
-              className="text-sm font-medium text-slate-500 underline-offset-4 hover:underline"
+              className="text-sm font-medium text-slate-500 underline-offset-4 hover:underline disabled:opacity-50"
             >
               Cancel selection
             </button>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
+            {participants.slice(0, 2).map((participant) => {
+              const style = styleForParticipant(participants, participant.id);
+              return (
+                <button
+                  key={participant.id}
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void applySelected(participant.id)}
+                  className={`min-h-11 rounded-xl px-3 text-sm font-semibold transition disabled:opacity-50 ${style.button}`}
+                >
+                  {saving ? "Saving…" : participant.displayName}
+                </button>
+              );
+            })}
             <button
               type="button"
-              onClick={() => assignSelected("a")}
-              className="min-h-11 rounded-xl bg-emerald-100 px-3 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-200"
+              disabled={saving}
+              onClick={() => void applySelected(null)}
+              className="min-h-11 rounded-xl bg-slate-100 px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 disabled:opacity-50"
             >
-              Parent A
-            </button>
-            <button
-              type="button"
-              onClick={() => assignSelected("b")}
-              className="min-h-11 rounded-xl bg-violet-100 px-3 text-sm font-semibold text-violet-900 transition hover:bg-violet-200"
-            >
-              Parent B
-            </button>
-            <button
-              type="button"
-              onClick={clearSelected}
-              className="min-h-11 rounded-xl bg-slate-100 px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
-            >
-              Clear
+              {saving ? "Saving…" : "Clear"}
             </button>
           </div>
         </div>
       ) : null}
 
       <p className="mx-auto mt-5 max-w-2xl text-center text-xs leading-5 text-slate-400">
-        This checkpoint uses local preview state only. Database persistence, secure editor access and read-only sharing are the next milestones.
+        {accessMode === "editor"
+          ? `Changes are saved to the shared calendar${calendarData?.children.length ? ` for ${calendarData.children.length} active ${calendarData.children.length === 1 ? "child" : "children"}` : ""}.`
+          : "Preview changes stay on this device. A secure editor link unlocks the shared calendar."}
       </p>
     </main>
   );
