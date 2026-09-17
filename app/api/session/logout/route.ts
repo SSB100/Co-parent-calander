@@ -1,12 +1,18 @@
 import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { sessions } from "@/lib/db/schema";
+import { isSameOriginMutation } from "@/lib/security/request";
 import { SESSION_COOKIE_NAME } from "@/lib/security/session";
 import { hashToken } from "@/lib/security/tokens";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  if (!isSameOriginMutation(request)) {
+    return NextResponse.json({ error: "This request was blocked for safety." }, { status: 403 });
+  }
+
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 

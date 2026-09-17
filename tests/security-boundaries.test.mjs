@@ -19,8 +19,12 @@ const calendarMutationRoutes = [
   { file: "app/api/setup/route.ts", methods: ["POST"] },
   { file: "app/api/share/route.ts", methods: ["POST", "DELETE"] },
 ];
+const sameOriginMutationRoutes = [
+  ...calendarMutationRoutes,
+  { file: "app/api/session/logout/route.ts", methods: ["POST"] },
+];
 
-test("every calendar mutation requires editor session and same-origin protection", async () => {
+test("every calendar mutation requires an editor session", async () => {
   for (const route of calendarMutationRoutes) {
     const text = await source(route.file);
 
@@ -29,6 +33,13 @@ test("every calendar mutation requires editor session and same-origin protection
       /getEditorSession\s*\(/,
       `${route.file} must require an editor session`,
     );
+  }
+});
+
+test("every mutation route uses same-origin protection", async () => {
+  for (const route of sameOriginMutationRoutes) {
+    const text = await source(route.file);
+
     assert.match(
       text,
       /isSameOriginMutation\s*\(/,
@@ -43,6 +54,14 @@ test("every calendar mutation requires editor session and same-origin protection
       );
     }
   }
+});
+
+test("same-origin mutation protection fails closed when Origin is missing or invalid", async () => {
+  const text = await source("lib/security/request.ts");
+
+  assert.match(text, /if \(!origin\) \{\s*return false;/);
+  assert.match(text, /new URL\(origin\)\.origin === request\.nextUrl\.origin/);
+  assert.match(text, /catch \{\s*return false;/);
 });
 
 test("read-only share links validate viewer tokens and never create editor sessions", async () => {
