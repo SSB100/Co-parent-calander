@@ -217,17 +217,6 @@ export async function syncGoogleConnection(input: {
     input.rangeEnd &&
     (input.rangeEnd < horizon.from || input.rangeStart > horizon.to)
   ) {
-    const now = new Date();
-    await db
-      .update(googleCalendarConnections)
-      .set({
-        status: "active",
-        lastAttemptedSyncAt: now,
-        lastSuccessfulSyncAt: now,
-        lastError: null,
-        updatedAt: now,
-      })
-      .where(eq(googleCalendarConnections.id, connection.id));
     return { created: 0, updated: 0, deleted: 0, skipped: 0 };
   }
 
