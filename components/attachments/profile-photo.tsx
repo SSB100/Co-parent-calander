@@ -33,6 +33,43 @@ function contentTypeForFile(file: File) {
   return "";
 }
 
+async function fetchProfilePhoto(childId: string) {
+  const query = new URLSearchParams({
+    entityType: "child",
+    entityId: childId,
+    role: "profile_photo",
+  });
+  const response = await fetch(`/api/attachments?${query.toString()}`, {
+    cache: "no-store",
+  });
+  const body = (await response.json().catch(() => null)) as
+    | PhotoPayload
+    | { error?: string }
+    | null;
+  if (!response.ok || !body || !("attachments" in body)) {
+    throw new Error(
+      body && "error" in body && body.error
+        ? body.error
+        : "Profile photo could not be loaded.",
+    );
+  }
+
+  const photo = body.attachments[0] ?? null;
+  if (!photo) return { payload: body, photoUrl: null as string | null };
+
+  const download = await fetch(`/api/attachments/${photo.id}/download`, {
+    cache: "no-store",
+  });
+  const downloadBody = (await download.json().catch(() => null)) as
+    | { url?: string; error?: string }
+    | null;
+  if (!download.ok || !downloadBody?.url) {
+    throw new Error(downloadBody?.error ?? "Profile photo could not be opened.");
+  }
+
+  return { payload: body, photoUrl: downloadBody.url };
+}
+
 export function ProfilePhoto({
   childId,
   displayName,
@@ -48,64 +85,35 @@ export function ProfilePhoto({
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const query = new URLSearchParams({
-      entityType: "child",
-      entityId: childId,
-      role: "profile_photo",
-    });
-    const response = await fetch(`/api/attachments?${query.toString()}`, {
-      cache: "no-store",
-    });
-    const body = (await response.json().catch(() => null)) as
-      | PhotoPayload
-      | { error?: string }
-      | null;
-    if (!response.ok || !body || !("attachments" in body)) {
-      throw new Error(
-        body && "error" in body && body.error
-          ? body.error
-          : "Profile photo could not be loaded.",
-      );
-    }
-    setPayload(body);
-
-    const photo = body.attachments[0] ?? null;
-    if (!photo) {
-      setPhotoUrl(null);
-      setPhotoFailed(false);
-      return;
-    }
-
-    const download = await fetch(`/api/attachments/${photo.id}/download`, {
-      cache: "no-store",
-    });
-    const downloadBody = (await download.json().catch(() => null)) as
-      | { url?: string; error?: string }
-      | null;
-    if (!download.ok || !downloadBody?.url) {
-      throw new Error(
-        downloadBody?.error ?? "Profile photo could not be opened.",
-      );
-    }
-    setPhotoUrl(downloadBody.url);
+    const result = await fetchProfilePhoto(childId);
+    setPayload(result.payload);
+    setPhotoUrl(result.photoUrl);
     setPhotoFailed(false);
+    setError(null);
   }, [childId]);
 
   useEffect(() => {
     let cancelled = false;
-    void load().catch((caught) => {
-      if (!cancelled) {
+    void fetchProfilePhoto(childId)
+      .then((result) => {
+        if (cancelled) return;
+        setPayload(result.payload);
+        setPhotoUrl(result.photoUrl);
+        setPhotoFailed(false);
+        setError(null);
+      })
+      .catch((caught) => {
+        if (cancelled) return;
         setError(
           caught instanceof Error
             ? caught.message
             : "Profile photo could not be loaded.",
         );
-      }
-    });
+      });
     return () => {
       cancelled = true;
     };
-  }, [load]);
+  }, [childId]);
 
   async function upload(file: File) {
     if (busy) return;
