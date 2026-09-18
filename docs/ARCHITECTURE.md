@@ -108,4 +108,5 @@ Before the brand/UI redesign, cleanup work should:
 - decouple parent identity from Tailwind colour names
 - simplify the parenting recurrence persistence model
 - modularise approval applicators and relationship aggregation
+- refresh the npm lockfile so CI can move from `npm install` to deterministic `npm ci`
 - add data-retention/privacy rules and selected database constraints

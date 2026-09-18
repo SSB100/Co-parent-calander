@@ -65,7 +65,7 @@ Optional integrations have their own variables documented in `.env.example` and 
 Install and run:
 
 ```bash
-npm ci
+npm install
 npm run dev
 ```
 
@@ -95,7 +95,7 @@ Do not replay historical migrations against production. The architecture-cleanup
 The release gate is:
 
 ```bash
-npm ci --no-audit --no-fund
+npm install --no-audit --no-fund
 npm run lint
 npm run typecheck
 npm test
