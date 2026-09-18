@@ -311,14 +311,15 @@ export async function GET(request: NextRequest) {
   ]);
 
   const unique = new Map<string, RelatedItem>();
-  for (const item of [...native, ...explicit, ...documents]) {
+  for (const item of [...explicit, ...documents, ...native]) {
     const key = itemKey(item.type, item.id);
     const existing = unique.get(key);
-    if (!existing || existing.origin === "native") unique.set(key, item);
+    if (!existing || item.origin === "native") unique.set(key, item);
   }
 
   const includeCandidates =
-    request.nextUrl.searchParams.get("includeCandidates") === "true";
+    request.nextUrl.searchParams.get("includeCandidates") === "true" &&
+    (session.permission === "owner" || session.permission === "editor");
   const candidates = includeCandidates
     ? (await candidateItems(session.calendarId)).filter(
         (candidate) =>
