@@ -116,7 +116,6 @@ export function LinkedItemsPanel({
   useEffect(() => {
     if (!open || data) return;
     let cancelled = false;
-    setLoading(true);
     void load()
       .catch((caught) => {
         if (!cancelled) {
