@@ -51,7 +51,6 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
       <details className="workspace-account relative">
         <summary className="covie-menu-trigger">Account <ChevronDown size={16} aria-hidden="true" /></summary>
         <div className="covie-menu">
-          <Link href="/dashboard" className="covie-menu-item">Switch or add calendar</Link>
           <button type="button" onClick={() => void signOut()} disabled={signingOut} className="covie-menu-item">
             <LogOut size={16} aria-hidden="true" />{signingOut ? "Signing out…" : "Log out"}
           </button>
