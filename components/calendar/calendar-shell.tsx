@@ -225,7 +225,7 @@ export function CalendarShell({
         if (response.status === 401) {
           setCalendarData(null);
           setAccessMode("error");
-          setMessage("Your calendar access could not be confirmed. Return to your calendars and try again.");
+          setMessage("Your calendar access could not be confirmed. Try another calendar from the calendar name above.");
           return;
         }
         if (!response.ok || !body || !("calendar" in body)) {
