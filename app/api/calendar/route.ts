@@ -209,7 +209,7 @@ export async function GET(request: Request) {
   });
 
   const visibleEvents = expandEventOccurrences({
-    events: visibleEvents,
+    events: eventRows,
     from,
     to,
   });
@@ -242,7 +242,7 @@ export async function GET(request: Request) {
     participants: parentRows,
     children: childRows,
     assignments,
-    events: eventRows,
+    events: visibleEvents,
     pendingProposals,
     recurringScheduleActive: recurringRuleRows.length > 0,
     nextHandover: nextHandoverRows[0] ?? null,
