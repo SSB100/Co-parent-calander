@@ -2,20 +2,21 @@
 
 import { Check, Copy, Link2, UsersRound } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 export function NewCalendarWelcome({ inviteCode }: { inviteCode: string }) {
   const [copied, setCopied] = useState<"code" | "link" | null>(null);
-  const shareLink = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    return `${window.location.origin}/auth/sign-up?invite=${encodeURIComponent(inviteCode)}`;
-  }, [inviteCode]);
 
   async function copy(value: string, type: "code" | "link") {
     if (!value || !navigator.clipboard) return;
     await navigator.clipboard.writeText(value);
     setCopied(type);
     window.setTimeout(() => setCopied(null), 1800);
+  }
+
+  function copyInviteLink() {
+    const shareLink = `${window.location.origin}/auth/sign-up?invite=${encodeURIComponent(inviteCode)}`;
+    return copy(shareLink, "link");
   }
 
   return (
@@ -51,7 +52,7 @@ export function NewCalendarWelcome({ inviteCode }: { inviteCode: string }) {
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <button
                 type="button"
-                onClick={() => void copy(shareLink, "link")}
+                onClick={() => void copyInviteLink()}
                 className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-900"
               >
                 {copied === "link" ? <Check className="h-4 w-4" aria-hidden="true" /> : <Link2 className="h-4 w-4" aria-hidden="true" />}
