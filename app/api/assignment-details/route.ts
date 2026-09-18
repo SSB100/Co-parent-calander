@@ -3,6 +3,11 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  ApprovalEngineError,
+  createApprovalProposal,
+} from "@/lib/approvals/engine";
+import { getSharedApprovalTarget } from "@/lib/approvals/shared";
 import { loadEffectiveAssignmentMap } from "@/lib/assignments/effective";
 import { getDb, getSql } from "@/lib/db";
 import { children, parentingAssignments, participants } from "@/lib/db/schema";
@@ -49,6 +54,13 @@ const detailsSchema = z
     handoverTime: nullableTime,
     handoverLocation: nullableLocation,
     note: nullableNote,
+    reason: z
+      .string()
+      .trim()
+      .max(500, "Keep the reason under 500 characters.")
+      .nullable()
+      .optional()
+      .transform((value) => (value ? value : null)),
   })
   .superRefine((value, context) => {
     if (!value.ownership && value.parentId === undefined) {
@@ -59,6 +71,16 @@ const detailsSchema = z
       });
     }
   });
+
+function approvalError(error: unknown) {
+  if (error instanceof ApprovalEngineError) {
+    return NextResponse.json({ error: error.message }, { status: error.statusCode });
+  }
+  return NextResponse.json(
+    { error: "That day proposal could not be saved. Please refresh and try again." },
+    { status: 409 },
+  );
+}
 
 export async function PATCH(request: NextRequest) {
   if (!isSameOriginMutation(request)) {
@@ -159,6 +181,19 @@ export async function PATCH(request: NextRequest) {
     to: date,
   });
 
+  const previousAssignments = childRows.map((child) => {
+    const current = effective.get(`${child.id}:${date}`);
+    return {
+      childId: child.id,
+      date,
+      morningParentId: current?.morningParentId ?? null,
+      afternoonParentId: current?.afternoonParentId ?? null,
+      handoverTime: current?.handoverTime ?? null,
+      handoverLocation: current?.handoverLocation ?? null,
+      note: current?.note ?? null,
+    };
+  });
+
   const nextAssignments = childRows.map((child) => {
     const current = effective.get(`${child.id}:${date}`);
     let morningParentId = current?.morningParentId ?? null;
@@ -176,7 +211,16 @@ export async function PATCH(request: NextRequest) {
       afternoonParentId = parentId;
     }
 
-    return { childId: child.id, morningParentId, afternoonParentId };
+    const rowHasAssignment = Boolean(morningParentId || afternoonParentId);
+    return {
+      childId: child.id,
+      date,
+      morningParentId,
+      afternoonParentId,
+      handoverTime: rowHasAssignment ? handoverTime : null,
+      handoverLocation: rowHasAssignment ? handoverLocation : null,
+      note: rowHasAssignment ? note : null,
+    };
   });
 
   const hasAnyAssignment = nextAssignments.some(
@@ -187,6 +231,54 @@ export async function PATCH(request: NextRequest) {
       { error: "Assign this day before adding handover details or a note." },
       { status: 400 },
     );
+  }
+
+  try {
+    const approvalTarget = await getSharedApprovalTarget({
+      calendarId: session.calendarId,
+      actorMembershipId: session.membershipId,
+      actorParticipantId: session.participantId!,
+    });
+
+    if (approvalTarget.required && approvalTarget.approverMembershipId) {
+      const result = await createApprovalProposal({
+        calendarId: session.calendarId,
+        actor: {
+          membershipId: session.membershipId,
+          participantId: session.participantId,
+          permission: session.permission,
+        },
+        entityType: "parenting_schedule",
+        entityId: session.calendarId,
+        action: "edit",
+        previousState: {
+          kind: "parenting_assignments",
+          dates: [date],
+          assignments: previousAssignments,
+        },
+        proposedState: {
+          kind: "parenting_assignments",
+          dates: [date],
+          assignments: nextAssignments,
+        },
+        reason: parsed.data.reason,
+        approverMembershipId: approvalTarget.approverMembershipId,
+      });
+
+      return NextResponse.json(
+        {
+          ok: true,
+          pending: true,
+          proposalId: result?.proposal.id ?? null,
+          approverName: result?.proposal.approverName ?? approvalTarget.approverName,
+          date,
+          affectedChildren: childRows.length,
+        },
+        { status: 202 },
+      );
+    }
+  } catch (error) {
+    return approvalError(error);
   }
 
   const beforeState = JSON.stringify({ assignments: existing });
@@ -203,53 +295,47 @@ export async function PATCH(request: NextRequest) {
   });
 
   const sql = getSql();
-  const statements = nextAssignments.map((assignment) => {
-    const rowHasAssignment = Boolean(
-      assignment.morningParentId || assignment.afternoonParentId,
-    );
-
-    return sql`
-      INSERT INTO parenting_assignments (
-        calendar_id,
-        child_id,
-        assignment_date,
-        parent_id,
-        afternoon_parent_id,
-        source,
-        recurring_rule_id,
-        handover_time,
-        handover_location,
-        note,
-        created_by,
-        updated_at
-      )
-      VALUES (
-        ${session.calendarId},
-        ${assignment.childId},
-        ${date},
-        ${assignment.morningParentId},
-        ${assignment.afternoonParentId},
-        'manual',
-        NULL,
-        ${rowHasAssignment ? handoverTime : null},
-        ${rowHasAssignment ? handoverLocation : null},
-        ${rowHasAssignment ? note : null},
-        ${session.participantId},
-        now()
-      )
-      ON CONFLICT (calendar_id, child_id, assignment_date)
-      DO UPDATE SET
-        parent_id = EXCLUDED.parent_id,
-        afternoon_parent_id = EXCLUDED.afternoon_parent_id,
-        source = 'manual',
-        recurring_rule_id = NULL,
-        handover_time = EXCLUDED.handover_time,
-        handover_location = EXCLUDED.handover_location,
-        note = EXCLUDED.note,
-        created_by = EXCLUDED.created_by,
-        updated_at = now()
-    `;
-  });
+  const statements = nextAssignments.map((assignment) => sql`
+    INSERT INTO parenting_assignments (
+      calendar_id,
+      child_id,
+      assignment_date,
+      parent_id,
+      afternoon_parent_id,
+      source,
+      recurring_rule_id,
+      handover_time,
+      handover_location,
+      note,
+      created_by,
+      updated_at
+    )
+    VALUES (
+      ${session.calendarId},
+      ${assignment.childId},
+      ${date},
+      ${assignment.morningParentId},
+      ${assignment.afternoonParentId},
+      'manual',
+      NULL,
+      ${assignment.handoverTime},
+      ${assignment.handoverLocation},
+      ${assignment.note},
+      ${session.participantId},
+      now()
+    )
+    ON CONFLICT (calendar_id, child_id, assignment_date)
+    DO UPDATE SET
+      parent_id = EXCLUDED.parent_id,
+      afternoon_parent_id = EXCLUDED.afternoon_parent_id,
+      source = 'manual',
+      recurring_rule_id = NULL,
+      handover_time = EXCLUDED.handover_time,
+      handover_location = EXCLUDED.handover_location,
+      note = EXCLUDED.note,
+      created_by = EXCLUDED.created_by,
+      updated_at = now()
+  `);
 
   statements.push(sql`
     INSERT INTO audit_log (
@@ -296,6 +382,7 @@ export async function PATCH(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    pending: false,
     date,
     parentId,
     period,

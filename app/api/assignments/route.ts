@@ -3,6 +3,11 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  ApprovalEngineError,
+  createApprovalProposal,
+} from "@/lib/approvals/engine";
+import { getSharedApprovalTarget } from "@/lib/approvals/shared";
 import { loadEffectiveAssignmentMap } from "@/lib/assignments/effective";
 import { getDb, getSql } from "@/lib/db";
 import { children, parentingAssignments, participants } from "@/lib/db/schema";
@@ -27,6 +32,13 @@ const mutationSchema = z
     parentId: z.string().uuid().nullable().optional(),
     period: z.enum(["full_day", "morning", "afternoon"]).optional(),
     ownership: ownershipSchema.optional(),
+    reason: z
+      .string()
+      .trim()
+      .max(500, "Keep the reason under 500 characters.")
+      .nullable()
+      .optional()
+      .transform((value) => (value ? value : null)),
   })
   .superRefine((value, context) => {
     if (!value.ownership && value.parentId === undefined) {
@@ -37,6 +49,16 @@ const mutationSchema = z
       });
     }
   });
+
+function approvalError(error: unknown) {
+  if (error instanceof ApprovalEngineError) {
+    return NextResponse.json({ error: error.message }, { status: error.statusCode });
+  }
+  return NextResponse.json(
+    { error: "That schedule proposal could not be saved. Please refresh and try again." },
+    { status: 409 },
+  );
+}
 
 export async function POST(request: NextRequest) {
   if (!isSameOriginMutation(request)) {
@@ -137,17 +159,22 @@ export async function POST(request: NextRequest) {
     to: dates[dates.length - 1],
   });
 
-  const beforeState = JSON.stringify({ assignments: existing });
-  const afterState = JSON.stringify({
-    dates,
-    childIds,
-    parentId,
-    period,
-    ownership,
-  });
+  const previousAssignments = dates.flatMap((date) =>
+    childRows.map((child) => {
+      const current = effective.get(`${child.id}:${date}`);
+      return {
+        childId: child.id,
+        date,
+        morningParentId: current?.morningParentId ?? null,
+        afternoonParentId: current?.afternoonParentId ?? null,
+        handoverTime: current?.handoverTime ?? null,
+        handoverLocation: current?.handoverLocation ?? null,
+        note: current?.note ?? null,
+      };
+    }),
+  );
 
-  const sql = getSql();
-  const statements = dates.flatMap((date) =>
+  const proposedAssignments = dates.flatMap((date) =>
     childRows.map((child) => {
       const current = effective.get(`${child.id}:${date}`);
       let morningParentId = current?.morningParentId ?? null;
@@ -165,50 +192,79 @@ export async function POST(request: NextRequest) {
         afternoonParentId = parentId;
       }
 
-      if (!morningParentId && !afternoonParentId) {
-        return sql`
-          INSERT INTO parenting_assignments (
-            calendar_id,
-            child_id,
-            assignment_date,
-            parent_id,
-            afternoon_parent_id,
-            source,
-            recurring_rule_id,
-            handover_time,
-            handover_location,
-            note,
-            created_by,
-            updated_at
-          )
-          VALUES (
-            ${session.calendarId},
-            ${child.id},
-            ${date},
-            NULL,
-            NULL,
-            'manual',
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-            ${session.participantId},
-            now()
-          )
-          ON CONFLICT (calendar_id, child_id, assignment_date)
-          DO UPDATE SET
-            parent_id = NULL,
-            afternoon_parent_id = NULL,
-            source = 'manual',
-            recurring_rule_id = NULL,
-            handover_time = NULL,
-            handover_location = NULL,
-            note = NULL,
-            created_by = EXCLUDED.created_by,
-            updated_at = now()
-        `;
-      }
+      const hasAssignment = Boolean(morningParentId || afternoonParentId);
+      return {
+        childId: child.id,
+        date,
+        morningParentId,
+        afternoonParentId,
+        handoverTime: hasAssignment ? current?.handoverTime ?? null : null,
+        handoverLocation: hasAssignment ? current?.handoverLocation ?? null : null,
+        note: hasAssignment ? current?.note ?? null : null,
+      };
+    }),
+  );
 
+  try {
+    const approvalTarget = await getSharedApprovalTarget({
+      calendarId: session.calendarId,
+      actorMembershipId: session.membershipId,
+      actorParticipantId: session.participantId!,
+    });
+
+    if (approvalTarget.required && approvalTarget.approverMembershipId) {
+      const result = await createApprovalProposal({
+        calendarId: session.calendarId,
+        actor: {
+          membershipId: session.membershipId,
+          participantId: session.participantId,
+          permission: session.permission,
+        },
+        entityType: "parenting_schedule",
+        entityId: session.calendarId,
+        action: "edit",
+        previousState: {
+          kind: "parenting_assignments",
+          dates,
+          assignments: previousAssignments,
+        },
+        proposedState: {
+          kind: "parenting_assignments",
+          dates,
+          assignments: proposedAssignments,
+        },
+        reason: parsed.data.reason,
+        approverMembershipId: approvalTarget.approverMembershipId,
+      });
+
+      return NextResponse.json(
+        {
+          ok: true,
+          pending: true,
+          proposalId: result?.proposal.id ?? null,
+          approverName: result?.proposal.approverName ?? approvalTarget.approverName,
+          dates,
+          affectedChildren: childRows.length,
+        },
+        { status: 202 },
+      );
+    }
+  } catch (error) {
+    return approvalError(error);
+  }
+
+  const beforeState = JSON.stringify({ assignments: existing });
+  const afterState = JSON.stringify({
+    dates,
+    childIds,
+    parentId,
+    period,
+    ownership,
+  });
+
+  const sql = getSql();
+  const statements = proposedAssignments.map((assignment) => {
+    if (!assignment.morningParentId && !assignment.afternoonParentId) {
       return sql`
         INSERT INTO parenting_assignments (
           calendar_id,
@@ -218,31 +274,73 @@ export async function POST(request: NextRequest) {
           afternoon_parent_id,
           source,
           recurring_rule_id,
+          handover_time,
+          handover_location,
+          note,
           created_by,
           updated_at
         )
         VALUES (
           ${session.calendarId},
-          ${child.id},
-          ${date},
-          ${morningParentId},
-          ${afternoonParentId},
+          ${assignment.childId},
+          ${assignment.date},
+          NULL,
+          NULL,
           'manual',
+          NULL,
+          NULL,
+          NULL,
           NULL,
           ${session.participantId},
           now()
         )
         ON CONFLICT (calendar_id, child_id, assignment_date)
         DO UPDATE SET
-          parent_id = EXCLUDED.parent_id,
-          afternoon_parent_id = EXCLUDED.afternoon_parent_id,
+          parent_id = NULL,
+          afternoon_parent_id = NULL,
           source = 'manual',
           recurring_rule_id = NULL,
+          handover_time = NULL,
+          handover_location = NULL,
+          note = NULL,
           created_by = EXCLUDED.created_by,
           updated_at = now()
       `;
-    }),
-  );
+    }
+
+    return sql`
+      INSERT INTO parenting_assignments (
+        calendar_id,
+        child_id,
+        assignment_date,
+        parent_id,
+        afternoon_parent_id,
+        source,
+        recurring_rule_id,
+        created_by,
+        updated_at
+      )
+      VALUES (
+        ${session.calendarId},
+        ${assignment.childId},
+        ${assignment.date},
+        ${assignment.morningParentId},
+        ${assignment.afternoonParentId},
+        'manual',
+        NULL,
+        ${session.participantId},
+        now()
+      )
+      ON CONFLICT (calendar_id, child_id, assignment_date)
+      DO UPDATE SET
+        parent_id = EXCLUDED.parent_id,
+        afternoon_parent_id = EXCLUDED.afternoon_parent_id,
+        source = 'manual',
+        recurring_rule_id = NULL,
+        created_by = EXCLUDED.created_by,
+        updated_at = now()
+    `;
+  });
 
   const hasAssignedOwner = ownership
     ? Boolean(ownership.morningParentId || ownership.afternoonParentId)
@@ -293,6 +391,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    pending: false,
     dates,
     parentId,
     period,
