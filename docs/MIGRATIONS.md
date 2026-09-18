@@ -70,15 +70,11 @@ This migration is currently staged only. Before Production application:
 
 ## 0014 legacy authentication retirement
 
-Migration `0014_retire_legacy_auth.sql` removes the obsolete token/session credential tables after the application has moved fully to Managed Neon Auth and `calendar_memberships`.
+Migration `0014_retire_legacy_auth.sql` records retirement of the obsolete token/session authentication path after the application has moved to Managed Neon Auth and `calendar_memberships`.
 
-It drops:
+It is deliberately non-destructive. The legacy `sessions`, `access_tokens` tables and `access_token_type` enum remain temporarily in Postgres as recovery evidence for legacy-only calendars, while application runtime code no longer reads them.
 
-- `sessions`
-- `access_tokens`
-- `access_token_type`
-
-It intentionally does **not** delete any calendar or family-domain data. Legacy-only calendars become archive/inert data until deliberately recovered through a modern membership.
+A later cleanup migration may remove that retained credential infrastructure only after every legacy-only calendar has either been recovered into a modern membership or explicitly approved for archival.
 
 Apply `0013` before `0014`. See `docs/LEGACY_AUTH_RETIREMENT.md` for the recovery and verification rules.
 
