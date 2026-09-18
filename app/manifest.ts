@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Covie",
     short_name: "Covie",
-    description: "A calm, shared calendar for co-parenting schedules.",
+    description: "A calm shared organiser for co-parenting schedules, expenses, responsibilities and agreements.",
     start_url: "/",
     scope: "/",
     display: "standalone",
