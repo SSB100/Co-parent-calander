@@ -4,6 +4,8 @@ import { and, asc, desc, eq, inArray, like } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
+import { ApprovalEngineError, createApprovalProposal } from "@/lib/approvals/engine";
+import { getSharedApprovalTarget } from "@/lib/approvals/shared";
 import { getDb, getSql } from "@/lib/db";
 import { children, participants, recurringRules } from "@/lib/db/schema";
 import {
@@ -50,6 +52,13 @@ const scheduleSchema = z
     anchorDate: isoDate,
     endDate: isoDate.nullable(),
     pattern: z.array(scheduleSlotSchema).length(FORTNIGHT_SLOTS),
+    reason: z
+      .string()
+      .trim()
+      .max(500, "Keep the reason under 500 characters.")
+      .nullable()
+      .optional()
+      .transform((value) => (value ? value : null)),
   })
   .superRefine((value, context) => {
     if (value.endDate && value.endDate < value.anchorDate) {
@@ -61,7 +70,16 @@ const scheduleSchema = z
     }
   });
 
-const deleteSchema = z.object({ scheduleId: z.string().uuid() });
+const deleteSchema = z.object({
+  scheduleId: z.string().uuid(),
+  reason: z
+    .string()
+    .trim()
+    .max(500, "Keep the reason under 500 characters.")
+    .nullable()
+    .optional()
+    .transform((value) => (value ? value : null)),
+});
 
 type ScheduleSlot = {
   morningParentId: string | null;
@@ -161,6 +179,13 @@ async function loadSchedules(calendarId: string) {
     schedules: groupSchedules(ruleRows),
     participants: parentRows,
   };
+}
+
+function approvalError(error: unknown, fallback: string) {
+  if (error instanceof ApprovalEngineError) {
+    return NextResponse.json({ error: error.message }, { status: error.statusCode });
+  }
+  return NextResponse.json({ error: fallback }, { status: 409 });
 }
 
 export async function GET() {
@@ -287,6 +312,58 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  try {
+    const approvalTarget = await getSharedApprovalTarget({
+      calendarId: session.calendarId,
+      actorMembershipId: session.membershipId,
+      actorParticipantId: session.participantId!,
+    });
+
+    if (approvalTarget.required && approvalTarget.approverMembershipId) {
+      const result = await createApprovalProposal({
+        calendarId: session.calendarId,
+        actor: {
+          membershipId: session.membershipId,
+          participantId: session.participantId,
+          permission: session.permission,
+        },
+        entityType: "parenting_schedule",
+        entityId: session.calendarId,
+        action: existingSchedule ? "edit" : "create",
+        previousState: {
+          kind: "recurring_schedule_snapshot",
+          schedule: existingSchedule ?? null,
+        },
+        proposedState: {
+          kind: "recurring_schedule",
+          mode: "upsert",
+          scheduleId,
+          anchorDate,
+          endDate,
+          pattern,
+        },
+        reason: parsed.data.reason,
+        approverMembershipId: approvalTarget.approverMembershipId,
+      });
+
+      return NextResponse.json(
+        {
+          ok: true,
+          pending: true,
+          proposalId: result?.proposal.id ?? null,
+          approverName: result?.proposal.approverName ?? approvalTarget.approverName,
+          scheduleId,
+          anchorDate,
+          endDate,
+          pattern,
+        },
+        { status: 202 },
+      );
+    }
+  } catch (error) {
+    return approvalError(error, "The repeating schedule proposal could not be saved.");
+  }
+
   const sql = getSql();
   const scheduleMarker = `%X-COPARENT-SCHEDULE=${scheduleId}%`;
   const statements = [];
@@ -406,6 +483,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    pending: false,
     scheduleId,
     anchorDate,
     endDate,
@@ -460,7 +538,55 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "That saved schedule could not be found." }, { status: 404 });
   }
 
-  const beforeState = JSON.stringify({ schedules: groupSchedules(ruleRows) });
+  const savedSchedules = groupSchedules(ruleRows);
+  const beforeState = JSON.stringify({ schedules: savedSchedules });
+
+  try {
+    const approvalTarget = await getSharedApprovalTarget({
+      calendarId: session.calendarId,
+      actorMembershipId: session.membershipId,
+      actorParticipantId: session.participantId!,
+    });
+
+    if (approvalTarget.required && approvalTarget.approverMembershipId) {
+      const result = await createApprovalProposal({
+        calendarId: session.calendarId,
+        actor: {
+          membershipId: session.membershipId,
+          participantId: session.participantId,
+          permission: session.permission,
+        },
+        entityType: "parenting_schedule",
+        entityId: session.calendarId,
+        action: "delete",
+        previousState: {
+          kind: "recurring_schedule_snapshot",
+          schedule: savedSchedules[0] ?? null,
+        },
+        proposedState: {
+          kind: "recurring_schedule",
+          mode: "delete",
+          scheduleId,
+        },
+        reason: parsed.data.reason,
+        approverMembershipId: approvalTarget.approverMembershipId,
+      });
+
+      return NextResponse.json(
+        {
+          ok: true,
+          pending: true,
+          proposalId: result?.proposal.id ?? null,
+          approverName: result?.proposal.approverName ?? approvalTarget.approverName,
+          scheduleId,
+        },
+        { status: 202 },
+      );
+    }
+  } catch (error) {
+    return approvalError(error, "The repeating schedule proposal could not be saved.");
+  }
+
   const sql = getSql();
   const ruleIds = ruleRows.map((rule) => rule.id);
   const ruleIdArray = `{${ruleIds.join(",")}}`;
@@ -517,5 +643,5 @@ export async function DELETE(request: NextRequest) {
       await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
     } catch {}
   });
-  return NextResponse.json({ ok: true, scheduleId });
+  return NextResponse.json({ ok: true, pending: false, scheduleId });
 }
