@@ -151,7 +151,21 @@ function eventStateSummary(state: unknown) {
     event.endDate && event.endDate !== event.startDate
       ? `${formatProposalDate(event.startDate)} – ${formatProposalDate(event.endDate)}`
       : formatProposalDate(event.startDate);
-  return `${event.title} · ${range}`;
+  const recurrenceLabel =
+    event.recurrence === "weekly"
+      ? "Weekly"
+      : event.recurrence === "fortnightly"
+        ? "Fortnightly"
+        : event.recurrence === "monthly"
+          ? "Monthly"
+          : event.recurrence === "yearly"
+            ? "Yearly"
+            : null;
+  const repeat =
+    recurrenceLabel
+      ? ` · ${recurrenceLabel}${event.recurrenceEndDate ? ` until ${formatProposalDate(event.recurrenceEndDate)}` : ""}`
+      : "";
+  return `${event.title} · ${range}${repeat}`;
 }
 
 function recurringStateSummary(state: unknown) {
