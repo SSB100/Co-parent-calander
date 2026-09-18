@@ -36,6 +36,7 @@ import { RecurringSchedulePanel } from "@/components/calendar/recurring-schedule
 import { RangeAssignmentPanel } from "@/components/calendar/range-assignment-panel";
 import { SettingsPanel } from "@/components/calendar/settings-panel";
 import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
+import { InstallApp } from "@/components/pwa/install-app";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
 import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
@@ -759,6 +760,8 @@ export function CalendarShell({
           ? "Shared changes become part of the agreed calendar after approval when both parents are linked."
           : "You have view-only access. Ask the calendar owner if you need editing permission."}
       </p>
+
+      <InstallApp />
     </main>
   );
 }
