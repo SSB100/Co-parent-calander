@@ -69,8 +69,8 @@ Production Neon:
 
 - project: `delicate-sunset-36051658`
 - branch: `br-quiet-sea-a7duq4r3`
-- schema migrations applied: `0000` through `0011`
-- `0012_schema_foundation.sql` is prepared/verified and awaits explicit Production application
+- schema migrations applied: `0000` through `0012`
+- `covie_schema_migrations` is the authoritative migration ledger from `0012` onward
 
 A pre-Phase-8 rollback branch is currently retained:
 
@@ -100,7 +100,6 @@ This prevents production from being promoted before CI finishes and avoids unnec
 
 Before the brand/UI redesign, cleanup work should:
 
-- apply the prepared `0012` migration ledger/invariant hardening after explicit approval
 - retire the legacy token/session authentication path after its remaining calendar is migrated or archived
 - move business workflows out of large route handlers into feature services
 - split the large client shells into controllers/hooks and smaller UI components

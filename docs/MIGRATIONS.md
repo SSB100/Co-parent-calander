@@ -4,11 +4,11 @@ Covie uses ordered SQL migration files under `drizzle/`.
 
 ## Current production baseline
 
-Production already contains the schema represented by migrations `0000` through `0011`.
+Production contains migrations `0000` through `0012`.
 
 Those files must **not** be replayed.
 
-Migration `0012_schema_foundation.sql` introduces the first explicit Covie migration ledger:
+Migration `0012_schema_foundation.sql` introduced the first explicit Covie migration ledger and is applied in Production:
 
 - table: `covie_schema_migrations`
 - historical rows `0000`–`0011` are marked `baseline = true`
