@@ -28,7 +28,6 @@ export function DayExpenses({ date, readOnly = false }: { date: string; readOnly
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     fetch(`/api/expenses?date=${encodeURIComponent(date)}`, { cache: "no-store" })
       .then(async (response) => ({
         response,
