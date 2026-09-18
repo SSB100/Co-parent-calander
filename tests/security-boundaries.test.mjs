@@ -93,7 +93,7 @@ test("account routes use managed Neon auth and protect the signed-in workspace",
 
   assert.match(handler, /auth\.handler\(\)/);
   assert.match(proxy, /auth\.middleware/);
-  assert.match(proxy, /\/dashboard\/\:path\*/);
+  assert.match(proxy, /\/calendarActions\/\:path\*/);
   assert.match(proxy, /\/calendar\/\:path\*/);
   assert.match(session, /calendarMemberships\.userId/);
   assert.match(session, /session\.permission === ["']viewer["']/);
@@ -128,16 +128,16 @@ test("calendar invite management is owner-only and uses hashed one-use codes", a
 
 
 test("legacy setup is retired while managed calendar creation and joining remain account based", async () => {
-  const [setup, dashboard] = await Promise.all([
+  const [setup, calendarActions] = await Promise.all([
     source("app/api/setup/route.ts"),
-    source("app/dashboard/actions.ts"),
+    source("app/calendar/actions.ts"),
   ]);
 
   assert.match(setup, /status: 410/);
   assert.match(setup, /Legacy setup links have been retired/);
   assert.doesNotMatch(setup, /access_tokens|generateSecureToken|editorUrl/);
 
-  assert.match(dashboard, /calendar_memberships/);
-  assert.match(dashboard, /calendar_invites/);
-  assert.match(dashboard, /requireAccount/);
+  assert.match(calendarActions, /calendar_memberships/);
+  assert.match(calendarActions, /calendar_invites/);
+  assert.match(calendarActions, /requireAccount/);
 });
