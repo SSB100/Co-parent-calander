@@ -1,7 +1,6 @@
 "use client";
 
 import { LoaderCircle, Settings2, X } from "lucide-react";
-import { GoogleCalendarSettings } from "@/components/calendar/google-calendar-settings";
 import { useEffect, useRef, useState } from "react";
 
 type NamedItem = { id: string; displayName: string };
@@ -266,8 +265,6 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
                 <div className="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
                   Calendar timezone: {data.calendar.timezone}
                 </div>
-
-                <GoogleCalendarSettings />
 
                 {!readOnly ? (
                   <button

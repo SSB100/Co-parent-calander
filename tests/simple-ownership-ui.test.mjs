@@ -52,3 +52,46 @@ test("mobile month grid supports deliberate left and right swipe navigation", as
   assert.match(gesture, /button\[aria-pressed="true"\]/);
   assert.match(styles, /touch-action: pan-y/);
 });
+
+
+test("calendar month is viewport-bound and adjacent-month dates keep their planned content", async () => {
+  const [shell, styles] = await Promise.all([
+    readFile(path.join(root, "components/calendar/calendar-shell.tsx"), "utf8"),
+    readFile(path.join(root, "app/globals.css"), "utf8"),
+  ]);
+
+  assert.match(shell, /covie-calendar-page/);
+  assert.match(shell, /covie-calendar-grid/);
+  assert.match(shell, /"--covie-week-rows"/);
+  assert.match(styles, /height:\s*100dvh/);
+  assert.match(styles, /overflow:\s*hidden/);
+  assert.doesNotMatch(shell, /disabled=\{!inMonth \|\| saving\}/);
+  assert.doesNotMatch(shell, /assignment && inMonth/);
+  assert.doesNotMatch(shell, /dayEvents\[0\] && inMonth/);
+});
+
+test("calendar tiles show parent names at the top, date at right centre, and event strip at the bottom", async () => {
+  const shell = await readFile(path.join(root, "components/calendar/calendar-shell.tsx"), "utf8");
+
+  assert.match(shell, /ownerName\(fullDayOwner\)/);
+  assert.match(shell, /grid grid-cols-2 text-center/);
+  assert.match(shell, /right-1\.5 top-1\/2/);
+  assert.match(shell, /primaryTileEvent/);
+  assert.match(shell, /bg-\[#FF6B5F\]/);
+  assert.match(shell, /splitDay \? 1 : 0/);
+  assert.doesNotMatch(shell, /shortOwnerLabel/);
+});
+
+test("Google sync is a first-level Calendar action and install prompt is mobile-only", async () => {
+  const [shell, settings, install] = await Promise.all([
+    readFile(path.join(root, "components/calendar/calendar-shell.tsx"), "utf8"),
+    readFile(path.join(root, "components/calendar/settings-panel.tsx"), "utf8"),
+    readFile(path.join(root, "components/pwa/install-app.tsx"), "utf8"),
+  ]);
+
+  assert.match(shell, /Google[\s\S]*Sync/);
+  assert.match(shell, /<GoogleCalendarSettings/);
+  assert.doesNotMatch(settings, /GoogleCalendarSettings/);
+  assert.match(install, /md:hidden/);
+  assert.match(install, /Dismiss install prompt/);
+});
