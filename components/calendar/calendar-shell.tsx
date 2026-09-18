@@ -439,7 +439,7 @@ export function CalendarShell() {
             {accessMode === "editor" ? (
               <>
                 <EventPanel onChanged={() => setRefreshKey((value) => value + 1)} />
-                <RecurringSchedulePanel />
+                <RecurringSchedulePanel onChanged={() => setRefreshKey((value) => value + 1)} />
                 {calendarData?.permission === "owner" ? <MembersPanel /> : null}
                 <ActivityPanel />
               </>
