@@ -32,7 +32,7 @@ Schema definitions live in `lib/db/schema.ts`. SQL migrations are in `drizzle/`:
 
 - `0000_initial.sql` creates the original calendar schema.
 - `0001_nullable_assignment_parent.sql` supports cleared recurring overrides.
-- `0002_account_memberships.sql` adds account memberships, permissions, and invitation codes.
+- `0002_account_memberships.sql` adds account memberships, permissions, and invitation codes.\n- `0003_half_day_assignments.sql` adds split-day parenting support.\n- `0004_google_calendar_sync.sql` adds per-user Google Calendar sync state and the sync outbox.\n- `0005_approval_engine.sql` adds the reusable proposal lifecycle, history, and pending-conflict protection.
 
 Inspect the target database before applying a production migration. Never commit `.env.local` or live credentials.
 
