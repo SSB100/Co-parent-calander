@@ -85,7 +85,7 @@ function slotColor(participants: Participant[], parentId: string | null) {
   return "bg-white";
 }
 
-export function RecurringSchedulePanel() {
+export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }) {
   const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const savingRef = useRef(false);
@@ -100,6 +100,7 @@ export function RecurringSchedulePanel() {
   const [anchorDate, setAnchorDate] = useState(defaultAnchorDate);
   const [endDate, setEndDate] = useState("");
   const [pattern, setPattern] = useState<ScheduleSlot[]>(emptyPattern);
+  const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -205,6 +206,7 @@ export function RecurringSchedulePanel() {
     setAnchorDate(defaultAnchorDate());
     setEndDate("");
     setPattern(emptyPattern());
+    setReason("");
     setMessage(null);
     setEditorOpen(true);
   }
@@ -214,6 +216,7 @@ export function RecurringSchedulePanel() {
     setAnchorDate(schedule.anchorDate);
     setEndDate(schedule.endDate ?? "");
     setPattern(schedule.pattern.length === 14 ? schedule.pattern.map((slot) => ({ ...slot })) : emptyPattern());
+    setReason("");
     setMessage(null);
     setEditorOpen(true);
   }
@@ -285,15 +288,30 @@ export function RecurringSchedulePanel() {
       const response = await fetch("/api/recurring-schedule", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ scheduleId: editingScheduleId, anchorDate, endDate: endDate || null, pattern }),
+        body: JSON.stringify({
+          scheduleId: editingScheduleId,
+          anchorDate,
+          endDate: endDate || null,
+          pattern,
+          reason: reason.trim() || null,
+        }),
       });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; pending?: boolean; approverName?: string | null }
+        | null;
       if (!response.ok) throw new Error(body?.error ?? "The repeating schedule could not be saved.");
       await loadSchedules();
       setEditorOpen(false);
       setEditingScheduleId(null);
-      setMessage("Schedule saved. It will take effect automatically on its start date.");
-      window.setTimeout(() => window.location.reload(), 650);
+      setReason("");
+      setMessage(
+        body?.pending
+          ? body.approverName
+            ? `Schedule change sent to ${body.approverName} for approval.`
+            : "Schedule change sent for approval."
+          : "Schedule saved. It will take effect automatically on its start date.",
+      );
+      onChanged?.();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "The repeating schedule could not be saved.");
     } finally {
@@ -311,17 +329,29 @@ export function RecurringSchedulePanel() {
       const response = await fetch("/api/recurring-schedule", {
         method: "DELETE",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ scheduleId: schedule.scheduleId }),
+        body: JSON.stringify({
+          scheduleId: schedule.scheduleId,
+          reason: reason.trim() || null,
+        }),
       });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; pending?: boolean; approverName?: string | null }
+        | null;
       if (!response.ok) throw new Error(body?.error ?? "That saved schedule could not be deleted.");
       await loadSchedules();
       if (editingScheduleId === schedule.scheduleId) {
         setEditorOpen(false);
         setEditingScheduleId(null);
+        setReason("");
       }
-      setMessage("Schedule deleted. Manual calendar changes are unchanged.");
-      window.setTimeout(() => window.location.reload(), 650);
+      setMessage(
+        body?.pending
+          ? body.approverName
+            ? `Schedule cancellation sent to ${body.approverName} for approval.`
+            : "Schedule cancellation sent for approval."
+          : "Schedule deleted. Manual calendar changes are unchanged.",
+      );
+      onChanged?.();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "That saved schedule could not be deleted.");
     } finally {
@@ -342,7 +372,7 @@ export function RecurringSchedulePanel() {
               <div>
                 <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><CalendarRange className="h-5 w-5" aria-hidden="true" /></div>
                 <h2 id="repeat-title" className="text-xl font-semibold text-slate-900">Repeating schedules</h2>
-                <p id="repeat-description" className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">Keep your current plan and prepare the next one in advance. Each day is a simple full-day or handover-direction choice.</p>
+                <p id="repeat-description" className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">Keep your current plan and prepare the next one in advance. When both parents are linked, schedule changes stay pending until approved.</p>
               </div>
               <button ref={closeButtonRef} type="button" aria-label="Close repeating schedules" disabled={saving} onClick={() => setOpen(false)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:opacity-50"><X className="h-5 w-5" aria-hidden="true" /></button>
             </div>
@@ -396,6 +426,24 @@ export function RecurringSchedulePanel() {
                   <label className="block"><span className="text-xs font-semibold uppercase tracking-wide text-slate-500">First week starts</span><input type="date" value={anchorDate} disabled={saving} onChange={(event) => setAnchorDate(event.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-medium text-slate-800 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200" /><span className="mt-1 block text-xs text-slate-400">The pattern starts on the Monday of this week.</span></label>
                   <label className="block"><span className="text-xs font-semibold uppercase tracking-wide text-slate-500">End date</span><input type="date" value={endDate} min={anchorDate} disabled={saving} onChange={(event) => setEndDate(event.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-medium text-slate-800 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200" /><span className="mt-1 block text-xs text-slate-400">Optional for the final schedule. A later schedule cannot overlap an open-ended one.</span></label>
                 </div>
+
+                <label className="mt-4 block">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Reason for change <span className="font-normal normal-case tracking-normal text-slate-400">(optional)</span>
+                  </span>
+                  <textarea
+                    rows={2}
+                    maxLength={500}
+                    value={reason}
+                    disabled={saving}
+                    onChange={(event) => setReason(event.target.value)}
+                    placeholder="e.g. New school-term arrangement"
+                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
+                  />
+                  <span className="mt-1 block text-xs text-slate-400">
+                    Used only if the other parent needs to approve this schedule change.
+                  </span>
+                </label>
 
                 <div className="mt-5 flex flex-wrap gap-2">
                   <button type="button" disabled={saving || !me || !otherParent} onClick={applyWeekOnWeekOff} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Week on / week off</button>
