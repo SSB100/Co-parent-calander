@@ -23,6 +23,8 @@ export type MappingSharedEvent = {
   category: string;
   startDate: string;
   endDate: string | null;
+  occurrenceKey?: string;
+  seriesId?: string | null;
 };
 export type MappingSettings = {
   syncParenting: boolean;
@@ -301,7 +303,10 @@ export function buildSharedGoogleEvents(input: {
   return input.events.map<DesiredGoogleEvent>((event) => {
     const end = event.endDate ?? event.startDate;
     return {
-      localKey: `event:${event.id}`,
+      localKey:
+        event.seriesId && event.occurrenceKey
+          ? `event:${event.occurrenceKey}`
+          : `event:${event.id}`,
       kind: "shared_event",
       localEntityId: event.id,
       rangeStart: event.startDate,

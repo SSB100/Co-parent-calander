@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { addMonths, format, subDays } from "date-fns";
-import { and, asc, eq, gte, isNull, lte, or } from "drizzle-orm";
+import { and, asc, eq, gte, isNotNull, isNull, lte, ne, or } from "drizzle-orm";
 import { loadEffectiveAssignmentMap } from "@/lib/assignments/effective";
 import { getDb } from "@/lib/db";
+import { expandEventOccurrences } from "@/lib/events/recurrence";
 import {
   calendars,
   children,
@@ -130,13 +131,27 @@ async function loadDesired(
         category: events.category,
         startDate: events.startDate,
         endDate: events.endDate,
+        recurrence: events.recurrence,
+        recurrenceEndDate: events.recurrenceEndDate,
       })
       .from(events)
       .where(
         and(
           eq(events.calendarId, connection.calendarId),
           lte(events.startDate, dates.to),
-          or(isNull(events.endDate), gte(events.endDate, dates.from)),
+          or(
+            and(
+              eq(events.recurrence, "none"),
+              or(
+                gte(events.startDate, dates.from),
+                and(isNotNull(events.endDate), gte(events.endDate, dates.from)),
+              ),
+            ),
+            and(
+              ne(events.recurrence, "none"),
+              or(isNull(events.recurrenceEndDate), gte(events.recurrenceEndDate, dates.from)),
+            ),
+          ),
         ),
       )
       .orderBy(asc(events.startDate)),
@@ -154,7 +169,11 @@ async function loadDesired(
     parents: parentRows,
     children: childRows,
     assignments: [...assignmentMap.values()],
-    events: eventRows,
+    events: expandEventOccurrences({
+      events: eventRows,
+      from: dates.from,
+      to: dates.to,
+    }),
     settings: {
       syncParenting: connection.syncParenting,
       syncHandovers: connection.syncHandovers,
