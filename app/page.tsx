@@ -11,7 +11,7 @@ export default async function Home() {
   const { data: session } = await auth.getSession();
   if (session?.user) {
     const calendar = await getCalendarSession();
-    redirect(calendar ? "/calendar" : "/dashboard");
+    redirect(calendar ? "/calendar" : "/onboarding");
   }
 
   return (
