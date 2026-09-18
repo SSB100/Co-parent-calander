@@ -27,17 +27,20 @@ test("responsibility persistence supports ownership due dates links recurrence a
 });
 
 test("other-parent responsibility changes enter the reusable approval engine", async () => {
-  const route = await source("app/api/responsibilities/route.ts");
+  const [route, service] = await Promise.all([
+    source("app/api/responsibilities/route.ts"),
+    source("lib/responsibilities/service.ts"),
+  ]);
 
-  assert.match(route, /sharedApprovalTargetForSession/);
-  assert.match(route, /needsResponsibilityApproval/);
-  assert.match(route, /createApprovalProposal/);
-  assert.match(route, /entityType: "responsibility"/);
-  assert.match(route, /action: "create"/);
-  assert.match(route, /action: "edit"/);
-  assert.match(route, /action: "delete"/);
-  assert.match(route, /pending: true/);
-  assert.match(route, /status: 202/);
+  assert.match(service, /sharedApprovalTargetForSession/);
+  assert.match(service, /needsResponsibilityApproval/);
+  assert.match(service, /createApprovalProposal/);
+  assert.match(service, /entityType: "responsibility"/);
+  assert.match(service, /action: "create"/);
+  assert.match(service, /action: "edit"/);
+  assert.match(service, /action: "delete"/);
+  assert.match(service, /pending: true/);
+  assert.match(route, /result\.pending \? 202 : 200/);
 });
 
 test("responsibility approval applies agreed state transactionally", async () => {
@@ -55,18 +58,30 @@ test("responsibility approval applies agreed state transactionally", async () =>
 });
 
 test("completion is a personal action owned by the responsible parent", async () => {
-  const completion = await source("app/api/responsibilities/[id]/completion/route.ts");
+  const [contracts, route, service] = await Promise.all([
+    source("lib/responsibilities/contracts.ts"),
+    source("app/api/responsibilities/[id]/completion/route.ts"),
+    source("lib/responsibilities/service.ts"),
+  ]);
 
-  assert.match(completion, /Only the responsible parent can update completion/);
-  assert.match(completion, /responsibility\.complete/);
-  assert.match(completion, /responsibility\.reopen/);
-  assert.doesNotMatch(completion, /createApprovalProposal/);
-  assert.match(completion, /nextResponsibilityDueDate/);
-  assert.match(completion, /next_occurrence_id/);
+  assert.match(contracts, /operation: z\.enum\(\["complete", "reopen"\]\)/);
+  assert.match(service, /Only the responsible parent can update completion/);
+  assert.match(service, /responsibility\.complete/);
+  assert.match(service, /responsibility\.reopen/);
+  const completionService = service.slice(
+    service.indexOf("export async function updateResponsibilityCompletion"),
+  );
+  assert.doesNotMatch(completionService, /createApprovalProposal/);
+  assert.match(completionService, /nextResponsibilityDueDate/);
+  assert.match(completionService, /next_occurrence_id/);
+  assert.match(route, /updateResponsibilityCompletion/);
 });
 
 test("recurring responsibilities create only the next occurrence on completion", async () => {
-  const completion = await source("app/api/responsibilities/[id]/completion/route.ts");
+  const service = await source("lib/responsibilities/service.ts");
+  const completion = service.slice(
+    service.indexOf("export async function updateResponsibilityCompletion"),
+  );
 
   assert.match(completion, /shouldGenerateNext/);
   assert.match(completion, /INSERT INTO responsibilities/);
@@ -110,6 +125,7 @@ test("responsibilities UI uses quick templates as prefills and exposes planned f
 
 test("responsibility workflow remains separate from Google Calendar sync", async () => {
   const files = await Promise.all([
+    source("lib/responsibilities/service.ts"),
     source("app/api/responsibilities/route.ts"),
     source("app/api/responsibilities/[id]/completion/route.ts"),
     source("lib/approvals/responsibility-apply.ts"),
@@ -118,5 +134,5 @@ test("responsibility workflow remains separate from Google Calendar sync", async
   for (const text of files) {
     assert.doesNotMatch(text, /google-calendar/);
   }
-  assert.match(files[2], /googleSyncQueued: false/);
+  assert.match(files[3], /googleSyncQueued: false/);
 });
