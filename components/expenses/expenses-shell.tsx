@@ -208,8 +208,6 @@ export function ExpensesShell({ initialDate }: { initialDate: string | null }) {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
     try {
       const query = dateFilter ? `?date=${encodeURIComponent(dateFilter)}` : "";
       const response = await fetch(`/api/expenses${query}`, { cache: "no-store" });
@@ -218,6 +216,7 @@ export function ExpensesShell({ initialDate }: { initialDate: string | null }) {
         throw new Error(body && "error" in body && body.error ? body.error : "Expenses could not be loaded.");
       }
       setData(body);
+      setError(null);
       setForm((current) => ({
         ...current,
         paidByParticipantId:
