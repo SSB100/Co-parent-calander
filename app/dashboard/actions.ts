@@ -8,7 +8,11 @@ import { auth } from "@/lib/auth/server";
 import { DEFAULT_CALENDAR_TIMEZONE } from "@/lib/calendar/time";
 import { getSql } from "@/lib/db";
 import { defaultParentColorKey } from "@/lib/parents/identity";
-import { normalizeInviteCode } from "@/lib/security/invites";
+import {
+  generateInviteCode,
+  NEW_CALENDAR_INVITE_COOKIE_NAME,
+  normalizeInviteCode,
+} from "@/lib/security/invites";
 import { SELECTED_CALENDAR_COOKIE_NAME } from "@/lib/security/session";
 import { hashToken } from "@/lib/security/tokens";
 
@@ -30,6 +34,16 @@ function calendarCookieOptions() {
   };
 }
 
+function onboardingInviteCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: 60 * 10,
+  };
+}
+
 async function requireAccount() {
   const { data: session } = await auth.getSession();
   return session?.user ?? null;
@@ -44,7 +58,7 @@ export async function createCalendar(
 
   const parsed = calendarSchema.safeParse({
     calendarName: formData.get("calendarName"),
-    displayName: formData.get("displayName"),
+    displayName: formData.get("displayName") || user.name,
     children: String(formData.get("children") ?? "")
       .split("\n")
       .map((name) => name.trim())
@@ -54,54 +68,89 @@ export async function createCalendar(
     return { error: parsed.error.issues[0]?.message ?? "Check the calendar details." };
   }
 
+  const onboardingFlow = formData.get("flow") === "onboarding";
   const calendarId = randomUUID();
   const participantId = randomUUID();
+  const inviteCode = onboardingFlow ? generateInviteCode() : null;
+  const normalizedInviteCode = inviteCode ? normalizeInviteCode(inviteCode) : null;
+  const inviteExpiresAt = inviteCode ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null;
   const sql = getSql();
-  const childStatements = parsed.data.children.map(
-    (displayName) => sql`
-      INSERT INTO children (id, calendar_id, display_name, active)
-      VALUES (${randomUUID()}, ${calendarId}, ${displayName}, true)
+
+  const statements = [
+    sql`
+      INSERT INTO calendars (id, name, timezone, share_enabled)
+      VALUES (${calendarId}, ${parsed.data.calendarName}, ${DEFAULT_CALENDAR_TIMEZONE}, false)
     `,
-  );
+    sql`
+      INSERT INTO participants (
+        id, calendar_id, display_name, role, color_key, profile_slot, active
+      )
+      VALUES (
+        ${participantId}, ${calendarId}, ${parsed.data.displayName}, 'parent',
+        ${defaultParentColorKey("parent_one")}, 'parent_one', true
+      )
+    `,
+    ...parsed.data.children.map(
+      (displayName) => sql`
+        INSERT INTO children (id, calendar_id, display_name, active)
+        VALUES (${randomUUID()}, ${calendarId}, ${displayName}, true)
+      `,
+    ),
+    sql`
+      INSERT INTO calendar_memberships (calendar_id, user_id, participant_id, permission)
+      VALUES (${calendarId}, ${user.id}, ${participantId}, 'owner')
+    `,
+    sql`
+      INSERT INTO audit_log (calendar_id, actor_participant_id, action, entity_type, after_state)
+      VALUES (
+        ${calendarId},
+        ${participantId},
+        'calendar.created',
+        'calendar',
+        ${JSON.stringify({ name: parsed.data.calendarName, children: parsed.data.children })}::jsonb
+      )
+    `,
+  ];
+
+  if (normalizedInviteCode && inviteExpiresAt) {
+    statements.push(sql`
+      INSERT INTO calendar_invites (
+        calendar_id,
+        code_hash,
+        code_hint,
+        permission,
+        created_by_user_id,
+        expires_at
+      )
+      VALUES (
+        ${calendarId},
+        ${hashToken(normalizedInviteCode)},
+        ${normalizedInviteCode.slice(-4)},
+        'editor',
+        ${user.id},
+        ${inviteExpiresAt}
+      )
+    `);
+  }
 
   try {
-    await sql.transaction([
-      sql`
-        INSERT INTO calendars (id, name, timezone, share_enabled)
-        VALUES (${calendarId}, ${parsed.data.calendarName}, ${DEFAULT_CALENDAR_TIMEZONE}, false)
-      `,
-      sql`
-        INSERT INTO participants (
-          id, calendar_id, display_name, role, color_key, profile_slot, active
-        )
-        VALUES (
-          ${participantId}, ${calendarId}, ${parsed.data.displayName}, 'parent',
-          ${defaultParentColorKey("parent_one")}, 'parent_one', true
-        )
-      `,
-      ...childStatements,
-      sql`
-        INSERT INTO calendar_memberships (calendar_id, user_id, participant_id, permission)
-        VALUES (${calendarId}, ${user.id}, ${participantId}, 'owner')
-      `,
-      sql`
-        INSERT INTO audit_log (calendar_id, actor_participant_id, action, entity_type, after_state)
-        VALUES (
-          ${calendarId},
-          ${participantId},
-          'calendar.created',
-          'calendar',
-          ${JSON.stringify({ name: parsed.data.calendarName, children: parsed.data.children })}::jsonb
-        )
-      `,
-    ]);
+    await sql.transaction(statements);
   } catch {
     return { error: "The calendar could not be created. Please try again." };
   }
 
   const cookieStore = await cookies();
   cookieStore.set(SELECTED_CALENDAR_COOKIE_NAME, calendarId, calendarCookieOptions());
-  redirect("/calendar");
+
+  if (inviteCode) {
+    cookieStore.set(
+      NEW_CALENDAR_INVITE_COOKIE_NAME,
+      inviteCode,
+      onboardingInviteCookieOptions(),
+    );
+  }
+
+  redirect(onboardingFlow ? "/calendar?welcome=created" : "/calendar");
 }
 
 export async function joinCalendar(
@@ -113,10 +162,16 @@ export async function joinCalendar(
 
   const parsed = z
     .object({
-      code: z.string().transform(normalizeInviteCode).refine((value) => value.length === 12, "Enter the 12-character calendar code."),
+      code: z
+        .string()
+        .transform(normalizeInviteCode)
+        .refine((value) => value.length === 12, "Enter the 12-character calendar code."),
       displayName: z.string().trim().min(1, "Add your name.").max(50),
     })
-    .safeParse({ code: formData.get("code"), displayName: formData.get("displayName") });
+    .safeParse({
+      code: formData.get("code"),
+      displayName: formData.get("displayName") || user.name,
+    });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the calendar code." };
   }
@@ -124,6 +179,66 @@ export async function joinCalendar(
   const sql = getSql();
   const codeHash = hashToken(parsed.data.code);
   const participantId = randomUUID();
+
+  const inviteRows = (await sql`
+    SELECT
+      calendar_id,
+      permission,
+      revoked_at,
+      expires_at,
+      use_count,
+      max_uses
+    FROM calendar_invites
+    WHERE code_hash = ${codeHash}
+    LIMIT 1
+  `) as Array<{
+    calendar_id: string;
+    permission: "owner" | "editor" | "viewer";
+    revoked_at: Date | string | null;
+    expires_at: Date | string;
+    use_count: number;
+    max_uses: number;
+  }>;
+
+  const invite = inviteRows[0];
+  if (!invite) {
+    return { error: "We couldn’t find that invitation. Check the code and try again." };
+  }
+
+  const existingMembership = await sql`
+    SELECT 1
+    FROM calendar_memberships
+    WHERE calendar_id = ${invite.calendar_id}
+      AND user_id = ${user.id}
+    LIMIT 1
+  `;
+
+  if (existingMembership.length > 0) {
+    const cookieStore = await cookies();
+    cookieStore.set(
+      SELECTED_CALENDAR_COOKIE_NAME,
+      invite.calendar_id,
+      calendarCookieOptions(),
+    );
+    redirect("/calendar");
+  }
+
+  if (invite.revoked_at) {
+    return { error: "This invitation is no longer active. Ask the calendar owner for a new code." };
+  }
+
+  if (new Date(invite.expires_at).getTime() <= Date.now()) {
+    return { error: "This invitation has expired. Ask the calendar owner for a new code." };
+  }
+
+  if (invite.use_count >= invite.max_uses) {
+    return { error: "This invitation has already been used. Ask the calendar owner for a new code." };
+  }
+
+  if (invite.permission !== "editor" && invite.permission !== "viewer") {
+    return { error: "This invitation can’t be used to join the calendar." };
+  }
+
   let rows: Array<{ calendar_id: string }>;
 
   try {
@@ -238,12 +353,15 @@ export async function joinCalendar(
       SELECT calendar_id FROM new_membership
     `) as Array<{ calendar_id: string }>;
   } catch {
-    return { error: "That code could not be used. Ask the calendar owner for a new one." };
+    return { error: "That invitation couldn’t be used. Ask the calendar owner for a new code." };
   }
 
   const calendarId = rows[0]?.calendar_id;
   if (!calendarId) {
-    return { error: "That code is invalid, expired, already used, or there is no available parent profile." };
+    return {
+      error:
+        "This invitation can’t be used right now. The calendar may already have two linked parents.",
+    };
   }
 
   const cookieStore = await cookies();
@@ -275,5 +393,6 @@ export async function signOut() {
   await auth.signOut();
   const cookieStore = await cookies();
   cookieStore.delete(SELECTED_CALENDAR_COOKIE_NAME);
+  cookieStore.delete(NEW_CALENDAR_INVITE_COOKIE_NAME);
   redirect("/");
 }
