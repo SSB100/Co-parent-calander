@@ -2,7 +2,7 @@
 
 Covie now uses Managed Neon Auth plus `calendar_memberships` for application access.
 
-The former token/session authentication path is retired in application code and recorded by staged migration `0014_retire_legacy_auth.sql`.
+The former token/session authentication path is retired in application code and recorded by migration `0014_retire_legacy_auth.sql`, applied in Production on 19 September 2026.
 
 ## Runtime retirement
 
@@ -52,14 +52,13 @@ If a legacy-only calendar must be recovered:
 
 Once every legacy-only calendar has either been recovered or explicitly approved for archival, a later migration may remove the retained credential tables and enum.
 
-## Release verification
+## Production verification
 
-Before applying `0014` to Production:
+The 19 September 2026 release verified that:
 
-1. confirm the current application does not read legacy token/session records
-2. confirm the migration contains no `DROP TABLE`, `DROP TYPE` or credential-row deletion
-3. apply `0013` before `0014`
-4. confirm modern create/join/invite flows still work after migration
-5. confirm legacy editor links no longer authenticate
-6. confirm legacy credential row counts are unchanged
-7. confirm calendar/domain row counts are unchanged
+1. the current application does not read legacy token/session records
+2. migration `0014` contains no `DROP TABLE`, `DROP TYPE` or credential-row deletion
+3. `0013` was applied before `0014`
+4. legacy credential tables and rows remained present after migration
+5. calendar and family-domain row counts were unchanged
+6. recovery data remains available for any legacy-only calendar that must be attached to a modern membership
