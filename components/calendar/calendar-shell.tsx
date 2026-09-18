@@ -23,6 +23,7 @@ import {
   Hourglass,
   LoaderCircle,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   MapPin,
   RotateCcw,
@@ -82,6 +83,12 @@ type CalendarPayload = {
   assignments: ApiAssignment[];
   events: CalendarEvent[];
   pendingProposals: CalendarPendingProposal[];
+  responsibilityMarkers: Array<{
+    date: string;
+    count: number;
+    incompleteCount: number;
+    pendingCount: number;
+  }>;
   recurringScheduleActive: boolean;
   nextHandover: HandoverSummary | null;
   nextEvent: CalendarEvent | null;
@@ -271,6 +278,17 @@ export function CalendarShell() {
     return map;
   }, [calendarData]);
 
+  const responsibilityByDate = useMemo(() => {
+    const map: Record<
+      string,
+      { date: string; count: number; incompleteCount: number; pendingCount: number }
+    > = {};
+    for (const marker of calendarData?.responsibilityMarkers ?? []) {
+      map[marker.date] = marker;
+    }
+    return map;
+  }, [calendarData]);
+
   const today = new Date();
   const todayAssignment = assignments[keyFor(today)];
   const currentEditor = calendarData?.participants.find((participant) => participant.id === calendarData.currentParticipantId);
@@ -436,7 +454,7 @@ export function CalendarShell() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><LayoutDashboard className="h-4 w-4" aria-hidden="true" />Calendars</Link>\n            <Link href="/expenses" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><WalletCards className="h-4 w-4" aria-hidden="true" />Expenses</Link>
+            <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><LayoutDashboard className="h-4 w-4" aria-hidden="true" />Calendars</Link>\n            <Link href="/expenses" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><WalletCards className="h-4 w-4" aria-hidden="true" />Expenses</Link>\n            <Link href="/responsibilities" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><ListChecks className="h-4 w-4" aria-hidden="true" />Responsibilities</Link>
             {accessMode === "editor" ? (
               <>
                 <EventPanel onChanged={() => setRefreshKey((value) => value + 1)} />
@@ -543,6 +561,7 @@ export function CalendarShell() {
               const marker = detailMarkers[key];
               const dayEvents = eventsByDate[key] ?? [];
               const dayPending = pendingByDate[key] ?? [];
+              const responsibilityMarker = responsibilityByDate[key];
               const morningStyle = ownerStyle(assignment?.morning);
               const afternoonStyle = ownerStyle(assignment?.afternoon);
               const fullDayOwner = assignment?.morning && assignment.morning === assignment.afternoon ? assignment.morning : null;
@@ -556,7 +575,7 @@ export function CalendarShell() {
                   disabled={!inMonth || saving}
                   aria-selected={selected}
                   aria-current={isToday ? "date" : undefined}
-                  aria-label={`${format(day, "EEEE d MMMM")}, ${assignmentLabel(assignment)}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}` : ""}${dayPending.length ? `, ${dayPending.length} pending change${dayPending.length === 1 ? "" : "s"}` : ""}`}
+                  aria-label={`${format(day, "EEEE d MMMM")}, ${assignmentLabel(assignment)}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}` : ""}${responsibilityMarker?.count ? `, ${responsibilityMarker.count} responsibilit${responsibilityMarker.count === 1 ? "y" : "ies"}` : ""}${responsibilityMarker?.pendingCount ? `, ${responsibilityMarker.pendingCount} pending responsibility change${responsibilityMarker.pendingCount === 1 ? "" : "s"}` : ""}${dayPending.length ? `, ${dayPending.length} pending calendar change${dayPending.length === 1 ? "" : "s"}` : ""}`}
                   onClick={() => handleDayClick(day)}
                   className={`relative min-h-20 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 text-left transition sm:min-h-28 sm:rounded-2xl sm:p-2.5 ${inMonth ? "hover:-translate-y-0.5 hover:shadow-sm" : "cursor-default opacity-30"} ${selected ? "ring-2 ring-blue-500 ring-offset-1" : ""} ${selectionMode && inMonth ? "cursor-pointer" : ""}`}
                 >
@@ -593,18 +612,48 @@ export function CalendarShell() {
                   ) : null}
                   {dayEvents.length > 1 && inMonth ? <span className="relative z-10 mt-1 block text-[9px] font-semibold text-sky-800">+{dayEvents.length - 1} more event{dayEvents.length === 2 ? "" : "s"}</span> : null}
 
-                  {inMonth && (marker || dayPending.length > 0) ? (
+                  {inMonth &&
+                  (marker ||
+                    dayPending.length > 0 ||
+                    responsibilityMarker?.count ||
+                    responsibilityMarker?.pendingCount) ? (
                     <div className="absolute bottom-1.5 right-1.5 z-10 flex items-center gap-1 rounded-full bg-white/85 px-1 text-slate-500 sm:bottom-2 sm:right-2">
                       {dayPending.length > 0 ? (
                         <Hourglass
                           className="h-3.5 w-3.5 text-amber-600"
-                          aria-label="Pending change"
+                          aria-label="Pending calendar change"
                         />
                       ) : null}
-                      {marker?.handover ? (
-                        <Clock3 className="h-3.5 w-3.5" aria-label="Handover" />
-                      ) : marker?.note ? (
-                        <StickyNote className="h-3.5 w-3.5" aria-label="Note" />
+                      {responsibilityMarker?.count || responsibilityMarker?.pendingCount ? (
+                        <CheckSquare2
+                          className={`h-3.5 w-3.5 ${
+                            responsibilityMarker.incompleteCount > 0
+                              ? "text-slate-700"
+                              : "text-emerald-600"
+                          }`}
+                          aria-label={
+                            responsibilityMarker.pendingCount > 0
+                              ? "Responsibility, with pending change"
+                              : "Responsibility"
+                          }
+                        />
+                      ) : null}
+                      {(dayPending.length > 0 ? 1 : 0) +
+                        (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) <
+                      2 ? (
+                        marker?.handover ? (
+                          <Clock3 className="h-3.5 w-3.5" aria-label="Handover" />
+                        ) : marker?.note ? (
+                          <StickyNote className="h-3.5 w-3.5" aria-label="Note" />
+                        ) : null
+                      ) : null}
+                      {(dayPending.length > 0 ? 1 : 0) +
+                        (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) +
+                        (marker?.handover || marker?.note ? 1 : 0) >
+                      2 ? (
+                        <span className="text-[9px] font-bold text-slate-500" aria-label="One more detail">
+                          +1
+                        </span>
                       ) : null}
                     </div>
                   ) : null}
