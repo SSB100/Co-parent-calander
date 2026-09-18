@@ -14,7 +14,6 @@ import {
   LogOut,
   MapPin,
   ReceiptText,
-  ShieldCheck,
   WalletCards,
 } from "lucide-react";
 import Link from "next/link";
