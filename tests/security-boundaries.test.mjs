@@ -144,3 +144,17 @@ test("legacy setup is retired while managed calendar creation and joining remain
   assert.match(calendarActions, /calendar_invites/);
   assert.match(calendarActions, /requireAccount/);
 });
+
+
+test("login and signup expose Google OAuth through the managed Neon Auth client", async () => {
+  const [provider, form] = await Promise.all([
+    source("components/auth/auth-provider.tsx"),
+    source("components/auth/credentials-form.tsx"),
+  ]);
+
+  assert.match(provider, /social=\{\{ providers: \["google"\] \}\}/);
+  assert.match(form, /authClient\.signIn\.social/);
+  assert.match(form, /provider: "google"/);
+  assert.match(form, /Continue with Google/);
+  assert.match(form, /\/onboarding\?invite=/);
+});

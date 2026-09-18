@@ -1,7 +1,7 @@
 "use client";
 import { CalendarDays, Bell, LayoutGrid, LogOut, UsersRound, ListChecks, WalletCards, ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
@@ -23,7 +23,38 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
   const router = useRouter();
   const [signOutError, setSignOutError] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [updatesCount, setUpdatesCount] = useState(0);
   const section = active && ["expenses", "responsibilities", "kids"].includes(active) ? "organiser" : active;
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function refreshUpdatesCount() {
+      try {
+        const response = await fetch("/api/updates-count", {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        const body = (await response.json().catch(() => null)) as
+          | { count?: number }
+          | null;
+        if (!response.ok || typeof body?.count !== "number") return;
+        if (!controller.signal.aborted) setUpdatesCount(body.count);
+      } catch {
+        // Navigation remains usable if a badge refresh fails.
+      }
+    }
+
+    void refreshUpdatesCount();
+    window.addEventListener("focus", refreshUpdatesCount);
+    window.addEventListener("covie-records-updated", refreshUpdatesCount);
+    return () => {
+      controller.abort();
+      window.removeEventListener("focus", refreshUpdatesCount);
+      window.removeEventListener("covie-records-updated", refreshUpdatesCount);
+    };
+  }, []);
+
   async function signOut() {
     setSigningOut(true);
     setSignOutError(false);
@@ -39,7 +70,18 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
       <div className="workspace-destinations">
         {items.map(({ key, href, label, icon: Icon }) => (
           <Link key={key} href={href} aria-current={section === key ? "page" : undefined}>
-            <Icon size={20} aria-hidden="true" /><span>{label}</span>
+            <span className="relative inline-flex">
+              <Icon size={20} aria-hidden="true" />
+              {key === "home" && updatesCount > 0 ? (
+                <span
+                  className="absolute -right-2.5 -top-2.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[#FF6B5F] px-1 text-[10px] font-black leading-none text-[#243139]"
+                  aria-label={`${updatesCount} update${updatesCount === 1 ? "" : "s"} need review`}
+                >
+                  {updatesCount > 99 ? "99+" : updatesCount}
+                </span>
+              ) : null}
+            </span>
+            <span>{label}</span>
           </Link>
         ))}
       </div>
