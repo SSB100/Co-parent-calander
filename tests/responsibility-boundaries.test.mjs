@@ -84,7 +84,8 @@ test("calendar and day details integrate responsibilities without replacing pare
 
   assert.match(calendarRoute, /responsibilityMarkers/);
   assert.match(shell, /responsibilityByDate/);
-  assert.match(shell, /Responsibilities/);
+  assert.match(shell, /WorkspaceNav/);
+  assert.match(await source("components/workspace/workspace-nav.tsx"), /Responsibilities/);
   assert.match(shell, /One more detail/);
   assert.match(day, /DayResponsibilities/);
   assert.match(dayResponsibilities, /Responsibilities/);

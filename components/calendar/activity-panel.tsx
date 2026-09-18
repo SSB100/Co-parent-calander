@@ -149,7 +149,7 @@ export function ActivityPanel() {
         className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
       >
         <History className="h-4 w-4" aria-hidden="true" />
-        <span className="hidden sm:inline">Activity</span>
+        <span>Activity</span>
       </button>
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 backdrop-blur-sm sm:items-center sm:p-6">

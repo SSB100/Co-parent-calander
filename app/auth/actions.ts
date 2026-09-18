@@ -24,7 +24,7 @@ export async function signInWithEmail(
   const { error: signInError } = await auth.signIn.email(parsed.data);
   if (signInError) return { error: "The email or password is incorrect." };
 
-  redirect("/dashboard");
+  redirect("/");
 }
 
 export async function signUpWithEmail(
@@ -57,5 +57,5 @@ export async function signUpWithEmail(
     };
   }
 
-  redirect("/dashboard");
+  redirect("/");
 }

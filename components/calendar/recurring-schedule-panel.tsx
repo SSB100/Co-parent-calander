@@ -510,9 +510,9 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
                         const slot = pattern[slotIndex] ?? emptySlot();
                         return (
                           <button key={slotIndex} type="button" disabled={saving || participants.length === 0} onClick={() => cycleSlot(slotIndex)} className="relative min-h-12 overflow-hidden rounded-xl border border-slate-200 bg-white px-2 text-left text-xs font-semibold text-slate-800 transition hover:ring-2 hover:ring-slate-200 disabled:opacity-40" aria-label={`${weekday}, ${slotIndex < 7 ? "week 1" : "week 2"}: ${slotLabel(slot)}. Tap to change.`}>
-                            <span className={`pointer-events-none absolute inset-x-0 top-0 h-1/2 ${slotColor(participants, slot.morningParentId)}`} aria-hidden="true" />
-                            <span className={`pointer-events-none absolute inset-x-0 bottom-0 h-1/2 ${slotColor(participants, slot.afternoonParentId)}`} aria-hidden="true" />
-                            {slot.morningParentId !== slot.afternoonParentId ? <span className="pointer-events-none absolute inset-x-0 top-1/2 border-t border-white/90" aria-hidden="true" /> : null}
+                            <span className={`pointer-events-none absolute inset-y-0 left-0 w-1/2 ${slotColor(participants, slot.morningParentId)}`} aria-hidden="true" />
+                            <span className={`pointer-events-none absolute inset-y-0 right-0 w-1/2 ${slotColor(participants, slot.afternoonParentId)}`} aria-hidden="true" />
+                            {slot.morningParentId !== slot.afternoonParentId ? <span className="pointer-events-none absolute inset-y-0 left-1/2 border-l border-white/90" aria-hidden="true" /> : null}
                             <span className="relative z-10 block leading-4">{slotLabel(slot)}</span>
                           </button>
                         );
@@ -529,7 +529,7 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
                       <div key={weekIndex} className="grid grid-cols-7 gap-1">
                         {week.map((item) => (
                           <div key={format(item.date, "yyyy-MM-dd")} className={`relative min-h-14 overflow-hidden rounded-lg border px-1 py-1.5 text-center sm:min-h-16 ${item.ended ? "border-slate-200 bg-slate-100 text-slate-400" : "border-slate-200 bg-white text-slate-700"}`}>
-                            {!item.ended ? <><span className={`pointer-events-none absolute inset-x-0 top-0 h-1/2 ${slotColor(participants, item.slot.morningParentId)}`} aria-hidden="true" /><span className={`pointer-events-none absolute inset-x-0 bottom-0 h-1/2 ${slotColor(participants, item.slot.afternoonParentId)}`} aria-hidden="true" />{item.slot.morningParentId !== item.slot.afternoonParentId ? <span className="pointer-events-none absolute inset-x-0 top-1/2 border-t border-white/90" aria-hidden="true" /> : null}</> : null}
+                            {!item.ended ? <><span className={`pointer-events-none absolute inset-y-0 left-0 w-1/2 ${slotColor(participants, item.slot.morningParentId)}`} aria-hidden="true" /><span className={`pointer-events-none absolute inset-y-0 right-0 w-1/2 ${slotColor(participants, item.slot.afternoonParentId)}`} aria-hidden="true" />{item.slot.morningParentId !== item.slot.afternoonParentId ? <span className="pointer-events-none absolute inset-y-0 left-1/2 border-l border-white/90" aria-hidden="true" /> : null}</> : null}
                             <span className="relative z-10 block text-[10px] font-semibold opacity-70 sm:text-xs">{format(item.date, "d MMM")}</span>
                             <span className="relative z-10 mt-1 block text-[8px] font-semibold leading-3 sm:text-[10px]">{item.ended ? "Ended" : slotLabel(item.slot)}</span>
                           </div>
