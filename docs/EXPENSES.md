@@ -1,5 +1,7 @@
 # Expenses
 
+> **Current release status — 18 September 2026:** This feature is live in Covie Production and its required migration(s) are already applied through production schema version `0011`. Any older “do not apply”, “GitHub-only”, or “not yet deployed” wording below is retained only as historical phase context and is not the current operating state.
+
 Phase 3 adds shared expense tracking to Covie without turning the product into a payment service.
 
 ## Product boundary

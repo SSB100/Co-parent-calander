@@ -1,5 +1,7 @@
 # Documents / Attachments
 
+> **Current release status — 18 September 2026:** Attachment code and migration `0010` are live in Covie Production. The remaining release prerequisite is to connect and verify a **Vercel Private Blob** store; uploads/profile photos must not be considered production-verified until that infrastructure check passes. Older pre-release wording below is historical context.
+
 Phase 7 adds one reusable private-file layer to Covie.
 
 The purpose is to support the practical files that naturally belong to co-parenting records without turning Covie into a general cloud drive.

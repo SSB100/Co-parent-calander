@@ -1,5 +1,7 @@
 # Approval engine
 
+> **Current release status — 18 September 2026:** This feature is live in Covie Production and its required migration(s) are already applied through production schema version `0011`. Any older “do not apply”, “GitHub-only”, or “not yet deployed” wording below is retained only as historical phase context and is not the current operating state.
+
 Phase 1 introduces the reusable shared-agreement foundation. It does not change any existing calendar, event, handover or Google Calendar behaviour yet.
 
 ## Lifecycle

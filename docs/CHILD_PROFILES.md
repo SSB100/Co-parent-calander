@@ -1,5 +1,7 @@
 # Child profiles
 
+> **Current release status — 18 September 2026:** This feature is live in Covie Production and its required database migration(s) are already applied through schema version `0011`. Older “do not apply” or “not yet deployed” wording below is historical phase context.
+
 Phase 6 turns each child into a lightweight shared information hub.
 
 The profile is reference information, not a case-management record. The goal is to make useful everyday details easy to find without forcing parents into a complex data-entry system.

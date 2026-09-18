@@ -2,7 +2,7 @@
 
 import { Check, CheckSquare2, LoaderCircle } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type DayResponsibility = {
   id: string;
@@ -31,7 +31,7 @@ export function DayResponsibilities({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function load(cancelled?: () => boolean) {
+  const load = useCallback((cancelled?: () => boolean) => {
     return fetch(`/api/responsibilities?date=${encodeURIComponent(date)}`, { cache: "no-store" })
       .then(async (response) => ({
         response,
@@ -49,7 +49,7 @@ export function DayResponsibilities({
       .catch(() => {
         if (!cancelled?.()) setError("Responsibilities could not be loaded.");
       });
-  }
+  }, [date]);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,7 +57,7 @@ export function DayResponsibilities({
     return () => {
       cancelled = true;
     };
-  }, [date]);
+  }, [load]);
 
   async function complete(item: DayResponsibility) {
     if (

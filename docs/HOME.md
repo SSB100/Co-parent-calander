@@ -1,5 +1,7 @@
 # Home / Needs Attention
 
+> **Current release status — 18 September 2026:** This feature is live in Covie Production and its required database migration(s) are already applied through schema version `0011`. Older “do not apply” or “not yet deployed” wording below is historical phase context.
+
 Phase 5 adds Covie Home as the daily overview for the selected family calendar.
 
 Home is intentionally a derived view. It does not add another storage layer or duplicate the feature records already owned by Calendar, Expenses, Responsibilities and the approval engine.

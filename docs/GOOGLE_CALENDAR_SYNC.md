@@ -1,12 +1,14 @@
 # Google Calendar one-way sync
 
-Google Calendar syncing is optional. Co-parent Calendar remains the authoritative source of truth. The integration does not import Google events and does not replace the existing email/password login.
+> **Current release status — 18 September 2026:** This feature is live in Covie Production and its required database migration(s) are already applied through schema version `0011`. Older “do not apply” or “not yet deployed” wording below is historical phase context.
+
+Google Calendar syncing is optional. Covie remains the authoritative source of truth. The integration does not import Google events and does not replace the existing email/password login.
 
 ## Privacy and permission model
 
 - Each authenticated calendar membership connects its own Google account independently. This includes viewer memberships.
 - The requested Google Calendar scope is only `https://www.googleapis.com/auth/calendar.app.created`.
-- The app creates a dedicated secondary calendar named `Co-parent Calendar — <shared calendar name>`.
+- The app creates a dedicated secondary calendar named `Covie — <shared calendar name>`.
 - The sync service addresses only that app-created calendar. It does not list, read, import, or modify the user's primary or personal calendars.
 - One member's Google connection, token, account information, or personal calendar information is never returned to another member.
 - Access and refresh tokens are encrypted at rest with AES-256-GCM using a server-only key.
@@ -60,7 +62,7 @@ Required for the scheduled reconciliation worker:
 
 ## Google Cloud setup
 
-1. Create a dedicated Google Cloud project for Co-parent Calendar.
+1. Create a dedicated Google Cloud project for Covie.
 2. Enable **Google Calendar API** under APIs & Services.
 3. Configure the Google Auth Platform branding and audience.
 4. During development, keep the app in Testing and add only the Google accounts that should test the feature.
@@ -101,7 +103,7 @@ Use only the personal Vercel project **co-parent-calander**.
 3. Add Google credentials to **Preview** first for development testing.
 4. Keep Production Google values unset until the production release has been reviewed and approved.
 5. Ensure the Preview environment uses the Neon development database branch rather than the production database.
-6. Redeploy the feature-branch preview after environment changes.
+6. Automatic Git/Preview deployments are disabled; create a Preview deployment only when integration testing is explicitly required.
 
 Never put secret values in source files or documentation.
 

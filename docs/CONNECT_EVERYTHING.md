@@ -1,5 +1,7 @@
 # Phase 8 — Connect Everything
 
+> **Current release status — 18 September 2026:** Phase 8 is live in Production. Migrations `0005` through `0011` have already been applied to the Production Neon branch. Do not reapply them. The pre-release deployment checklist below is retained for history.
+
 Phase 8 makes related Covie records feel like parts of one real-life situation instead of isolated database rows.
 
 The guiding example is a school camp:

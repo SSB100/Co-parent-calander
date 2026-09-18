@@ -45,9 +45,6 @@ function contentHash(value: unknown) {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
-function overlaps(rangeStart: string, rangeEnd: string, targetStart: string, targetEnd: string) {
-  return rangeStart <= targetEnd && rangeEnd >= targetStart;
-}
 
 async function ensureGeneratedCalendar(
   connection: GoogleConnection,

@@ -1,51 +1,116 @@
-# Co-parent Calendar
+# Covie
 
-A small, mobile-first shared calendar for co-parents. People create an account with an email and password, create or join a calendar with a one-use code, and can install the site on iPhone, iPad, or Android as a web app.
+Covie is a mobile-first shared co-parenting organiser for schedules, expenses, responsibilities, agreements, child information, documents and related items.
 
-Production is the Vercel project `co-parent-calander`, deployed from the `main` branch of `SSB100/Co-parent-calander` and backed by Neon Postgres.
+Production uses:
 
-## Product flow
+- GitHub repository: `SSB100/Co-parent-calander`
+- Vercel project: `co-parent-calander`
+- Neon project: `delicate-sunset-36051658`
+- Production Neon branch: `main` (`br-quiet-sea-a7duq4r3`)
+- Current application schema: migrations `0000` through `0011`
 
-- The public home page only offers log in and sign up.
-- Email/password accounts are available immediately; email verification is not required.
-- A signed-in user can create a calendar or join one with a unique invitation code.
-- The calendar owner decides whether an invitation grants full editing or view-only access and can change that permission later.
-- Invitation codes are hashed in the database, expire after 30 days, and can be redeemed once.
-- Password reset email is handled by Neon Auth.
-- The app manifest and service worker provide installation support without caching private calendar data.
+## Product model
+
+A signed-in user can create or join one or more family calendars. Calendar membership controls access:
+
+- `owner` — full family/calendar administration
+- `editor` — can edit shared data
+- `viewer` — read-only shared access
+
+Parent profiles are separate from accounts so a co-parent can be represented in schedules even when they do not use Covie.
+
+Core features:
+
+- full-day and split-day parenting schedules
+- saved repeating parenting schedules plus manual date overrides
+- shared events and recurrence
+- agreement/approval proposals
+- expenses and settlement tracking
+- responsibilities and recurrence
+- child profiles and activities
+- private attachments/profile photos
+- related items across features
+- optional one-way Google Calendar sync
+- PWA installation
+
+## Architecture
+
+- Next.js App Router + React
+- Neon Postgres + Drizzle ORM
+- Managed Neon Auth for account login
+- Vercel for production hosting
+- Vercel Private Blob for attachment bytes
+- Zod for request/domain validation
+
+The relational database remains the source of truth. Google Calendar is one-way output only.
+
+See `docs/ARCHITECTURE.md` for the current system boundaries and cleanup/release conventions.
 
 ## Local setup
 
-Use Node.js 24 and npm. Copy `.env.example` to `.env.local`, then configure:
+Use Node.js 24 and npm.
 
-- `DATABASE_URL` — server-only Neon Postgres connection string
-- `NEON_AUTH_BASE_URL` — the Managed Neon Auth endpoint for the same database branch
-- `NEON_AUTH_COOKIE_SECRET` — a long random authentication-cookie secret
-- `APP_SECRET` — legacy token secret retained while existing calendars are moved to accounts
-- `NEXT_PUBLIC_APP_URL` — canonical site URL
+Copy `.env.example` to `.env.local` and configure the required values.
 
-Install and start with `npm install` and `npm run dev`.
+At minimum:
 
-## Database
+- `DATABASE_URL`
+- `NEON_AUTH_BASE_URL`
+- `NEON_AUTH_COOKIE_SECRET`
+- `NEXT_PUBLIC_APP_URL`
 
-Schema definitions live in `lib/db/schema.ts`. SQL migrations are in `drizzle/`:
+Optional integrations have their own variables documented in `.env.example` and feature docs.
 
-- `0000_initial.sql` creates the original calendar schema.
-- `0001_nullable_assignment_parent.sql` supports cleared recurring overrides.
-- `0002_account_memberships.sql` adds account memberships, permissions, and invitation codes.\n- `0003_half_day_assignments.sql` adds split-day parenting support.\n- `0004_google_calendar_sync.sql` adds per-user Google Calendar sync state and the sync outbox.\n- `0005_approval_engine.sql` adds the reusable proposal lifecycle, history, and pending-conflict protection.\n- `0006_recurring_events.sql` adds simple recurring shared events with an optional repeat-until date.
+Install and run:
 
-Inspect the target database before applying a production migration. Never commit `.env.local` or live credentials.
+```bash
+npm ci
+npm run dev
+```
+
+## Database migrations
+
+SQL migrations live in `drizzle/`:
+
+- `0000_initial.sql`
+- `0001_nullable_assignment_parent.sql`
+- `0002_account_memberships.sql`
+- `0003_half_day_assignments.sql`
+- `0004_google_calendar_sync.sql`
+- `0005_approval_engine.sql`
+- `0006_recurring_events.sql`
+- `0007_expenses.sql`
+- `0008_responsibilities.sql`
+- `0009_child_profiles.sql`
+- `0010_attachments.sql`
+- `0011_entity_links.sql`
+
+Production has all migrations through `0011` applied.
+
+Do not replay historical migrations against production. The architecture-cleanup work is introducing an explicit migration ledger/baseline before the next schema migration.
 
 ## Verification
 
-Run the full release gate:
+The release gate is:
 
 ```bash
-npm install --no-audit --no-fund
+npm ci --no-audit --no-fund
 npm run lint
 npm run typecheck
 npm test
+npm audit --audit-level=high
 npm run build
 ```
 
-GitHub Actions runs the same gate on pull requests and pushes to `main`; Vercel deploys production from `main`.
+GitHub Actions runs the same gate.
+
+Automatic Git deployments are disabled. Production deployment should occur only after the intended commit has passed CI and the release has been explicitly approved.
+
+## Release safety
+
+- Do not apply schema migrations directly without a reviewed migration plan and rollback point.
+- Do not commit secrets or local environment files.
+- Production attachment storage must use a **Private** Blob store.
+- Keep Google credentials and token-encryption material server-side.
+- The production rollback branch `backup-before-phase-8-release` should remain untouched until a later cleanup explicitly retires it.
