@@ -1,6 +1,7 @@
 import {
   differenceInCalendarDays,
   eachDayOfInterval,
+  format,
   parseISO,
 } from "date-fns";
 import {
@@ -68,7 +69,7 @@ function addEventDates(
     start: parseISO(event.startDate),
     end: parseISO(end),
   })) {
-    const date = day.toISOString().slice(0, 10);
+    const date = format(day, "yyyy-MM-dd");
     if (inRange(date, from, to)) target.add(date);
   }
 }
@@ -90,7 +91,7 @@ function addRecurringDates(
     start: parseISO(from),
     end: parseISO(to),
   })) {
-    const date = day.toISOString().slice(0, 10);
+    const date = format(day, "yyyy-MM-dd");
     if (date < schedule.anchorDate) continue;
     if (schedule.endDate && date > schedule.endDate) continue;
 
