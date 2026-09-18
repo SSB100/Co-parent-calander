@@ -127,6 +127,26 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
   }
 
+  if (attachment.primaryEntityType === "child") {
+    statements.push(sql`
+      INSERT INTO audit_log (
+        calendar_id, actor_participant_id, action, entity_type, entity_id, after_state
+      )
+      VALUES (
+        ${session.calendarId}, ${session.participantId},
+        ${attachment.primaryRole === "profile_photo"
+          ? "child_profile.photo_update"
+          : "child_profile.document_add"},
+        'child_profile', ${attachment.primaryEntityId},
+        ${JSON.stringify({
+          attachmentId: attachment.id,
+          fileName: attachment.originalFileName,
+          category: attachment.category,
+        })}::jsonb
+      )
+    `);
+  }
+
   statements.push(
     sql`
       UPDATE attachments
@@ -204,33 +224,55 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   }
 
   const sql = getSql();
+  const deleteStatements = [
+    sql`
+      DELETE FROM attachments
+      WHERE id = ${attachment.id}
+        AND calendar_id = ${session.calendarId}
+    `,
+    sql`
+      INSERT INTO audit_log (
+        calendar_id, actor_participant_id, action, entity_type, entity_id, before_state
+      )
+      VALUES (
+        ${session.calendarId}, ${session.participantId},
+        'attachment.delete', 'attachment', ${attachment.id},
+        ${JSON.stringify({
+          fileName: attachment.originalFileName,
+          contentType: attachment.contentType,
+          sizeBytes: attachment.sizeBytes,
+          category: attachment.category,
+          targetEntityType: attachment.primaryEntityType,
+          targetEntityId: attachment.primaryEntityId,
+          role: attachment.primaryRole,
+          status: attachment.status,
+        })}::jsonb
+      )
+    `,
+  ];
+
+  if (attachment.primaryEntityType === "child" && attachment.status === "ready") {
+    deleteStatements.push(sql`
+      INSERT INTO audit_log (
+        calendar_id, actor_participant_id, action, entity_type, entity_id, before_state
+      )
+      VALUES (
+        ${session.calendarId}, ${session.participantId},
+        ${attachment.primaryRole === "profile_photo"
+          ? "child_profile.photo_remove"
+          : "child_profile.document_remove"},
+        'child_profile', ${attachment.primaryEntityId},
+        ${JSON.stringify({
+          attachmentId: attachment.id,
+          fileName: attachment.originalFileName,
+          category: attachment.category,
+        })}::jsonb
+      )
+    `);
+  }
+
   try {
-    await sql.transaction([
-      sql`
-        DELETE FROM attachments
-        WHERE id = ${attachment.id}
-          AND calendar_id = ${session.calendarId}
-      `,
-      sql`
-        INSERT INTO audit_log (
-          calendar_id, actor_participant_id, action, entity_type, entity_id, before_state
-        )
-        VALUES (
-          ${session.calendarId}, ${session.participantId},
-          'attachment.delete', 'attachment', ${attachment.id},
-          ${JSON.stringify({
-            fileName: attachment.originalFileName,
-            contentType: attachment.contentType,
-            sizeBytes: attachment.sizeBytes,
-            category: attachment.category,
-            targetEntityType: attachment.primaryEntityType,
-            targetEntityId: attachment.primaryEntityId,
-            role: attachment.primaryRole,
-            status: attachment.status,
-          })}::jsonb
-        )
-      `,
-    ]);
+    await sql.transaction(deleteStatements);
   } catch {
     return NextResponse.json(
       { error: "The attachment could not be removed." },
