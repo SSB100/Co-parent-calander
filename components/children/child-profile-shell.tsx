@@ -20,6 +20,7 @@ import {
 import Link from "next/link";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { ProfilePhoto } from "@/components/attachments/profile-photo";
+import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type ChildProfile = {
@@ -567,6 +568,19 @@ export function ChildProfileShell({ childId }: { childId: string }) {
             </div>
           </div>
         </article>
+      </section>
+
+      <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-950">Related items</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Connect events, costs, tasks, children and existing documents that belong to the same situation.
+        </p>
+        <LinkedItemsPanel
+          entityType="child"
+          entityId={child.id}
+          title="Related items"
+          defaultOpen
+        />
       </section>
 
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
