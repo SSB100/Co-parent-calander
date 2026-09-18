@@ -19,6 +19,7 @@ import {
   responsibilities,
   responsibilityChildren,
 } from "@/lib/db/schema";
+import { localDateInTimeZone } from "@/lib/calendar/time";
 import { responsibilityStatus } from "@/lib/responsibilities/model";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession, getEditorSession } from "@/lib/security/session";
@@ -28,15 +29,6 @@ type RouteContext = {
 };
 
 const childIdSchema = z.string().uuid();
-
-function todayInAuckland() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Pacific/Auckland",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
 
 function profileFromRow(row: {
   displayName: string;
@@ -232,7 +224,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         .limit(30),
     ]);
 
-  const today = todayInAuckland();
+  const today = localDateInTimeZone(session.calendarTimezone);
   return NextResponse.json({
     permission: session.permission,
     currentParticipantId: session.participantId,

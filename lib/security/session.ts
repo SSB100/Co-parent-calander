@@ -2,7 +2,7 @@ import { and, asc, eq, gt, isNull } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
-import { calendarMemberships, participants, sessions } from "@/lib/db/schema";
+import { calendars, calendarMemberships, participants, sessions } from "@/lib/db/schema";
 import { generateSecureToken, hashToken } from "@/lib/security/tokens";
 
 export const SESSION_COOKIE_NAME = "coparent_session";
@@ -86,12 +86,15 @@ export async function getCalendarSession() {
     .select({
       membershipId: calendarMemberships.id,
       calendarId: calendarMemberships.calendarId,
+      calendarName: calendars.name,
+      calendarTimezone: calendars.timezone,
       participantId: calendarMemberships.participantId,
       permission: calendarMemberships.permission,
       displayName: participants.displayName,
       colorKey: participants.colorKey,
     })
     .from(calendarMemberships)
+    .innerJoin(calendars, eq(calendarMemberships.calendarId, calendars.id))
     .leftJoin(participants, eq(calendarMemberships.participantId, participants.id))
     .where(and(...conditions))
     .orderBy(asc(calendarMemberships.createdAt))

@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/lib/auth/server";
+import { DEFAULT_CALENDAR_TIMEZONE } from "@/lib/calendar/time";
 import { getSql } from "@/lib/db";
 import { normalizeInviteCode } from "@/lib/security/invites";
 import { SELECTED_CALENDAR_COOKIE_NAME } from "@/lib/security/session";
@@ -66,7 +67,7 @@ export async function createCalendar(
     await sql.transaction([
       sql`
         INSERT INTO calendars (id, name, timezone, share_enabled)
-        VALUES (${calendarId}, ${parsed.data.calendarName}, 'Pacific/Auckland', false)
+        VALUES (${calendarId}, ${parsed.data.calendarName}, ${DEFAULT_CALENDAR_TIMEZONE}, false)
       `,
       sql`
         INSERT INTO participants (id, calendar_id, display_name, role, color_key, active)

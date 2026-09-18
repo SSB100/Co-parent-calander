@@ -30,6 +30,8 @@ Attachment bytes belong in Vercel Private Blob. Postgres stores private object k
 
 Home is a derived read model and has no Home-specific persistence.
 
+The selected calendar's `timezone` is authoritative for date-sensitive application behaviour. `Pacific/Auckland` remains the default for newly created calendars, not a hidden runtime assumption.
+
 ## Permission model
 
 - Owner: calendar administration plus editor capabilities.
@@ -104,7 +106,6 @@ Before the brand/UI redesign, cleanup work should:
 - move business workflows out of large route handlers into feature services
 - split the large client shells into controllers/hooks and smaller UI components
 - introduce a shared authenticated application shell
-- make calendar timezone authoritative
 - decouple parent identity from Tailwind colour names
 - simplify the parenting recurrence persistence model
 - modularise approval applicators and relationship aggregation

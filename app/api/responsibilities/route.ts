@@ -27,6 +27,7 @@ import {
   responsibilityStatus,
   type ResponsibilityDetails,
 } from "@/lib/responsibilities/model";
+import { localDateInTimeZone } from "@/lib/calendar/time";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession, getEditorSession } from "@/lib/security/session";
 
@@ -40,15 +41,6 @@ const deleteSchema = z.object({
   reason: proposalReasonSchema,
 });
 const dateQuery = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-
-function todayInAuckland() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Pacific/Auckland",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
 
 function approvalError(error: unknown, fallback: string) {
   if (error instanceof ApprovalEngineError) {
@@ -210,7 +202,7 @@ export async function GET(request: NextRequest) {
     childIdsByResponsibility.set(item.responsibilityId, current);
   }
 
-  const today = todayInAuckland();
+  const today = localDateInTimeZone(session.calendarTimezone);
   return NextResponse.json({
     currentParticipantId: session.participantId,
     currentMembershipId: session.membershipId,

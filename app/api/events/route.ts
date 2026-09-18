@@ -14,6 +14,7 @@ import { expandEventOccurrences } from "@/lib/events/recurrence";
 import { events } from "@/lib/db/schema";
 import { buildCalendarSyncJobStatement, expandGoogleSyncRange } from "@/lib/google-calendar/outbox";
 import { kickGoogleCalendarSync } from "@/lib/google-calendar/dispatch";
+import { localDateInTimeZone } from "@/lib/calendar/time";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession, getEditorSession } from "@/lib/security/session";
 
@@ -58,9 +59,6 @@ const createSchema = eventFields.safeExtend({ reason: proposalReasonSchema });
 const editSchema = eventFields.safeExtend({ id: z.string().uuid(), reason: proposalReasonSchema });
 const deleteSchema = z.object({ id: z.string().uuid(), reason: proposalReasonSchema });
 
-function localDate(timeZone: string) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-}
 
 function approvalError(error: unknown, fallback: string) {
   if (error instanceof ApprovalEngineError) {
@@ -80,7 +78,7 @@ export async function GET(request: NextRequest) {
   }
 
   const targetDate = parsedDate?.success ? parsedDate.data : null;
-  const today = localDate("Pacific/Auckland");
+  const today = localDateInTimeZone(session.calendarTimezone);
   const referenceDate = targetDate ?? today;
 
   const rows = await getDb()

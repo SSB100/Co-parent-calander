@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { localDateInTimeZone } from "@/lib/calendar/time";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
@@ -122,15 +123,6 @@ const currency = new Intl.NumberFormat("en-NZ", {
   minimumFractionDigits: 2,
 });
 
-function todayDate() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Pacific/Auckland",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
 function money(cents: number) {
   return currency.format(cents / 100);
 }
@@ -183,13 +175,13 @@ function owedAmount(expense: Expense) {
   return Math.max(0, expense.amountCents - payerShare);
 }
 
-function blankForm(initialDate: string | null, participantId: string | null): ExpenseFormState {
+function blankForm(initialDate: string | null, participantId: string | null, timeZone: string): ExpenseFormState {
   return {
     id: null,
     title: "",
     amount: "",
     category: "other",
-    expenseDate: initialDate ?? todayDate(),
+    expenseDate: initialDate ?? localDateInTimeZone(timeZone),
     childId: "",
     paidByParticipantId: participantId ?? "",
     dueDate: "",
@@ -200,12 +192,12 @@ function blankForm(initialDate: string | null, participantId: string | null): Ex
   };
 }
 
-export function ExpensesShell({ initialDate }: { initialDate: string | null }) {
+export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: string | null; calendarTimezone: string }) {
   const [data, setData] = useState<ExpensePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState<ExpenseFormState>(() => blankForm(initialDate, null));
+  const [form, setForm] = useState<ExpenseFormState>(() => blankForm(initialDate, null, calendarTimezone));
   const [dateFilter, setDateFilter] = useState<string | null>(initialDate);
   const [statusFilter, setStatusFilter] = useState<"all" | "outstanding" | "settled">("all");
   const [message, setMessage] = useState<string | null>(null);
@@ -306,7 +298,7 @@ export function ExpensesShell({ initialDate }: { initialDate: string | null }) {
 
   function openCreate() {
     const participantId = data?.currentParticipantId ?? participants[0]?.id ?? "";
-    setForm(blankForm(dateFilter, participantId));
+    setForm(blankForm(dateFilter, participantId, calendarTimezone));
     setError(null);
     setFormOpen(true);
   }

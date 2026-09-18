@@ -15,6 +15,7 @@ import {
 } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { listApprovalProposals } from "@/lib/approvals/engine";
+import { localDateTimePartsInTimeZone } from "@/lib/calendar/time";
 import { getDb } from "@/lib/db";
 import {
   calendars,
@@ -38,25 +39,6 @@ import {
 } from "@/lib/home/summary";
 import { resolveRecurringAssignments } from "@/lib/recurrence/fortnight";
 import { getCalendarSession } from "@/lib/security/session";
-
-function localDateTimeParts(timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-NZ", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date());
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? "00";
-  return {
-    date: `${value("year")}-${value("month")}-${value("day")}`,
-    time: `${value("hour")}:${value("minute")}:${value("second")}`,
-  };
-}
 
 export async function GET() {
   const session = await getCalendarSession();
@@ -83,7 +65,7 @@ export async function GET() {
     return NextResponse.json({ error: "Calendar not found." }, { status: 404 });
   }
 
-  const now = localDateTimeParts(calendar.timezone);
+  const now = localDateTimePartsInTimeZone(calendar.timezone);
   const horizon = format(addYears(parseISO(now.date), 1), "yyyy-MM-dd");
   const attentionThrough = attentionCutoff(now.date, 3);
   const inferredSplitHandoverTime = sql<string>`coalesce(${parentingAssignments.handoverTime}, '12:00:00'::time)`;

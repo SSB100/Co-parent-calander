@@ -18,5 +18,5 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
   const rawDate = Array.isArray(params.date) ? params.date[0] : params.date;
   const initialDate = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : null;
 
-  return <ExpensesShell initialDate={initialDate} />;
+  return <ExpensesShell initialDate={initialDate} calendarTimezone={session.calendarTimezone} />;
 }

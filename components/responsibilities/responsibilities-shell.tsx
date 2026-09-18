@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { localDateInTimeZone } from "@/lib/calendar/time";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
@@ -183,15 +184,6 @@ const templates: Array<{
   { key: "other", label: "Other", title: "", category: "other" },
 ];
 
-function todayDate() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Pacific/Auckland",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
 function dateLabel(value: string) {
   return new Intl.DateTimeFormat("en-NZ", {
     day: "numeric",
@@ -201,13 +193,13 @@ function dateLabel(value: string) {
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
-function blankForm(initialDate: string | null, participantId: string | null): FormState {
+function blankForm(initialDate: string | null, participantId: string | null, timeZone: string): FormState {
   return {
     id: null,
     title: "",
     childIds: [],
     responsibleParticipantId: participantId ?? "",
-    dueDate: initialDate ?? todayDate(),
+    dueDate: initialDate ?? localDateInTimeZone(timeZone),
     dueTime: "",
     category: "other",
     note: "",
@@ -258,12 +250,12 @@ function statusClass(status: ResponsibilityStatus) {
   return "bg-slate-100 text-slate-600";
 }
 
-export function ResponsibilitiesShell({ initialDate }: { initialDate: string | null }) {
+export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initialDate: string | null; calendarTimezone: string }) {
   const [data, setData] = useState<ResponsibilityPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(() => blankForm(initialDate, null));
+  const [form, setForm] = useState<FormState>(() => blankForm(initialDate, null, calendarTimezone));
   const [dateFilter, setDateFilter] = useState<string | null>(initialDate);
   const [statusFilter, setStatusFilter] = useState<"all" | ResponsibilityStatus>("all");
   const [message, setMessage] = useState<string | null>(null);
@@ -366,6 +358,7 @@ export function ResponsibilitiesShell({ initialDate }: { initialDate: string | n
       blankForm(
         dateFilter,
         data?.currentParticipantId ?? participants[0]?.id ?? null,
+        calendarTimezone,
       ),
     );
     setError(null);

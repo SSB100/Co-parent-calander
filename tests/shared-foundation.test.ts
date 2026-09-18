@@ -4,6 +4,7 @@ import {
   approvalActorFromSession,
   proposalReasonSchema,
 } from "@/lib/approvals/http";
+import { localDateInTimeZone, localDateTimePartsInTimeZone } from "@/lib/calendar/time";
 
 test("proposal reason trims blank text to null and preserves useful text", () => {
   assert.equal(proposalReasonSchema.parse("   "), null);
@@ -24,4 +25,15 @@ test("approval actor preserves membership participant and permission", () => {
       permission: "editor",
     },
   );
+});
+
+
+test("calendar date helpers respect the selected timezone", () => {
+  const instant = new Date("2026-09-18T13:30:45Z");
+  assert.equal(localDateInTimeZone("Pacific/Auckland", instant), "2026-09-19");
+  assert.equal(localDateInTimeZone("UTC", instant), "2026-09-18");
+  assert.deepEqual(localDateTimePartsInTimeZone("Pacific/Auckland", instant), {
+    date: "2026-09-19",
+    time: "01:30:45",
+  });
 });
