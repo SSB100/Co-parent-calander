@@ -82,3 +82,11 @@ test("join flow explains invalid, expired, used and existing membership cases", 
   assert.match(actions, /available_participant AS/);
   assert.match(actions, /new_participant AS/);
 });
+
+test("calendar sessions fall back safely when the selected calendar cookie is stale", async () => {
+  const session = await source("lib/security/session.ts");
+
+  assert.match(session, /selectedMembership/);
+  assert.match(session, /membershipForUser\(accountSession\.user\.id, selectedCalendarId\)/);
+  assert.match(session, /selectedMembership \?\? \(await membershipForUser\(accountSession\.user\.id\)\)/);
+});
