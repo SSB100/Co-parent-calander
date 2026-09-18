@@ -119,6 +119,9 @@ export const attachmentBeginSchema = attachmentTargetSchema
 
 export const attachmentFinalizeSchema = attachmentTargetSchema;
 
+export type AttachmentTargetInput = z.infer<typeof attachmentTargetSchema>;
+export type AttachmentBeginInput = z.infer<typeof attachmentBeginSchema>;
+
 export const attachmentCategoryLabels: Record<AttachmentCategory, string> = {
   receipt: "Receipt",
   school_form: "School form",

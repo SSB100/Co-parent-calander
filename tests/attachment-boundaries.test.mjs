@@ -28,14 +28,18 @@ test("Phase 7 metadata schema stores private-object references rather than bytes
 });
 
 test("pending uploads are bound to the exact authorized target before Blob signing", async () => {
-  const route = await source("app/api/attachments/route.ts");
+  const [route, service] = await Promise.all([
+    source("app/api/attachments/route.ts"),
+    source("lib/attachments/service.ts"),
+  ]);
 
-  assert.match(route, /assertAttachmentTarget/);
-  assert.match(route, /primary_entity_type/);
-  assert.match(route, /primary_entity_id/);
-  assert.match(route, /primary_role/);
-  assert.match(route, /createPrivateUploadUrl/);
-  assert.match(route, /status, uploaded_by/);
+  assert.match(route, /prepareAttachmentUpload/);
+  assert.match(service, /assertAttachmentTarget/);
+  assert.match(service, /primary_entity_type/);
+  assert.match(service, /primary_entity_id/);
+  assert.match(service, /primary_role/);
+  assert.match(service, /createPrivateUploadUrl/);
+  assert.match(service, /status, uploaded_by/);
 });
 
 test("private Blob uses short-lived signed PUT and GET URLs", async () => {
@@ -53,24 +57,31 @@ test("private Blob uses short-lived signed PUT and GET URLs", async () => {
 });
 
 test("finalization verifies private storage metadata before exposing an attachment", async () => {
-  const route = await source("app/api/attachments/[id]/route.ts");
+  const [route, service] = await Promise.all([
+    source("app/api/attachments/[id]/route.ts"),
+    source("lib/attachments/service.ts"),
+  ]);
 
-  assert.match(route, /privateBlobMetadata/);
-  assert.match(route, /metadata\.pathname !== attachment\.storageKey/);
-  assert.match(route, /metadata\.size !== attachment\.sizeBytes/);
-  assert.match(route, /metadata\.contentType/);
-  assert.match(route, /SET status = 'ready'/);
-  assert.match(route, /INSERT INTO attachment_links/);
+  assert.match(route, /finalizeAttachment/);
+  assert.match(service, /privateBlobMetadata/);
+  assert.match(service, /metadata\.pathname !== attachment\.storageKey/);
+  assert.match(service, /metadata\.size !== attachment\.sizeBytes/);
+  assert.match(service, /metadata\.contentType/);
+  assert.match(service, /SET status = 'ready'/);
+  assert.match(service, /INSERT INTO attachment_links/);
 });
 
 test("profile photos replace the old private photo through the same attachment layer", async () => {
-  const [route, photo] = await Promise.all([
-    source("app/api/attachments/[id]/route.ts"),
+  const [service, dispatch, photo] = await Promise.all([
+    source("lib/attachments/service.ts"),
+    source("lib/attachments/dispatch.ts"),
     source("components/attachments/profile-photo.tsx"),
   ]);
 
-  assert.match(route, /eq\(attachmentLinks\.role, "profile_photo"\)/);
-  assert.match(route, /DELETE FROM attachments/);
+  assert.match(service, /eq\(attachmentLinks\.role, "profile_photo"\)/);
+  assert.match(service, /DELETE FROM attachments/);
+  assert.match(service, /deletePrivateBlobsAfterResponse/);
+  assert.match(dispatch, /after\(async \(\) =>/);
   assert.match(photo, /role: "profile_photo"/);
   assert.match(photo, /category: "profile_photo"/);
   assert.match(photo, /\/api\/attachments/);
@@ -90,6 +101,29 @@ test("viewers may list and download but all attachment mutations require editor 
   assert.match(mutateRoute, /getEditorSession/);
   assert.match(listRoute, /Editor access is required/);
   assert.match(mutateRoute, /Editor access is required/);
+});
+
+test("attachment routes delegate storage and persistence orchestration to the feature service", async () => {
+  const [listRoute, mutateRoute, downloadRoute, service] = await Promise.all([
+    source("app/api/attachments/route.ts"),
+    source("app/api/attachments/[id]/route.ts"),
+    source("app/api/attachments/[id]/download/route.ts"),
+    source("lib/attachments/service.ts"),
+  ]);
+
+  assert.match(listRoute, /listAttachments/);
+  assert.match(listRoute, /prepareAttachmentUpload/);
+  assert.match(mutateRoute, /finalizeAttachment/);
+  assert.match(mutateRoute, /deleteAttachment/);
+  assert.match(downloadRoute, /getAttachmentDownload/);
+
+  for (const route of [listRoute, mutateRoute, downloadRoute]) {
+    assert.doesNotMatch(route, /getDb|getSql|INSERT INTO attachments|UPDATE attachments|DELETE FROM attachments/);
+  }
+
+  assert.match(service, /INSERT INTO attachments/);
+  assert.match(service, /UPDATE attachments/);
+  assert.match(service, /DELETE FROM attachments/);
 });
 
 test("documents are attached to agreed feature records instead of pending proposals", async () => {
@@ -146,15 +180,15 @@ test("supporting file types and size boundaries are intentionally narrow", async
 });
 
 test("attachment changes are audited without storing permanent private URLs", async () => {
-  const [route, migration] = await Promise.all([
-    source("app/api/attachments/[id]/route.ts"),
+  const [service, migration] = await Promise.all([
+    source("lib/attachments/service.ts"),
     source("drizzle/0010_attachments.sql"),
   ]);
 
-  assert.match(route, /'attachment\.upload'/);
-  assert.match(route, /'attachment\.delete'/);
-  assert.match(route, /child_profile\.photo_update/);
-  assert.match(route, /child_profile\.document_add/);
+  assert.match(service, /'attachment\.upload'/);
+  assert.match(service, /'attachment\.delete'/);
+  assert.match(service, /child_profile\.photo_update/);
+  assert.match(service, /child_profile\.document_add/);
   assert.doesNotMatch(migration, /download_url|public_url|signed_url/i);
 });
 
@@ -163,6 +197,7 @@ test("attachment workflows create no Google Calendar sync jobs or approval propo
     source("app/api/attachments/route.ts"),
     source("app/api/attachments/[id]/route.ts"),
     source("app/api/attachments/[id]/download/route.ts"),
+    source("lib/attachments/service.ts"),
     source("lib/attachments/model.ts"),
     source("lib/attachments/blob.ts"),
   ]);

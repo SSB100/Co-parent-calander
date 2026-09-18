@@ -1,6 +1,6 @@
 # Documents / Attachments
 
-> **Current release status — 18 September 2026:** Attachment code and migration `0010` are live in Covie Production. The remaining release prerequisite is to connect and verify a **Vercel Private Blob** store; uploads/profile photos must not be considered production-verified until that infrastructure check passes. Older pre-release wording below is historical context.
+> **Current release status — 18 September 2026:** Attachment code and migration `0010` are live in Covie Production. The application-side private Blob flow is implemented and covered by CI, but the actual **Vercel Private Blob store attachment is still unverified**. The connected project metadata available during this cleanup does not expose Blob-store connections or project environment variables, so uploads/profile photos must not be considered production-verified until the store is confirmed and an end-to-end private upload/download test passes.
 
 Phase 7 adds one reusable private-file layer to Covie.
 
@@ -57,9 +57,11 @@ The intended production configuration uses the private Blob store attached to th
 
 Vercel Functions can authenticate to that store through Vercel OIDC.
 
-No Blob store has been provisioned or connected as part of this GitHub-only phase.
+The current code relies on Vercel Blob's server-side authentication resolution and does not hardcode a permanent storage credential. Vercel's current private-Blob documentation supports project OIDC or Blob store credentials for server-side access.
 
-At deployment time, create/attach a **private** Blob store to the active `co-parent-calander` Vercel project before enabling file uploads.
+The connected Vercel project reader used during this cleanup confirms the active `co-parent-calander` project, but it does not expose its Blob-store list or environment-variable inventory. Therefore the store connection remains **unverified**, not assumed absent.
+
+Before enabling uploads in Production, confirm the active project has a **private** Blob store attached. Vercel documents `vercel blob list-stores` / `vercel blob get-store` as the direct verification path. Then perform a real signed PUT, metadata verification, signed GET and delete test against the Production project.
 
 ## Upload flow
 
@@ -325,18 +327,16 @@ Removing an attachment deletes its Covie metadata first and then removes the ina
 
 This prioritizes never leaving a visible Covie record pointing at a deliberately deleted file.
 
-## Deployment prerequisites later
+## Remaining production verification
 
-Do not do these steps until the accumulated staged build is approved for deployment.
+Database migrations through `0012` are already applied. The remaining attachment infrastructure checks are:
 
-At deployment:
-
-1. Apply migrations `0005` through `0010` in order.
-2. Create or attach a Vercel **Private Blob** store to the active `co-parent-calander` project.
-3. Ensure the deployed function has Blob OIDC/store access.
-4. Confirm no public Blob store is used for Covie attachments.
-5. Confirm signed PUT/GET URLs work from production.
-6. Confirm CORS/browser direct PUT works from the Covie production domain.
+1. Confirm a Vercel **Private Blob** store is attached to the active `co-parent-calander` project.
+2. Confirm the deployed function has working Blob OIDC/store authentication.
+3. Confirm no public Blob store is used for Covie attachments.
+4. Confirm signed PUT/GET URLs work from Production.
+5. Confirm CORS/browser direct PUT works from the Covie Production domain.
+6. Confirm finalize metadata checks and best-effort object deletion work end to end.
 
 ## Deployment verification later
 
