@@ -227,31 +227,55 @@ async function candidateItems(calendarId: string) {
   const [eventRows, expenseRows, taskRows, childRows, documentRows] =
     await Promise.all([
       db
-        .select({ id: events.id })
+        .select({
+          id: events.id,
+          title: events.title,
+          startDate: events.startDate,
+          endDate: events.endDate,
+        })
         .from(events)
         .where(eq(events.calendarId, calendarId))
         .orderBy(asc(events.startDate))
         .limit(150),
       db
-        .select({ id: expenses.id })
+        .select({
+          id: expenses.id,
+          title: expenses.title,
+          expenseDate: expenses.expenseDate,
+          amountCents: expenses.amountCents,
+        })
         .from(expenses)
         .where(eq(expenses.calendarId, calendarId))
         .orderBy(asc(expenses.expenseDate))
         .limit(150),
       db
-        .select({ id: responsibilities.id })
+        .select({
+          id: responsibilities.id,
+          title: responsibilities.title,
+          dueDate: responsibilities.dueDate,
+          completedAt: responsibilities.completedAt,
+        })
         .from(responsibilities)
         .where(eq(responsibilities.calendarId, calendarId))
         .orderBy(asc(responsibilities.dueDate))
         .limit(150),
       db
-        .select({ id: children.id })
+        .select({
+          id: children.id,
+          displayName: children.displayName,
+          schoolName: children.schoolName,
+        })
         .from(children)
         .where(and(eq(children.calendarId, calendarId), eq(children.active, true)))
         .orderBy(asc(children.createdAt))
         .limit(50),
       db
-        .select({ id: attachments.id })
+        .select({
+          id: attachments.id,
+          fileName: attachments.originalFileName,
+          category: attachments.category,
+          sizeBytes: attachments.sizeBytes,
+        })
         .from(attachments)
         .where(
           and(
@@ -264,19 +288,62 @@ async function candidateItems(calendarId: string) {
         .limit(150),
     ]);
 
-  const candidates: LinkableSummary[] = [];
-  for (const [type, rows] of [
-    ["event", eventRows],
-    ["expense", expenseRows],
-    ["responsibility", taskRows],
-    ["child", childRows],
-    ["attachment", documentRows],
-  ] as const) {
-    for (const row of rows) {
-      const summary = await loadLinkableSummary(calendarId, type, row.id);
-      if (summary) candidates.push(summary);
-    }
-  }
+  const candidates: LinkableSummary[] = [
+    ...eventRows.map(
+      (row): LinkableSummary => ({
+        type: "event",
+        id: row.id,
+        title: row.title,
+        subtitle:
+          row.endDate && row.endDate !== row.startDate
+            ? `${row.startDate} – ${row.endDate}`
+            : row.startDate,
+        href: `/calendar?date=${encodeURIComponent(row.startDate)}`,
+      }),
+    ),
+    ...expenseRows.map(
+      (row): LinkableSummary => ({
+        type: "expense",
+        id: row.id,
+        title: row.title,
+        subtitle: `${row.expenseDate} · NZ$${(row.amountCents / 100).toFixed(2)}`,
+        href: `/expenses?date=${encodeURIComponent(row.expenseDate)}`,
+      }),
+    ),
+    ...taskRows.map(
+      (row): LinkableSummary => ({
+        type: "responsibility",
+        id: row.id,
+        title: row.title,
+        subtitle: row.completedAt
+          ? `Completed · ${row.dueDate}`
+          : `Due ${row.dueDate}`,
+        href: `/responsibilities?date=${encodeURIComponent(row.dueDate)}`,
+      }),
+    ),
+    ...childRows.map(
+      (row): LinkableSummary => ({
+        type: "child",
+        id: row.id,
+        title: row.displayName,
+        subtitle: row.schoolName,
+        href: `/kids/${row.id}`,
+      }),
+    ),
+    ...documentRows.map(
+      (row): LinkableSummary => ({
+        type: "attachment",
+        id: row.id,
+        title: row.fileName,
+        subtitle: `${row.category.replaceAll("_", " ")} · ${Math.max(
+          0.1,
+          row.sizeBytes / (1024 * 1024),
+        ).toFixed(1)} MB`,
+        href: null,
+      }),
+    ),
+  ];
+
   return candidates;
 }
 
