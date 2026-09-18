@@ -6,7 +6,6 @@ import {
   canonicalEntityLink,
   createEntityLinkSchema,
   linkedEntitySchema,
-  linkedEntityTypes,
   loadLinkableSummary,
   type LinkableSummary,
   type LinkedEntityType,
