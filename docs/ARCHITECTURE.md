@@ -6,7 +6,7 @@ Last reviewed: 18 September 2026.
 
 Covie is organised around one selected family calendar.
 
-Account identity comes from Managed Neon Auth. Application access is represented by `calendar_memberships`. Parent profiles in `participants` are domain records and can exist without an account. Legacy token/session authentication is retired in staged migration `0014`; legacy-only calendars remain preserved as inert domain data unless they are explicitly recovered into a membership.
+Account identity comes from Managed Neon Auth. Application access is represented by `calendar_memberships`. Parent profiles in `participants` are domain records and can exist without an account. Legacy token/session authentication is retired from application runtime and recorded in staged migration `0014`; legacy credential tables are temporarily retained as recovery evidence until legacy-only calendars are recovered or explicitly archived.
 
 The primary business domains are:
 

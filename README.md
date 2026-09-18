@@ -91,7 +91,7 @@ SQL migrations live in `drizzle/`:
 - `0015_parent_profile_identity.sql` — staged, not yet Production-applied
 - `0016_retention_foundation.sql` — staged, not yet Production-applied
 
-Production has migrations through `0012` applied. The `covie_schema_migrations` ledger records the historical `0000`–`0011` baseline plus normal migration `0012`. Migrations `0013_parenting_schedules.sql` through `0016_retention_foundation.sql` are staged in GitHub for the eventual approved database release.
+Production has migrations through `0012` applied. The `covie_schema_migrations` ledger records the historical `0000`–`0011` baseline plus normal migration `0012`. Migrations `0013_parenting_schedules.sql` through `0016_retention_foundation.sql` are staged in GitHub for the eventual approved database release. Migration `0014` retires legacy authentication non-destructively and deliberately retains old credential records for recovery until a later cleanup migration.
 
 Do not replay historical migrations against production. The architecture-cleanup work is introducing an explicit migration ledger/baseline before the next schema migration.
 

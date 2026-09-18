@@ -93,18 +93,16 @@ test("0013 introduces first-class parenting schedules and backfills active legac
 });
 
 
-test("0014 retires legacy credential tables without deleting calendar data", async () => {
+test("0014 retires the legacy auth runtime path while preserving recovery data", async () => {
   const [migration, schema, session] = await Promise.all([
     source("drizzle/0014_retire_legacy_auth.sql"),
     schemaSource(),
     source("lib/security/session.ts"),
   ]);
 
-  assert.match(migration, /DROP TABLE IF EXISTS "sessions"/);
-  assert.match(migration, /DROP TABLE IF EXISTS "access_tokens"/);
-  assert.match(migration, /DROP TYPE IF EXISTS "access_token_type"/);
   assert.match(migration, /'0014', 'Retire legacy token and session authentication'/);
-  assert.doesNotMatch(migration, /DROP TABLE.*calendars|DROP TABLE.*participants/);
+  assert.match(migration, /recovery data/i);
+  assert.doesNotMatch(migration, /DROP TABLE|DROP TYPE|DELETE FROM/);
   assert.doesNotMatch(schema, /accessTokens|sessions = pgTable|accessTokenType/);
   assert.doesNotMatch(session, /coparent_session|getLegacyEditorSession|claimLegacyCalendarForCurrentUser/);
 });
