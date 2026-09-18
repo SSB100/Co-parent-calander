@@ -21,6 +21,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
+import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 
 type Participant = {
   id: string;
@@ -754,6 +755,14 @@ export function ExpensesShell({ initialDate }: { initialDate: string | null }) {
                   </div>
 
                   {expense.note ? <p className="mt-3 text-sm leading-5 text-slate-600">{expense.note}</p> : null}
+
+                  <AttachmentPanel
+                    entityType="expense"
+                    entityId={expense.id}
+                    defaultCategory="receipt"
+                    title="Receipts & documents"
+                    compact
+                  />
 
                   {editable ? (
                     <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
