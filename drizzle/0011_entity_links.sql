@@ -41,7 +41,7 @@ CREATE INDEX "entity_links_right_idx"
 CREATE FUNCTION "cleanup_entity_links_for_deleted_record"()
 RETURNS trigger
 LANGUAGE plpgsql
-AS $$
+AS '
 BEGIN
   DELETE FROM "entity_links"
   WHERE "calendar_id" = OLD."calendar_id"
@@ -53,7 +53,7 @@ BEGIN
 
   RETURN OLD;
 END;
-$$;
+';
 
 CREATE TRIGGER "cleanup_event_entity_links"
   BEFORE DELETE ON "events"
