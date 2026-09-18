@@ -49,9 +49,9 @@ export function CalendarSwitcher({
   );
 
   return (
-    <details className="relative z-40">
+    <details className="relative z-40 max-w-[calc(100vw-9rem)] sm:max-w-none">
       <summary className="group inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl px-1 text-left text-2xl font-semibold tracking-tight text-slate-900 outline-none transition hover:text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-200 sm:text-3xl [&::-webkit-details-marker]:hidden">
-        <span>{current?.name ?? "Covie calendar"}</span>
+        <span className="truncate">{current?.name ?? "Covie calendar"}</span>
         <ChevronDown
           className="h-5 w-5 text-slate-400 transition group-open:rotate-180"
           aria-hidden="true"
