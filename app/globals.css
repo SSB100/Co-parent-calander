@@ -92,7 +92,6 @@ button:disabled { cursor: not-allowed; }
 
 @media (max-width: 639px) {
   .covie-calendar-header { padding-top: 4px; }
-  .covie-calendar-header h1 { font-size: 24px; padding-right: 108px; }
   .covie-calendar-header .workspace-account { position: absolute; top: 0; right: 0; }
   .covie-calendar-header .workspace-actions { gap: 6px; }
   .covie-calendar-header .workspace-actions > button { padding-inline: 10px; }
