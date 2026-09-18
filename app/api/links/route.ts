@@ -438,6 +438,23 @@ export async function POST(request: NextRequest) {
   const sql = getSql();
 
   if (parsed.data.targetType === "attachment") {
+    const existingAttachmentLinks = await getDb()
+      .select({ id: attachmentLinks.id })
+      .from(attachmentLinks)
+      .where(
+        and(
+          eq(attachmentLinks.calendarId, session.calendarId),
+          eq(attachmentLinks.attachmentId, parsed.data.targetId),
+          eq(attachmentLinks.entityType, parsed.data.entityType),
+          eq(attachmentLinks.entityId, parsed.data.entityId),
+          eq(attachmentLinks.role, "supporting"),
+        ),
+      )
+      .limit(1);
+    if (existingAttachmentLinks[0]) {
+      return NextResponse.json({ ok: true });
+    }
+
     try {
       await sql.transaction([
         sql`
@@ -479,6 +496,23 @@ export async function POST(request: NextRequest) {
     rightType: parsed.data.targetType,
     rightId: parsed.data.targetId,
   });
+
+  const existingEntityLinks = await getDb()
+    .select({ id: entityLinks.id })
+    .from(entityLinks)
+    .where(
+      and(
+        eq(entityLinks.calendarId, session.calendarId),
+        eq(entityLinks.leftType, pair.leftType),
+        eq(entityLinks.leftId, pair.leftId),
+        eq(entityLinks.rightType, pair.rightType),
+        eq(entityLinks.rightId, pair.rightId),
+      ),
+    )
+    .limit(1);
+  if (existingEntityLinks[0]) {
+    return NextResponse.json({ ok: true });
+  }
 
   try {
     await sql.transaction([
@@ -562,6 +596,23 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    const existingAttachmentLinks = await getDb()
+      .select({ id: attachmentLinks.id })
+      .from(attachmentLinks)
+      .where(
+        and(
+          eq(attachmentLinks.calendarId, session.calendarId),
+          eq(attachmentLinks.attachmentId, parsed.data.targetId),
+          eq(attachmentLinks.entityType, parsed.data.entityType),
+          eq(attachmentLinks.entityId, parsed.data.entityId),
+          eq(attachmentLinks.role, "supporting"),
+        ),
+      )
+      .limit(1);
+    if (!existingAttachmentLinks[0]) {
+      return NextResponse.json({ ok: true });
+    }
+
     await sql.transaction([
       sql`
         DELETE FROM attachment_links
@@ -596,6 +647,23 @@ export async function DELETE(request: NextRequest) {
     rightType: parsed.data.targetType,
     rightId: parsed.data.targetId,
   });
+
+  const existingEntityLinks = await getDb()
+    .select({ id: entityLinks.id })
+    .from(entityLinks)
+    .where(
+      and(
+        eq(entityLinks.calendarId, session.calendarId),
+        eq(entityLinks.leftType, pair.leftType),
+        eq(entityLinks.leftId, pair.leftId),
+        eq(entityLinks.rightType, pair.rightType),
+        eq(entityLinks.rightId, pair.rightId),
+      ),
+    )
+    .limit(1);
+  if (!existingEntityLinks[0]) {
+    return NextResponse.json({ ok: true });
+  }
 
   await sql.transaction([
     sql`
