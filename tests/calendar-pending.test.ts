@@ -126,3 +126,41 @@ test("recurring schedule proposals project fortnight occurrences in the visible 
   assert.deepEqual(proposals[0]?.affectedDates, ["2026-09-14", "2026-09-28"]);
   assert.equal(proposals[0]?.kind, "recurring_schedule");
 });
+
+
+test("recurring event proposals mark each visible occurrence as pending", () => {
+  const proposals = projectCalendarPendingProposals({
+    from: "2026-09-14",
+    to: "2026-10-05",
+    proposals: [
+      {
+        ...base,
+        id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+        entityType: "shared_event",
+        entityId: "abababab-abab-4bab-8bab-abababababab",
+        action: "create" as const,
+        previousState: null,
+        proposedState: {
+          kind: "shared_event",
+          event: {
+            id: "abababab-abab-4bab-8bab-abababababab",
+            title: "Football training",
+            description: null,
+            category: "sport",
+            startDate: "2026-09-14",
+            endDate: null,
+            recurrence: "weekly",
+            recurrenceEndDate: "2026-10-05",
+          },
+        },
+      },
+    ],
+  });
+
+  assert.deepEqual(proposals[0]?.affectedDates, [
+    "2026-09-14",
+    "2026-09-21",
+    "2026-09-28",
+    "2026-10-05",
+  ]);
+});

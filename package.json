@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/security-boundaries.test.mjs tests/recurrence.test.ts tests/setup-day-regressions.test.mjs tests/events-sharing-regressions.test.mjs tests/half-day-assignments.test.mjs tests/simple-ownership-ui.test.mjs tests/parent-profile-regressions.test.mjs tests/google-calendar-mapping.test.ts tests/google-calendar-boundaries.test.mjs tests/approval-rules.test.ts tests/approval-boundaries.test.mjs tests/calendar-approval-boundaries.test.mjs tests/calendar-pending.test.ts",
+    "test": "tsx --test tests/security-boundaries.test.mjs tests/recurrence.test.ts tests/setup-day-regressions.test.mjs tests/events-sharing-regressions.test.mjs tests/half-day-assignments.test.mjs tests/simple-ownership-ui.test.mjs tests/parent-profile-regressions.test.mjs tests/google-calendar-mapping.test.ts tests/google-calendar-boundaries.test.mjs tests/approval-rules.test.ts tests/approval-boundaries.test.mjs tests/calendar-approval-boundaries.test.mjs tests/calendar-pending.test.ts tests/event-recurrence.test.ts tests/recurring-event-boundaries.test.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"

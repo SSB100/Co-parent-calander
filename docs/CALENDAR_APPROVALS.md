@@ -47,17 +47,29 @@ After approval, the feature-specific applicator updates the agreed records and q
 
 For a solo-parent calendar, the existing direct mutation and sync path remains unchanged.
 
-## Migration
-
-Phase 2 currently adds no migration beyond:
-
-- `drizzle/0005_approval_engine.sql`
-
-That migration is committed to GitHub only and has not been applied to Neon or Production.
-
 ## Recurring shared events
 
-The repository currently has repeating parenting schedules, but it does not yet have a recurring shared-event data model. This approval retrofit covers every existing event create/edit/delete flow. Recurring event-series support remains an explicit Phase 2 completion item rather than inventing a hidden recurrence model inside proposal JSON.
+Shared events can repeat:
+
+- Weekly
+- Fortnightly
+- Monthly
+- Yearly
+
+A repeat-until date is optional. The first implementation deliberately edits or cancels the whole series only; it does not add per-occurrence exceptions.
+
+One database event row remains the agreed series. Calendar views and Google Calendar expand approved occurrences only for the date range being viewed or synchronized.
+
+Changing or cancelling the series goes through the same shared-event approval process. Pending recurrence changes never appear in Google Calendar.
+
+## Migrations
+
+Phase 2 depends on:
+
+- `drizzle/0005_approval_engine.sql` — proposal lifecycle and history
+- `drizzle/0006_recurring_events.sql` — event recurrence and optional repeat-until date
+
+Both migrations are committed to GitHub only and have not been applied to Neon or Production.
 
 ## Deployment status
 
