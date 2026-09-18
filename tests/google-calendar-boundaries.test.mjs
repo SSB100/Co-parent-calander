@@ -103,3 +103,12 @@ test("integration remains disabled cleanly when Google environment variables are
   assert.match(config, /isGoogleCalendarConfigured/);
   assert.match(ui, /Google Calendar syncing is not configured in this environment/);
 });
+
+test("Preview OAuth uses the exact Vercel deployment URL rather than the branch alias", async () => {
+  const config = await readFile(path.join(root, "lib/google-calendar/config.ts"), "utf8");
+
+  assert.match(config, /VERCEL_ENV === "preview"/);
+  assert.match(config, /VERCEL_URL/);
+  assert.match(config, /https:\/\/\$\{process\.env\.VERCEL_URL\}/);
+  assert.match(config, /NEXT_PUBLIC_APP_URL/);
+});
