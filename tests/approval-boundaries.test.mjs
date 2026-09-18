@@ -66,8 +66,8 @@ test("shared approval UI uses calm friendly wording", async () => {
 
   assert.match(chip, /ProposalStatusChip/);
   assert.match(card, /Waiting for/);
-  assert.match(card, />Agreed</);
-  assert.match(card, />Proposed</);
-  assert.match(card, />Reason</);
+  assert.match(card, /Agreed/);
+  assert.match(card, /Proposed/);
+  assert.match(card, /Reason/);
   assert.doesNotMatch(card, /disputed|non-compliant|evidence/i);
 });
