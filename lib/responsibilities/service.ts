@@ -176,6 +176,7 @@ export async function listResponsibilities(input: {
         id: participants.id,
         displayName: participants.displayName,
         colorKey: participants.colorKey,
+        profileSlot: participants.profileSlot,
       })
       .from(participants)
       .where(

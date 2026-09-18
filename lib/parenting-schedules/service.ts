@@ -158,6 +158,7 @@ export async function listParentingSchedules(
         id: participants.id,
         displayName: participants.displayName,
         colorKey: participants.colorKey,
+        profileSlot: participants.profileSlot,
       })
       .from(participants)
       .where(

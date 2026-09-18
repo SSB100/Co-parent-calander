@@ -17,6 +17,8 @@ test("parent profiles are separate from account membership and capped at two", a
   assert.match(route, /existing\.length >= 2/);
   assert.match(route, /This calendar already has two parent profiles\./);
   assert.match(route, /INSERT INTO participants/);
+  assert.match(route, /profile_slot/);
+  assert.match(route, /nextAvailableParentProfileSlot/);
   assert.match(route, /parent_profile\.create/);
   assert.doesNotMatch(route, /INSERT INTO calendar_memberships/);
 });
@@ -39,6 +41,8 @@ test("editor join claims an existing unlinked parent profile before creating a n
   assert.match(actions, /NOT EXISTS \(\s*SELECT 1 FROM calendar_memberships membership\s*WHERE membership\.participant_id = participant\.id/);
   assert.match(actions, /COALESCE\(\s*\(SELECT id FROM available_participant LIMIT 1\),\s*\(SELECT id FROM new_participant LIMIT 1\)/);
   assert.match(actions, /NOT EXISTS \(SELECT 1 FROM available_participant\)/);
+  assert.match(actions, /available_profile_slot/);
+  assert.match(actions, /profile_slot/);
 });
 
 test("upgrading a viewer to editor also claims an unlinked parent profile", async () => {
@@ -48,4 +52,30 @@ test("upgrading a viewer to editor also claims an unlinked parent profile", asyn
   assert.match(invites, /membership\.participant_id = participant\.id/);
   assert.match(invites, /participantId: availableParticipantId/);
   assert.match(invites, /This calendar already has two linked parent profiles\./);
+  assert.match(invites, /available_profile_slot/);
+  assert.match(invites, /profile_slot/);
+});
+
+
+test("parent identity is semantic and calendar styling does not depend on participant array order", async () => {
+  const [migration, core, identity, calendar, recurring] = await Promise.all([
+    source("drizzle/0015_parent_profile_identity.sql"),
+    source("lib/db/schema/core.ts"),
+    source("lib/parents/identity.ts"),
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/calendar/recurring-schedule-panel.tsx"),
+  ]);
+
+  assert.match(migration, /parent_profile_slot/);
+  assert.match(migration, /parent_one/);
+  assert.match(migration, /parent_two/);
+  assert.match(migration, /row_number\(\) OVER/);
+  assert.match(migration, /participants_calendar_profile_slot_unique/);
+  assert.match(core, /profileSlot: parentProfileSlot/);
+  assert.match(identity, /nextAvailableParentProfileSlot/);
+  assert.match(identity, /parentProfileSlotIndex/);
+  assert.match(calendar, /parentProfileSlotIndex/);
+  assert.match(calendar, /participant\?\.profileSlot/);
+  assert.match(recurring, /parentProfileSlotIndex/);
+  assert.match(recurring, /participants\[index\]\?\.profileSlot/);
 });

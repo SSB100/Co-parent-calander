@@ -15,6 +15,11 @@ import { sql } from "drizzle-orm";
 
 export const participantRole = pgEnum("participant_role", ["parent"]);
 
+export const parentProfileSlot = pgEnum("parent_profile_slot", [
+  "parent_one",
+  "parent_two",
+]);
+
 export const calendarPermission = pgEnum("calendar_permission", [
   "owner",
   "editor",
@@ -40,11 +45,17 @@ export const participants = pgTable(
     displayName: text("display_name").notNull(),
     role: participantRole("role").notNull().default("parent"),
     colorKey: varchar("color_key", { length: 32 }).notNull(),
+    profileSlot: parentProfileSlot("profile_slot"),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("participants_calendar_idx").on(table.calendarId)],
+  (table) => [
+    index("participants_calendar_idx").on(table.calendarId),
+    uniqueIndex("participants_calendar_profile_slot_unique")
+      .on(table.calendarId, table.profileSlot)
+      .where(sql`${table.profileSlot} IS NOT NULL`),
+  ],
 );
 
 export const calendarMemberships = pgTable(

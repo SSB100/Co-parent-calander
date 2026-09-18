@@ -4,7 +4,7 @@ Covie uses ordered SQL migration files under `drizzle/`.
 
 ## Current production baseline
 
-Production contains migrations `0000` through `0012`. Migrations `0013_parenting_schedules.sql` and `0014_retire_legacy_auth.sql` are staged in GitHub and must not be treated as Production-applied until the final database deployment pass.
+Production contains migrations `0000` through `0012`. Migrations `0013_parenting_schedules.sql`, `0014_retire_legacy_auth.sql` and `0015_parent_profile_identity.sql` are staged in GitHub and must not be treated as Production-applied until the final database deployment pass.
 
 Those files must **not** be replayed.
 
@@ -81,3 +81,15 @@ It drops:
 It intentionally does **not** delete any calendar or family-domain data. Legacy-only calendars become archive/inert data until deliberately recovered through a modern membership.
 
 Apply `0013` before `0014`. See `docs/LEGACY_AUTH_RETIREMENT.md` for the recovery and verification rules.
+
+
+## 0015 semantic parent identity
+
+Migration `0015_parent_profile_identity.sql` adds a stable semantic `profile_slot` to parent profiles:
+
+- `parent_one`
+- `parent_two`
+
+Existing active parents are backfilled by creation order within each calendar. A partial unique index prevents two profiles in the same calendar from sharing the same semantic slot.
+
+The existing `color_key` column remains for presentation compatibility only. Runtime ownership and account identity continue to use participant IDs, while visual palette selection can map from `profile_slot` without making a colour name part of the domain model.

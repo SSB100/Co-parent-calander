@@ -7,6 +7,7 @@ import { getDb, getSql } from "@/lib/db";
 import { calendarMemberships, participants } from "@/lib/db/schema";
 import { buildCalendarSyncJobStatement } from "@/lib/google-calendar/outbox";
 import { kickGoogleCalendarSync } from "@/lib/google-calendar/dispatch";
+import { defaultParentColorKey, nextAvailableParentProfileSlot } from "@/lib/parents/identity";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getOwnerSession } from "@/lib/security/session";
 
@@ -30,6 +31,7 @@ export async function GET() {
       id: participants.id,
       displayName: participants.displayName,
       colorKey: participants.colorKey,
+      profileSlot: participants.profileSlot,
       membershipId: calendarMemberships.id,
     })
     .from(participants)
@@ -42,6 +44,7 @@ export async function GET() {
       id: row.id,
       displayName: row.displayName,
       colorKey: row.colorKey,
+      profileSlot: row.profileSlot,
       hasAccount: Boolean(row.membershipId),
     })),
   });
@@ -71,6 +74,7 @@ export async function POST(request: NextRequest) {
       id: participants.id,
       displayName: participants.displayName,
       colorKey: participants.colorKey,
+      profileSlot: participants.profileSlot,
     })
     .from(participants)
     .where(and(eq(participants.calendarId, session.calendarId), eq(participants.active, true)))
@@ -92,11 +96,21 @@ export async function POST(request: NextRequest) {
   }
 
   const id = randomUUID();
-  const colorKey = existing.some((parent) => parent.colorKey === "violet") ? "emerald" : "violet";
+  const profileSlot = nextAvailableParentProfileSlot(
+    existing.map((parent) => parent.profileSlot),
+  );
+  if (!profileSlot) {
+    return NextResponse.json(
+      { error: "This calendar already has two parent profiles." },
+      { status: 409 },
+    );
+  }
+  const colorKey = defaultParentColorKey(profileSlot);
   const sql = getSql();
   const afterState = JSON.stringify({
     id,
     displayName: parsed.data.displayName,
+    profileSlot,
     colorKey,
     accountLinked: false,
   });
@@ -104,8 +118,13 @@ export async function POST(request: NextRequest) {
   try {
     await sql.transaction([
       sql`
-        INSERT INTO participants (id, calendar_id, display_name, role, color_key, active)
-        VALUES (${id}, ${session.calendarId}, ${parsed.data.displayName}, 'parent', ${colorKey}, true)
+        INSERT INTO participants (
+          id, calendar_id, display_name, role, color_key, profile_slot, active
+        )
+        VALUES (
+          ${id}, ${session.calendarId}, ${parsed.data.displayName}, 'parent',
+          ${colorKey}, ${profileSlot}::parent_profile_slot, true
+        )
       `,
       sql`
         INSERT INTO audit_log (
@@ -143,6 +162,7 @@ export async function POST(request: NextRequest) {
     parent: {
       id,
       displayName: parsed.data.displayName,
+      profileSlot,
       colorKey,
       hasAccount: false,
     },

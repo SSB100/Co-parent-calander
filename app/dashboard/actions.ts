@@ -7,6 +7,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth/server";
 import { DEFAULT_CALENDAR_TIMEZONE } from "@/lib/calendar/time";
 import { getSql } from "@/lib/db";
+import { defaultParentColorKey } from "@/lib/parents/identity";
 import { normalizeInviteCode } from "@/lib/security/invites";
 import { SELECTED_CALENDAR_COOKIE_NAME } from "@/lib/security/session";
 import { hashToken } from "@/lib/security/tokens";
@@ -70,8 +71,13 @@ export async function createCalendar(
         VALUES (${calendarId}, ${parsed.data.calendarName}, ${DEFAULT_CALENDAR_TIMEZONE}, false)
       `,
       sql`
-        INSERT INTO participants (id, calendar_id, display_name, role, color_key, active)
-        VALUES (${participantId}, ${calendarId}, ${parsed.data.displayName}, 'parent', 'emerald', true)
+        INSERT INTO participants (
+          id, calendar_id, display_name, role, color_key, profile_slot, active
+        )
+        VALUES (
+          ${participantId}, ${calendarId}, ${parsed.data.displayName}, 'parent',
+          ${defaultParentColorKey("parent_one")}, 'parent_one', true
+        )
       `,
       ...childStatements,
       sql`
@@ -176,10 +182,39 @@ export async function joinCalendar(
         ORDER BY participant.created_at
         LIMIT 1
       ),
-      new_participant AS (
-        INSERT INTO participants (id, calendar_id, display_name, role, color_key, active)
-        SELECT ${participantId}, used.calendar_id, ${parsed.data.displayName}, 'parent', 'violet', true
+      available_profile_slot AS (
+        SELECT
+          used.calendar_id,
+          CASE
+            WHEN NOT EXISTS (
+              SELECT 1
+              FROM participants participant
+              WHERE participant.calendar_id = used.calendar_id
+                AND participant.profile_slot = 'parent_one'
+            )
+            THEN 'parent_one'::parent_profile_slot
+            ELSE 'parent_two'::parent_profile_slot
+          END AS profile_slot
         FROM used
+      ),
+      new_participant AS (
+        INSERT INTO participants (
+          id, calendar_id, display_name, role, color_key, profile_slot, active
+        )
+        SELECT
+          ${participantId},
+          used.calendar_id,
+          ${parsed.data.displayName},
+          'parent',
+          CASE
+            WHEN slot.profile_slot = 'parent_one' THEN 'emerald'
+            ELSE 'violet'
+          END,
+          slot.profile_slot,
+          true
+        FROM used
+        JOIN available_profile_slot slot
+          ON slot.calendar_id = used.calendar_id
         WHERE used.permission = 'editor'
           AND NOT EXISTS (SELECT 1 FROM available_participant)
         RETURNING id, calendar_id

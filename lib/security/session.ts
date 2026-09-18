@@ -28,6 +28,7 @@ export async function getCalendarSession() {
       permission: calendarMemberships.permission,
       displayName: participants.displayName,
       colorKey: participants.colorKey,
+      profileSlot: participants.profileSlot,
     })
     .from(calendarMemberships)
     .innerJoin(calendars, eq(calendarMemberships.calendarId, calendars.id))

@@ -44,8 +44,9 @@ import { SettingsPanel } from "@/components/calendar/settings-panel";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
 import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
 import { authClient } from "@/lib/auth/client";
+import { parentProfileSlotIndex, type ParentProfileSlot } from "@/lib/parents/identity";
 
-type Participant = { id: string; displayName: string; colorKey: string };
+type Participant = { id: string; displayName: string; colorKey: string; profileSlot: ParentProfileSlot | null };
 type Child = { id: string; displayName: string };
 type ApiAssignment = {
   id: string;
@@ -128,7 +129,26 @@ function keyFor(day: Date) {
 
 function styleForParticipant(participants: Participant[], participantId: string) {
   const index = participants.findIndex((participant) => participant.id === participantId);
-  return visualStyles[Math.max(0, index) % visualStyles.length] ?? visualStyles[0];
+  const participant = participants[index];
+  const visualIndex = parentProfileSlotIndex(participant?.profileSlot, index);
+  return visualStyles[visualIndex % visualStyles.length] ?? visualStyles[0];
+}
+
+function splitChoiceStyle(
+  participants: Participant[],
+  firstId: string | null | undefined,
+  secondId: string | null | undefined,
+) {
+  if (!firstId || !secondId) return mixedStyle.button;
+  const first = styleForParticipant(participants, firstId);
+  const second = styleForParticipant(participants, secondId);
+  if (first === visualStyles[0] && second === visualStyles[1]) {
+    return "bg-gradient-to-b from-emerald-100 to-violet-100 text-slate-900 hover:ring-2 hover:ring-slate-200";
+  }
+  if (first === visualStyles[1] && second === visualStyles[0]) {
+    return "bg-gradient-to-b from-violet-100 to-emerald-100 text-slate-900 hover:ring-2 hover:ring-slate-200";
+  }
+  return mixedStyle.button;
 }
 
 function aggregateSlot(
@@ -424,11 +444,27 @@ export function CalendarShell() {
   const nextHandoverWhen = nextHandover?.handoverTime?.slice(0, 5) ?? (nextHandoverIsTransfer ? "Split day" : "Handover");
 
   const bulkChoices: Array<{ value: OwnershipChoice; label: string; className: string }> = [
-    { value: "me_full", label: "Full day you", className: "bg-emerald-100 text-emerald-900 hover:bg-emerald-200" },
-    { value: "them_full", label: `Full day ${them?.displayName ?? "them"}`, className: "bg-violet-100 text-violet-900 hover:bg-violet-200" },
-    { value: "me_then_them", label: `You → ${them?.displayName ?? "them"}`, className: "bg-gradient-to-b from-emerald-100 to-violet-100 text-slate-900 hover:ring-2 hover:ring-slate-200" },
-    { value: "them_then_me", label: `${them?.displayName ?? "Them"} → You`, className: "bg-gradient-to-b from-violet-100 to-emerald-100 text-slate-900 hover:ring-2 hover:ring-slate-200" },
-    { value: "unassigned", label: "Unassigned", className: "bg-slate-100 text-slate-700 hover:bg-slate-200" },
+    {
+      value: "me_full",
+      label: "Full day you",
+      className: me ? styleForParticipant(participants, me.id).button : visualStyles[0].button,
+    },
+    {
+      value: "them_full",
+      label: `Full day ${them?.displayName ?? "them"}`,
+      className: them ? styleForParticipant(participants, them.id).button : visualStyles[1].button,
+    },
+    {
+      value: "me_then_them",
+      label: `You → ${them?.displayName ?? "them"}`,
+      className: splitChoiceStyle(participants, me?.id, them?.id),
+    },
+    {
+      value: "them_then_me",
+      label: `${them?.displayName ?? "Them"} → You`,
+      className: splitChoiceStyle(participants, them?.id, me?.id),
+    },
+    { value: "unassigned", label: "Unassigned", className: mixedStyle.button },
   ];
 
   return (

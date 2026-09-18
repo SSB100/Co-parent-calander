@@ -147,6 +147,7 @@ export async function listExpenses(input: {
         id: participants.id,
         displayName: participants.displayName,
         colorKey: participants.colorKey,
+        profileSlot: participants.profileSlot,
       })
       .from(participants)
       .where(

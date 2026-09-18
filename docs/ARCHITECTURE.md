@@ -62,6 +62,8 @@ Application code can keep importing from `@/lib/db/schema`, while feature-level 
 
 All API mutations require server-side permission checks and same-origin mutation protection.
 
+Parent domain identity is represented by the staged `participants.profile_slot` values `parent_one` and `parent_two`. `color_key` is retained only as presentation compatibility and must not be used to decide ownership, account identity or parent ordering.
+
 ## Agreement model
 
 The approval engine stores proposed state separately from agreed state. Waiting, declined and withdrawn proposals never mutate agreed records or Google Calendar.
@@ -93,7 +95,7 @@ Production Neon:
 - project: `delicate-sunset-36051658`
 - branch: `br-quiet-sea-a7duq4r3`
 - schema migrations applied in Production: `0000` through `0012`
-- staged migrations awaiting the final database release: `0013_parenting_schedules.sql`, `0014_retire_legacy_auth.sql`
+- staged migrations awaiting the final database release: `0013_parenting_schedules.sql`, `0014_retire_legacy_auth.sql`, `0015_parent_profile_identity.sql`
 - `covie_schema_migrations` is the authoritative migration ledger from `0012` onward
 
 A pre-Phase-8 rollback branch is currently retained:
@@ -127,6 +129,5 @@ Before the brand/UI redesign, cleanup work should:
 - move business workflows out of large route handlers into feature services
 - split the large client shells into controllers/hooks and smaller UI components
 - introduce a shared authenticated application shell
-- decouple parent identity from Tailwind colour names
 - modularise approval applicators and relationship aggregation
 - add data-retention/privacy rules and selected database constraints

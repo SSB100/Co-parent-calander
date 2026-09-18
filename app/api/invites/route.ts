@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb, getSql } from "@/lib/db";
 import { calendarInvites, calendarMemberships, participants } from "@/lib/db/schema";
+import { defaultParentColorKey, type ParentProfileSlot } from "@/lib/parents/identity";
 import { generateInviteCode, normalizeInviteCode } from "@/lib/security/invites";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getOwnerSession } from "@/lib/security/session";
@@ -175,11 +176,22 @@ export async function PATCH(request: NextRequest) {
           SELECT name FROM neon_auth."user"
           WHERE id = ${target.userId}
           LIMIT 1
-        ) AS user_name
+        ) AS user_name,
+        CASE
+          WHEN NOT EXISTS (
+            SELECT 1
+            FROM participants participant
+            WHERE participant.calendar_id = ${session.calendarId}
+              AND participant.profile_slot = 'parent_one'
+          )
+          THEN 'parent_one'
+          ELSE 'parent_two'
+        END AS available_profile_slot
     `) as Array<{
       available_participant_id: string | null;
       participant_count: number;
       user_name: string | null;
+      available_profile_slot: ParentProfileSlot;
     }>;
 
     const availableParticipantId = rows[0]?.available_participant_id ?? null;
@@ -206,10 +218,17 @@ export async function PATCH(request: NextRequest) {
       }
 
       const participantId = randomUUID();
+      const profileSlot = rows[0]?.available_profile_slot ?? "parent_two";
+      const colorKey = defaultParentColorKey(profileSlot);
       await sql.transaction([
         sql`
-          INSERT INTO participants (id, calendar_id, display_name, role, color_key, active)
-          VALUES (${participantId}, ${session.calendarId}, ${rows[0]?.user_name ?? "Parent"}, 'parent', 'violet', true)
+          INSERT INTO participants (
+            id, calendar_id, display_name, role, color_key, profile_slot, active
+          )
+          VALUES (
+            ${participantId}, ${session.calendarId}, ${rows[0]?.user_name ?? "Parent"},
+            'parent', ${colorKey}, ${profileSlot}::parent_profile_slot, true
+          )
         `,
         sql`
           UPDATE calendar_memberships

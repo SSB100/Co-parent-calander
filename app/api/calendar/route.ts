@@ -56,7 +56,12 @@ export async function GET(request: Request) {
   const inferredSplitHandoverTime = sql<string>`coalesce(${parentingAssignments.handoverTime}, '12:00:00'::time)`;
 
   const [parentRows, childRows, eventRows, responsibilityRows, nextHandoverRows, nextEventRows, scheduleRows] = await db.batch([
-    db.select({ id: participants.id, displayName: participants.displayName, colorKey: participants.colorKey })
+    db.select({
+      id: participants.id,
+      displayName: participants.displayName,
+      colorKey: participants.colorKey,
+      profileSlot: participants.profileSlot,
+    })
       .from(participants)
       .where(and(eq(participants.calendarId, session.calendarId), eq(participants.active, true)))
       .orderBy(asc(participants.createdAt)),

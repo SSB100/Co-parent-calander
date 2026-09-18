@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0014", async () => {
+test("schema migrations are sequential through 0015", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 15 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 16 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -121,4 +121,21 @@ test("schema barrel stays small while feature modules own table definitions", as
   assert.match(barrel, /schema\/approvals/);
   assert.ok(modules.length >= 10);
   assert.doesNotMatch(barrel, /pgTable\(/);
+});
+
+
+test("0015 separates semantic parent identity from presentation colour", async () => {
+  const [migration, core] = await Promise.all([
+    source("drizzle/0015_parent_profile_identity.sql"),
+    source("lib/db/schema/core.ts"),
+  ]);
+
+  assert.match(migration, /CREATE TYPE "parent_profile_slot"/);
+  assert.match(migration, /ADD COLUMN "profile_slot"/);
+  assert.match(migration, /row_number\(\) OVER/);
+  assert.match(migration, /participants_calendar_profile_slot_unique/);
+  assert.match(migration, /'0015', 'Semantic parent profile identity'/);
+  assert.match(core, /parentProfileSlot/);
+  assert.match(core, /profileSlot/);
+  assert.match(core, /participants_calendar_profile_slot_unique/);
 });
