@@ -65,7 +65,7 @@ Optional integrations have their own variables documented in `.env.example` and 
 Install and run:
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -85,8 +85,9 @@ SQL migrations live in `drizzle/`:
 - `0009_child_profiles.sql`
 - `0010_attachments.sql`
 - `0011_entity_links.sql`
+- `0012_schema_foundation.sql`
 
-Production has all migrations through `0011` applied.
+Production currently has migrations through `0011` applied. Migration `0012` has been prepared and verified on a temporary Neon branch but is not Production-applied until explicitly approved.
 
 Do not replay historical migrations against production. The architecture-cleanup work is introducing an explicit migration ledger/baseline before the next schema migration.
 
@@ -95,7 +96,7 @@ Do not replay historical migrations against production. The architecture-cleanup
 The release gate is:
 
 ```bash
-npm install --no-audit --no-fund
+npm ci --no-audit --no-fund
 npm run lint
 npm run typecheck
 npm test

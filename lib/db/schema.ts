@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   check,
   date,
@@ -127,6 +128,13 @@ export const linkedEntityType = pgEnum("linked_entity_type", [
   "child",
 ]);
 
+export const schemaMigrations = pgTable("covie_schema_migrations", {
+  migrationId: varchar("migration_id", { length: 64 }).primaryKey(),
+  description: text("description").notNull(),
+  baseline: boolean("baseline").notNull().default(false),
+  appliedAt: timestamp("applied_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const calendars = pgTable("calendars", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
@@ -226,6 +234,7 @@ export const googleEventLinks = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    check("google_event_link_range_valid", sql`${table.rangeEnd} >= ${table.rangeStart}`),
     uniqueIndex("google_event_link_local_unique").on(table.connectionId, table.localKey),
     uniqueIndex("google_event_link_google_unique").on(table.connectionId, table.googleEventId),
     index("google_event_link_range_idx").on(table.connectionId, table.rangeStart, table.rangeEnd),
@@ -277,6 +286,10 @@ export const calendarInvites = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    check(
+      "calendar_invites_usage_valid",
+      sql`${table.maxUses} >= 1 AND ${table.useCount} >= 0 AND ${table.useCount} <= ${table.maxUses}`,
+    ),
     uniqueIndex("calendar_invites_code_hash_unique").on(table.codeHash),
     index("calendar_invites_calendar_idx").on(table.calendarId),
   ],
@@ -416,7 +429,13 @@ export const recurringRules = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("recurring_rules_calendar_idx").on(table.calendarId)],
+  (table) => [
+    check(
+      "recurring_rules_end_valid",
+      sql`${table.endDate} IS NULL OR ${table.endDate} >= ${table.startDate}`,
+    ),
+    index("recurring_rules_calendar_idx").on(table.calendarId),
+  ],
 );
 
 export const recurringRuleChildren = pgTable(
@@ -497,6 +516,14 @@ export const events = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    check(
+      "events_end_date_valid",
+      sql`${table.endDate} IS NULL OR ${table.endDate} >= ${table.startDate}`,
+    ),
+    check(
+      "events_recurrence_end_valid",
+      sql`${table.recurrenceEndDate} IS NULL OR ${table.recurrenceEndDate} >= ${table.startDate}`,
+    ),
     index("events_calendar_date_idx").on(table.calendarId, table.startDate),
     index("events_calendar_recurrence_idx").on(
       table.calendarId,
@@ -539,6 +566,10 @@ export const expenses = pgTable(
   },
   (table) => [
     check("expenses_amount_positive", sql`${table.amountCents} > 0`),
+    check(
+      "expenses_settlement_state_valid",
+      sql`(${table.settlementStatus} = 'settled' AND ${table.settledAt} IS NOT NULL) OR (${table.settlementStatus} <> 'settled' AND ${table.settledAt} IS NULL)`,
+    ),
     index("expenses_calendar_date_idx").on(table.calendarId, table.expenseDate),
     index("expenses_calendar_status_idx").on(table.calendarId, table.settlementStatus),
     index("expenses_child_idx").on(table.childId),
@@ -593,7 +624,10 @@ export const responsibilities = pgTable(
       () => participants.id,
       { onDelete: "set null" },
     ),
-    nextOccurrenceId: uuid("next_occurrence_id"),
+    nextOccurrenceId: uuid("next_occurrence_id").references(
+      (): AnyPgColumn => responsibilities.id,
+      { onDelete: "set null" },
+    ),
     createdBy: uuid("created_by").references(() => participants.id, {
       onDelete: "set null",
     }),
@@ -617,6 +651,7 @@ export const responsibilities = pgTable(
       table.dueDate,
     ),
     index("responsibilities_series_idx").on(table.calendarId, table.seriesId, table.dueDate),
+    index("responsibilities_next_occurrence_idx").on(table.nextOccurrenceId),
     index("responsibilities_linked_event_idx").on(table.linkedEventId),
     index("responsibilities_linked_expense_idx").on(table.linkedExpenseId),
   ],
@@ -713,6 +748,10 @@ export const attachments = pgTable(
   },
   (table) => [
     check("attachment_size_positive", sql`${table.sizeBytes} > 0`),
+    check(
+      "attachment_ready_state_valid",
+      sql`(${table.status} = 'pending' AND ${table.readyAt} IS NULL) OR (${table.status} = 'ready' AND ${table.readyAt} IS NOT NULL)`,
+    ),
     uniqueIndex("attachments_storage_key_unique").on(table.storageKey),
     index("attachments_calendar_status_idx").on(
       table.calendarId,
