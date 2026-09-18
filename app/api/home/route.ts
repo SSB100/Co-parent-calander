@@ -1,4 +1,4 @@
-import { addDays, addYears, format, parseISO } from "date-fns";
+import { addYears, format, parseISO } from "date-fns";
 import {
   and,
   asc,
@@ -368,7 +368,12 @@ export async function GET() {
           currentParticipantId: session.participantId,
         }),
       };
-    });
+    })
+    .filter(
+      (expense) =>
+        !session.participantId ||
+        expense.reimbursement.amountCents > 0,
+    );
 
   const nextExpenseRow =
     expenseRows.find(
