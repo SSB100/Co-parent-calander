@@ -3,11 +3,17 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/lib/auth/server";
+import { normalizeInviteCode } from "@/lib/security/invites";
 
 export type AuthActionState = { error: string | null };
 
 const email = z.string().trim().email("Enter a valid email address.").max(256);
 const password = z.string().min(8, "Use at least 8 characters.").max(128);
+
+function onboardingDestination(formData: FormData) {
+  const invite = normalizeInviteCode(String(formData.get("invite") ?? ""));
+  return invite ? `/onboarding?invite=${encodeURIComponent(invite)}` : "/onboarding";
+}
 
 export async function signInWithEmail(
   _previous: AuthActionState,
@@ -24,7 +30,8 @@ export async function signInWithEmail(
   const { error: signInError } = await auth.signIn.email(parsed.data);
   if (signInError) return { error: "The email or password is incorrect." };
 
-  redirect("/");
+  const invite = normalizeInviteCode(String(formData.get("invite") ?? ""));
+  redirect(invite ? onboardingDestination(formData) : "/");
 }
 
 export async function signUpWithEmail(
@@ -57,5 +64,5 @@ export async function signUpWithEmail(
     };
   }
 
-  redirect("/");
+  redirect(onboardingDestination(formData));
 }

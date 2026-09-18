@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import { CovieBrand } from "@/components/workspace/covie-brand";
 import Link from "next/link";
 import { useActionState } from "react";
 import {
@@ -9,15 +8,25 @@ import {
   signUpWithEmail,
   type AuthActionState,
 } from "@/app/auth/actions";
+import { CovieBrand } from "@/components/workspace/covie-brand";
 
 const initialState: AuthActionState = { error: null };
 
-export function CredentialsForm({ mode }: { mode: "sign-in" | "sign-up" }) {
+export function CredentialsForm({
+  mode,
+  inviteCode = "",
+}: {
+  mode: "sign-in" | "sign-up";
+  inviteCode?: string;
+}) {
   const isSignUp = mode === "sign-up";
   const [state, action, pending] = useActionState(
     isSignUp ? signUpWithEmail : signInWithEmail,
     initialState,
   );
+  const alternateHref = `${isSignUp ? "/auth/sign-in" : "/auth/sign-up"}${
+    inviteCode ? `?invite=${encodeURIComponent(inviteCode)}` : ""
+  }`;
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
@@ -30,12 +39,16 @@ export function CredentialsForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           {isSignUp ? "Create your account" : "Welcome back"}
         </h1>
         <p className="mt-2 text-base leading-7 text-slate-600">
-          {isSignUp
-            ? "Start a calendar or join one with a private code."
-            : "Log in to open your shared calendars."}
+          {inviteCode
+            ? "You have been invited to a Covie calendar. Continue with your account to join."
+            : isSignUp
+              ? "Create your account, then choose whether to start or join a Covie calendar."
+              : "Log in to open your Covie calendar."}
         </p>
 
         <form action={action} className="mt-7 space-y-5">
+          {inviteCode ? <input type="hidden" name="invite" value={inviteCode} /> : null}
+
           {isSignUp ? (
             <label className="block">
               <span className="text-sm font-semibold text-slate-800">Your name</span>
@@ -102,7 +115,7 @@ export function CredentialsForm({ mode }: { mode: "sign-in" | "sign-up" }) {
         <p className="mt-6 text-center text-sm text-slate-600">
           {isSignUp ? "Already have an account?" : "New here?"}{" "}
           <Link
-            href={isSignUp ? "/auth/sign-in" : "/auth/sign-up"}
+            href={alternateHref}
             className="font-semibold text-slate-950 underline decoration-slate-300 underline-offset-4"
           >
             {isSignUp ? "Log in" : "Create an account"}

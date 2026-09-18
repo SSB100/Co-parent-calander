@@ -1,14 +1,22 @@
 import { AuthView } from "@neondatabase/auth-ui";
 import type { Metadata } from "next";
 import { CredentialsForm } from "@/components/auth/credentials-form";
+import { normalizeInviteCode } from "@/lib/security/invites";
 
 export const metadata: Metadata = { title: "Account" };
 
-export default async function AuthPage({ params }: { params: Promise<{ path: string }> }) {
-  const { path } = await params;
+export default async function AuthPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ path: string }>;
+  searchParams: Promise<{ invite?: string }>;
+}) {
+  const [{ path }, query] = await Promise.all([params, searchParams]);
+  const inviteCode = query.invite ? normalizeInviteCode(query.invite) : "";
 
   if (path === "sign-in" || path === "sign-up") {
-    return <CredentialsForm mode={path} />;
+    return <CredentialsForm mode={path} inviteCode={inviteCode} />;
   }
 
   return (

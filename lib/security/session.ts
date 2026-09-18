@@ -5,17 +5,13 @@ import { getDb } from "@/lib/db";
 import { calendars, calendarMemberships, participants } from "@/lib/db/schema";
 
 export const SELECTED_CALENDAR_COOKIE_NAME = "coparent_calendar";
-export async function getCalendarSession() {
-  const { data: accountSession } = await auth.getSession();
-  if (!accountSession?.user) return null;
 
-  const cookieStore = await cookies();
-  const selectedCalendarId = cookieStore.get(SELECTED_CALENDAR_COOKIE_NAME)?.value;
+async function membershipForUser(userId: string, calendarId?: string) {
   const db = getDb();
-  const conditions = [eq(calendarMemberships.userId, accountSession.user.id)];
+  const conditions = [eq(calendarMemberships.userId, userId)];
 
-  if (selectedCalendarId) {
-    conditions.push(eq(calendarMemberships.calendarId, selectedCalendarId));
+  if (calendarId) {
+    conditions.push(eq(calendarMemberships.calendarId, calendarId));
   }
 
   const rows = await db
@@ -37,7 +33,22 @@ export async function getCalendarSession() {
     .orderBy(asc(calendarMemberships.createdAt))
     .limit(1);
 
-  const membership = rows[0];
+  return rows[0] ?? null;
+}
+
+export async function getCalendarSession() {
+  const { data: accountSession } = await auth.getSession();
+  if (!accountSession?.user) return null;
+
+  const cookieStore = await cookies();
+  const selectedCalendarId = cookieStore.get(SELECTED_CALENDAR_COOKIE_NAME)?.value;
+
+  const selectedMembership = selectedCalendarId
+    ? await membershipForUser(accountSession.user.id, selectedCalendarId)
+    : null;
+  const membership =
+    selectedMembership ?? (await membershipForUser(accountSession.user.id));
+
   if (!membership) return null;
 
   return {

@@ -2,6 +2,8 @@ import { randomBytes } from "node:crypto";
 
 const CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 
+export const NEW_CALENDAR_INVITE_COOKIE_NAME = "covie_new_calendar_invite";
+
 export function normalizeInviteCode(value: string) {
   return value.toUpperCase().replace(/[^2-9A-HJ-NP-Z]/g, "");
 }

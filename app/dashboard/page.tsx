@@ -25,6 +25,8 @@ export default async function DashboardPage() {
     ORDER BY membership.created_at ASC
   `) as Array<{ id: string; name: string; permission: "owner" | "editor" | "viewer"; display_name: string | null }>;
 
+  if (calendars.length === 0) redirect("/onboarding");
+
   return (
     <main className="mx-auto min-h-screen w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-9 lg:px-8">
       <header className="flex items-center justify-between gap-4">
