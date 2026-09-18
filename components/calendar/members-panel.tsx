@@ -31,7 +31,7 @@ type ParentProfile = {
   hasAccount: boolean;
 };
 
-export function MembersPanel() {
+export function MembersPanel({ onChanged }: { onChanged?: () => void }) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<InviteData | null>(null);
   const [permission, setPermission] = useState<"editor" | "viewer">("editor");
@@ -107,7 +107,7 @@ export function MembersPanel() {
       setParentName("");
       await loadParents();
       setParentMessage("Parent added. You can now use their name throughout the calendar without inviting them.");
-      window.setTimeout(() => window.location.reload(), 700);
+      onChanged?.();
     } catch (caught) {
       setParentError(caught instanceof Error ? caught.message : "The parent profile could not be added.");
     } finally {

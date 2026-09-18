@@ -82,10 +82,11 @@ test("expense workflow remains separate from Google Calendar sync", async () => 
 });
 
 test("expense UI keeps pending agreement separate and links calendar days into expenses", async () => {
-  const [shell, day, calendar] = await Promise.all([
+  const [shell, day, calendar, nav] = await Promise.all([
     source("components/expenses/expenses-shell.tsx"),
     source("components/expenses/day-expenses.tsx"),
     source("components/calendar/calendar-shell.tsx"),
+    source("components/workspace/workspace-nav.tsx"),
   ]);
 
   assert.match(shell, /Waiting for agreement/);
@@ -97,7 +98,8 @@ test("expense UI keeps pending agreement separate and links calendar days into e
   assert.match(shell, /Covie records payments but does not move money/);
   assert.match(day, /\/expenses\?date=/);
   assert.match(day, /Expenses on this day/);
-  assert.match(calendar, /href="\/expenses"/);
+  assert.match(calendar, /WorkspaceNav/);
+  assert.match(nav, /href: "\/expenses"/);
 });
 
 test("Phase 3 documentation keeps migration and deployment deferred", async () => {

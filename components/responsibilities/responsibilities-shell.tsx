@@ -5,11 +5,9 @@ import {
   Check,
   CheckCircle2,
   CheckSquare2,
-  ChevronLeft,
   Clock3,
   Link2,
   ListChecks,
-  House,
   LoaderCircle,
   Pencil,
   Plus,
@@ -17,16 +15,15 @@ import {
   RotateCcw,
   Trash2,
   UserRound,
-  UsersRound,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { localDateInTimeZone } from "@/lib/calendar/time";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
+import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
 type Participant = {
   id: string;
@@ -572,37 +569,21 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
               Keep practical tasks clear: what needs doing, who owns it and when it is due.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/home"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <House className="h-4 w-4" aria-hidden="true" /> Home
-            </Link>
-            <Link
-              href="/kids"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <UsersRound className="h-4 w-4" aria-hidden="true" /> Kids
-            </Link>
-            <Link
-              href="/calendar"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-              Calendar
-            </Link>
-            {editable ? (
-              <button
-                type="button"
-                onClick={openCreate}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Add responsibility
-              </button>
-            ) : null}
-          </div>
+          <WorkspaceNav
+            active="responsibilities"
+            actions={
+              editable ? (
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Add responsibility
+                </button>
+              ) : null
+            }
+          />
         </div>
       </header>
 

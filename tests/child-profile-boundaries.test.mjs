@@ -103,16 +103,18 @@ test("viewers can read profiles but mutations require edit access", async () => 
   assert.match(activityRoute, /Editor access is required/);
 });
 
-test("Kids is reachable from Home Calendar Expenses and Responsibilities", async () => {
-  const files = await Promise.all([
+test("Kids is reachable through the shared workspace navigation", async () => {
+  const [nav, ...files] = await Promise.all([
+    source("components/workspace/workspace-nav.tsx"),
     source("components/home/home-shell.tsx"),
     source("components/calendar/calendar-shell.tsx"),
     source("components/expenses/expenses-shell.tsx"),
     source("components/responsibilities/responsibilities-shell.tsx"),
   ]);
 
+  assert.match(nav, /href: "\/kids"/);
   for (const text of files) {
-    assert.match(text, /href="\/kids"/);
+    assert.match(text, /WorkspaceNav/);
   }
   assert.match(files[0], /Your child profiles/);
   assert.match(files[0], /\/kids\/\$\{child\.id\}/);

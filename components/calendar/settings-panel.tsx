@@ -21,7 +21,7 @@ const focusableSelector = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
 
-export function SettingsPanel({ readOnly = false }: { readOnly?: boolean }) {
+export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: boolean; onChanged?: () => void }) {
   const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const busyRef = useRef(false);
@@ -128,7 +128,7 @@ export function SettingsPanel({ readOnly = false }: { readOnly?: boolean }) {
       if (!response.ok) throw new Error(body?.error ?? "Settings could not be saved.");
       setMessageKind("success");
       setMessage("Settings saved.");
-      window.setTimeout(() => window.location.reload(), 500);
+      onChanged?.();
     } catch (error) {
       setMessageKind("error");
       setMessage(error instanceof Error ? error.message : "Settings could not be saved.");

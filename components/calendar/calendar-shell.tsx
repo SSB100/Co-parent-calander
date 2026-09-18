@@ -21,19 +21,12 @@ import {
   ChevronRight,
   Clock3,
   Hourglass,
-  House,
   LoaderCircle,
-  LayoutDashboard,
-  ListChecks,
-  LogOut,
   MapPin,
   RotateCcw,
   StickyNote,
   UsersRound,
-  WalletCards,
 } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityPanel } from "@/components/calendar/activity-panel";
 import { DayDetailsPanel } from "@/components/calendar/day-details-panel";
@@ -41,9 +34,9 @@ import { EventPanel } from "@/components/calendar/event-panel";
 import { MembersPanel } from "@/components/calendar/members-panel";
 import { RecurringSchedulePanel } from "@/components/calendar/recurring-schedule-panel";
 import { SettingsPanel } from "@/components/calendar/settings-panel";
+import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
 import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
-import { authClient } from "@/lib/auth/client";
 import { parentProfileSlotIndex, type ParentProfileSlot } from "@/lib/parents/identity";
 
 type Participant = { id: string; displayName: string; colorKey: string; profileSlot: ParentProfileSlot | null };
@@ -193,7 +186,6 @@ function eventIcon(category: string) {
 }
 
 export function CalendarShell() {
-  const router = useRouter();
   const [currentMonth, setCurrentMonth] = useState<Date>(() => startOfMonth(new Date()));
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
@@ -490,25 +482,29 @@ export function CalendarShell() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Link href="/home" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><House className="h-4 w-4" aria-hidden="true" />Home</Link>
-            <Link href="/kids" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><UsersRound className="h-4 w-4" aria-hidden="true" />Kids</Link>
-            <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><LayoutDashboard className="h-4 w-4" aria-hidden="true" />Calendars</Link>
-            <Link href="/expenses" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><WalletCards className="h-4 w-4" aria-hidden="true" />Expenses</Link>
-            <Link href="/responsibilities" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><ListChecks className="h-4 w-4" aria-hidden="true" />Responsibilities</Link>
-            {accessMode === "editor" ? (
-              <>
-                <EventPanel onChanged={() => setRefreshKey((value) => value + 1)} />
-                <RecurringSchedulePanel onChanged={() => setRefreshKey((value) => value + 1)} />
-                {calendarData?.permission === "owner" ? <MembersPanel /> : null}
-                <ActivityPanel />
-              </>
-            ) : null}
-            {accessMode === "editor" || accessMode === "viewer" ? (
-              <SettingsPanel readOnly={accessMode === "viewer"} />
-            ) : null}
-            <button type="button" onClick={() => void authClient.signOut().then(() => router.push("/"))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><LogOut className="h-4 w-4" aria-hidden="true" />Log out</button>
-          </div>
+          <WorkspaceNav
+              active="calendar"
+              actions={
+                <>
+                  {accessMode === "editor" ? (
+                    <>
+                      <EventPanel onChanged={() => setRefreshKey((value) => value + 1)} />
+                      <RecurringSchedulePanel onChanged={() => setRefreshKey((value) => value + 1)} />
+                      {calendarData?.permission === "owner" ? (
+                        <MembersPanel onChanged={() => setRefreshKey((value) => value + 1)} />
+                      ) : null}
+                      <ActivityPanel />
+                    </>
+                  ) : null}
+                  {accessMode === "editor" || accessMode === "viewer" ? (
+                    <SettingsPanel
+                      readOnly={accessMode === "viewer"}
+                      onChanged={() => setRefreshKey((value) => value + 1)}
+                    />
+                  ) : null}
+                </>
+              }
+            />
         </div>
       </header>
 

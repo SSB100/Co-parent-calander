@@ -47,11 +47,15 @@ test("Home UI uses calm sections and all-caught-up state without graphs", async 
 });
 
 test("Home keeps detail workflows in their existing feature areas", async () => {
-  const shell = await source("components/home/home-shell.tsx");
+  const [shell, nav] = await Promise.all([
+    source("components/home/home-shell.tsx"),
+    source("components/workspace/workspace-nav.tsx"),
+  ]);
 
-  assert.match(shell, /href="\/calendar"/);
-  assert.match(shell, /href="\/expenses"/);
-  assert.match(shell, /href="\/responsibilities"/);
+  assert.match(shell, /WorkspaceNav/);
+  assert.match(nav, /href: "\/calendar"/);
+  assert.match(nav, /href: "\/expenses"/);
+  assert.match(nav, /href: "\/responsibilities"/);
   assert.match(shell, /\/expenses\?date=/);
   assert.match(shell, /\/responsibilities\?date=/);
   assert.match(shell, /ProposalActions/);
@@ -69,15 +73,19 @@ test("calendar selection now enters Home and Covie naming is used on the selecto
   assert.match(dashboard, />Open Covie</);
 });
 
-test("existing core feature screens all expose Home navigation", async () => {
-  const files = await Promise.all([
+test("existing core feature screens all use the shared workspace navigation", async () => {
+  const [nav, ...files] = await Promise.all([
+    source("components/workspace/workspace-nav.tsx"),
     source("components/calendar/calendar-shell.tsx"),
     source("components/expenses/expenses-shell.tsx"),
     source("components/responsibilities/responsibilities-shell.tsx"),
+    source("components/children/kids-shell.tsx"),
   ]);
 
+  assert.match(nav, /href: "\/home"/);
+  assert.match(nav, /authClient\.signOut/);
   for (const text of files) {
-    assert.match(text, /href="\/home"/);
+    assert.match(text, /WorkspaceNav/);
   }
 });
 
@@ -102,4 +110,20 @@ test("Home does not create a new Google Calendar sync surface", async () => {
     assert.doesNotMatch(text, /google-calendar/);
     assert.doesNotMatch(text, /buildCalendarSyncJobStatement/);
   }
+});
+
+
+test("calendar settings and parent changes refetch without hard page reloads", async () => {
+  const [calendar, members, settings] = await Promise.all([
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/calendar/members-panel.tsx"),
+    source("components/calendar/settings-panel.tsx"),
+  ]);
+
+  assert.match(calendar, /MembersPanel onChanged/);
+  assert.match(calendar, /SettingsPanel[\s\S]*onChanged/);
+  assert.match(members, /onChanged\?\.\(\)/);
+  assert.match(settings, /onChanged\?\.\(\)/);
+  assert.doesNotMatch(members, /location\.reload/);
+  assert.doesNotMatch(settings, /location\.reload/);
 });

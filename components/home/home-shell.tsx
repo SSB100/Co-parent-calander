@@ -8,21 +8,17 @@ import {
   CircleDollarSign,
   Clock3,
   Home,
-  LayoutDashboard,
   ListChecks,
   LoaderCircle,
-  LogOut,
   MapPin,
   ReceiptText,
   UsersRound,
-  WalletCards,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
-import { authClient } from "@/lib/auth/client";
+import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
 type Participant = {
   id: string;
@@ -179,7 +175,6 @@ function eventIcon(category: string) {
 }
 
 export function HomeShell() {
-  const router = useRouter();
   const [data, setData] = useState<HomePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -291,53 +286,7 @@ export function HomeShell() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/calendar"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <CalendarDays className="h-4 w-4" aria-hidden="true" />
-              Calendar
-            </Link>
-            <Link
-              href="/expenses"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <WalletCards className="h-4 w-4" aria-hidden="true" />
-              Expenses
-            </Link>
-            <Link
-              href="/responsibilities"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <ListChecks className="h-4 w-4" aria-hidden="true" />
-              Responsibilities
-            </Link>
-            <Link
-              href="/kids"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <UsersRound className="h-4 w-4" aria-hidden="true" />
-              Kids
-            </Link>
-            <Link
-              href="/dashboard"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
-              Calendars
-            </Link>
-            <button
-              type="button"
-              onClick={() =>
-                void authClient.signOut().then(() => router.push("/"))
-              }
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <LogOut className="h-4 w-4" aria-hidden="true" />
-              Log out
-            </button>
-          </div>
+          <WorkspaceNav active="home" />
         </div>
       </header>
 

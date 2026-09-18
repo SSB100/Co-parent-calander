@@ -3,27 +3,24 @@
 import {
   CalendarDays,
   CheckCircle2,
-  ChevronLeft,
   CircleDollarSign,
   Clock3,
-  House,
   LoaderCircle,
   Pencil,
   Plus,
   ReceiptText,
   RotateCcw,
   Trash2,
-  UsersRound,
   WalletCards,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { localDateInTimeZone } from "@/lib/calendar/time";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
+import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
 type Participant = {
   id: string;
@@ -518,35 +515,20 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
               Covie records payments but does not move money.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/home"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <House className="h-4 w-4" aria-hidden="true" /> Home
-            </Link>
-            <Link
-              href="/kids"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <UsersRound className="h-4 w-4" aria-hidden="true" /> Kids
-            </Link>
-            <Link
-              href="/calendar"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Calendar
-            </Link>
-            {editable ? (
-              <button
-                type="button"
-                onClick={openCreate}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" /> Add expense
-              </button>
-            ) : null}
-          </div>
+          <WorkspaceNav
+            active="expenses"
+            actions={
+              editable ? (
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" /> Add expense
+                </button>
+              ) : null
+            }
+          />
         </div>
       </header>
 
