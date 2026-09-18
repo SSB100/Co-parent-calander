@@ -21,16 +21,19 @@ test("recurring shared events have an explicit schema and migration", async () =
   assert.match(migration, /events_calendar_recurrence_idx/);
 });
 
-test("event API exposes simple whole-series recurrence controls through approval", async () => {
-  const route = await source("app/api/events/route.ts");
+test("event service exposes simple whole-series recurrence controls through approval", async () => {
+  const [model, service] = await Promise.all([
+    source("lib/events/model.ts"),
+    source("lib/events/service.ts"),
+  ]);
 
-  assert.match(route, /recurrence\.default\("none"\)/);
-  assert.match(route, /recurrenceEndDate/);
-  assert.match(route, /The repeat-until date cannot be before the first event/);
-  assert.match(route, /createApprovalProposal/);
-  assert.match(route, /entityType: "shared_event"/);
-  assert.match(route, /jobType: "full"/);
-  assert.match(route, /expandEventOccurrences/);
+  assert.match(model, /default\("none"\)/);
+  assert.match(model, /recurrenceEndDate/);
+  assert.match(model, /The repeat-until date cannot be before the first event/);
+  assert.match(service, /createApprovalProposal/);
+  assert.match(service, /entityType: "shared_event"/);
+  assert.match(service, /jobType: "full"/);
+  assert.match(service, /expandEventOccurrences/);
 });
 
 test("calendar and Google expand only stored approved event series", async () => {

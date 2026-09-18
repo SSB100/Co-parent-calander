@@ -81,7 +81,7 @@ test("calendar mutations enqueue durable Google work inside their database trans
       "app/api/assignments/route.ts",
       "app/api/assignment-details/route.ts",
       "app/api/assignments/undo/route.ts",
-      "app/api/events/route.ts",
+      "lib/events/service.ts",
       "app/api/recurring-schedule/route.ts",
       "app/api/settings/route.ts",
       "app/api/parents/route.ts",

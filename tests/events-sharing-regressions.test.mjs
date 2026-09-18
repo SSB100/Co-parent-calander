@@ -10,37 +10,42 @@ async function source(file) {
 }
 
 test("event CRUD keeps validation, approval gating, calendar scoping, transaction, and audit guarantees", async () => {
-  const text = await source("app/api/events/route.ts");
+  const [route, model, service] = await Promise.all([
+    source("app/api/events/route.ts"),
+    source("lib/events/model.ts"),
+    source("lib/events/service.ts"),
+  ]);
 
   for (const value of ["school", "sport", "medical", "birthday", "holiday", "activity", "other"]) {
-    assert.match(text, new RegExp(`["]${value}["]`));
+    assert.match(model, new RegExp(`["]${value}["]`));
   }
-  assert.match(text, /Add an event title\./);
-  assert.match(text, /Keep the title under 80 characters\./);
-  assert.match(text, /Keep the event note under 500 characters\./);
-  assert.match(text, /proposalReasonSchema/);
-  assert.match(text, /The event end date cannot be before the start date\./);
-  assert.match(text, /Events can span up to 32 days\./);
-  assert.match(text, /const createSchema = eventFields\.safeExtend\(\{ reason: proposalReasonSchema \}\)/);
-  assert.match(text, /const editSchema = eventFields\.safeExtend\(\{ id: z\.string\(\)\.uuid\(\), reason: proposalReasonSchema \}\)/);
-  assert.match(text, /const deleteSchema = z\.object\(\{ id: z\.string\(\)\.uuid\(\), reason: proposalReasonSchema \}\)/);
+  assert.match(model, /Add an event title\./);
+  assert.match(model, /Keep the title under 80 characters\./);
+  assert.match(model, /Keep the event note under 500 characters\./);
+  assert.match(model, /proposalReasonSchema/);
+  assert.match(model, /The event end date cannot be before the start date\./);
+  assert.match(model, /Events can span up to 32 days\./);
+  assert.match(model, /createEventSchema/);
+  assert.match(model, /editEventSchema/);
+  assert.match(model, /deleteEventSchema/);
 
-  assert.match(text, /getCalendarSession\(\)/);
-  assert.match(text, /getEditorSession\(\)/);
-  assert.match(text, /sharedApprovalTargetForSession/);
-  assert.match(text, /createApprovalProposal/);
-  assert.match(text, /entityType: "shared_event"/);
-  assert.match(text, /pending: true/);
-  assert.match(text, /status: 202/);
-  assert.match(text, /eq\(events\.calendarId, session\.calendarId\)/);
-  assert.match(text, /request\.nextUrl\.searchParams\.get\("date"\)/);
-  assert.match(text, /event\.create/);
-  assert.match(text, /event\.update/);
-  assert.match(text, /event\.delete/);
-  assert.match(text, /beforeState/);
-  assert.match(text, /afterState/);
+  assert.match(route, /getCalendarSession\(\)/);
+  assert.match(route, /getEditorSession\(\)/);
+  assert.match(route, /request\.nextUrl\.searchParams\.get\("date"\)/);
+  assert.match(route, /result\.pending \? 202 : 200/);
 
-  const transactionCalls = text.match(/await sql\.transaction\(/g) ?? [];
+  assert.match(service, /sharedApprovalTargetForSession/);
+  assert.match(service, /createApprovalProposal/);
+  assert.match(service, /entityType: "shared_event"/);
+  assert.match(service, /pending: true/);
+  assert.match(service, /eq\(events\.calendarId, input\.calendarId\)/);
+  assert.match(service, /event\.create/);
+  assert.match(service, /event\.update/);
+  assert.match(service, /event\.delete/);
+  assert.match(service, /before_state/);
+  assert.match(service, /after_state/);
+
+  const transactionCalls = service.match(/await sql\.transaction\(/g) ?? [];
   assert.equal(transactionCalls.length, 3, "solo-parent event create/update/delete must remain transactional");
 });
 
