@@ -87,7 +87,7 @@ SQL migrations live in `drizzle/`:
 - `0011_entity_links.sql`
 - `0012_schema_foundation.sql`
 
-Production has migrations through `0012` applied. The `covie_schema_migrations` ledger now records the historical `0000`–`0011` baseline plus normal migration `0012`.
+Production has migrations through `0012` applied. The `covie_schema_migrations` ledger records the historical `0000`–`0011` baseline plus normal migration `0012`. Migration `0013_parenting_schedules.sql` is staged in GitHub for the eventual approved database release.
 
 Do not replay historical migrations against production. The architecture-cleanup work is introducing an explicit migration ledger/baseline before the next schema migration.
 

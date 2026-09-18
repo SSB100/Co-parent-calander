@@ -3,6 +3,8 @@ import { and, asc, eq, gt, gte, isNotNull, isNull, lte, ne, or, sql } from "driz
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { projectCalendarPendingProposals } from "@/lib/approvals/calendar-pending";
+import { loadEffectiveAssignmentMap } from "@/lib/assignments/effective";
+import { localDateTimePartsInTimeZone } from "@/lib/calendar/time";
 import { listApprovalProposals } from "@/lib/approvals/engine";
 import { getDb } from "@/lib/db";
 import { expandEventOccurrences } from "@/lib/events/recurrence";
@@ -13,11 +15,9 @@ import {
   events,
   parentingAssignments,
   participants,
-  recurringRuleChildren,
-  recurringRules,
+  parentingSchedules,
   responsibilities,
 } from "@/lib/db/schema";
-import { resolveRecurringAssignments } from "@/lib/recurrence/fortnight";
 import { getCalendarSession } from "@/lib/security/session";
 
 const isoDate = z
@@ -31,24 +31,6 @@ const rangeSchema = z
   .refine((value) => differenceInCalendarDays(parseISO(value.to), parseISO(value.from)) <= 62, {
     message: "Calendar ranges are limited to 63 days.",
   });
-
-function localDateTimeParts(timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-NZ", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date());
-  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "00";
-  return {
-    date: `${value("year")}-${value("month")}-${value("day")}`,
-    time: `${value("hour")}:${value("minute")}:${value("second")}`,
-  };
-}
 
 export async function GET(request: Request) {
   const session = await getCalendarSession();
@@ -70,10 +52,10 @@ export async function GET(request: Request) {
 
   const calendar = calendarRows[0];
   if (!calendar) return NextResponse.json({ error: "Calendar not found." }, { status: 404 });
-  const now = localDateTimeParts(calendar.timezone);
+  const now = localDateTimePartsInTimeZone(calendar.timezone);
   const inferredSplitHandoverTime = sql<string>`coalesce(${parentingAssignments.handoverTime}, '12:00:00'::time)`;
 
-  const [parentRows, childRows, manualAssignmentRows, recurringRuleRows, recurringRuleChildRows, eventRows, responsibilityRows, nextHandoverRows, nextEventRows] = await db.batch([
+  const [parentRows, childRows, eventRows, responsibilityRows, nextHandoverRows, nextEventRows, scheduleRows] = await db.batch([
     db.select({ id: participants.id, displayName: participants.displayName, colorKey: participants.colorKey })
       .from(participants)
       .where(and(eq(participants.calendarId, session.calendarId), eq(participants.active, true)))
@@ -82,31 +64,6 @@ export async function GET(request: Request) {
       .from(children)
       .where(and(eq(children.calendarId, session.calendarId), eq(children.active, true)))
       .orderBy(asc(children.createdAt)),
-    db.select({
-      id: parentingAssignments.id,
-      childId: parentingAssignments.childId,
-      date: parentingAssignments.assignmentDate,
-      morningParentId: parentingAssignments.parentId,
-      afternoonParentId: parentingAssignments.afternoonParentId,
-      handoverTime: parentingAssignments.handoverTime,
-      handoverLocation: parentingAssignments.handoverLocation,
-      note: parentingAssignments.note,
-    })
-      .from(parentingAssignments)
-      .where(and(
-        eq(parentingAssignments.calendarId, session.calendarId),
-        eq(parentingAssignments.source, "manual"),
-        gte(parentingAssignments.assignmentDate, from),
-        lte(parentingAssignments.assignmentDate, to),
-      ))
-      .orderBy(asc(parentingAssignments.assignmentDate)),
-    db.select({ id: recurringRules.id, parentId: recurringRules.parentId, startDate: recurringRules.startDate, endDate: recurringRules.endDate, rrule: recurringRules.rrule })
-      .from(recurringRules)
-      .where(and(eq(recurringRules.calendarId, session.calendarId), eq(recurringRules.active, true))),
-    db.select({ ruleId: recurringRuleChildren.recurringRuleId, childId: recurringRuleChildren.childId })
-      .from(recurringRuleChildren)
-      .innerJoin(recurringRules, eq(recurringRuleChildren.recurringRuleId, recurringRules.id))
-      .where(and(eq(recurringRules.calendarId, session.calendarId), eq(recurringRules.active, true))),
     db.select({
       id: events.id,
       title: events.title,
@@ -211,15 +168,25 @@ export async function GET(request: Request) {
       ))
       .orderBy(asc(events.startDate))
       .limit(100),
+    db
+      .select({ id: parentingSchedules.id })
+      .from(parentingSchedules)
+      .where(
+        and(
+          eq(parentingSchedules.calendarId, session.calendarId),
+          eq(parentingSchedules.active, true),
+        ),
+      )
+      .limit(1),
   ]);
 
-  const assignments = resolveRecurringAssignments({
-    manualAssignments: manualAssignmentRows,
-    rules: recurringRuleRows,
-    ruleChildren: recurringRuleChildRows,
+  const assignmentMap = await loadEffectiveAssignmentMap({
+    calendarId: session.calendarId,
+    childIds: childRows.map((child) => child.id),
     from,
     to,
   });
+  const assignments = [...assignmentMap.values()];
 
   const visibleEvents = expandEventOccurrences({
     events: eventRows,
@@ -299,7 +266,7 @@ export async function GET(request: Request) {
     events: visibleEvents,
     pendingProposals,
     responsibilityMarkers,
-    recurringScheduleActive: recurringRuleRows.length > 0,
+    recurringScheduleActive: scheduleRows.length > 0,
     nextHandover: nextHandoverRows[0] ?? null,
     nextEvent,
   });

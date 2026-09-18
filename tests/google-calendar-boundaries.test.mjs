@@ -82,7 +82,7 @@ test("calendar mutations enqueue durable Google work inside their database trans
       "app/api/assignment-details/route.ts",
       "app/api/assignments/undo/route.ts",
       "lib/events/service.ts",
-      "app/api/recurring-schedule/route.ts",
+      "lib/parenting-schedules/service.ts",
       "app/api/settings/route.ts",
       "app/api/parents/route.ts",
     ].map((file) => readFile(path.join(root, file), "utf8")),

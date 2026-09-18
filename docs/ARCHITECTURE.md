@@ -32,6 +32,8 @@ Home is a derived read model and has no Home-specific persistence.
 
 The selected calendar's `timezone` is authoritative for date-sensitive application behaviour. `Pacific/Auckland` remains the default for newly created calendars, not a hidden runtime assumption.
 
+Saved parenting schedules use first-class `parenting_schedules`, `parenting_schedule_slots`, and `parenting_schedule_children` records in staged migration `0013`. Manual `parenting_assignments` remain the date-specific override layer. Legacy `recurring_rules` metadata is retained only for migration/history compatibility and is no longer the intended runtime source of truth after `0013`.
+
 ## Permission model
 
 - Owner: calendar administration plus editor capabilities.
@@ -71,7 +73,8 @@ Production Neon:
 
 - project: `delicate-sunset-36051658`
 - branch: `br-quiet-sea-a7duq4r3`
-- schema migrations applied: `0000` through `0012`
+- schema migrations applied in Production: `0000` through `0012`
+- staged next migration: `0013_parenting_schedules.sql`
 - `covie_schema_migrations` is the authoritative migration ledger from `0012` onward
 
 A pre-Phase-8 rollback branch is currently retained:
@@ -107,6 +110,5 @@ Before the brand/UI redesign, cleanup work should:
 - split the large client shells into controllers/hooks and smaller UI components
 - introduce a shared authenticated application shell
 - decouple parent identity from Tailwind colour names
-- simplify the parenting recurrence persistence model
 - modularise approval applicators and relationship aggregation
 - add data-retention/privacy rules and selected database constraints

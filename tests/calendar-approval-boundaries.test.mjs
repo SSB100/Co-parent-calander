@@ -15,7 +15,7 @@ test("existing shared calendar mutations enter the reusable approval engine", as
       "app/api/assignments/route.ts",
       "app/api/assignment-details/route.ts",
       "lib/events/service.ts",
-      "app/api/recurring-schedule/route.ts",
+      "lib/parenting-schedules/service.ts",
     ].map(source),
   );
 
@@ -46,7 +46,7 @@ test("month data keeps agreed records authoritative and exposes pending changes 
   const route = await source("app/api/calendar/route.ts");
   const pending = await source("lib/approvals/calendar-pending.ts");
 
-  assert.match(route, /resolveRecurringAssignments/);
+  assert.match(route, /loadEffectiveAssignmentMap/);
   assert.match(route, /events: eventRows/);
   assert.match(route, /pendingProposals/);
   assert.match(route, /status: "waiting"/);

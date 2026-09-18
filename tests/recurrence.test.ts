@@ -13,6 +13,7 @@ import {
   type RecurrenceRuleChild,
 } from "../lib/recurrence/fortnight";
 import { groupSavedSchedules } from "../lib/recurrence/saved-schedules";
+import { resolveParentingScheduleAssignments } from "../lib/parenting-schedules/resolver";
 
 const root = process.cwd();
 const childA = "11111111-1111-4111-8111-111111111111";
@@ -264,23 +265,92 @@ test("one rule resolves independently for every linked child", () => {
   assert.deepEqual(result.map((assignment) => assignment.childId).sort(), [childA, childB].sort());
 });
 
-test("recurring schedule API stores multiple schedule groups and half-day ownership", async () => {
-  const text = await readFile(path.join(root, "app/api/recurring-schedule/route.ts"), "utf8");
+test("first-class parenting schedule service stores 14-day split ownership without RRULE metadata", async () => {
+  const [route, service, migration] = await Promise.all([
+    readFile(path.join(root, "app/api/recurring-schedule/route.ts"), "utf8"),
+    readFile(path.join(root, "lib/parenting-schedules/service.ts"), "utf8"),
+    readFile(path.join(root, "drizzle/0013_parenting_schedules.sql"), "utf8"),
+  ]);
 
-  assert.match(text, /schedules:\s*groupSavedSchedules\(ruleRows\)/);
-  assert.match(text, /scheduleId:\s*z\.string\(\)\.uuid\(\)\.nullable\(\)\.optional\(\)/);
-  assert.match(text, /morningParentId/);
-  assert.match(text, /afternoonParentId/);
-  assert.match(text, /scheduleRangesOverlap\(/);
-  assert.match(text, /This schedule overlaps another saved schedule/);
-  assert.match(text, /X-COPARENT-SCHEDULE=\$\{scheduleId\}/);
-  assert.match(text, /buildFortnightRuleText\(\{ scheduleId, anchorDate, slot, period \}\)/);
-  assert.match(text, /addRule\(slot, morningParentId, "morning"\)/);
-  assert.match(text, /addRule\(slot, afternoonParentId, "afternoon"\)/);
-  assert.match(text, /AND rrule LIKE \$\{scheduleMarker\}/);
-  assert.match(text, /recurring_schedule\.create/);
-  assert.match(text, /recurring_schedule\.update/);
-  assert.match(text, /recurring_schedule\.delete/);
+  assert.match(route, /upsertParentingSchedule/);
+  assert.match(route, /deleteParentingSchedule/);
+  assert.match(service, /parenting_schedule_slots/);
+  assert.match(service, /morning_parent_id/);
+  assert.match(service, /afternoon_parent_id/);
+  assert.match(service, /scheduleRangesOverlap/);
+  assert.match(service, /recurring_schedule\.create/);
+  assert.match(service, /recurring_schedule\.update/);
+  assert.match(service, /recurring_schedule\.delete/);
+  assert.doesNotMatch(service, /X-COPARENT-|buildFortnightRuleText|parseFortnightRuleText/);
+  assert.match(migration, /X-COPARENT-SCHEDULE/);
+  assert.match(migration, /INSERT INTO "parenting_schedules"/);
+  assert.match(migration, /INSERT INTO "parenting_schedule_slots"/);
+  assert.match(migration, /INSERT INTO "parenting_schedule_children"/);
+});
+
+test("first-class schedule resolver applies split/full slots and manual overrides", () => {
+  const scheduleId = "44444444-4444-4444-8444-444444444477";
+  const result = resolveParentingScheduleAssignments({
+    schedules: [{
+      id: scheduleId,
+      anchorDate: "2026-09-14",
+      endDate: null,
+    }],
+    slots: [
+      {
+        scheduleId,
+        slotIndex: 0,
+        morningParentId: parentA,
+        afternoonParentId: parentB,
+      },
+      {
+        scheduleId,
+        slotIndex: 1,
+        morningParentId: parentA,
+        afternoonParentId: parentA,
+      },
+    ],
+    scheduleChildren: [
+      { scheduleId, childId: childA },
+      { scheduleId, childId: childB },
+    ],
+    manualAssignments: [
+      manual({
+        date: "2026-09-28",
+        childId: childA,
+        morningParentId: parentB,
+        afternoonParentId: parentB,
+      }),
+    ],
+    from: "2026-09-14",
+    to: "2026-09-29",
+  });
+
+  const first = result.find(
+    (assignment) =>
+      assignment.childId === childA &&
+      assignment.date === "2026-09-14",
+  );
+  assert.equal(first?.morningParentId, parentA);
+  assert.equal(first?.afternoonParentId, parentB);
+  assert.equal(first?.source, "recurring");
+
+  const full = result.find(
+    (assignment) =>
+      assignment.childId === childB &&
+      assignment.date === "2026-09-15",
+  );
+  assert.equal(full?.morningParentId, parentA);
+  assert.equal(full?.afternoonParentId, parentA);
+
+  const override = result.find(
+    (assignment) =>
+      assignment.childId === childA &&
+      assignment.date === "2026-09-28",
+  );
+  assert.equal(override?.morningParentId, parentB);
+  assert.equal(override?.afternoonParentId, parentB);
+  assert.equal(override?.source, "manual");
 });
 
 test("saved schedule grouping reconstructs split and full-day slots from rule metadata", () => {

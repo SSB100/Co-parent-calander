@@ -1,11 +1,12 @@
-import { randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb, getSql } from "@/lib/db";
 import {
   children,
   events,
+  parentingScheduleChildren,
+  parentingSchedules,
+  parentingScheduleSlots,
   participants,
-  recurringRules,
 } from "@/lib/db/schema";
 import {
   ApprovalEngineError,
@@ -19,14 +20,8 @@ import {
   recurringScheduleProposalStateSchema,
   sharedEventProposalStateSchema,
 } from "@/lib/approvals/calendar-state";
-import {
-  buildFortnightRuleText,
-  dateForSlot,
-  FORTNIGHT_SLOTS,
-  scheduleRangesOverlap,
-  type RecurrencePeriod,
-} from "@/lib/recurrence/fortnight";
-import { groupSavedSchedules } from "@/lib/recurrence/saved-schedules";
+import { scheduleRangesOverlap } from "@/lib/recurrence/fortnight";
+import { loadSavedParentingSchedules } from "@/lib/parenting-schedules/service";
 import {
   buildCalendarSyncJobStatement,
   expandGoogleSyncRange,
@@ -568,25 +563,6 @@ async function applyParentingAssignmentsProposal(input: {
   };
 }
 
-async function loadActiveRecurringRuleRows(calendarId: string) {
-  return getDb()
-    .select({
-      id: recurringRules.id,
-      parentId: recurringRules.parentId,
-      rrule: recurringRules.rrule,
-      startDate: recurringRules.startDate,
-      endDate: recurringRules.endDate,
-      createdAt: recurringRules.createdAt,
-    })
-    .from(recurringRules)
-    .where(
-      and(
-        eq(recurringRules.calendarId, calendarId),
-        eq(recurringRules.active, true),
-      ),
-    );
-}
-
 async function applyRecurringScheduleProposal(input: {
   calendarId: string;
   actor: ApprovalActor;
@@ -602,8 +578,8 @@ async function applyRecurringScheduleProposal(input: {
     );
   }
 
-  const activeRuleRows = await loadActiveRecurringRuleRows(input.calendarId);
-  const schedules = groupSavedSchedules(activeRuleRows);
+  const schedules =
+    await loadSavedParentingSchedules(input.calendarId);
   const responseAt = new Date();
   const sql = getSql();
   const markerInput = {
@@ -612,12 +588,26 @@ async function applyRecurringScheduleProposal(input: {
     actorMembershipId: input.actor.membershipId,
     respondedAt: responseAt,
   };
-  const statements = [acceptanceTransitionStatement(sql, markerInput)];
+  const statements = [
+    acceptanceTransitionStatement(sql, markerInput),
+  ];
+
+  const markerExists = () => sql`
+    EXISTS (
+      SELECT 1
+      FROM approval_proposals approval_marker
+      WHERE approval_marker.id = ${markerInput.proposalId}
+        AND approval_marker.calendar_id = ${markerInput.calendarId}
+        AND approval_marker.status = 'approved'
+        AND approval_marker.approver_membership_id = ${markerInput.actorMembershipId}
+        AND approval_marker.responded_at = ${markerInput.respondedAt}
+    )
+  `;
 
   if (parsed.data.mode === "delete") {
-    const deleteState = parsed.data;
     const existing = schedules.find(
-      (schedule) => schedule.scheduleId === deleteState.scheduleId,
+      (schedule) =>
+        schedule.scheduleId === parsed.data.scheduleId,
     );
     if (!existing) {
       throw new ApprovalEngineError(
@@ -626,54 +616,29 @@ async function applyRecurringScheduleProposal(input: {
       );
     }
 
-    const scheduleMarker = `%X-COPARENT-SCHEDULE=${deleteState.scheduleId}%`;
-    const ruleIds = activeRuleRows
-      .filter((row) => row.rrule.includes(`X-COPARENT-SCHEDULE=${deleteState.scheduleId}`))
-      .map((row) => row.id);
-    const ruleIdArray = `{${ruleIds.join(",")}}`;
-
-    statements.push(
-      sql`
-        DELETE FROM parenting_assignments
-        WHERE calendar_id = ${input.calendarId}
-          AND source = 'recurring'
-          AND recurring_rule_id = ANY(${ruleIdArray}::uuid[])
-          AND EXISTS (
-        SELECT 1
-        FROM approval_proposals approval_marker
-        WHERE approval_marker.id = ${markerInput.proposalId}
-          AND approval_marker.calendar_id = ${markerInput.calendarId}
-          AND approval_marker.status = 'approved'
-          AND approval_marker.approver_membership_id = ${markerInput.actorMembershipId}
-          AND approval_marker.responded_at = ${markerInput.respondedAt}
-      )
-      `,
-      sql`
-        UPDATE recurring_rules
-        SET active = false, updated_at = now()
-        WHERE calendar_id = ${input.calendarId}
-          AND active = true
-          AND rrule LIKE ${scheduleMarker}
-          AND EXISTS (
-        SELECT 1
-        FROM approval_proposals approval_marker
-        WHERE approval_marker.id = ${markerInput.proposalId}
-          AND approval_marker.calendar_id = ${markerInput.calendarId}
-          AND approval_marker.status = 'approved'
-          AND approval_marker.approver_membership_id = ${markerInput.actorMembershipId}
-          AND approval_marker.responded_at = ${markerInput.respondedAt}
-      )
-      `,
-    );
+    statements.push(sql`
+      UPDATE parenting_schedules
+      SET active = false, updated_at = now()
+      WHERE id = ${parsed.data.scheduleId}
+        AND calendar_id = ${input.calendarId}
+        AND active = true
+        AND ${markerExists()}
+    `);
   } else {
     const schedule = parsed.data;
     const selectedParentIds = [
       ...new Set(
         schedule.pattern
-          .flatMap((slot) => [slot.morningParentId, slot.afternoonParentId])
-          .filter((value): value is string => Boolean(value)),
+          .flatMap((slot) => [
+            slot.morningParentId,
+            slot.afternoonParentId,
+          ])
+          .filter(
+            (value): value is string => Boolean(value),
+          ),
       ),
     ];
+
     const db = getDb();
     const [parentRows, childRows] = await db.batch([
       db
@@ -708,9 +673,14 @@ async function applyRecurringScheduleProposal(input: {
     }
 
     const existing = schedules.find(
-      (saved) => saved.scheduleId === schedule.scheduleId,
+      (saved) =>
+        saved.scheduleId === schedule.scheduleId,
     );
-    if (input.proposal.action === "edit" && !existing) {
+
+    if (
+      input.proposal.action === "edit" &&
+      !existing
+    ) {
       throw new ApprovalEngineError(
         409,
         "The agreed repeating schedule changed before this proposal could be approved.",
@@ -727,6 +697,7 @@ async function applyRecurringScheduleProposal(input: {
           saved.endDate,
         ),
     );
+
     if (conflict) {
       throw new ApprovalEngineError(
         409,
@@ -734,114 +705,86 @@ async function applyRecurringScheduleProposal(input: {
       );
     }
 
-    const scheduleMarker = `%X-COPARENT-SCHEDULE=${schedule.scheduleId}%`;
     if (existing) {
+      statements.push(
+        sql`
+          UPDATE parenting_schedules
+          SET
+            anchor_date = ${schedule.anchorDate},
+            end_date = ${schedule.endDate},
+            active = true,
+            updated_at = now()
+          WHERE id = ${schedule.scheduleId}
+            AND calendar_id = ${input.calendarId}
+            AND ${markerExists()}
+        `,
+        sql`
+          DELETE FROM parenting_schedule_slots
+          WHERE schedule_id = ${schedule.scheduleId}
+            AND ${markerExists()}
+        `,
+        sql`
+          DELETE FROM parenting_schedule_children
+          WHERE schedule_id = ${schedule.scheduleId}
+            AND ${markerExists()}
+        `,
+      );
+    } else {
       statements.push(sql`
-        UPDATE recurring_rules
-        SET active = false, updated_at = now()
-        WHERE calendar_id = ${input.calendarId}
-          AND active = true
-          AND rrule LIKE ${scheduleMarker}
-          AND EXISTS (
-        SELECT 1
-        FROM approval_proposals approval_marker
-        WHERE approval_marker.id = ${markerInput.proposalId}
-          AND approval_marker.calendar_id = ${markerInput.calendarId}
-          AND approval_marker.status = 'approved'
-          AND approval_marker.approver_membership_id = ${markerInput.actorMembershipId}
-          AND approval_marker.responded_at = ${markerInput.respondedAt}
-      )
-      `);
-    }
-
-    const addRule = (
-      slot: number,
-      parentId: string,
-      period: RecurrencePeriod,
-    ) => {
-      const ruleId = randomUUID();
-      const startDate = dateForSlot(schedule.anchorDate, slot);
-      const rrule = buildFortnightRuleText({
-        scheduleId: schedule.scheduleId,
-        anchorDate: schedule.anchorDate,
-        slot,
-        period,
-      });
-
-      statements.push(sql`
-        INSERT INTO recurring_rules (
-          id,
-          calendar_id,
-          parent_id,
-          rrule,
-          start_date,
-          end_date,
-          active,
-          created_by,
-          created_at,
-          updated_at
+        INSERT INTO parenting_schedules (
+          id, calendar_id, anchor_date, end_date,
+          active, created_by, created_at, updated_at
         )
         SELECT
-          ${ruleId},
+          ${schedule.scheduleId},
           ${input.calendarId},
-          ${parentId},
-          ${rrule},
-          ${startDate},
+          ${schedule.anchorDate},
           ${schedule.endDate},
           true,
           ${input.actor.participantId},
           now(),
           now()
-        WHERE EXISTS (
-        SELECT 1
-        FROM approval_proposals approval_marker
-        WHERE approval_marker.id = ${markerInput.proposalId}
-          AND approval_marker.calendar_id = ${markerInput.calendarId}
-          AND approval_marker.status = 'approved'
-          AND approval_marker.approver_membership_id = ${markerInput.actorMembershipId}
-          AND approval_marker.responded_at = ${markerInput.respondedAt}
-      )
+        WHERE ${markerExists()}
       `);
+    }
 
-      for (const child of childRows) {
-        statements.push(sql`
-          INSERT INTO recurring_rule_children (
-            recurring_rule_id,
-            child_id
-          )
-          SELECT
-            ${ruleId},
-            ${child.id}
-          WHERE EXISTS (
-        SELECT 1
-        FROM approval_proposals approval_marker
-        WHERE approval_marker.id = ${markerInput.proposalId}
-          AND approval_marker.calendar_id = ${markerInput.calendarId}
-          AND approval_marker.status = 'approved'
-          AND approval_marker.approver_membership_id = ${markerInput.actorMembershipId}
-          AND approval_marker.responded_at = ${markerInput.respondedAt}
-      )
-        `);
-      }
-    };
-
-    for (let slot = 0; slot < FORTNIGHT_SLOTS; slot += 1) {
-      const ownership = schedule.pattern[slot];
-      if (!ownership.morningParentId && !ownership.afternoonParentId) continue;
-
+    for (
+      let slotIndex = 0;
+      slotIndex < schedule.pattern.length;
+      slotIndex += 1
+    ) {
+      const slot = schedule.pattern[slotIndex];
       if (
-        ownership.morningParentId &&
-        ownership.morningParentId === ownership.afternoonParentId
+        !slot.morningParentId &&
+        !slot.afternoonParentId
       ) {
-        addRule(slot, ownership.morningParentId, "full_day");
-      } else {
-        if (ownership.morningParentId) {
-          addRule(slot, ownership.morningParentId, "morning");
-        }
-        if (ownership.afternoonParentId) {
-          addRule(slot, ownership.afternoonParentId, "afternoon");
-        }
+        continue;
       }
+
+      statements.push(sql`
+        INSERT INTO parenting_schedule_slots (
+          schedule_id, slot_index,
+          morning_parent_id, afternoon_parent_id
+        )
+        SELECT
+          ${schedule.scheduleId},
+          ${slotIndex},
+          ${slot.morningParentId},
+          ${slot.afternoonParentId}
+        WHERE ${markerExists()}
+      `);
+    }
+
+    for (const child of childRows) {
+      statements.push(sql`
+        INSERT INTO parenting_schedule_children (
+          schedule_id, child_id
+        )
+        SELECT
+          ${schedule.scheduleId},
+          ${child.id}
+        WHERE ${markerExists()}
+      `);
     }
   }
 
@@ -852,6 +795,7 @@ async function applyRecurringScheduleProposal(input: {
         actor_participant_id,
         action,
         entity_type,
+        entity_id,
         before_state,
         after_state
       )
@@ -864,17 +808,14 @@ async function applyRecurringScheduleProposal(input: {
             ? "recurring_schedule.create"
             : "recurring_schedule.update"},
         'recurring_schedule',
-        ${JSON.stringify(input.proposal.previousState)}::jsonb,
-        ${JSON.stringify(input.proposal.proposedState)}::jsonb
-      WHERE EXISTS (
-        SELECT 1
-        FROM approval_proposals approval_marker
-        WHERE approval_marker.id = ${markerInput.proposalId}
-          AND approval_marker.calendar_id = ${markerInput.calendarId}
-          AND approval_marker.status = 'approved'
-          AND approval_marker.approver_membership_id = ${markerInput.actorMembershipId}
-          AND approval_marker.responded_at = ${markerInput.respondedAt}
-      )
+        ${parsed.data.scheduleId},
+        ${JSON.stringify(
+          input.proposal.previousState,
+        )}::jsonb,
+        ${JSON.stringify(
+          input.proposal.proposedState,
+        )}::jsonb
+      WHERE ${markerExists()}
     `,
     buildCalendarSyncJobStatement(sql, {
       calendarId: input.calendarId,
@@ -895,8 +836,12 @@ async function applyRecurringScheduleProposal(input: {
   );
 
   await sql.transaction(statements);
+
   return {
-    details: await verifyAccepted(input.calendarId, input.proposal.id),
+    details: await verifyAccepted(
+      input.calendarId,
+      input.proposal.id,
+    ),
     googleSyncQueued: true,
   };
 }

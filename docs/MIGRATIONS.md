@@ -4,7 +4,7 @@ Covie uses ordered SQL migration files under `drizzle/`.
 
 ## Current production baseline
 
-Production contains migrations `0000` through `0012`.
+Production contains migrations `0000` through `0012`. Migration `0013_parenting_schedules.sql` is staged in GitHub and must not be treated as Production-applied until the final database deployment pass.
 
 Those files must **not** be replayed.
 
@@ -42,3 +42,27 @@ The first ledger migration also moves several existing application assumptions i
 - recurring responsibility `next_occurrence_id` must point to a real responsibility and is cleared if that next row is deleted
 
 These checks were validated against Production before the migration was prepared; no existing rows violated them.
+
+
+## 0013 first-class parenting schedules
+
+Migration `0013_parenting_schedules.sql` replaces RRULE metadata as the saved parenting-schedule source of truth.
+
+It adds:
+
+- `parenting_schedules`
+- `parenting_schedule_slots`
+- `parenting_schedule_children`
+
+The migration backfills active saved schedules from existing `recurring_rules` metadata, including split morning/afternoon ownership and linked children. Existing `recurring_rules` rows are retained as historical compatibility data during this transition, but the application runtime uses the new first-class tables after `0013`.
+
+Manual rows in `parenting_assignments` remain date-specific overrides and continue to win over the repeating baseline.
+
+This migration is currently staged only. Before Production application:
+
+1. create a fresh Neon temporary branch from Production
+2. apply `0013`
+3. verify schedule counts, slot reconstruction and child links
+4. compare effective assignments over representative date ranges before/after
+5. confirm Google Calendar desired parenting output is unchanged for the same source data
+6. apply to Production only during the explicitly approved release pass

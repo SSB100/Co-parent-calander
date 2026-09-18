@@ -2,10 +2,11 @@ import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   parentingAssignments,
-  recurringRuleChildren,
-  recurringRules,
+  parentingScheduleChildren,
+  parentingSchedules,
+  parentingScheduleSlots,
 } from "@/lib/db/schema";
-import { resolveRecurringAssignments } from "@/lib/recurrence/fortnight";
+import { resolveParentingScheduleAssignments } from "@/lib/parenting-schedules/resolver";
 
 export async function loadEffectiveAssignmentMap({
   calendarId,
@@ -20,67 +21,110 @@ export async function loadEffectiveAssignmentMap({
 }) {
   const result = new Map<
     string,
-    Awaited<ReturnType<typeof resolveRecurringAssignments>>[number]
+    Awaited<ReturnType<typeof resolveParentingScheduleAssignments>>[number]
   >();
+
   if (childIds.length === 0) return result;
 
   const db = getDb();
-  const [manualAssignments, rules, ruleChildren] = await db.batch([
-    db
-      .select({
-        id: parentingAssignments.id,
-        childId: parentingAssignments.childId,
-        date: parentingAssignments.assignmentDate,
-        morningParentId: parentingAssignments.parentId,
-        afternoonParentId: parentingAssignments.afternoonParentId,
-        handoverTime: parentingAssignments.handoverTime,
-        handoverLocation: parentingAssignments.handoverLocation,
-        note: parentingAssignments.note,
-      })
-      .from(parentingAssignments)
-      .where(
-        and(
-          eq(parentingAssignments.calendarId, calendarId),
-          eq(parentingAssignments.source, "manual"),
-          inArray(parentingAssignments.childId, childIds),
-          gte(parentingAssignments.assignmentDate, from),
-          lte(parentingAssignments.assignmentDate, to),
+  const [manualAssignments, schedules, slots, scheduleChildren] =
+    await db.batch([
+      db
+        .select({
+          id: parentingAssignments.id,
+          childId: parentingAssignments.childId,
+          date: parentingAssignments.assignmentDate,
+          morningParentId: parentingAssignments.parentId,
+          afternoonParentId:
+            parentingAssignments.afternoonParentId,
+          handoverTime: parentingAssignments.handoverTime,
+          handoverLocation:
+            parentingAssignments.handoverLocation,
+          note: parentingAssignments.note,
+        })
+        .from(parentingAssignments)
+        .where(
+          and(
+            eq(parentingAssignments.calendarId, calendarId),
+            eq(parentingAssignments.source, "manual"),
+            inArray(parentingAssignments.childId, childIds),
+            gte(parentingAssignments.assignmentDate, from),
+            lte(parentingAssignments.assignmentDate, to),
+          ),
         ),
-      ),
-    db
-      .select({
-        id: recurringRules.id,
-        parentId: recurringRules.parentId,
-        startDate: recurringRules.startDate,
-        endDate: recurringRules.endDate,
-        rrule: recurringRules.rrule,
-      })
-      .from(recurringRules)
-      .where(and(eq(recurringRules.calendarId, calendarId), eq(recurringRules.active, true))),
-    db
-      .select({
-        ruleId: recurringRuleChildren.recurringRuleId,
-        childId: recurringRuleChildren.childId,
-      })
-      .from(recurringRuleChildren)
-      .innerJoin(recurringRules, eq(recurringRuleChildren.recurringRuleId, recurringRules.id))
-      .where(
-        and(
-          eq(recurringRules.calendarId, calendarId),
-          eq(recurringRules.active, true),
-          inArray(recurringRuleChildren.childId, childIds),
+      db
+        .select({
+          id: parentingSchedules.id,
+          anchorDate: parentingSchedules.anchorDate,
+          endDate: parentingSchedules.endDate,
+        })
+        .from(parentingSchedules)
+        .where(
+          and(
+            eq(parentingSchedules.calendarId, calendarId),
+            eq(parentingSchedules.active, true),
+            lte(parentingSchedules.anchorDate, to),
+          ),
         ),
-      ),
-  ]);
+      db
+        .select({
+          scheduleId: parentingScheduleSlots.scheduleId,
+          slotIndex: parentingScheduleSlots.slotIndex,
+          morningParentId:
+            parentingScheduleSlots.morningParentId,
+          afternoonParentId:
+            parentingScheduleSlots.afternoonParentId,
+        })
+        .from(parentingScheduleSlots)
+        .innerJoin(
+          parentingSchedules,
+          eq(
+            parentingScheduleSlots.scheduleId,
+            parentingSchedules.id,
+          ),
+        )
+        .where(
+          and(
+            eq(parentingSchedules.calendarId, calendarId),
+            eq(parentingSchedules.active, true),
+            lte(parentingSchedules.anchorDate, to),
+          ),
+        ),
+      db
+        .select({
+          scheduleId: parentingScheduleChildren.scheduleId,
+          childId: parentingScheduleChildren.childId,
+        })
+        .from(parentingScheduleChildren)
+        .innerJoin(
+          parentingSchedules,
+          eq(
+            parentingScheduleChildren.scheduleId,
+            parentingSchedules.id,
+          ),
+        )
+        .where(
+          and(
+            eq(parentingSchedules.calendarId, calendarId),
+            eq(parentingSchedules.active, true),
+            inArray(parentingScheduleChildren.childId, childIds),
+            lte(parentingSchedules.anchorDate, to),
+          ),
+        ),
+    ]);
 
-  for (const assignment of resolveRecurringAssignments({
+  for (const assignment of resolveParentingScheduleAssignments({
     manualAssignments,
-    rules,
-    ruleChildren,
+    schedules,
+    slots,
+    scheduleChildren,
     from,
     to,
   })) {
-    result.set(`${assignment.childId}:${assignment.date}`, assignment);
+    result.set(
+      `${assignment.childId}:${assignment.date}`,
+      assignment,
+    );
   }
 
   return result;

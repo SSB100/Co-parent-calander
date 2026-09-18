@@ -409,6 +409,88 @@ export const sessions = pgTable(
   ],
 );
 
+export const parentingSchedules = pgTable(
+  "parenting_schedules",
+  {
+    id: uuid("id").primaryKey(),
+    calendarId: uuid("calendar_id")
+      .notNull()
+      .references(() => calendars.id, { onDelete: "cascade" }),
+    anchorDate: date("anchor_date", { mode: "string" }).notNull(),
+    endDate: date("end_date", { mode: "string" }),
+    active: boolean("active").notNull().default(true),
+    createdBy: uuid("created_by").references(() => participants.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    check(
+      "parenting_schedules_end_valid",
+      sql`${table.endDate} IS NULL OR ${table.endDate} >= ${table.anchorDate}`,
+    ),
+    index("parenting_schedules_calendar_idx").on(
+      table.calendarId,
+      table.active,
+      table.anchorDate,
+    ),
+  ],
+);
+
+export const parentingScheduleSlots = pgTable(
+  "parenting_schedule_slots",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    scheduleId: uuid("schedule_id")
+      .notNull()
+      .references(() => parentingSchedules.id, { onDelete: "cascade" }),
+    slotIndex: integer("slot_index").notNull(),
+    morningParentId: uuid("morning_parent_id").references(() => participants.id, {
+      onDelete: "restrict",
+    }),
+    afternoonParentId: uuid("afternoon_parent_id").references(() => participants.id, {
+      onDelete: "restrict",
+    }),
+  },
+  (table) => [
+    check(
+      "parenting_schedule_slot_index_valid",
+      sql`${table.slotIndex} >= 0 AND ${table.slotIndex} < 14`,
+    ),
+    check(
+      "parenting_schedule_slot_assignment_valid",
+      sql`${table.morningParentId} IS NOT NULL OR ${table.afternoonParentId} IS NOT NULL`,
+    ),
+    uniqueIndex("parenting_schedule_slot_unique").on(
+      table.scheduleId,
+      table.slotIndex,
+    ),
+  ],
+);
+
+export const parentingScheduleChildren = pgTable(
+  "parenting_schedule_children",
+  {
+    scheduleId: uuid("schedule_id")
+      .notNull()
+      .references(() => parentingSchedules.id, { onDelete: "cascade" }),
+    childId: uuid("child_id")
+      .notNull()
+      .references(() => children.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("parenting_schedule_child_unique").on(
+      table.scheduleId,
+      table.childId,
+    ),
+    index("parenting_schedule_child_child_idx").on(
+      table.childId,
+      table.scheduleId,
+    ),
+  ],
+);
+
 export const recurringRules = pgTable(
   "recurring_rules",
   {
