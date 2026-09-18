@@ -120,6 +120,12 @@ export const attachmentEntityType = pgEnum("attachment_entity_type", [
   "child",
 ]);
 export const attachmentRole = pgEnum("attachment_role", ["supporting", "profile_photo"]);
+export const linkedEntityType = pgEnum("linked_entity_type", [
+  "event",
+  "expense",
+  "responsibility",
+  "child",
+]);
 
 export const calendars = pgTable("calendars", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -631,6 +637,47 @@ export const responsibilityChildren = pgTable(
   (table) => [
     uniqueIndex("responsibility_child_unique").on(table.responsibilityId, table.childId),
     index("responsibility_children_child_idx").on(table.childId, table.responsibilityId),
+  ],
+);
+
+export const entityLinks = pgTable(
+  "entity_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    calendarId: uuid("calendar_id")
+      .notNull()
+      .references(() => calendars.id, { onDelete: "cascade" }),
+    leftType: linkedEntityType("left_type").notNull(),
+    leftId: uuid("left_id").notNull(),
+    rightType: linkedEntityType("right_type").notNull(),
+    rightId: uuid("right_id").notNull(),
+    createdBy: uuid("created_by").references(() => participants.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    check(
+      "entity_link_not_self",
+      sql`NOT (${table.leftType} = ${table.rightType} AND ${table.leftId} = ${table.rightId})`,
+    ),
+    uniqueIndex("entity_links_unique").on(
+      table.calendarId,
+      table.leftType,
+      table.leftId,
+      table.rightType,
+      table.rightId,
+    ),
+    index("entity_links_left_idx").on(
+      table.calendarId,
+      table.leftType,
+      table.leftId,
+    ),
+    index("entity_links_right_idx").on(
+      table.calendarId,
+      table.rightType,
+      table.rightId,
+    ),
   ],
 );
 
