@@ -72,7 +72,7 @@ async function approvalTargetFor(session: {
 function approvalActor(session: {
   membershipId: string;
   participantId: string;
-  permission: "owner" | "editor";
+  permission: "owner" | "editor" | "viewer";
 }) {
   return {
     membershipId: session.membershipId,
