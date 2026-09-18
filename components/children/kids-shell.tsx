@@ -1,15 +1,14 @@
 "use client";
 
 import {
-  CalendarDays,
   ChevronRight,
   GraduationCap,
-  Home,
   LoaderCircle,
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
 type ChildSummary = {
   id: string;
@@ -94,20 +93,7 @@ export function KidsShell() {
               Shared practical information for each child, kept in one calm place.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/home"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <Home className="h-4 w-4" aria-hidden="true" /> Home
-            </Link>
-            <Link
-              href="/calendar"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <CalendarDays className="h-4 w-4" aria-hidden="true" /> Calendar
-            </Link>
-          </div>
+          <WorkspaceNav active="kids" />
         </div>
       </header>
 

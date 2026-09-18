@@ -14,7 +14,6 @@ import {
   subMonths,
 } from "date-fns";
 import {
-  CalendarDays,
   CheckCircle2,
   CheckSquare2,
   ChevronLeft,
@@ -23,14 +22,10 @@ import {
   Hourglass,
   House,
   LoaderCircle,
-  LayoutDashboard,
-  ListChecks,
-  LogOut,
-  MapPin,
   RotateCcw,
   StickyNote,
   UsersRound,
-  WalletCards,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -40,7 +35,10 @@ import { DayDetailsPanel } from "@/components/calendar/day-details-panel";
 import { EventPanel } from "@/components/calendar/event-panel";
 import { MembersPanel } from "@/components/calendar/members-panel";
 import { RecurringSchedulePanel } from "@/components/calendar/recurring-schedule-panel";
+import { RangeAssignmentPanel } from "@/components/calendar/range-assignment-panel";
 import { SettingsPanel } from "@/components/calendar/settings-panel";
+import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
+import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
 import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
 import { authClient } from "@/lib/auth/client";
@@ -103,14 +101,14 @@ type VisualStyle = { dot: string; slot: string; pill: string; button: string };
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const visualStyles: VisualStyle[] = [
   {
-    dot: "bg-emerald-500",
-    slot: "bg-emerald-100",
+    dot: "covie-parent-green",
+    slot: "covie-parent-green",
     pill: "bg-emerald-100 text-emerald-800",
     button: "bg-emerald-100 text-emerald-900 hover:bg-emerald-200",
   },
   {
-    dot: "bg-violet-500",
-    slot: "bg-violet-100",
+    dot: "covie-parent-plum",
+    slot: "covie-parent-plum",
     pill: "bg-violet-100 text-violet-800",
     button: "bg-violet-100 text-violet-900 hover:bg-violet-200",
   },
@@ -128,7 +126,26 @@ function keyFor(day: Date) {
 
 function styleForParticipant(participants: Participant[], participantId: string) {
   const index = participants.findIndex((participant) => participant.id === participantId);
-  return visualStyles[Math.max(0, index) % visualStyles.length] ?? visualStyles[0];
+  
+  const visualIndex = Math.max(index, 0);
+  return visualStyles[visualIndex % visualStyles.length] ?? visualStyles[0];
+}
+
+function splitChoiceStyle(
+  participants: Participant[],
+  firstId: string | null | undefined,
+  secondId: string | null | undefined,
+) {
+  if (!firstId || !secondId) return mixedStyle.button;
+  const first = styleForParticipant(participants, firstId);
+  const second = styleForParticipant(participants, secondId);
+  if (first === visualStyles[0] && second === visualStyles[1]) {
+    return "covie-split-forward text-slate-900 hover:ring-2 hover:ring-slate-200";
+  }
+  if (first === visualStyles[1] && second === visualStyles[0]) {
+    return "covie-split-reverse text-slate-900 hover:ring-2 hover:ring-slate-200";
+  }
+  return mixedStyle.button;
 }
 
 function aggregateSlot(
@@ -162,15 +179,7 @@ function aggregateAssignments(data: CalendarPayload): AssignmentMap {
   return result;
 }
 
-function eventIcon(category: string) {
-  if (category === "birthday") return "🎂";
-  if (category === "school") return "🏫";
-  if (category === "sport") return "⚽";
-  if (category === "medical") return "🩺";
-  if (category === "holiday") return "🌴";
-  if (category === "activity") return "⭐";
-  return "📌";
-}
+function eventIcon(category: string) { return <EventCategoryIcon category={category} />; }
 
 export function CalendarShell() {
   const router = useRouter();
@@ -291,10 +300,9 @@ export function CalendarShell() {
   }, [calendarData]);
 
   const today = new Date();
-  const todayAssignment = assignments[keyFor(today)];
   const currentEditor = calendarData?.participants.find((participant) => participant.id === calendarData.currentParticipantId);
   const nextHandover = calendarData?.nextHandover ?? null;
-  const nextEvent = calendarData?.nextEvent ?? null;
+
 
   function ownerLabel(owner: SlotOwnership | undefined) {
     if (!owner) return "Unassigned";
@@ -433,10 +441,10 @@ export function CalendarShell() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
-      <header className="mb-4 rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:mb-6 sm:p-5">
+      <header className="covie-calendar-header relative mb-3 sm:mb-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <div className="mb-1 hidden items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 sm:flex">
               <UsersRound className="h-4 w-4" aria-hidden="true" /> Shared family calendar
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -444,35 +452,50 @@ export function CalendarShell() {
               {accessMode === "checking" ? (
                 <span role="status" aria-live="polite" className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"><LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />Checking access</span>
               ) : accessMode === "editor" ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />{currentEditor ? `${currentEditor.displayName} editing` : "Editor access"}</span>
+                <span className="hidden items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 sm:inline-flex"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />{currentEditor ? `${currentEditor.displayName} editing` : "Editor access"}</span>
               ) : accessMode === "viewer" ? (
                 <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">View only</span>
               ) : (
                 <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">Calendar unavailable</span>
               )}
-              {calendarData?.recurringScheduleActive ? <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">Repeating schedule on</span> : null}
+              {calendarData?.recurringScheduleActive ? <span className="hidden rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 sm:inline-flex">Repeating schedule on</span> : null}
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Link href="/home" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><House className="h-4 w-4" aria-hidden="true" />Home</Link>
-            <Link href="/kids" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><UsersRound className="h-4 w-4" aria-hidden="true" />Kids</Link>
-            <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><LayoutDashboard className="h-4 w-4" aria-hidden="true" />Calendars</Link>
-            <Link href="/expenses" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><WalletCards className="h-4 w-4" aria-hidden="true" />Expenses</Link>
-            <Link href="/responsibilities" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><ListChecks className="h-4 w-4" aria-hidden="true" />Responsibilities</Link>
-            {accessMode === "editor" ? (
-              <>
-                <EventPanel onChanged={() => setRefreshKey((value) => value + 1)} />
-                <RecurringSchedulePanel onChanged={() => setRefreshKey((value) => value + 1)} />
-                {calendarData?.permission === "owner" ? <MembersPanel /> : null}
-                <ActivityPanel />
-              </>
-            ) : null}
-            {accessMode === "editor" || accessMode === "viewer" ? (
-              <SettingsPanel readOnly={accessMode === "viewer"} />
-            ) : null}
-            <button type="button" onClick={() => void authClient.signOut().then(() => router.push("/"))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><LogOut className="h-4 w-4" aria-hidden="true" />Log out</button>
-          </div>
+          <WorkspaceNav
+              active="calendar"
+              actions={
+                <>
+                  {accessMode === "editor" ? (
+                    <>
+                      <EventPanel includeRangeTools={false} onChanged={() => setRefreshKey((value) => value + 1)} />
+                      <details className="relative">
+                      <summary className="covie-menu-trigger"><span><span className="hidden sm:inline">Calendar </span>Tools</span><ChevronDown size={16} aria-hidden="true" /></summary>
+                        <div className="covie-menu covie-tool-menu">
+                          <RangeAssignmentPanel onChanged={() => setRefreshKey((value) => value + 1)} />
+                          <RecurringSchedulePanel onChanged={() => setRefreshKey((value) => value + 1)} />
+                          <ActivityPanel />
+                        </div>
+                      </details>
+
+                    </>
+                  ) : null}
+                  {accessMode === "editor" || accessMode === "viewer" ? (
+                    <details className="relative">
+                      <summary className="covie-menu-trigger"><span><span className="hidden sm:inline">Calendar </span>Settings</span><ChevronDown size={16} aria-hidden="true" /></summary>
+                      <div className="covie-menu covie-tool-menu">
+                        {calendarData?.permission === "owner" ? (
+                          <MembersPanel />
+                        ) : null}
+                    <SettingsPanel
+                      readOnly={accessMode === "viewer"}
+                    />
+                      </div>
+                    </details>
+                  ) : null}
+                </>
+              }
+            />
         </div>
       </header>
 
@@ -480,48 +503,17 @@ export function CalendarShell() {
         <div role={accessMode === "error" ? "alert" : "status"} aria-live={accessMode === "error" ? "assertive" : "polite"} className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">{message}</div>
       ) : null}
 
-      <section className="mb-4 grid gap-3 sm:mb-5 md:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Today</p>
-          <div className="mt-2 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><CalendarDays className="h-5 w-5" aria-hidden="true" /></div>
-            <div className="min-w-0">
-              <p className="font-semibold text-slate-900">{assignmentLabel(todayAssignment)}</p>
-              <p className="text-sm text-slate-500">{format(today, "EEEE, d MMMM")}</p>
-            </div>
-          </div>
-        </div>
+      <p className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600">
+        <Clock3 size={16} aria-hidden="true" />
+        <strong className="font-medium text-slate-900">Next handover:</strong>
+        {nextHandover ? <>
+          <span>{format(parseISO(nextHandover.date), "EEE d MMM")} · {nextHandoverWhen}</span>
+          <span>{nextHandoverIsTransfer ? [ownerLabel(nextHandover.morningParentId), ownerLabel(nextHandover.afternoonParentId)].join(" → ") : ownerLabel(nextHandoverOwner)}</span>
+          {nextHandover.handoverLocation && <span>· {nextHandover.handoverLocation}</span>}
+        </> : <span>No handover scheduled</span>}
+      </p>
 
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Next handover</p>
-          {nextHandover ? (
-            <>
-              <p className="mt-3 font-semibold text-slate-900">{format(parseISO(nextHandover.date), "EEE d MMM")} • {nextHandoverWhen}</p>
-              <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-slate-500">
-                <span>
-                  {nextHandoverIsTransfer
-                    ? `${ownerLabel(nextHandover.morningParentId)} → ${ownerLabel(nextHandover.afternoonParentId)}`
-                    : `With ${ownerLabel(nextHandoverOwner)}`}
-                </span>
-                {nextHandover.handoverLocation ? <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" aria-hidden="true" />{nextHandover.handoverLocation}</span> : null}
-              </p>
-            </>
-          ) : (
-            <><p className="mt-3 font-semibold text-slate-900">No handover scheduled</p><p className="mt-1 text-sm text-slate-500">Add a handover time or create a split day.</p></>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Next event</p>
-          {nextEvent ? (
-            <><p className="mt-3 truncate font-semibold text-slate-900">{eventIcon(nextEvent.category)} {nextEvent.title}</p><p className="mt-1 text-sm text-slate-500">{format(parseISO(nextEvent.startDate), "EEEE d MMM")}{nextEvent.endDate && nextEvent.endDate !== nextEvent.startDate ? ` – ${format(parseISO(nextEvent.endDate), "d MMM")}` : ""}</p></>
-          ) : (
-            <><p className="mt-3 font-semibold text-slate-900">Nothing coming up</p><p className="mt-1 text-sm text-slate-500">Create birthdays, school events, sport or family plans.</p></>
-          )}
-        </div>
-      </section>
-
-      <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-slate-200 px-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="flex items-center justify-between gap-2 sm:justify-start">
             <button type="button" aria-label="Previous month" onClick={() => moveMonth("previous")} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"><ChevronLeft className="h-5 w-5" aria-hidden="true" /></button>
@@ -529,7 +521,7 @@ export function CalendarShell() {
             <button type="button" aria-label="Next month" onClick={() => moveMonth("next")} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"><ChevronRight className="h-5 w-5" aria-hidden="true" /></button>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
+          <div className="covie-calendar-controls flex flex-wrap items-center justify-between gap-2 sm:justify-end">
             <div className="mr-1 flex items-center gap-3 text-sm">
               {participants.slice(0, 2).map((participant) => {
                 const style = styleForParticipant(participants, participant.id);
@@ -550,8 +542,8 @@ export function CalendarShell() {
             {selectionMode
               ? "Selection mode: tap dates, then choose the custody state below."
               : accessMode === "editor"
-                ? "Tap a day to choose who has the full day or which parent hands over to the other. Events stay visible without replacing parent colours."
-                : "View the shared schedule and tap a day to see custody, handover details, notes and events."}
+                ? "Select a day to view details or propose a change."
+                : "Select a day to view parenting time, handovers and events."}
           </p>
 
           <div className="grid grid-cols-7 gap-1 sm:gap-2" role="grid" aria-label={format(currentMonth, "MMMM yyyy")}>
@@ -582,13 +574,13 @@ export function CalendarShell() {
                   aria-current={isToday ? "date" : undefined}
                   aria-label={`${format(day, "EEEE d MMMM")}, ${assignmentLabel(assignment)}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}` : ""}${responsibilityMarker?.count ? `, ${responsibilityMarker.count} responsibilit${responsibilityMarker.count === 1 ? "y" : "ies"}` : ""}${responsibilityMarker?.pendingCount ? `, ${responsibilityMarker.pendingCount} pending responsibility change${responsibilityMarker.pendingCount === 1 ? "" : "s"}` : ""}${dayPending.length ? `, ${dayPending.length} pending calendar change${dayPending.length === 1 ? "" : "s"}` : ""}`}
                   onClick={() => handleDayClick(day)}
-                  className={`relative min-h-20 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 text-left transition sm:min-h-28 sm:rounded-2xl sm:p-2.5 ${inMonth ? "hover:-translate-y-0.5 hover:shadow-sm" : "cursor-default opacity-30"} ${selected ? "ring-2 ring-blue-500 ring-offset-1" : ""} ${selectionMode && inMonth ? "cursor-pointer" : ""}`}
+                  className={`relative min-h-[76px] overflow-hidden rounded-xl border border-slate-200 bg-white p-1 text-left transition sm:min-h-28 sm:rounded-2xl sm:p-2.5 ${inMonth ? "hover:ring-1 hover:ring-slate-300" : "cursor-default opacity-30"} ${selected ? "ring-2 ring-blue-500 ring-offset-1" : ""} ${selectionMode && inMonth ? "cursor-pointer" : ""}`}
                 >
                   {inMonth ? (
                     <span className="pointer-events-none absolute inset-0" aria-hidden="true">
-                      <span className={`absolute inset-x-0 top-0 h-1/2 ${morningStyle?.slot ?? "bg-white"}`} />
-                      <span className={`absolute inset-x-0 bottom-0 h-1/2 ${afternoonStyle?.slot ?? "bg-white"}`} />
-                      {assignment?.morning !== assignment?.afternoon ? <span className="absolute inset-x-0 top-1/2 border-t border-white/80" /> : null}
+                      <span className={`absolute inset-y-0 left-0 w-1/2 ${morningStyle?.slot ?? "bg-white"}`} />
+                      <span className={`absolute inset-y-0 right-0 w-1/2 ${afternoonStyle?.slot ?? "bg-white"}`} />
+                      {assignment?.morning !== assignment?.afternoon ? <span className="absolute inset-y-0 left-1/2 border-l border-white/80" /> : null}
                     </span>
                   ) : null}
 
@@ -599,23 +591,24 @@ export function CalendarShell() {
 
                   {assignment && inMonth ? (
                     fullDayOwner && fullDayStyle ? (
-                      <div className={`relative z-10 mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold sm:text-xs ${fullDayStyle.pill}`}>
-                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${fullDayStyle.dot}`} aria-hidden="true" />
-                        <span className="truncate">{shortOwnerLabel(fullDayOwner)}</span>
+                      <div className={`relative z-10 mt-1 inline-flex max-w-full items-center gap-1 rounded-full px-0 py-0.5 text-xs font-medium sm:px-2 ${fullDayStyle.pill}`}>
+                        <span className={`hidden h-1.5 w-1.5 shrink-0 rounded-full sm:block ${fullDayStyle.dot}`} aria-hidden="true" />
+                        <span className="truncate" title={ownerLabel(fullDayOwner)}><span className="sm:hidden">{shortOwnerLabel(fullDayOwner).slice(0, 3)}</span><span className="hidden sm:inline">{shortOwnerLabel(fullDayOwner)}</span></span>
                       </div>
                     ) : (
-                      <div className="relative z-10 mt-1.5 inline-flex max-w-full rounded-full bg-white/90 px-1.5 py-0.5 text-[9px] font-semibold text-slate-700 sm:text-[10px]">
-                        <span className="truncate">{shortOwnerLabel(assignment.morning)} → {shortOwnerLabel(assignment.afternoon)}</span>
+                      <div className="relative z-10 mt-1 inline-flex max-w-full rounded-full bg-white/90 px-0.5 py-0.5 text-xs font-medium text-slate-700 sm:px-1.5">
+                        <span className="truncate"><span className="sm:hidden">{shortOwnerLabel(assignment.morning).slice(0,1)}→{shortOwnerLabel(assignment.afternoon).slice(0,1)}</span><span className="hidden sm:inline">{shortOwnerLabel(assignment.morning)} → {shortOwnerLabel(assignment.afternoon)}</span></span>
                       </div>
                     )
                   ) : null}
 
                   {dayEvents[0] && inMonth ? (
-                    <div className="relative z-10 mt-1.5 max-w-full truncate rounded-lg border border-sky-200 bg-sky-50/95 px-1.5 py-1 text-[9px] font-bold text-sky-900 shadow-sm sm:text-[11px]">
+                    <div className="relative z-10 mt-1.5 hidden max-w-full truncate rounded-lg border border-sky-200 bg-sky-50/95 px-1.5 py-1 text-[9px] font-bold text-sky-900 shadow-sm sm:block sm:text-xs">
                       <span className="mr-1" aria-hidden="true">{eventIcon(dayEvents[0].category)}</span>{dayEvents[0].title}
                     </div>
                   ) : null}
-                  {dayEvents.length > 1 && inMonth ? <span className="relative z-10 mt-1 block text-[9px] font-semibold text-sky-800">+{dayEvents.length - 1} more event{dayEvents.length === 2 ? "" : "s"}</span> : null}
+                  {dayEvents.length > 0 && inMonth ? <span className="relative z-10 block rounded bg-white/95 px-1 text-xs font-medium text-slate-700 sm:hidden">{dayEvents.length} evt</span> : null}
+                  {dayEvents.length > 1 && inMonth ? <span className="relative z-10 mt-1 hidden rounded bg-white/95 px-1 text-xs sm:block font-semibold text-sky-800">+{dayEvents.length - 1} more event{dayEvents.length === 2 ? "" : "s"}</span> : null}
 
                   {inMonth &&
                   (marker ||
@@ -647,7 +640,7 @@ export function CalendarShell() {
                         (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) <
                       2 ? (
                         marker?.handover ? (
-                          <Clock3 className="h-3.5 w-3.5" aria-label="Handover" />
+                          <Clock3 className="hidden h-3.5 w-3.5 sm:block" aria-label="Handover" />
                         ) : marker?.note ? (
                           <StickyNote className="h-3.5 w-3.5" aria-label="Note" />
                         ) : null

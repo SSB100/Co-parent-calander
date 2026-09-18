@@ -50,21 +50,23 @@ test("Home keeps detail workflows in their existing feature areas", async () => 
   const shell = await source("components/home/home-shell.tsx");
 
   assert.match(shell, /href="\/calendar"/);
-  assert.match(shell, /href="\/expenses"/);
-  assert.match(shell, /href="\/responsibilities"/);
+  assert.match(shell, /WorkspaceNav/);
+  assert.match(await source("components/workspace/workspace-nav.tsx"), /href: "\/expenses"/);
+  assert.match(shell, /WorkspaceNav/);
+  assert.match(await source("components/workspace/workspace-nav.tsx"), /href: "\/responsibilities"/);
   assert.match(shell, /\/expenses\?date=/);
   assert.match(shell, /\/responsibilities\?date=/);
   assert.match(shell, /ProposalActions/);
 });
 
-test("calendar selection now enters Home and Covie naming is used on the selector", async () => {
+test("calendar selection now enters Calendar and Covie naming is used on the selector", async () => {
   const [actions, dashboard] = await Promise.all([
     source("app/dashboard/actions.ts"),
     source("app/dashboard/page.tsx"),
   ]);
 
-  assert.match(actions, /redirect\("\/home"\)/);
-  assert.doesNotMatch(actions, /redirect\("\/calendar"\)/);
+  assert.match(actions, /redirect\("\/calendar"\)/);
+  assert.doesNotMatch(actions, /redirect\("\/home"\)/);
   assert.match(dashboard, />Covie</);
   assert.match(dashboard, />Open Covie</);
 });
@@ -77,7 +79,8 @@ test("existing core feature screens all expose Home navigation", async () => {
   ]);
 
   for (const text of files) {
-    assert.match(text, /href="\/home"/);
+    assert.match(text, /WorkspaceNav/);
+  assert.match(await source("components/workspace/workspace-nav.tsx"), /href: "\/home"/);
   }
 });
 

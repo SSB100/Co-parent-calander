@@ -40,20 +40,18 @@ test("calendar UI keeps split colours but exposes direct custody states instead 
   const panel = await source("components/calendar/day-details-panel.tsx");
   const styles = await source("app/globals.css");
 
-  assert.match(shell, /top-0 h-1\/2/);
-  assert.match(shell, /bottom-0 h-1\/2/);
+  assert.match(shell, /inset-y-0 left-0 w-1\/2/);
+  assert.match(shell, /inset-y-0 right-0 w-1\/2/);
   assert.match(shell, /me_then_them/);
   assert.match(shell, /them_then_me/);
   assert.doesNotMatch(shell, /Bulk assignment period/);
 
-  assert.match(styles, /Split custody days are stored as first-half\/second-half ownership/);
-  assert.match(styles, /width: 50% !important/);
-  assert.match(styles, /left: 50% !important/);
-  assert.match(styles, /border-left-width: 1px !important/);
-  assert.match(styles, /button\[role="gridcell"\] > div\.inline-flex\.rounded-full/);
-  assert.match(styles, /background-color: rgb\(52 211 153\) !important/);
-  assert.match(styles, /background-color: rgb\(167 139 250\) !important/);
-  assert.match(styles, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(shell, /inset-y-0 left-1\/2 border-l/);
+  assert.doesNotMatch(styles, /width: 50% !important/);
+  assert.doesNotMatch(styles, /display: none !important/);
+  assert.match(shell, /shortOwnerLabel\(fullDayOwner\)/);
+  assert.match(shell, /shortOwnerLabel\(assignment\.morning\)/);
+  assert.match(shell, /shortOwnerLabel\(assignment\.afternoon\)/);
 
   assert.match(panel, /Full day you/);
   assert.match(panel, /them_full/);

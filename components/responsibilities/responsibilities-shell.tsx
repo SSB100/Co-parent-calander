@@ -26,6 +26,8 @@ import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
+import { RecordFocus } from "@/components/workspace/record-focus";
+import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
 type Participant = {
   id: string;
@@ -284,6 +286,7 @@ export function ResponsibilitiesShell({ initialDate }: { initialDate: string | n
       );
     }
     setData(body);
+      window.dispatchEvent(new Event("covie-records-updated"));
     setError(null);
     setForm((current) => ({
       ...current,
@@ -318,6 +321,7 @@ export function ResponsibilitiesShell({ initialDate }: { initialDate: string | n
           return;
         }
         setData(body);
+      window.dispatchEvent(new Event("covie-records-updated"));
         setError(null);
         setForm((current) => ({
           ...current,
@@ -579,37 +583,21 @@ export function ResponsibilitiesShell({ initialDate }: { initialDate: string | n
               Keep practical tasks clear: what needs doing, who owns it and when it is due.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/home"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <House className="h-4 w-4" aria-hidden="true" /> Home
-            </Link>
-            <Link
-              href="/kids"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <UsersRound className="h-4 w-4" aria-hidden="true" /> Kids
-            </Link>
-            <Link
-              href="/calendar"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-              Calendar
-            </Link>
-            {editable ? (
-              <button
-                type="button"
-                onClick={openCreate}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Add responsibility
-              </button>
-            ) : null}
-          </div>
+          <RecordFocus ready={Boolean(data)} /><WorkspaceNav
+            active="responsibilities"
+            actions={
+              editable ? (
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Add responsibility
+                </button>
+              ) : null
+            }
+          />
         </div>
       </header>
 
@@ -794,7 +782,7 @@ export function ResponsibilitiesShell({ initialDate }: { initialDate: string | n
 
               return (
                 <article
-                  key={item.id}
+                  key={item.id} id={`record-${item.id}`} tabIndex={-1}
                   className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
                 >
                   <div className="flex items-start gap-3">

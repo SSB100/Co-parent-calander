@@ -94,7 +94,7 @@ export async function createCalendar(
 
   const cookieStore = await cookies();
   cookieStore.set(SELECTED_CALENDAR_COOKIE_NAME, calendarId, calendarCookieOptions());
-  redirect("/home");
+  redirect("/calendar");
 }
 
 export async function joinCalendar(
@@ -212,7 +212,7 @@ export async function joinCalendar(
 
   const cookieStore = await cookies();
   cookieStore.set(SELECTED_CALENDAR_COOKIE_NAME, calendarId, calendarCookieOptions());
-  redirect("/home");
+  redirect("/calendar");
 }
 
 export async function openCalendar(formData: FormData) {
@@ -232,7 +232,7 @@ export async function openCalendar(formData: FormData) {
 
   const cookieStore = await cookies();
   cookieStore.set(SELECTED_CALENDAR_COOKIE_NAME, calendarId.data, calendarCookieOptions());
-  redirect("/home");
+  redirect("/calendar");
 }
 
 export async function signOut() {

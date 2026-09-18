@@ -103,7 +103,8 @@ test("Kids is reachable from Home Calendar Expenses and Responsibilities", async
   ]);
 
   for (const text of files) {
-    assert.match(text, /href="\/kids"/);
+    assert.match(text, /WorkspaceNav/);
+  assert.match(await source("components/workspace/workspace-nav.tsx"), /href: "\/kids"/);
   }
   assert.match(files[0], /Your child profiles/);
   assert.match(files[0], /\/kids\/\$\{child\.id\}/);

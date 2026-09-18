@@ -252,7 +252,7 @@ test("shared events stay all-day and notes sync only when explicitly enabled", (
     settings: { ...settings, syncSharedNotes: true },
   });
   assert.match(visible[0].body.description, /Costume details/);
-  assert.match(visible[0].body.description, /Managed by Co-parent Calendar/);
+  assert.match(visible[0].body.description, /Managed by Covie/);
 });
 
 test("deterministic managed Google event IDs prevent retry duplicates", () => {

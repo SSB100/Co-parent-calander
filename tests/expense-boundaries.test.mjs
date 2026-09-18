@@ -86,7 +86,8 @@ test("expense UI keeps pending agreement separate and links calendar days into e
   assert.match(shell, /Covie records payments but does not move money/);
   assert.match(day, /\/expenses\?date=/);
   assert.match(day, /Expenses on this day/);
-  assert.match(calendar, /href="\/expenses"/);
+  assert.match(calendar, /WorkspaceNav/);
+  assert.match(await source("components/workspace/workspace-nav.tsx"), /href: "\/expenses"/);
 });
 
 test("Phase 3 documentation keeps migration and deployment deferred", async () => {
