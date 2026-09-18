@@ -12,7 +12,7 @@ import {
 
 const initialState: AuthActionState = { error: null };
 
-export function CredentialsForm({ mode }: { mode: "sign-in" | "sign-up" }) {
+export function CredentialsForm({ mode, inviteCode = "" }: { mode: "sign-in" | "sign-up"; inviteCode?: string }) {
   const isSignUp = mode === "sign-up";
   const [state, action, pending] = useActionState(
     isSignUp ? signUpWithEmail : signInWithEmail,
@@ -35,7 +35,7 @@ export function CredentialsForm({ mode }: { mode: "sign-in" | "sign-up" }) {
             : "Log in to open your shared calendars."}
         </p>
 
-        <form action={action} className="mt-7 space-y-5">
+        <form action={action} className="mt-7 space-y-5">\n          {inviteCode ? <input type="hidden" name="invite" value={inviteCode} /> : null}
           {isSignUp ? (
             <label className="block">
               <span className="text-sm font-semibold text-slate-800">Your name</span>
@@ -102,7 +102,7 @@ export function CredentialsForm({ mode }: { mode: "sign-in" | "sign-up" }) {
         <p className="mt-6 text-center text-sm text-slate-600">
           {isSignUp ? "Already have an account?" : "New here?"}{" "}
           <Link
-            href={isSignUp ? "/auth/sign-in" : "/auth/sign-up"}
+            href={`${isSignUp ? "/auth/sign-in" : "/auth/sign-up"}${inviteCode ? `?invite=${encodeURIComponent(inviteCode)}` : ""}`}
             className="font-semibold text-slate-950 underline decoration-slate-300 underline-offset-4"
           >
             {isSignUp ? "Log in" : "Create an account"}
