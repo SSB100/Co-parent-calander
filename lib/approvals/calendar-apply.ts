@@ -688,7 +688,7 @@ async function applyRecurringScheduleProposal(input: {
     }
 
     const existing = schedules.find(
-      (schedule) => schedule.scheduleId === schedule.scheduleId,
+      (saved) => saved.scheduleId === schedule.scheduleId,
     );
     if (input.proposal.action === "edit" && !existing) {
       throw new ApprovalEngineError(
@@ -698,13 +698,13 @@ async function applyRecurringScheduleProposal(input: {
     }
 
     const conflict = schedules.find(
-      (schedule) =>
-        schedule.scheduleId !== schedule.scheduleId &&
+      (saved) =>
+        saved.scheduleId !== schedule.scheduleId &&
         scheduleRangesOverlap(
           schedule.anchorDate,
           schedule.endDate,
-          schedule.anchorDate,
-          schedule.endDate,
+          saved.anchorDate,
+          saved.endDate,
         ),
     );
     if (conflict) {
