@@ -88,7 +88,46 @@ test("PWA install affordance stays inside the authenticated Calendar workspace",
   assert.match(shell, /import \{ InstallApp \}/);
   assert.match(shell, /<InstallApp \/>/);
   assert.match(install, /Add Covie to your phone/);
-  assert.match(install, /shared organiser/);
+  assert.match(install, /sm:hidden/);
+  assert.match(install, /fixed bottom-/);
+});
+
+test("Calendar fills the viewport and adjacent month days remain interactive", async () => {
+  const [shell, styles] = await Promise.all([
+    source("components/calendar/calendar-shell.tsx"),
+    source("app/globals.css"),
+  ]);
+
+  assert.match(shell, /covie-calendar-page/);
+  assert.match(shell, /covie-calendar-board/);
+  assert.match(shell, /gridTemplateRows/);
+  assert.doesNotMatch(shell, /disabled=\{!inMonth \|\| saving\}/);
+  assert.match(styles, /height: 100dvh/);
+  assert.match(styles, /overflow: hidden/);
+});
+
+test("Calendar day tiles use parent names and a full-width bright event strip", async () => {
+  const shell = await source("components/calendar/calendar-shell.tsx");
+
+  assert.match(shell, /parentTileName/);
+  assert.match(shell, /inset-x-1 top-1/);
+  assert.match(shell, /right-1 top-1\/2/);
+  assert.match(shell, /inset-x-0 bottom-0/);
+  assert.match(shell, /#F4C64E/);
+  assert.match(shell, /title: "Handover"/);
+  assert.doesNotMatch(shell, /shortOwnerLabel\(assignment\.morning\).*→.*shortOwnerLabel\(assignment\.afternoon\)/);
+});
+
+test("Google Calendar has a direct action outside Calendar settings", async () => {
+  const [shell, action] = await Promise.all([
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/calendar/google-calendar-quick-action.tsx"),
+  ]);
+
+  assert.match(shell, /GoogleCalendarQuickAction/);
+  assert.match(action, /Sync to Google Calendar/);
+  assert.match(action, /\/api\/google-calendar\/connect/);
+  assert.match(action, /\/api\/google-calendar\/reconcile/);
 });
 
 test("Calendar recovery copy no longer points users to the retired selector page", async () => {

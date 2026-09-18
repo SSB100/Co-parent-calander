@@ -131,3 +131,28 @@ main:has(.workspace-nav) { background: #dde6df; }
  .mobile-coming-up summary { border: 1px solid #7a8981; background: white; border-radius: 10px; padding: 10px; }
  .mobile-coming-up .coming-up-content { position: absolute; top: 48px; left: 0; z-index: 35; width: min(280px, calc(100vw - 32px)); max-height: 50vh; overflow: auto; background: white; border: 1px solid #7a8981; border-radius: 10px; padding: 12px; box-shadow: 0 8px 24px #27363218; }
 }
+
+
+/* Calendar viewport: the grid absorbs viewport changes instead of extending the page. */
+.covie-calendar-page {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.covie-calendar-board,
+.covie-calendar-board-body,
+.covie-calendar-grid {
+  min-height: 0;
+}
+@media (min-width: 1024px) {
+  .covie-calendar-page:has(.workspace-nav) {
+    padding: 18px 24px;
+  }
+}
+@media (max-width: 1023px) {
+  .covie-calendar-page:has(.workspace-nav) {
+    padding: 8px 8px calc(82px + env(safe-area-inset-bottom));
+  }
+}
