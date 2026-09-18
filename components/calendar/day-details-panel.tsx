@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { EventPanel } from "@/components/calendar/event-panel";
+import { DayExpenses } from "@/components/expenses/day-expenses";
 import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
 import {
   parentingAssignmentsProposalStateSchema,
@@ -583,6 +584,8 @@ export function DayDetailsPanel({
             ))}
           </div>
         </div>
+
+        <DayExpenses date={date} readOnly={readOnly} />
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" disabled={submitting} onClick={onClose} className="min-h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Close</button>
