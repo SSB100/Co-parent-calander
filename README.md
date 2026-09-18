@@ -8,7 +8,7 @@ Production uses:
 - Vercel project: `co-parent-calander`
 - Neon project: `delicate-sunset-36051658`
 - Production Neon branch: `main` (`br-quiet-sea-a7duq4r3`)
-- Production schema: migrations `0000` through `0012`
+- Production schema: migrations `0000` through `0016`
 
 ## Product model
 
@@ -86,14 +86,14 @@ SQL migrations live in `drizzle/`:
 - `0010_attachments.sql`
 - `0011_entity_links.sql`
 - `0012_schema_foundation.sql`
-- `0013_parenting_schedules.sql` — staged, not yet Production-applied
-- `0014_retire_legacy_auth.sql` — staged, not yet Production-applied
-- `0015_parent_profile_identity.sql` — staged, not yet Production-applied
-- `0016_retention_foundation.sql` — staged, not yet Production-applied
+- `0013_parenting_schedules.sql`
+- `0014_retire_legacy_auth.sql` — non-destructive; legacy credential records are retained for recovery
+- `0015_parent_profile_identity.sql`
+- `0016_retention_foundation.sql`
 
-Production has migrations through `0012` applied. The `covie_schema_migrations` ledger records the historical `0000`–`0011` baseline plus normal migration `0012`. Migrations `0013_parenting_schedules.sql` through `0016_retention_foundation.sql` are staged in GitHub for the eventual approved database release. Migration `0014` retires legacy authentication non-destructively and deliberately retains old credential records for recovery until a later cleanup migration.
+Production has migrations through `0016` applied. The `covie_schema_migrations` ledger is authoritative: historical migrations `0000`–`0011` are baselined and `0012`–`0016` are recorded as normal applied migrations.
 
-Do not replay historical migrations against production. The architecture-cleanup work is introducing an explicit migration ledger/baseline before the next schema migration.
+Do not replay migrations already recorded in `covie_schema_migrations`.
 
 ## Verification
 
@@ -118,4 +118,4 @@ Automatic Git deployments are disabled. Production deployment should occur only 
 - Do not commit secrets or local environment files.
 - Production attachment storage must use a **Private** Blob store.
 - Keep Google credentials and token-encryption material server-side.
-- The production rollback branch `backup-before-phase-8-release` should remain untouched until a later cleanup explicitly retires it.
+- The rollback snapshots `backup-before-phase-8-release` and `backup-before-0013-0016-release` should remain untouched until a later cleanup explicitly retires them.
