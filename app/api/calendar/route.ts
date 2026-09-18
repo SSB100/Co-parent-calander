@@ -2,6 +2,8 @@ import { differenceInCalendarDays, parseISO } from "date-fns";
 import { and, asc, eq, gt, gte, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { projectCalendarPendingProposals } from "@/lib/approvals/calendar-pending";
+import { listApprovalProposals } from "@/lib/approvals/engine";
 import { getDb } from "@/lib/db";
 import {
   calendars,
@@ -162,15 +164,31 @@ export async function GET(request: Request) {
     to,
   });
 
+  const waitingProposals = await listApprovalProposals(session.calendarId, {
+    status: "waiting",
+    limit: 50,
+  });
+  const pendingProposals = projectCalendarPendingProposals({
+    proposals: waitingProposals.filter(
+      (proposal) =>
+        proposal.entityType === "parenting_schedule" ||
+        proposal.entityType === "shared_event",
+    ),
+    from,
+    to,
+  });
+
   return NextResponse.json({
     calendar,
     currentParticipantId: session.participantId,
+    currentMembershipId: session.membershipId,
     currentUserName: session.userName,
     permission: session.permission,
     participants: parentRows,
     children: childRows,
     assignments,
     events: eventRows,
+    pendingProposals,
     recurringScheduleActive: recurringRuleRows.length > 0,
     nextHandover: nextHandoverRows[0] ?? null,
     nextEvent: nextEventRows[0] ?? null,

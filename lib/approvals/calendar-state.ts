@@ -51,6 +51,19 @@ export const recurringScheduleProposalStateSchema = z.discriminatedUnion("mode",
   recurringScheduleDeleteProposalStateSchema,
 ]);
 
+export const recurringScheduleSnapshotProposalStateSchema = z.object({
+  kind: z.literal("recurring_schedule_snapshot"),
+  schedule: z
+    .object({
+      scheduleId: z.string().uuid(),
+      anchorDate: proposalIsoDate,
+      endDate: proposalIsoDate.nullable(),
+      pattern: z.array(recurringSlotSchema).length(FORTNIGHT_SLOTS),
+      createdAt: z.string().optional(),
+    })
+    .nullable(),
+});
+
 export const sharedEventValueSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(1).max(80),
