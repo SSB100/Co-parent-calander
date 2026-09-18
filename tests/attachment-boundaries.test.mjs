@@ -100,13 +100,25 @@ test("documents are attached to agreed feature records instead of pending propos
     source("components/attachments/attachment-panel.tsx"),
   ]);
 
-  assert.match(expense, /entityType="expense"/);
-  assert.match(responsibility, /entityType="responsibility"/);
-  assert.match(dayDetails, /entityType="event"/);
+  assert.match(expense, /entityType="expense"[\s\S]{0,120}entityId=\{expense\.id\}/);
+  assert.match(
+    responsibility,
+    /entityType="responsibility"[\s\S]{0,120}entityId=\{item\.id\}/,
+  );
+  assert.match(dayDetails, /entityType="event"[\s\S]{0,120}entityId=\{event\.id\}/);
   assert.match(panel, /entityId/);
-  assert.doesNotMatch(
-    [expense, responsibility, dayDetails].join("\n"),
-    /ProposalCard[\s\S]{0,500}AttachmentPanel/,
+
+  assert.ok(expense.indexOf("Waiting for agreement") < expense.indexOf("Agreed expenses"));
+  assert.ok(
+    expense.indexOf("Agreed expenses") < expense.indexOf('entityType="expense"'),
+  );
+  assert.ok(
+    responsibility.indexOf("Waiting for agreement") <
+      responsibility.indexOf("Agreed responsibilities"),
+  );
+  assert.ok(
+    responsibility.indexOf("Agreed responsibilities") <
+      responsibility.indexOf('entityType="responsibility"'),
   );
 });
 
