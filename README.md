@@ -108,7 +108,7 @@ npm audit --audit-level=high
 npm run build
 ```
 
-GitHub Actions runs the same gate.
+GitHub Actions runs the same gate. Release candidates are validated from the current combined `main` state before Production promotion.
 
 Automatic Git deployments are disabled. Production deployment should occur only after the intended commit has passed CI and the release has been explicitly approved.
 
