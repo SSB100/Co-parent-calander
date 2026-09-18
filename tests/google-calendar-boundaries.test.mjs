@@ -110,5 +110,13 @@ test("Preview OAuth uses the exact Vercel deployment URL rather than the branch 
   assert.match(config, /VERCEL_ENV === "preview"/);
   assert.match(config, /VERCEL_URL/);
   assert.match(config, /https:\/\/\$\{process\.env\.VERCEL_URL\}/);
+});
+
+test("Production OAuth uses Vercel's canonical production URL", async () => {
+  const config = await readFile(path.join(root, "lib/google-calendar/config.ts"), "utf8");
+
+  assert.match(config, /VERCEL_ENV === "production"/);
+  assert.match(config, /VERCEL_PROJECT_PRODUCTION_URL/);
+  assert.match(config, /https:\/\/\$\{process\.env\.VERCEL_PROJECT_PRODUCTION_URL\}/);
   assert.match(config, /NEXT_PUBLIC_APP_URL/);
 });
