@@ -1,0 +1,96 @@
+name: Build calendar management production source bundle
+
+on:
+  push:
+    branches:
+      - release/calendar-management-production-bundle
+    paths-ignore:
+      - deploy-source-manifest.json
+      - "deploy-source-chunk-*.json"
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Create deployment bundle
+        shell: node {0}
+        run: |
+          const fs = require("node:fs");
+          const cp = require("node:child_process");
+
+          for (const file of fs.readdirSync(".")) {
+            if (
+              file === "deploy-source-manifest.json" ||
+              /^deploy-source-chunk-\d+\.json$/.test(file)
+            ) {
+              fs.rmSync(file, { force: true });
+            }
+          }
+
+          const files = cp.execSync("git ls-files -z")
+            .toString("utf8")
+            .split("\0")
+            .filter(Boolean)
+            .filter((file) =>
+              file !== "deploy-source-manifest.json" &&
+              !/^deploy-source-chunk-\d+\.json$/.test(file) &&
+              !file.startsWith(".github/") &&
+              !file.startsWith("docs/") &&
+              !file.startsWith("tests/") &&
+              !file.startsWith("drizzle/") &&
+              file !== "README.md" &&
+              file !== ".env.example"
+            );
+
+          const entries = files.map((file) => ({
+            file,
+            dataBase64: fs.readFileSync(file).toString("base64")
+          }));
+
+          const chunks = [];
+          let current = [];
+          let currentSize = 0;
+          const maxSize = 280000;
+
+          for (const entry of entries) {
+            const size = entry.file.length + entry.dataBase64.length + 64;
+            if (current.length && currentSize + size > maxSize) {
+              chunks.push(current);
+              current = [];
+              currentSize = 0;
+            }
+            current.push(entry);
+            currentSize += size;
+          }
+          if (current.length) chunks.push(current);
+
+          const names = chunks.map((chunk, index) => {
+            const name = `deploy-source-chunk-${String(index).padStart(3, "0")}.json`;
+            fs.writeFileSync(name, JSON.stringify(chunk));
+            return name;
+          });
+
+          fs.writeFileSync(
+            "deploy-source-manifest.json",
+            JSON.stringify({
+              sourceCommit: "b1a9ef82aeed2aa84212eb287265c143284e8e29",
+              fileCount: entries.length,
+              chunks: names
+            })
+          );
+
+      - name: Commit bundle
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Build calendar management production source bundle"
+          git push
