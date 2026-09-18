@@ -46,10 +46,20 @@
   --radius-2xl: 0.75rem;
   --radius-3xl: 1rem;
 }
-:root { --background: #dde6df; --foreground: #273632; }
+:root {
+  --background: #dde6df;
+  --foreground: #273632;
+  --covie-coral: #ff6b5f;
+  --covie-teal: #19a897;
+  --covie-sunshine: #f4c64e;
+  --covie-violet: #765ed6;
+  --covie-ink: #243139;
+  --covie-cream: #fff9f2;
+}
 * { box-sizing: border-box; }
 html { background: var(--background); }
 body { margin: 0; min-height: 100vh; background: var(--background); color: var(--foreground); font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif; line-height: 1.5; }
+.covie-display { font-family: var(--font-covie-display), Georgia, "Times New Roman", serif; }
 button, input, textarea, select { font: inherit; }
 button, a, summary { -webkit-tap-highlight-color: transparent; }
 :where(button, a, input, textarea, select, summary):focus-visible { outline: 3px solid #376584; outline-offset: 3px; }

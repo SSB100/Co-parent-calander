@@ -34,10 +34,28 @@ test("landing positioning keeps Covie cooperative and organiser-focused", async 
   ]);
 
   assert.match(home, /shared organiser/);
-  assert.match(home, /not a payment app, legal evidence/);
+  assert.match(home, /not a payment\s+app, legal evidence/);
   assert.match(home, /works even if/);
   assert.match(manifest, /shared organiser/);
   assert.match(manifest, /expenses, responsibilities and agreements/);
+});
+
+test("public brand uses the approved solid-colour visual system", async () => {
+  const [home, brand, brandGuide] = await Promise.all([
+    source("app/page.tsx"),
+    source("components/workspace/covie-brand.tsx"),
+    source("docs/COVIE_BRAND.md"),
+  ]);
+
+  for (const colour of ["#FF6B5F", "#19A897", "#F4C64E", "#765ED6", "#243139", "#FFF9F2"]) {
+    assert.match(home, new RegExp(colour.replace("#", "\\#"), "i"));
+  }
+
+  assert.doesNotMatch(home, /gradient/i);
+  assert.doesNotMatch(home, /blur-/i);
+  assert.doesNotMatch(brand, /linearGradient|radialGradient/i);
+  assert.match(brandGuide, /solid colours only/i);
+  assert.match(brandGuide, /Covie Loop/i);
 });
 
 test("new-account onboarding has a clear escape while invited existing users can return", async () => {

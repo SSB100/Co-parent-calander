@@ -1,17 +1,53 @@
-export function CovieMark({ size = 32, color = "#416653" }: { size?: number; color?: string }) {
-  return <svg width={size} height={size} viewBox="0 0 40 44" fill="none" aria-hidden="true">
-    <rect x="4" y="9" width="32" height="31" rx="7" stroke={color} strokeWidth="3" />
-    <path d="M5 17V15C5 11 8 9 12 9H28C32 9 35 12 35 15V17H5Z" fill={color} />
-    <path d="M12 4V12M28 4V12" stroke={color} strokeWidth="3.5" strokeLinecap="round" />
-    <rect x="9" y="22" width="22" height="5" rx="2" fill={color} />
-    <rect x="9" y="30" width="22" height="5" rx="2" fill={color} />
-    <path d="M15 22V27M15 30V35" stroke="#F7F6F2" strokeWidth="1" />
-  </svg>;
+type CovieMarkProps = {
+  size?: number;
+  primary?: string;
+  secondary?: string;
+  color?: string;
+};
+
+export function CovieMark({
+  size = 32,
+  primary = "#FF6B5F",
+  secondary = "#19A897",
+  color,
+}: CovieMarkProps) {
+  const first = color ?? primary;
+  const second = color ?? secondary;
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 48 48"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M24 7C14.6 7 7 14.6 7 24S14.6 41 24 41"
+        stroke={first}
+        strokeWidth="8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M24 41C33.4 41 41 33.4 41 24S33.4 7 24 7"
+        stroke={second}
+        strokeWidth="8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
 
 export function CovieBrand({ compact = false }: { compact?: boolean }) {
-  return <span className="inline-flex items-center gap-2.5 text-emerald-800" aria-label="Covie">
-    <CovieMark />
-    {!compact && <span className="text-[27px] font-semibold tracking-[-0.045em]">Covie</span>}
-  </span>;
+  return (
+    <span
+      className="inline-flex items-center gap-2.5 text-[#243139]"
+      aria-label="Covie"
+    >
+      <CovieMark />
+      {!compact ? (
+        <span className="text-[28px] font-bold tracking-[-0.055em]">Covie</span>
+      ) : null}
+    </span>
+  );
 }
