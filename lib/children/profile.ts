@@ -168,6 +168,19 @@ export function historySummary(input: {
       ? details.activityName
       : "activity";
 
+  if (input.action === "child_profile.photo_update") return "Updated profile photo";
+  if (input.action === "child_profile.photo_remove") return "Removed profile photo";
+  if (input.action === "child_profile.document_add") {
+    return typeof details.fileName === "string" && details.fileName
+      ? `Added document ${details.fileName}`
+      : "Added a child document";
+  }
+  if (input.action === "child_profile.document_remove") {
+    return typeof details.fileName === "string" && details.fileName
+      ? `Removed document ${details.fileName}`
+      : "Removed a child document";
+  }
+
   if (input.action === "child_activity.create") return `Added ${activityName}`;
   if (input.action === "child_activity.update") return `Updated ${activityName}`;
   if (input.action === "child_activity.delete") return `Removed ${activityName}`;
