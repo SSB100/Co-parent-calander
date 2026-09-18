@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   CircleDollarSign,
   Clock3,
+  House,
   LoaderCircle,
   Pencil,
   Plus,
@@ -522,9 +523,7 @@ export function ExpensesShell({ initialDate }: { initialDate: string | null }) {
               Covie records payments but does not move money.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/calendar"
+          <div className="flex flex-wrap gap-2">\n            <Link\n              href="/home"\n              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"\n            >\n              <House className="h-4 w-4" aria-hidden="true" /> Home\n            </Link>\n            <Link\n              href="/calendar"
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
               <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Calendar
