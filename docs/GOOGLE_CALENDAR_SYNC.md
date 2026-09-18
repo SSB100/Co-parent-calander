@@ -45,7 +45,12 @@ Required to enable Google Calendar:
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_TOKEN_ENCRYPTION_KEY`
+
+Production and local development also use:
+
 - `NEXT_PUBLIC_APP_URL`
+
+On Vercel Preview deployments, OAuth automatically uses Vercel's generated `VERCEL_URL` for that exact deployment instead of relying on the branch alias. This prevents a stale Preview branch alias from breaking OAuth testing.
 
 Required for the scheduled reconciliation worker:
 
@@ -67,12 +72,11 @@ Required for the scheduled reconciliation worker:
 Recommended callback URLs:
 
 - Local: `http://localhost:3000/api/google-calendar/callback`
-- Current feature-branch Preview: `https://co-parent-calander-git-feature-google-c-1d9c47-haakers-projects.vercel.app/api/google-calendar/callback`
-- Other Preview branches: use the exact stable branch/preview domain Vercel assigns.
+- Preview: use the exact current Vercel deployment URL plus `/api/google-calendar/callback`
 - Production: `https://co-parent-calander.vercel.app/api/google-calendar/callback`
 - If a production custom domain becomes the value of `NEXT_PUBLIC_APP_URL`, register the same `/api/google-calendar/callback` path for that domain.
 
-For preview OAuth testing, use a stable Vercel branch/preview domain, set that exact origin as the Preview value of `NEXT_PUBLIC_APP_URL`, and register its exact callback URL in Google Cloud.
+For Preview OAuth testing, use the exact generated deployment URL shown by Vercel for the successful Preview build. Because Vercel deployment URLs are unique per deployment, register the callback for the specific Preview deployment being tested.
 
 ## Google OAuth verification for public use
 
