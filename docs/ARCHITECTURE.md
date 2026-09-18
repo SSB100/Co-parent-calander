@@ -34,6 +34,25 @@ The selected calendar's `timezone` is authoritative for date-sensitive applicati
 
 Saved parenting schedules use first-class `parenting_schedules`, `parenting_schedule_slots`, and `parenting_schedule_children` records in staged migration `0013`. Manual `parenting_assignments` remain the date-specific override layer. Legacy `recurring_rules` metadata is retained only for migration/history compatibility and is no longer the intended runtime source of truth after `0013`.
 
+## Database schema modules
+
+`lib/db/schema.ts` is a compatibility barrel. Table and enum definitions are grouped by domain under `lib/db/schema/`:
+
+- core
+- migrations
+- parenting
+- events
+- expenses
+- responsibilities
+- children
+- attachments
+- links
+- approvals
+- Google Calendar
+- audit
+
+Application code can keep importing from `@/lib/db/schema`, while feature-level schema ownership stays explicit and the Drizzle entry point remains stable.
+
 ## Permission model
 
 - Owner: calendar administration plus editor capabilities.

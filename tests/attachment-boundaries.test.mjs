@@ -12,7 +12,7 @@ async function source(file) {
 test("Phase 7 metadata schema stores private-object references rather than bytes", async () => {
   const [migration, schema] = await Promise.all([
     source("drizzle/0010_attachments.sql"),
-    source("lib/db/schema.ts"),
+    source("lib/db/schema/attachments.ts"),
   ]);
 
   assert.match(migration, /CREATE TABLE "attachments"/);

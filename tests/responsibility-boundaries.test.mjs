@@ -12,7 +12,7 @@ async function source(file) {
 test("responsibility persistence supports ownership due dates links recurrence and children", async () => {
   const [migration, schema] = await Promise.all([
     source("drizzle/0008_responsibilities.sql"),
-    source("lib/db/schema.ts"),
+    source("lib/db/schema/responsibilities.ts"),
   ]);
 
   assert.match(migration, /responsibility_category/);

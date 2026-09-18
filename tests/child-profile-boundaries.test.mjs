@@ -12,7 +12,7 @@ async function source(file) {
 test("Phase 6 migration extends children and adds lightweight activities", async () => {
   const [migration, schema] = await Promise.all([
     source("drizzle/0009_child_profiles.sql"),
-    source("lib/db/schema.ts"),
+    source("lib/db/schema/children.ts"),
   ]);
 
   assert.match(migration, /full_name/);

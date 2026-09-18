@@ -8,7 +8,7 @@ const source = (file) => readFile(path.join(root, file), "utf8");
 
 test("recurring shared events have an explicit schema and migration", async () => {
   const [schema, migration] = await Promise.all([
-    source("lib/db/schema.ts"),
+    source("lib/db/schema/events.ts"),
     source("drizzle/0006_recurring_events.sql"),
   ]);
 

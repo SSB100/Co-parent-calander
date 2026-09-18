@@ -12,7 +12,7 @@ async function source(file) {
 test("expense persistence uses cents, explicit shares and settlement state", async () => {
   const [migration, schema] = await Promise.all([
     source("drizzle/0007_expenses.sql"),
-    source("lib/db/schema.ts"),
+    source("lib/db/schema/expenses.ts"),
   ]);
 
   assert.match(migration, /amount_cents/);

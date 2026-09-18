@@ -9,6 +9,16 @@ async function source(file) {
   return readFile(path.join(root, file), "utf8");
 }
 
+async function schemaSource() {
+  const directory = path.join(root, "lib/db/schema");
+  const files = (await readdir(directory))
+    .filter((file) => file.endsWith(".ts"))
+    .sort();
+  return (await Promise.all(
+    files.map((file) => readFile(path.join(directory, file), "utf8")),
+  )).join("\n");
+}
+
 test("schema migrations are sequential through 0014", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
@@ -34,7 +44,7 @@ test("0012 baselines historical migrations without replaying them", async () => 
 test("database invariants are declared in both migration SQL and Drizzle schema", async () => {
   const [migration, schema] = await Promise.all([
     source("drizzle/0012_schema_foundation.sql"),
-    source("lib/db/schema.ts"),
+    schemaSource(),
   ]);
 
   const names = [
@@ -59,7 +69,7 @@ test("database invariants are declared in both migration SQL and Drizzle schema"
 test("0013 introduces first-class parenting schedules and backfills active legacy rules", async () => {
   const [migration, schema, effective] = await Promise.all([
     source("drizzle/0013_parenting_schedules.sql"),
-    source("lib/db/schema.ts"),
+    schemaSource(),
     source("lib/assignments/effective.ts"),
   ]);
 
@@ -86,7 +96,7 @@ test("0013 introduces first-class parenting schedules and backfills active legac
 test("0014 retires legacy credential tables without deleting calendar data", async () => {
   const [migration, schema, session] = await Promise.all([
     source("drizzle/0014_retire_legacy_auth.sql"),
-    source("lib/db/schema.ts"),
+    schemaSource(),
     source("lib/security/session.ts"),
   ]);
 
@@ -97,4 +107,18 @@ test("0014 retires legacy credential tables without deleting calendar data", asy
   assert.doesNotMatch(migration, /DROP TABLE.*calendars|DROP TABLE.*participants/);
   assert.doesNotMatch(schema, /accessTokens|sessions = pgTable|accessTokenType/);
   assert.doesNotMatch(session, /coparent_session|getLegacyEditorSession|claimLegacyCalendarForCurrentUser/);
+});
+
+
+test("schema barrel stays small while feature modules own table definitions", async () => {
+  const [barrel, modules] = await Promise.all([
+    source("lib/db/schema.ts"),
+    readdir(path.join(root, "lib/db/schema")),
+  ]);
+
+  assert.match(barrel, /schema\/core/);
+  assert.match(barrel, /schema\/parenting/);
+  assert.match(barrel, /schema\/approvals/);
+  assert.ok(modules.length >= 10);
+  assert.doesNotMatch(barrel, /pgTable\(/);
 });

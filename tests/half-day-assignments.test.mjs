@@ -11,7 +11,7 @@ async function source(file) {
 
 test("half-day migration preserves existing full-day assignments", async () => {
   const migration = await source("drizzle/0003_half_day_assignments.sql");
-  const schema = await source("lib/db/schema.ts");
+  const schema = await source("lib/db/schema/parenting.ts");
 
   assert.match(migration, /ADD COLUMN "afternoon_parent_id" uuid/);
   assert.match(migration, /SET "afternoon_parent_id" = "parent_id"/);

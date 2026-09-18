@@ -12,7 +12,7 @@ async function source(file) {
 test("Phase 8 adds a canonical symmetric cross-feature link table", async () => {
   const [migration, schema] = await Promise.all([
     source("drizzle/0011_entity_links.sql"),
-    source("lib/db/schema.ts"),
+    source("lib/db/schema/links.ts"),
   ]);
 
   assert.match(migration, /CREATE TYPE "linked_entity_type"/);
