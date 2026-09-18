@@ -13,11 +13,11 @@ import {
   dateForSlot,
   FORTNIGHT_SLOTS,
   normalizeAnchorDate,
-  parseFortnightRuleText,
   scheduleRangesOverlap,
   type RecurrencePeriod,
 } from "@/lib/recurrence/fortnight";
 import { buildCalendarSyncJobStatement } from "@/lib/google-calendar/outbox";
+import { groupSavedSchedules } from "@/lib/recurrence/saved-schedules";
 import { kickGoogleCalendarSync } from "@/lib/google-calendar/dispatch";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getEditorSession } from "@/lib/security/session";
@@ -69,74 +69,6 @@ const deleteSchema = z.object({
   reason: proposalReasonSchema,
 });
 
-type ScheduleSlot = {
-  morningParentId: string | null;
-  afternoonParentId: string | null;
-};
-
-type RuleRow = {
-  id: string;
-  parentId: string;
-  rrule: string;
-  startDate: string;
-  endDate: string | null;
-  createdAt: Date;
-};
-
-type SavedSchedule = {
-  scheduleId: string;
-  anchorDate: string;
-  endDate: string | null;
-  pattern: ScheduleSlot[];
-  createdAt: string;
-};
-
-function emptyPattern() {
-  return Array.from({ length: FORTNIGHT_SLOTS }, () => ({
-    morningParentId: null,
-    afternoonParentId: null,
-  }));
-}
-
-function groupSchedules(ruleRows: RuleRow[]) {
-  const grouped = new Map<string, SavedSchedule>();
-
-  for (const rule of ruleRows) {
-    const metadata = parseFortnightRuleText(rule.rrule);
-    if (!metadata) continue;
-
-    const existing = grouped.get(metadata.scheduleId) ?? {
-      scheduleId: metadata.scheduleId,
-      anchorDate: metadata.anchorDate,
-      endDate: rule.endDate,
-      pattern: emptyPattern(),
-      createdAt: rule.createdAt.toISOString(),
-    };
-
-    const slot = existing.pattern[metadata.slot];
-    if (metadata.period === "full_day") {
-      slot.morningParentId = rule.parentId;
-      slot.afternoonParentId = rule.parentId;
-    } else if (metadata.period === "morning") {
-      slot.morningParentId = rule.parentId;
-    } else {
-      slot.afternoonParentId = rule.parentId;
-    }
-
-    if (rule.endDate && (!existing.endDate || rule.endDate < existing.endDate)) {
-      existing.endDate = rule.endDate;
-    }
-    if (rule.createdAt.toISOString() < existing.createdAt) {
-      existing.createdAt = rule.createdAt.toISOString();
-    }
-    grouped.set(metadata.scheduleId, existing);
-  }
-
-  return [...grouped.values()].sort(
-    (a, b) => a.anchorDate.localeCompare(b.anchorDate) || a.createdAt.localeCompare(b.createdAt),
-  );
-}
-
 async function loadSchedules(calendarId: string) {
   const db = getDb();
   const [parentRows, ruleRows] = await db.batch([
@@ -164,7 +96,7 @@ async function loadSchedules(calendarId: string) {
   ]);
 
   return {
-    schedules: groupSchedules(ruleRows),
+    schedules: groupSavedSchedules(ruleRows),
     participants: parentRows,
   };
 }
@@ -279,7 +211,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const savedSchedules = groupSchedules(activeRuleRows);
+  const savedSchedules = groupSavedSchedules(activeRuleRows);
   const existingSchedule = savedSchedules.find((schedule) => schedule.scheduleId === scheduleId);
   if (parsed.data.scheduleId && !existingSchedule) {
     return NextResponse.json({ error: "That saved schedule could not be found." }, { status: 404 });
@@ -514,7 +446,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "That saved schedule could not be found." }, { status: 404 });
   }
 
-  const savedSchedules = groupSchedules(ruleRows);
+  const savedSchedules = groupSavedSchedules(ruleRows);
   const beforeState = JSON.stringify({ schedules: savedSchedules });
 
   try {
