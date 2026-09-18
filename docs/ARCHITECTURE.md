@@ -1,12 +1,12 @@
 # Covie architecture
 
-Last reviewed: 18 September 2026.
+Last reviewed: 19 September 2026.
 
 ## System boundaries
 
 Covie is organised around one selected family calendar.
 
-Account identity comes from Managed Neon Auth. Application access is represented by `calendar_memberships`. Parent profiles in `participants` are domain records and can exist without an account. Legacy token/session authentication is retired from application runtime and recorded in staged migration `0014`; legacy credential tables are temporarily retained as recovery evidence until legacy-only calendars are recovered or explicitly archived.
+Account identity comes from Managed Neon Auth. Application access is represented by `calendar_memberships`. Parent profiles in `participants` are domain records and can exist without an account. Legacy token/session authentication is retired from application runtime and recorded in migration `0014`; legacy credential tables are temporarily retained as recovery evidence until legacy-only calendars are recovered or explicitly archived.
 
 The primary business domains are:
 
@@ -32,7 +32,7 @@ Home is a derived read model and has no Home-specific persistence.
 
 The selected calendar's `timezone` is authoritative for date-sensitive application behaviour. `Pacific/Auckland` remains the default for newly created calendars, not a hidden runtime assumption.
 
-Saved parenting schedules use first-class `parenting_schedules`, `parenting_schedule_slots`, and `parenting_schedule_children` records in staged migration `0013`. Manual `parenting_assignments` remain the date-specific override layer. Legacy `recurring_rules` metadata is retained only for migration/history compatibility and is no longer the intended runtime source of truth after `0013`.
+Saved parenting schedules use first-class `parenting_schedules`, `parenting_schedule_slots`, and `parenting_schedule_children` records introduced by migration `0013`. Manual `parenting_assignments` remain the date-specific override layer. Legacy `recurring_rules` metadata is retained only for migration/history compatibility and is no longer the intended runtime source of truth after `0013`.
 
 ## Database schema modules
 
@@ -63,7 +63,7 @@ Application code can keep importing from `@/lib/db/schema`, while feature-level 
 
 All API mutations require server-side permission checks and same-origin mutation protection.
 
-Parent domain identity is represented by the staged `participants.profile_slot` values `parent_one` and `parent_two`. `color_key` is retained only as presentation compatibility and must not be used to decide ownership, account identity or parent ordering.
+Parent domain identity is represented by the `participants.profile_slot` values `parent_one` and `parent_two`. `color_key` is retained only as presentation compatibility and must not be used to decide ownership, account identity or parent ordering.
 
 ## Agreement model
 
@@ -101,16 +101,16 @@ Production Neon:
 
 - project: `delicate-sunset-36051658`
 - branch: `br-quiet-sea-a7duq4r3`
-- schema migrations applied in Production: `0000` through `0012`
-- staged migrations awaiting the final database release: `0013_parenting_schedules.sql`, `0014_retire_legacy_auth.sql`, `0015_parent_profile_identity.sql`, `0016_retention_foundation.sql`
+- schema migrations applied in Production: `0000` through `0016`
 - `covie_schema_migrations` is the authoritative migration ledger from `0012` onward
+- legacy `access_tokens`, `sessions` and `access_token_type` remain temporarily retained as recovery data after non-destructive migration `0014`
 
-A pre-Phase-8 rollback branch is currently retained:
+Rollback snapshots currently retained:
 
-- `backup-before-phase-8-release`
-- `br-orange-surf-a7znl10e`
+- `backup-before-0013-0016-release` (`br-bitter-fire-a7p424x5`) — immediate pre-`0013`–`0016` Production snapshot
+- `backup-before-phase-8-release` (`br-orange-surf-a7znl10e`) — older pre-Phase-8 snapshot
 
-Do not replay migrations `0000`–`0011`.
+Do not replay migrations already recorded in `covie_schema_migrations`.
 
 ## Release workflow
 
@@ -137,4 +137,4 @@ Before the brand/UI redesign, cleanup work should:
 - split the large client shells into controllers/hooks and smaller UI components
 - introduce a shared authenticated application shell
 - modularise approval applicators and relationship aggregation
-- keep the staged privacy/retention policy and durable cleanup queue verified through the final database release
+- keep the production-applied privacy/retention policy and durable cleanup queue covered by release verification

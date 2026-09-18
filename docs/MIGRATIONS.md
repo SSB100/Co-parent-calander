@@ -4,15 +4,13 @@ Covie uses ordered SQL migration files under `drizzle/`.
 
 ## Current production baseline
 
-Production contains migrations `0000` through `0012`. Migrations `0013_parenting_schedules.sql`, `0014_retire_legacy_auth.sql`, `0015_parent_profile_identity.sql` and `0016_retention_foundation.sql` are staged in GitHub and must not be treated as Production-applied until the final database deployment pass.
+Production contains migrations `0000` through `0016`. They must **not** be replayed.
 
-Those files must **not** be replayed.
-
-Migration `0012_schema_foundation.sql` introduced the first explicit Covie migration ledger and is applied in Production:
+Migration `0012_schema_foundation.sql` introduced the first explicit Covie migration ledger:
 
 - table: `covie_schema_migrations`
 - historical rows `0000`–`0011` are marked `baseline = true`
-- `0012` is recorded as a normal applied migration
+- `0012` through `0016` are recorded as normal applied migrations
 
 The baseline timestamps represent when the ledger was established, not the original historical deployment times.
 
@@ -58,14 +56,14 @@ The migration backfills active saved schedules from existing `recurring_rules` m
 
 Manual rows in `parenting_assignments` remain date-specific overrides and continue to win over the repeating baseline.
 
-This migration is currently staged only. Before Production application:
+Production qualification completed before release on 19 September 2026:
 
-1. create a fresh Neon temporary branch from Production
-2. apply `0013`
-3. verify schedule counts, slot reconstruction and child links
-4. compare effective assignments over representative date ranges before/after
-5. confirm Google Calendar desired parenting output is unchanged for the same source data
-6. apply to Production only during the explicitly approved release pass
+1. a fresh Neon branch was cloned from Production at schema `0012`
+2. `0013`–`0016` were applied transactionally
+3. the backfill produced 2 schedules, 28 slots and 2 child links
+4. exact set comparisons found zero schedule, slot or child-link mismatches
+5. Production was migrated only after the repository CI gate passed
+6. a fresh rollback snapshot, `backup-before-0013-0016-release`, was created immediately before Production migration
 
 
 ## 0014 legacy authentication retirement
@@ -96,4 +94,4 @@ Migration `0016_retention_foundation.sql` adds `storage_cleanup_jobs` and a tran
 
 The matching daily worker also enforces the policy documented in `docs/RETENTION.md` for stale Pending uploads, abandoned Draft proposals, terminal proposal history and audit entries.
 
-This migration is staged only. Apply it after `0013`, `0014` and `0015`; do not run the worker code against a database that has not yet applied `0016`.
+This migration is applied in Production after `0013`, `0014` and `0015`. The release verification confirmed the queue table, cleanup function and attachment-deletion trigger are present, and a synthetic attachment deletion successfully queued a pending cleanup job on the qualification branch.
