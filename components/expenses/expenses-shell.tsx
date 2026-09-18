@@ -12,7 +12,6 @@ import {
   ReceiptText,
   RotateCcw,
   Trash2,
-  UsersRound,
   WalletCards,
   X,
 } from "lucide-react";
