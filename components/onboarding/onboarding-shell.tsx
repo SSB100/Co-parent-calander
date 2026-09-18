@@ -6,11 +6,11 @@ import { useActionState, useState } from "react";
 import {
   createCalendar,
   joinCalendar,
-  type DashboardActionState,
-} from "@/app/dashboard/actions";
+  type CalendarActionState,
+} from "@/app/calendar/actions";
 import { CovieBrand } from "@/components/workspace/covie-brand";
 
-const initialState: DashboardActionState = { error: null };
+const initialState: CalendarActionState = { error: null };
 const inputClass =
   "mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200";
 
