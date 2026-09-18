@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
   const sql = getSql();
 
   try {
-    await sql\`
+    await sql`
       INSERT INTO attachments (
         id, calendar_id, storage_provider, storage_key, original_file_name,
         content_type, size_bytes, category, primary_entity_type, primary_entity_id,
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
         ${parsed.data.category}, ${parsed.data.entityType}, ${parsed.data.entityId},
         ${parsed.data.role}, 'pending', ${session.participantId}
       )
-    \`;
+    `;
   } catch {
     return NextResponse.json(
       { error: "The upload could not be prepared." },
@@ -145,12 +145,12 @@ export async function POST(request: NextRequest) {
     });
   } catch {
     try {
-      await sql\`
+      await sql`
         DELETE FROM attachments
         WHERE id = ${id}
           AND calendar_id = ${session.calendarId}
           AND status = 'pending'
-      \`;
+      `;
     } catch {}
 
     return NextResponse.json(
