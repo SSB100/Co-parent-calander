@@ -63,6 +63,35 @@ function key(type: RelatedTargetType, id: string) {
   return `${type}:${id}`;
 }
 
+async function fetchRelatedItems(
+  entityType: LinkedEntityType,
+  entityId: string,
+  includeCandidates = false,
+) {
+  const query = new URLSearchParams({
+    entityType,
+    entityId,
+    includeCandidates: includeCandidates ? "true" : "false",
+  });
+  const response = await fetch(`/api/links?${query.toString()}`, {
+    cache: "no-store",
+  });
+  const body = (await response.json().catch(() => null)) as
+    | Payload
+    | { error?: string }
+    | null;
+
+  if (!response.ok || !body || !("items" in body)) {
+    throw new Error(
+      body && "error" in body && body.error
+        ? body.error
+        : "Related items could not be loaded.",
+    );
+  }
+
+  return body;
+}
+
 export function LinkedItemsPanel({
   entityType,
   entityId,
@@ -81,32 +110,12 @@ export function LinkedItemsPanel({
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filter, setFilter] = useState<RelatedTargetType | "all">("all");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(defaultOpen);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (includeCandidates = false) => {
-    const query = new URLSearchParams({
-      entityType,
-      entityId,
-      includeCandidates: includeCandidates ? "true" : "false",
-    });
-    const response = await fetch(`/api/links?${query.toString()}`, {
-      cache: "no-store",
-    });
-    const body = (await response.json().catch(() => null)) as
-      | Payload
-      | { error?: string }
-      | null;
-
-    if (!response.ok || !body || !("items" in body)) {
-      throw new Error(
-        body && "error" in body && body.error
-          ? body.error
-          : "Related items could not be loaded.",
-      );
-    }
-
+    const body = await fetchRelatedItems(entityType, entityId, includeCandidates);
     setData(body);
     if (includeCandidates) setCandidates(body.candidates ?? []);
     setError(null);
@@ -116,15 +125,19 @@ export function LinkedItemsPanel({
   useEffect(() => {
     if (!open || data) return;
     let cancelled = false;
-    void load()
+    void fetchRelatedItems(entityType, entityId)
+      .then((body) => {
+        if (cancelled) return;
+        setData(body);
+        setError(null);
+      })
       .catch((caught) => {
-        if (!cancelled) {
-          setError(
-            caught instanceof Error
-              ? caught.message
-              : "Related items could not be loaded.",
-          );
-        }
+        if (cancelled) return;
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "Related items could not be loaded.",
+        );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -132,7 +145,7 @@ export function LinkedItemsPanel({
     return () => {
       cancelled = true;
     };
-  }, [data, load, open]);
+  }, [data, entityId, entityType, open]);
 
   const editable = data?.permission === "owner" || data?.permission === "editor";
   const linkedKeys = useMemo(
@@ -259,7 +272,10 @@ export function LinkedItemsPanel({
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setLoading(true);
+          setOpen(true);
+        }}
         className={`inline-flex min-h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 ${
           compact ? "" : "mt-3"
         }`}
