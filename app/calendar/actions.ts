@@ -388,11 +388,3 @@ export async function openCalendar(formData: FormData) {
   cookieStore.set(SELECTED_CALENDAR_COOKIE_NAME, calendarId.data, calendarCookieOptions());
   redirect("/calendar");
 }
-
-export async function signOut() {
-  await auth.signOut();
-  const cookieStore = await cookies();
-  cookieStore.delete(SELECTED_CALENDAR_COOKIE_NAME);
-  cookieStore.delete(NEW_CALENDAR_INVITE_COOKIE_NAME);
-  redirect("/");
-}
