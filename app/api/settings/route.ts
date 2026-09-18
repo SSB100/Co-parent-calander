@@ -1,11 +1,13 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb, getSql } from "@/lib/db";
 import { calendars, children, participants } from "@/lib/db/schema";
+import { buildCalendarSyncJobStatement } from "@/lib/google-calendar/outbox";
+import { processDueGoogleSyncJobs } from "@/lib/google-calendar/queue";
 import { isSameOriginMutation } from "@/lib/security/request";
-import { getEditorSession } from "@/lib/security/session";
+import { getCalendarSession, getEditorSession } from "@/lib/security/session";
 
 const namedItem = z.object({
   id: z.string().uuid(),
@@ -19,9 +21,9 @@ const settingsSchema = z.object({
 });
 
 export async function GET() {
-  const session = await getEditorSession();
+  const session = await getCalendarSession();
   if (!session) {
-    return NextResponse.json({ error: "Editor access is required." }, { status: 401 });
+    return NextResponse.json({ error: "Calendar access is required." }, { status: 401 });
   }
 
   const db = getDb();
@@ -135,11 +137,23 @@ export async function PATCH(request: NextRequest) {
     VALUES (${session.calendarId}, ${session.participantId}, 'settings.update', 'calendar_settings', ${beforeState}::jsonb, ${afterState}::jsonb)
   `);
 
+  statements.push(
+    buildCalendarSyncJobStatement(sql, {
+      calendarId: session.calendarId,
+      jobType: "full",
+    }),
+  );
+
   try {
     await sql.transaction(statements);
   } catch {
     return NextResponse.json({ error: "Settings could not be saved." }, { status: 409 });
   }
 
+  after(async () => {
+    try {
+      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
+    } catch {}
+  });
   return NextResponse.json({ ok: true });
 }

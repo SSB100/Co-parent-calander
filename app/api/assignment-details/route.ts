@@ -1,11 +1,13 @@
 import { parseISO } from "date-fns";
 import { and, eq, inArray } from "drizzle-orm";
 import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { loadEffectiveAssignmentMap } from "@/lib/assignments/effective";
 import { getDb, getSql } from "@/lib/db";
 import { children, parentingAssignments, participants } from "@/lib/db/schema";
+import { buildCalendarSyncJobStatement, expandGoogleSyncRange } from "@/lib/google-calendar/outbox";
+import { processDueGoogleSyncJobs } from "@/lib/google-calendar/queue";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getEditorSession } from "@/lib/security/session";
 
@@ -268,6 +270,15 @@ export async function PATCH(request: NextRequest) {
     )
   `);
 
+  const syncRange = expandGoogleSyncRange(date);
+  statements.push(
+    buildCalendarSyncJobStatement(sql, {
+      calendarId: session.calendarId,
+      rangeStart: syncRange.from,
+      rangeEnd: syncRange.to,
+    }),
+  );
+
   try {
     await sql.transaction(statements);
   } catch {
@@ -276,6 +287,12 @@ export async function PATCH(request: NextRequest) {
       { status: 409 },
     );
   }
+
+  after(async () => {
+    try {
+      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
+    } catch {}
+  });
 
   return NextResponse.json({
     ok: true,

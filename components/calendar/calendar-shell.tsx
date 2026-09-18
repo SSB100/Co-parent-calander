@@ -402,8 +402,10 @@ export function CalendarShell() {
                 <RecurringSchedulePanel />
                 {calendarData?.permission === "owner" ? <MembersPanel /> : null}
                 <ActivityPanel />
-                <SettingsPanel />
               </>
+            ) : null}
+            {accessMode === "editor" || accessMode === "viewer" ? (
+              <SettingsPanel readOnly={accessMode === "viewer"} />
             ) : null}
             <button type="button" onClick={() => void authClient.signOut().then(() => router.push("/"))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><LogOut className="h-4 w-4" aria-hidden="true" />Log out</button>
           </div>

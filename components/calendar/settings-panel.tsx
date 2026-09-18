@@ -1,6 +1,7 @@
 "use client";
 
 import { LoaderCircle, Settings2, X } from "lucide-react";
+import { GoogleCalendarSettings } from "@/components/calendar/google-calendar-settings";
 import { useEffect, useRef, useState } from "react";
 
 type NamedItem = { id: string; displayName: string };
@@ -20,7 +21,7 @@ const focusableSelector = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
 
-export function SettingsPanel() {
+export function SettingsPanel({ readOnly = false }: { readOnly?: boolean }) {
   const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const busyRef = useRef(false);
@@ -109,7 +110,7 @@ export function SettingsPanel() {
   }
 
   async function save() {
-    if (!data || saving) return;
+    if (!data || saving || readOnly) return;
     setSaving(true);
     setMessage(null);
     setMessageKind("error");
@@ -166,7 +167,9 @@ export function SettingsPanel() {
                 </div>
                 <h2 id="settings-title" className="text-xl font-semibold text-slate-900">Calendar settings</h2>
                 <p id="settings-description" className="mt-1 text-sm text-slate-500">
-                  Keep the names shown throughout the shared calendar up to date.
+                  {readOnly
+                    ? "Review shared calendar details and manage your own optional integrations."
+                    : "Keep shared calendar details up to date and manage your own optional integrations."}
                 </p>
               </div>
               <button
@@ -208,7 +211,7 @@ export function SettingsPanel() {
                   <span className="text-sm font-semibold text-slate-800">Calendar name</span>
                   <input
                     value={data.calendar.name}
-                    disabled={saving}
+                    disabled={saving || readOnly}
                     onChange={(event) => setData({ ...data, calendar: { ...data.calendar, name: event.target.value } })}
                     className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50 disabled:opacity-70"
                   />
@@ -221,7 +224,7 @@ export function SettingsPanel() {
                       <input
                         key={parent.id}
                         value={parent.displayName}
-                        disabled={saving}
+                        disabled={saving || readOnly}
                         aria-label={`Parent ${index + 1} name`}
                         onChange={(event) =>
                           setData({
@@ -244,7 +247,7 @@ export function SettingsPanel() {
                       <input
                         key={child.id}
                         value={child.displayName}
-                        disabled={saving}
+                        disabled={saving || readOnly}
                         aria-label={`Child ${index + 1} name`}
                         onChange={(event) =>
                           setData({
@@ -264,19 +267,23 @@ export function SettingsPanel() {
                   Calendar timezone: {data.calendar.timezone}
                 </div>
 
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => void save()}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-                >
-                  {saving ? (
-                    <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Settings2 className="h-4 w-4" aria-hidden="true" />
-                  )}
-                  Save settings
-                </button>
+                <GoogleCalendarSettings />
+
+                {!readOnly ? (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void save()}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {saving ? (
+                      <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Settings2 className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    Save settings
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </section>

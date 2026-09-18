@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { parseISO } from "date-fns";
 import { and, asc, desc, eq, inArray, like } from "drizzle-orm";
 import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb, getSql } from "@/lib/db";
 import { children, participants, recurringRules } from "@/lib/db/schema";
@@ -15,6 +15,8 @@ import {
   scheduleRangesOverlap,
   type RecurrencePeriod,
 } from "@/lib/recurrence/fortnight";
+import { buildCalendarSyncJobStatement } from "@/lib/google-calendar/outbox";
+import { processDueGoogleSyncJobs } from "@/lib/google-calendar/queue";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getEditorSession } from "@/lib/security/session";
 
@@ -380,6 +382,13 @@ export async function POST(request: NextRequest) {
     )
   `);
 
+  statements.push(
+    buildCalendarSyncJobStatement(sql, {
+      calendarId: session.calendarId,
+      jobType: "full",
+    }),
+  );
+
   try {
     await sql.transaction(statements);
   } catch {
@@ -388,6 +397,12 @@ export async function POST(request: NextRequest) {
       { status: 409 },
     );
   }
+
+  after(async () => {
+    try {
+      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
+    } catch {}
+  });
 
   return NextResponse.json({
     ok: true,
@@ -485,6 +500,10 @@ export async function DELETE(request: NextRequest) {
           ${JSON.stringify({ scheduleId, deleted: true })}::jsonb
         )
       `,
+      buildCalendarSyncJobStatement(sql, {
+        calendarId: session.calendarId,
+        jobType: "full",
+      }),
     ]);
   } catch {
     return NextResponse.json(
@@ -493,5 +512,10 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
+  after(async () => {
+    try {
+      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
+    } catch {}
+  });
   return NextResponse.json({ ok: true, scheduleId });
 }
