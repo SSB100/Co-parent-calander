@@ -23,6 +23,7 @@ import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
+import { RecordFocus } from "@/components/workspace/record-focus";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
 type Participant = {
@@ -273,6 +274,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
       );
     }
     setData(body);
+      window.dispatchEvent(new Event("covie-records-updated"));
     setError(null);
     setForm((current) => ({
       ...current,
@@ -307,6 +309,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
           return;
         }
         setData(body);
+      window.dispatchEvent(new Event("covie-records-updated"));
         setError(null);
         setForm((current) => ({
           ...current,
@@ -569,7 +572,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
               Keep practical tasks clear: what needs doing, who owns it and when it is due.
             </p>
           </div>
-          <WorkspaceNav
+          <RecordFocus ready={Boolean(data)} /><WorkspaceNav
             active="responsibilities"
             actions={
               editable ? (
@@ -768,7 +771,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
 
               return (
                 <article
-                  key={item.id}
+                  key={item.id} id={`record-${item.id}`} tabIndex={-1}
                   className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
                 >
                   <div className="flex items-start gap-3">

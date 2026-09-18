@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
+import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
 type Participant = {
@@ -164,15 +165,7 @@ function urgencyClass(value: HomeExpense["urgency"] | HomeResponsibility["urgenc
   return "bg-slate-100 text-slate-600";
 }
 
-function eventIcon(category: string) {
-  if (category === "birthday") return "🎂";
-  if (category === "school") return "🏫";
-  if (category === "sport") return "⚽";
-  if (category === "medical") return "🩺";
-  if (category === "holiday") return "🌴";
-  if (category === "activity") return "⭐";
-  return "📌";
-}
+function eventIcon(category: string) { return <EventCategoryIcon category={category} />; }
 
 export function HomeShell() {
   const [data, setData] = useState<HomePayload | null>(null);
@@ -191,7 +184,7 @@ export function HomeShell() {
       throw new Error(
         body && "error" in body && body.error
           ? body.error
-          : "Covie Home could not be loaded.",
+          : "Updates could not be loaded.",
       );
     }
 
@@ -216,7 +209,7 @@ export function HomeShell() {
           setError(
             body && "error" in body && body.error
               ? body.error
-              : "Covie Home could not be loaded.",
+              : "Updates could not be loaded.",
           );
           return;
         }
@@ -224,7 +217,7 @@ export function HomeShell() {
         setError(null);
       })
       .catch(() => {
-        if (!cancelled) setError("Covie Home could not be loaded.");
+        if (!cancelled) setError("Updates could not be loaded.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -261,7 +254,7 @@ export function HomeShell() {
       <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center px-4">
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />
-          Loading Covie Home…
+          Loading Updates…
         </div>
       </main>
     );
@@ -269,12 +262,12 @@ export function HomeShell() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
-      <header className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+      <header className="border-b border-slate-200 pb-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               <Home className="h-4 w-4" aria-hidden="true" />
-              Covie Home
+              Updates
             </div>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
               {data?.calendar.name ?? "Your family"}
@@ -282,7 +275,7 @@ export function HomeShell() {
             <p className="mt-1 text-sm text-slate-500">
               {data
                 ? `${weekdayDateLabel(data.today.date)} · Hi, ${data.currentUserName}`
-                : "Your shared daily overview"}
+                : "Your shared updates"}
             </p>
           </div>
 
@@ -361,7 +354,7 @@ export function HomeShell() {
                         setError(
                           caught instanceof Error
                             ? caught.message
-                            : "Covie Home could not be refreshed.",
+                            : "Updates could not be refreshed.",
                         ),
                       );
                     }}
@@ -424,7 +417,7 @@ export function HomeShell() {
               <Link
                 key={item.id}
                 href={`/responsibilities?date=${encodeURIComponent(item.dueDate)}`}
-                className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                className="group rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">
@@ -476,10 +469,10 @@ export function HomeShell() {
             </h2>
           </div>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-3 grid gap-x-6 md:grid-cols-2">
             <Link
               href="/calendar"
-              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
             >
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 <CalendarDays className="h-4 w-4" aria-hidden="true" />
@@ -495,7 +488,7 @@ export function HomeShell() {
 
             <Link
               href="/calendar"
-              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
             >
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 <Clock3 className="h-4 w-4" aria-hidden="true" />
@@ -529,7 +522,7 @@ export function HomeShell() {
 
             <Link
               href="/calendar"
-              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
             >
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 <ReceiptText className="h-4 w-4" aria-hidden="true" />
@@ -565,7 +558,7 @@ export function HomeShell() {
 
             <Link
               href={`/responsibilities?date=${encodeURIComponent(data.today.date)}`}
-              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
             >
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 <ListChecks className="h-4 w-4" aria-hidden="true" />
@@ -618,14 +611,14 @@ export function HomeShell() {
               Coming up
             </p>
             <h2 className="mt-1 text-xl font-semibold text-slate-950">
-              The next things worth knowing
+              Upcoming
             </h2>
           </div>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-3 grid gap-x-6 md:grid-cols-2">
             <Link
               href="/calendar"
-              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
             >
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 <Clock3 className="h-4 w-4" aria-hidden="true" />
@@ -653,7 +646,7 @@ export function HomeShell() {
 
             <Link
               href="/calendar"
-              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
             >
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 <CalendarDays className="h-4 w-4" aria-hidden="true" />
@@ -684,7 +677,7 @@ export function HomeShell() {
                     )}`
                   : "/expenses"
               }
-              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
             >
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 <CircleDollarSign className="h-4 w-4" aria-hidden="true" />
@@ -714,7 +707,7 @@ export function HomeShell() {
                     )}`
                   : "/responsibilities"
               }
-              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
             >
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 <CheckSquare2 className="h-4 w-4" aria-hidden="true" />

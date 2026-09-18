@@ -20,6 +20,7 @@ import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
+import { RecordFocus } from "@/components/workspace/record-focus";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
 type Participant = {
@@ -209,6 +210,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
         throw new Error(body && "error" in body && body.error ? body.error : "Expenses could not be loaded.");
       }
       setData(body);
+      window.dispatchEvent(new Event("covie-records-updated"));
       setError(null);
       setForm((current) => ({
         ...current,
@@ -245,6 +247,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
           return;
         }
         setData(body);
+      window.dispatchEvent(new Event("covie-records-updated"));
         setError(null);
         setForm((current) => ({
           ...current,
@@ -515,7 +518,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
               Covie records payments but does not move money.
             </p>
           </div>
-          <WorkspaceNav
+          <RecordFocus ready={Boolean(data)} /><WorkspaceNav
             active="expenses"
             actions={
               editable ? (
@@ -678,7 +681,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
               );
               const child = children.find((item) => item.id === expense.childId);
               return (
-                <article key={expense.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <article key={expense.id} id={`record-${expense.id}`} tabIndex={-1} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">

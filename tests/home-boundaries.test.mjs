@@ -61,14 +61,14 @@ test("Home keeps detail workflows in their existing feature areas", async () => 
   assert.match(shell, /ProposalActions/);
 });
 
-test("calendar selection now enters Home and Covie naming is used on the selector", async () => {
+test("calendar selection now enters Calendar and Covie naming is used on the selector", async () => {
   const [actions, dashboard] = await Promise.all([
     source("app/dashboard/actions.ts"),
     source("app/dashboard/page.tsx"),
   ]);
 
-  assert.match(actions, /redirect\("\/home"\)/);
-  assert.doesNotMatch(actions, /redirect\("\/calendar"\)/);
+  assert.match(actions, /redirect\("\/calendar"\)/);
+  assert.doesNotMatch(actions, /redirect\("\/home"\)/);
   assert.match(dashboard, />Covie</);
   assert.match(dashboard, />Open Covie</);
 });

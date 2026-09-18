@@ -4,6 +4,7 @@ import { CalendarDays, Clock3, LoaderCircle, MapPin, StickyNote, X } from "lucid
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
+import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
 import { EventPanel } from "@/components/calendar/event-panel";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
@@ -75,15 +76,6 @@ const categoryLabels: Record<string, string> = {
   other: "Other",
 };
 
-const categoryIcons: Record<string, string> = {
-  school: "🏫",
-  sport: "⚽",
-  medical: "🩺",
-  birthday: "🎂",
-  holiday: "🌴",
-  activity: "⭐",
-  other: "📌",
-};
 
 function choiceLabel(choice: OwnershipChoice, themName: string) {
   if (choice === "me_full") return "Full day you";
@@ -577,7 +569,7 @@ export function DayDetailsPanel({
             ) : dayEvents.map((event) => (
               <div key={event.id} className="rounded-2xl border border-sky-200 bg-sky-50/70 px-4 py-3">
                 <div className="flex items-start gap-3">
-                  <span className="text-lg" aria-hidden="true">{categoryIcons[event.category] ?? "📌"}</span>
+                  <span className="text-lg" aria-hidden="true"><EventCategoryIcon category={event.category} /></span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2"><p className="font-semibold text-slate-900">{event.title}</p><span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-sky-700">{categoryLabels[event.category] ?? "Other"}</span></div>
                     {event.description ? <p className="mt-1 text-sm leading-5 text-slate-600">{event.description}</p> : null}

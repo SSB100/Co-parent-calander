@@ -1,91 +1,63 @@
 "use client";
-
-import {
-  CalendarDays,
-  House,
-  LayoutDashboard,
-  ListChecks,
-  LogOut,
-  UsersRound,
-  WalletCards,
-} from "lucide-react";
+import { CalendarDays, Bell, LayoutGrid, LogOut, UsersRound, ListChecks, WalletCards, ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
+import { ComingUp } from "./coming-up";
+import { CovieBrand } from "./covie-brand";
 
-export type WorkspaceSection =
-  | "home"
-  | "calendar"
-  | "expenses"
-  | "responsibilities"
-  | "kids";
-
-const items: Array<{
-  key: WorkspaceSection | "calendars";
-  href: string;
-  label: string;
-  icon: typeof House;
-}> = [
-  { key: "home", href: "/home", label: "Home", icon: House },
-  { key: "calendar", href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { key: "expenses", href: "/expenses", label: "Expenses", icon: WalletCards },
-  {
-    key: "responsibilities",
-    href: "/responsibilities",
-    label: "Responsibilities",
-    icon: ListChecks,
-  },
-  { key: "kids", href: "/kids", label: "Kids", icon: UsersRound },
-  {
-    key: "calendars",
-    href: "/dashboard",
-    label: "Calendars",
-    icon: LayoutDashboard,
-  },
+export type WorkspaceSection = "home" | "calendar" | "expenses" | "responsibilities" | "kids" | "organiser";
+export const organiserItems = [
+  { href: "/responsibilities", label: "Responsibilities", description: "Shared tasks, due dates and repeating responsibilities.", icon: ListChecks },
+  { href: "/expenses", label: "Expenses", description: "Shared costs, reimbursements and settlements.", icon: WalletCards },
+  { href: "/kids", label: "Children", description: "Profiles, activities and useful information.", icon: UsersRound },
 ];
-
-export function WorkspaceNav({
-  active,
-  actions,
-}: {
-  active?: WorkspaceSection;
-  actions?: ReactNode;
-}) {
+const items = [
+  { key: "calendar", href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { key: "home", href: "/home", label: "Updates", icon: Bell },
+  { key: "organiser", href: "/organiser", label: "Organiser", icon: LayoutGrid },
+];
+export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; actions?: ReactNode }) {
   const router = useRouter();
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {items.map((item) => {
-        const Icon = item.icon;
-        const selected = item.key === active;
-        return (
-          <Link
-            key={item.key}
-            href={item.href}
-            aria-current={selected ? "page" : undefined}
-            className={
-              selected
-                ? "inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-slate-100 px-3 text-sm font-semibold text-slate-900"
-                : "inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            }
-          >
-            <Icon className="h-4 w-4" aria-hidden="true" />
-            {item.label}
+  const [signOutError, setSignOutError] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const section = active && ["expenses", "responsibilities", "kids"].includes(active) ? "organiser" : active;
+  async function signOut() {
+    setSigningOut(true);
+    setSignOutError(false);
+    try {
+      const result = await authClient.signOut();
+      if (result?.error) throw new Error("Sign out failed");
+      router.push("/");
+    } catch { setSignOutError(true); setSigningOut(false); }
+  }
+  return <>
+    <nav className="workspace-nav" aria-label="Main navigation">
+      <Link href="/calendar" className="workspace-brand"><CovieBrand /></Link>
+      <div className="workspace-destinations">
+        {items.map(({ key, href, label, icon: Icon }) => (
+          <Link key={key} href={href} aria-current={section === key ? "page" : undefined}>
+            <Icon size={20} aria-hidden="true" /><span>{label}</span>
           </Link>
-        );
-      })}
+        ))}
+      </div>
+      <div className="desktop-coming-up"><ComingUp /></div>
+    </nav>
+    <div className="workspace-actions flex flex-wrap items-center gap-2">
       {actions}
-      <button
-        type="button"
-        onClick={() =>
-          void authClient.signOut().then(() => router.push("/"))
-        }
-        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-      >
-        <LogOut className="h-4 w-4" aria-hidden="true" />
-        Log out
-      </button>
+      <div className="mobile-coming-up"><ComingUp /></div>
+      <details className="workspace-account relative">
+        <summary className="covie-menu-trigger">Account <ChevronDown size={16} aria-hidden="true" /></summary>
+        <div className="covie-menu">
+          <Link href="/dashboard" className="covie-menu-item">Switch or add calendar</Link>
+          <button type="button" onClick={() => void signOut()} disabled={signingOut} className="covie-menu-item">
+            <LogOut size={16} aria-hidden="true" />{signingOut ? "Signing out…" : "Log out"}
+          </button>
+          {signOutError && <p role="alert" className="px-3 text-sm text-rose-700">Could not log out. Please try again.</p>}
+        </div>
+      </details>
     </div>
-  );
+  </>;
 }
