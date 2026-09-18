@@ -4,6 +4,11 @@ import { and, asc, eq, gte, isNotNull, lte, or } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  ApprovalEngineError,
+  createApprovalProposal,
+} from "@/lib/approvals/engine";
+import { getSharedApprovalTarget } from "@/lib/approvals/shared";
 import { getDb, getSql } from "@/lib/db";
 import { events } from "@/lib/db/schema";
 import { buildCalendarSyncJobStatement, expandGoogleSyncRange } from "@/lib/google-calendar/outbox";
@@ -13,6 +18,14 @@ import { getCalendarSession, getEditorSession } from "@/lib/security/session";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => !Number.isNaN(parseISO(value).getTime()), "Choose a valid date.");
 const category = z.enum(["school", "sport", "medical", "birthday", "holiday", "activity", "other"]);
+const proposalReason = z
+  .string()
+  .trim()
+  .max(500, "Keep the reason under 500 characters.")
+  .nullable()
+  .optional()
+  .transform((value) => (value ? value : null));
+
 const eventFields = z.object({
   title: z.string().trim().min(1, "Add an event title.").max(80, "Keep the title under 80 characters."),
   description: z.string().trim().max(500, "Keep the event note under 500 characters.").nullable().transform((value) => (value ? value : null)),
@@ -29,11 +42,43 @@ const eventFields = z.object({
     context.addIssue({ code: "custom", message: "Events can span up to 32 days." });
   }
 });
-const editSchema = eventFields.extend({ id: z.string().uuid() });
-const deleteSchema = z.object({ id: z.string().uuid() });
+const createSchema = eventFields.safeExtend({ reason: proposalReason });
+const editSchema = eventFields.safeExtend({ id: z.string().uuid(), reason: proposalReason });
+const deleteSchema = z.object({ id: z.string().uuid(), reason: proposalReason });
 
 function localDate(timeZone: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+function approvalError(error: unknown, fallback: string) {
+  if (error instanceof ApprovalEngineError) {
+    return NextResponse.json({ error: error.message }, { status: error.statusCode });
+  }
+  return NextResponse.json({ error: fallback }, { status: 409 });
+}
+
+async function approvalTargetFor(session: {
+  calendarId: string;
+  membershipId: string;
+  participantId: string;
+}) {
+  return getSharedApprovalTarget({
+    calendarId: session.calendarId,
+    actorMembershipId: session.membershipId,
+    actorParticipantId: session.participantId,
+  });
+}
+
+function approvalActor(session: {
+  membershipId: string;
+  participantId: string;
+  permission: "owner" | "editor";
+}) {
+  return {
+    membershipId: session.membershipId,
+    participantId: session.participantId,
+    permission: session.permission,
+  } as const;
 }
 
 export async function GET(request: NextRequest) {
@@ -69,11 +114,47 @@ export async function POST(request: NextRequest) {
   if (!isSameOriginMutation(request)) return NextResponse.json({ error: "This request was blocked for safety." }, { status: 403 });
   const session = await getEditorSession();
   if (!session) return NextResponse.json({ error: "Editor access is required." }, { status: 401 });
-  const parsed = eventFields.safeParse(await request.json().catch(() => null));
+  const parsed = createSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Choose valid event details." }, { status: 400 });
 
   const id = randomUUID();
-  const data = parsed.data;
+  const { reason, ...data } = parsed.data;
+
+  try {
+    const target = await approvalTargetFor({
+      calendarId: session.calendarId,
+      membershipId: session.membershipId,
+      participantId: session.participantId,
+    });
+
+    if (target.required && target.approverMembershipId) {
+      const proposedState = { kind: "shared_event" as const, event: { id, ...data } };
+      const result = await createApprovalProposal({
+        calendarId: session.calendarId,
+        actor: approvalActor(session),
+        entityType: "shared_event",
+        entityId: id,
+        action: "create",
+        previousState: null,
+        proposedState,
+        reason,
+        approverMembershipId: target.approverMembershipId,
+      });
+
+      return NextResponse.json(
+        {
+          ok: true,
+          pending: true,
+          proposalId: result?.proposal.id ?? null,
+          approverName: result?.proposal.approverName ?? target.approverName,
+        },
+        { status: 202 },
+      );
+    }
+  } catch (error) {
+    return approvalError(error, "The event proposal could not be saved.");
+  }
+
   const afterState = JSON.stringify({ id, ...data });
   const sql = getSql();
   const syncRange = expandGoogleSyncRange(data.startDate, data.endDate ?? data.startDate);
@@ -95,7 +176,7 @@ export async function POST(request: NextRequest) {
       await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
     } catch {}
   });
-  return NextResponse.json({ ok: true, id });
+  return NextResponse.json({ ok: true, pending: false, id });
 }
 
 export async function PATCH(request: NextRequest) {
@@ -109,7 +190,42 @@ export async function PATCH(request: NextRequest) {
   const existing = await db.select({ id: events.id, title: events.title, description: events.description, category: events.category, startDate: events.startDate, endDate: events.endDate }).from(events).where(and(eq(events.id, parsed.data.id), eq(events.calendarId, session.calendarId))).limit(1);
   if (!existing[0]) return NextResponse.json({ error: "Event not found." }, { status: 404 });
 
-  const { id, ...data } = parsed.data;
+  const { id, reason, ...data } = parsed.data;
+
+  try {
+    const target = await approvalTargetFor({
+      calendarId: session.calendarId,
+      membershipId: session.membershipId,
+      participantId: session.participantId,
+    });
+
+    if (target.required && target.approverMembershipId) {
+      const result = await createApprovalProposal({
+        calendarId: session.calendarId,
+        actor: approvalActor(session),
+        entityType: "shared_event",
+        entityId: id,
+        action: "edit",
+        previousState: { kind: "shared_event", event: existing[0] },
+        proposedState: { kind: "shared_event", event: { id, ...data } },
+        reason,
+        approverMembershipId: target.approverMembershipId,
+      });
+
+      return NextResponse.json(
+        {
+          ok: true,
+          pending: true,
+          proposalId: result?.proposal.id ?? null,
+          approverName: result?.proposal.approverName ?? target.approverName,
+        },
+        { status: 202 },
+      );
+    }
+  } catch (error) {
+    return approvalError(error, "The event proposal could not be saved.");
+  }
+
   const beforeState = JSON.stringify(existing[0]);
   const afterState = JSON.stringify({ id, ...data });
   const sql = getSql();
@@ -137,7 +253,7 @@ export async function PATCH(request: NextRequest) {
       await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
     } catch {}
   });
-  return NextResponse.json({ ok: true, id });
+  return NextResponse.json({ ok: true, pending: false, id });
 }
 
 export async function DELETE(request: NextRequest) {
@@ -150,6 +266,40 @@ export async function DELETE(request: NextRequest) {
   const db = getDb();
   const existing = await db.select({ id: events.id, title: events.title, description: events.description, category: events.category, startDate: events.startDate, endDate: events.endDate }).from(events).where(and(eq(events.id, parsed.data.id), eq(events.calendarId, session.calendarId))).limit(1);
   if (!existing[0]) return NextResponse.json({ error: "Event not found." }, { status: 404 });
+
+  try {
+    const target = await approvalTargetFor({
+      calendarId: session.calendarId,
+      membershipId: session.membershipId,
+      participantId: session.participantId,
+    });
+
+    if (target.required && target.approverMembershipId) {
+      const result = await createApprovalProposal({
+        calendarId: session.calendarId,
+        actor: approvalActor(session),
+        entityType: "shared_event",
+        entityId: parsed.data.id,
+        action: "delete",
+        previousState: { kind: "shared_event", event: existing[0] },
+        proposedState: { kind: "shared_event", event: null },
+        reason: parsed.data.reason,
+        approverMembershipId: target.approverMembershipId,
+      });
+
+      return NextResponse.json(
+        {
+          ok: true,
+          pending: true,
+          proposalId: result?.proposal.id ?? null,
+          approverName: result?.proposal.approverName ?? target.approverName,
+        },
+        { status: 202 },
+      );
+    }
+  } catch (error) {
+    return approvalError(error, "The event proposal could not be saved.");
+  }
 
   const beforeState = JSON.stringify(existing[0]);
   const sql = getSql();
@@ -175,5 +325,5 @@ export async function DELETE(request: NextRequest) {
       await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
     } catch {}
   });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, pending: false });
 }

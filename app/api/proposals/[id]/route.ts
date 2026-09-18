@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
+import { acceptCalendarApprovalProposal } from "@/lib/approvals/calendar-apply";
 import {
   acceptApprovalProposal,
   ApprovalEngineError,
@@ -10,6 +11,7 @@ import {
   withdrawApprovalProposal,
 } from "@/lib/approvals/engine";
 import type { ApprovalActor } from "@/lib/approvals/types";
+import { processDueGoogleSyncJobs } from "@/lib/google-calendar/queue";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession } from "@/lib/security/session";
 
@@ -121,6 +123,26 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (parsed.data.operation === "accept") {
+      const applied = await acceptCalendarApprovalProposal({
+        calendarId: session.calendarId,
+        actor,
+        proposalId: parsedId.data,
+      });
+
+      if (applied) {
+        if (applied.googleSyncQueued) {
+          after(async () => {
+            try {
+              await processDueGoogleSyncJobs({
+                calendarId: session.calendarId,
+                limit: 8,
+              });
+            } catch {}
+          });
+        }
+        return NextResponse.json(applied.details);
+      }
+
       return NextResponse.json(
         await acceptApprovalProposal({
           calendarId: session.calendarId,
