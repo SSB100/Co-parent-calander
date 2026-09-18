@@ -101,6 +101,8 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
   const [endDate, setEndDate] = useState("");
   const [pattern, setPattern] = useState<ScheduleSlot[]>(emptyPattern);
   const [reason, setReason] = useState("");
+  const [pendingDeleteScheduleId, setPendingDeleteScheduleId] = useState<string | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -293,7 +295,7 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
           anchorDate,
           endDate: endDate || null,
           pattern,
-          reason: reason.trim() || null,
+          reason: deleteReason.trim() || null,
         }),
       });
       const body = (await response.json().catch(() => null)) as
@@ -319,10 +321,15 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
     }
   }
 
+  function startDeleteSchedule(schedule: SavedSchedule) {
+    if (saving) return;
+    setPendingDeleteScheduleId(schedule.scheduleId);
+    setDeleteReason("");
+    setMessage(null);
+  }
+
   async function deleteSchedule(schedule: SavedSchedule) {
     if (saving) return;
-    const confirmed = window.confirm(`Delete the schedule starting ${format(parseISO(schedule.anchorDate), "d MMM yyyy")}? Manual day changes will not be deleted.`);
-    if (!confirmed) return;
     setSaving(true);
     setMessage(null);
     try {
@@ -344,6 +351,8 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
         setEditingScheduleId(null);
         setReason("");
       }
+      setPendingDeleteScheduleId(null);
+      setDeleteReason("");
       setMessage(
         body?.pending
           ? body.approverName
@@ -404,9 +413,49 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
                           </div>
                           <div className="flex gap-2">
                             <button type="button" disabled={saving} onClick={() => editSchedule(schedule)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"><Pencil className="h-4 w-4" aria-hidden="true" />Edit</button>
-                            <button type="button" disabled={saving} onClick={() => void deleteSchedule(schedule)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"><Trash2 className="h-4 w-4" aria-hidden="true" />Delete</button>
+                            <button type="button" disabled={saving} onClick={() => startDeleteSchedule(schedule)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"><Trash2 className="h-4 w-4" aria-hidden="true" />Delete</button>
                           </div>
                         </div>
+                        {pendingDeleteScheduleId === schedule.scheduleId ? (
+                          <div className="mt-4 rounded-xl border border-rose-100 bg-rose-50/60 p-3">
+                            <p className="text-sm font-semibold text-slate-900">Cancel this repeating schedule?</p>
+                            <p className="mt-1 text-xs text-slate-600">The agreed schedule stays active until the cancellation is approved. Manual day changes are not removed.</p>
+                            <label className="mt-3 block">
+                              <span className="text-xs font-semibold text-slate-700">Reason <span className="font-normal text-slate-400">(optional)</span></span>
+                              <input
+                                type="text"
+                                maxLength={500}
+                                value={deleteReason}
+                                disabled={saving}
+                                onChange={(event) => setDeleteReason(event.target.value)}
+                                placeholder="e.g. Replacing it with the new term schedule"
+                                className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
+                              />
+                            </label>
+                            <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                              <button
+                                type="button"
+                                disabled={saving}
+                                onClick={() => {
+                                  setPendingDeleteScheduleId(null);
+                                  setDeleteReason("");
+                                }}
+                                className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                              >
+                                Keep schedule
+                              </button>
+                              <button
+                                type="button"
+                                disabled={saving}
+                                onClick={() => void deleteSchedule(schedule)}
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+                              >
+                                {saving ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Trash2 className="h-4 w-4" aria-hidden="true" />}
+                                Submit cancellation
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}
