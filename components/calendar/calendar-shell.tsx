@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Clock3,
   Hourglass,
+  House,
   LoaderCircle,
   LayoutDashboard,
   ListChecks,
@@ -454,7 +455,7 @@ export function CalendarShell() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><LayoutDashboard className="h-4 w-4" aria-hidden="true" />Calendars</Link>\n            <Link href="/expenses" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><WalletCards className="h-4 w-4" aria-hidden="true" />Expenses</Link>\n            <Link href="/responsibilities" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><ListChecks className="h-4 w-4" aria-hidden="true" />Responsibilities</Link>
+            <Link href="/home" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><House className="h-4 w-4" aria-hidden="true" />Home</Link>\n            <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><LayoutDashboard className="h-4 w-4" aria-hidden="true" />Calendars</Link>\n            <Link href="/expenses" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><WalletCards className="h-4 w-4" aria-hidden="true" />Expenses</Link>\n            <Link href="/responsibilities" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><ListChecks className="h-4 w-4" aria-hidden="true" />Responsibilities</Link>
             {accessMode === "editor" ? (
               <>
                 <EventPanel onChanged={() => setRefreshKey((value) => value + 1)} />
