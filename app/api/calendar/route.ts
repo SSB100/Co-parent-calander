@@ -6,6 +6,7 @@ import { projectCalendarPendingProposals } from "@/lib/approvals/calendar-pendin
 import { listApprovalProposals } from "@/lib/approvals/engine";
 import { getDb } from "@/lib/db";
 import { expandEventOccurrences } from "@/lib/events/recurrence";
+import { responsibilityProposalStateSchema } from "@/lib/responsibilities/model";
 import {
   calendars,
   children,
@@ -14,6 +15,7 @@ import {
   participants,
   recurringRuleChildren,
   recurringRules,
+  responsibilities,
 } from "@/lib/db/schema";
 import { resolveRecurringAssignments } from "@/lib/recurrence/fortnight";
 import { getCalendarSession } from "@/lib/security/session";
@@ -71,7 +73,7 @@ export async function GET(request: Request) {
   const now = localDateTimeParts(calendar.timezone);
   const inferredSplitHandoverTime = sql<string>`coalesce(${parentingAssignments.handoverTime}, '12:00:00'::time)`;
 
-  const [parentRows, childRows, manualAssignmentRows, recurringRuleRows, recurringRuleChildRows, eventRows, nextHandoverRows, nextEventRows] = await db.batch([
+  const [parentRows, childRows, manualAssignmentRows, recurringRuleRows, recurringRuleChildRows, eventRows, responsibilityRows, nextHandoverRows, nextEventRows] = await db.batch([
     db.select({ id: participants.id, displayName: participants.displayName, colorKey: participants.colorKey })
       .from(participants)
       .where(and(eq(participants.calendarId, session.calendarId), eq(participants.active, true)))
@@ -134,6 +136,17 @@ export async function GET(request: Request) {
         ),
       ))
       .orderBy(asc(events.startDate)),
+    db.select({
+      date: responsibilities.dueDate,
+      completedAt: responsibilities.completedAt,
+    })
+      .from(responsibilities)
+      .where(and(
+        eq(responsibilities.calendarId, session.calendarId),
+        gte(responsibilities.dueDate, from),
+        lte(responsibilities.dueDate, to),
+      ))
+      .orderBy(asc(responsibilities.dueDate)),
     db.select({
       date: parentingAssignments.assignmentDate,
       morningParentId: parentingAssignments.parentId,
@@ -233,6 +246,47 @@ export async function GET(request: Request) {
     to,
   });
 
+  const responsibilityMarkerMap = new Map<
+    string,
+    { date: string; count: number; incompleteCount: number; pendingCount: number }
+  >();
+  for (const item of responsibilityRows) {
+    const marker = responsibilityMarkerMap.get(item.date) ?? {
+      date: item.date,
+      count: 0,
+      incompleteCount: 0,
+      pendingCount: 0,
+    };
+    marker.count += 1;
+    if (!item.completedAt) marker.incompleteCount += 1;
+    responsibilityMarkerMap.set(item.date, marker);
+  }
+
+  for (const proposal of waitingProposals.filter(
+    (item) => item.entityType === "responsibility",
+  )) {
+    const dates = new Set<string>();
+    for (const state of [proposal.previousState, proposal.proposedState]) {
+      const parsedState = responsibilityProposalStateSchema.safeParse(state);
+      const dueDate = parsedState.success
+        ? parsedState.data.responsibility?.dueDate
+        : null;
+      if (dueDate && dueDate >= from && dueDate <= to) dates.add(dueDate);
+    }
+    for (const date of dates) {
+      const marker = responsibilityMarkerMap.get(date) ?? {
+        date,
+        count: 0,
+        incompleteCount: 0,
+        pendingCount: 0,
+      };
+      marker.pendingCount += 1;
+      responsibilityMarkerMap.set(date, marker);
+    }
+  }
+
+  const responsibilityMarkers = [...responsibilityMarkerMap.values()];
+
   return NextResponse.json({
     calendar,
     currentParticipantId: session.participantId,
@@ -244,6 +298,7 @@ export async function GET(request: Request) {
     assignments,
     events: visibleEvents,
     pendingProposals,
+    responsibilityMarkers,
     recurringScheduleActive: recurringRuleRows.length > 0,
     nextHandover: nextHandoverRows[0] ?? null,
     nextEvent,
