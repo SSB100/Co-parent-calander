@@ -10,7 +10,7 @@ async function source(file) {
 }
 
 test("approval persistence keeps agreed and proposed state separate", async () => {
-  const schema = await source("lib/db/schema.ts");
+  const schema = await source("lib/db/schema/approvals.ts");
   const migration = await source("drizzle/0005_approval_engine.sql");
 
   for (const field of [
