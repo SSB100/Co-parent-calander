@@ -27,7 +27,7 @@ test("expense persistence uses cents, explicit shares and settlement state", asy
 test("shared expense create edit and delete use the reusable approval engine", async () => {
   const route = await source("app/api/expenses/route.ts");
 
-  assert.match(route, /getSharedApprovalTarget/);
+  assert.match(route, /sharedApprovalTargetForSession/);
   assert.match(route, /createApprovalProposal/);
   assert.match(route, /entityType: "expense"/);
   assert.match(route, /action: "create"/);

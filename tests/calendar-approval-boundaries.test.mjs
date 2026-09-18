@@ -20,7 +20,7 @@ test("existing shared calendar mutations enter the reusable approval engine", as
   );
 
   for (const text of files) {
-    assert.match(text, /getSharedApprovalTarget/);
+    assert.match(text, /sharedApprovalTargetForSession/);
     assert.match(text, /createApprovalProposal/);
     assert.match(text, /pending: true/);
     assert.match(text, /status: 202/);

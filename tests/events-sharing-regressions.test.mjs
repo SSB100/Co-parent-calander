@@ -18,16 +18,16 @@ test("event CRUD keeps validation, approval gating, calendar scoping, transactio
   assert.match(text, /Add an event title\./);
   assert.match(text, /Keep the title under 80 characters\./);
   assert.match(text, /Keep the event note under 500 characters\./);
-  assert.match(text, /Keep the reason under 500 characters\./);
+  assert.match(text, /proposalReasonSchema/);
   assert.match(text, /The event end date cannot be before the start date\./);
   assert.match(text, /Events can span up to 32 days\./);
-  assert.match(text, /const createSchema = eventFields\.safeExtend\(\{ reason: proposalReason \}\)/);
-  assert.match(text, /const editSchema = eventFields\.safeExtend\(\{ id: z\.string\(\)\.uuid\(\), reason: proposalReason \}\)/);
-  assert.match(text, /const deleteSchema = z\.object\(\{ id: z\.string\(\)\.uuid\(\), reason: proposalReason \}\)/);
+  assert.match(text, /const createSchema = eventFields\.safeExtend\(\{ reason: proposalReasonSchema \}\)/);
+  assert.match(text, /const editSchema = eventFields\.safeExtend\(\{ id: z\.string\(\)\.uuid\(\), reason: proposalReasonSchema \}\)/);
+  assert.match(text, /const deleteSchema = z\.object\(\{ id: z\.string\(\)\.uuid\(\), reason: proposalReasonSchema \}\)/);
 
   assert.match(text, /getCalendarSession\(\)/);
   assert.match(text, /getEditorSession\(\)/);
-  assert.match(text, /getSharedApprovalTarget/);
+  assert.match(text, /sharedApprovalTargetForSession/);
   assert.match(text, /createApprovalProposal/);
   assert.match(text, /entityType: "shared_event"/);
   assert.match(text, /pending: true/);

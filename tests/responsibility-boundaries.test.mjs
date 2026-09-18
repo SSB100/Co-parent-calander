@@ -29,7 +29,7 @@ test("responsibility persistence supports ownership due dates links recurrence a
 test("other-parent responsibility changes enter the reusable approval engine", async () => {
   const route = await source("app/api/responsibilities/route.ts");
 
-  assert.match(route, /getSharedApprovalTarget/);
+  assert.match(route, /sharedApprovalTargetForSession/);
   assert.match(route, /needsResponsibilityApproval/);
   assert.match(route, /createApprovalProposal/);
   assert.match(route, /entityType: "responsibility"/);
