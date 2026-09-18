@@ -92,16 +92,18 @@ test("recurring responsibilities create only the next occurrence on completion",
 });
 
 test("calendar and day details integrate responsibilities without replacing parenting colours", async () => {
-  const [calendarRoute, shell, day, dayResponsibilities] = await Promise.all([
+  const [calendarRoute, shell, day, dayResponsibilities, nav] = await Promise.all([
     source("app/api/calendar/route.ts"),
     source("components/calendar/calendar-shell.tsx"),
     source("components/calendar/day-details-panel.tsx"),
     source("components/responsibilities/day-responsibilities.tsx"),
+    source("components/workspace/workspace-nav.tsx"),
   ]);
 
   assert.match(calendarRoute, /responsibilityMarkers/);
   assert.match(shell, /responsibilityByDate/);
-  assert.match(shell, /Responsibilities/);
+  assert.match(shell, /WorkspaceNav/);
+  assert.match(nav, /href: "\/responsibilities"/);
   assert.match(shell, /One more detail/);
   assert.match(day, /DayResponsibilities/);
   assert.match(dayResponsibilities, /Responsibilities/);

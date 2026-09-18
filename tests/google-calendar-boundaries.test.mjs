@@ -33,7 +33,7 @@ test("viewer UI exposes only read-only family settings plus the viewer's own Goo
     readFile(path.join(root, "components/calendar/settings-panel.tsx"), "utf8"),
   ]);
 
-  assert.match(shell, /SettingsPanel readOnly=\{accessMode === "viewer"\}/);
+  assert.match(shell, /SettingsPanel[\s\S]{0,180}readOnly=\{accessMode === "viewer"\}/);
   assert.match(settings, /GoogleCalendarSettings/);
   assert.match(settings, /disabled=\{saving \|\| readOnly\}/);
   assert.match(settings, /!readOnly \? \(/);
