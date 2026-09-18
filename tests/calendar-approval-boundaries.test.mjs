@@ -55,8 +55,11 @@ test("month data keeps agreed records authoritative and exposes pending changes 
 });
 
 test("calendar acceptance applies the target and proposal transition transactionally", async () => {
-  const apply = await source("lib/approvals/calendar-apply.ts");
-  const proposalRoute = await source("app/api/proposals/[id]/route.ts");
+  const [apply, dispatch, proposalRoute] = await Promise.all([
+    source("lib/approvals/calendar-apply.ts"),
+    source("lib/approvals/dispatch.ts"),
+    source("app/api/proposals/[id]/route.ts"),
+  ]);
 
   assert.match(apply, /SET status = 'approved'/);
   assert.match(apply, /status = 'waiting'/);
@@ -64,7 +67,8 @@ test("calendar acceptance applies the target and proposal transition transaction
   assert.match(apply, /await sql\.transaction\(statements\)/);
   assert.match(apply, /proposal\.approved/);
   assert.match(apply, /'applied', true/);
-  assert.match(proposalRoute, /acceptCalendarApprovalProposal/);
+  assert.match(dispatch, /acceptCalendarApprovalProposal/);
+  assert.match(proposalRoute, /acceptAndApplyApprovalProposal/);
 });
 
 test("pending proposals have no direct Google Calendar representation", async () => {

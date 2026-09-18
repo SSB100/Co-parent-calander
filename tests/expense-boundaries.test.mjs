@@ -41,8 +41,9 @@ test("shared expense create edit and delete use the reusable approval engine", a
 });
 
 test("expense approval applies target mutation and proposal transition together", async () => {
-  const [apply, proposalRoute] = await Promise.all([
+  const [apply, dispatch, proposalRoute] = await Promise.all([
     source("lib/approvals/expense-apply.ts"),
+    source("lib/approvals/dispatch.ts"),
     source("app/api/proposals/[id]/route.ts"),
   ]);
 
@@ -50,7 +51,8 @@ test("expense approval applies target mutation and proposal transition together"
   assert.match(apply, /approval_marker\.status = 'approved'/);
   assert.match(apply, /await sql\.transaction\(statements\)/);
   assert.match(apply, /proposal\.approved/);
-  assert.match(proposalRoute, /acceptExpenseApprovalProposal/);
+  assert.match(dispatch, /acceptExpenseApprovalProposal/);
+  assert.match(proposalRoute, /acceptAndApplyApprovalProposal/);
 });
 
 test("settlement is an audited operational status rather than a second approval proposal", async () => {

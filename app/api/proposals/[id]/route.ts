@@ -1,19 +1,15 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { acceptCalendarApprovalProposal } from "@/lib/approvals/calendar-apply";
-import { acceptExpenseApprovalProposal } from "@/lib/approvals/expense-apply";
-import { acceptResponsibilityApprovalProposal } from "@/lib/approvals/responsibility-apply";
 import {
-  acceptApprovalProposal,
   ApprovalEngineError,
   declineApprovalProposal,
   getApprovalProposalDetails,
   submitApprovalProposal,
   withdrawApprovalProposal,
 } from "@/lib/approvals/engine";
-import type { ApprovalActor } from "@/lib/approvals/types";
-import { kickGoogleCalendarSync } from "@/lib/google-calendar/dispatch";
+import { acceptAndApplyApprovalProposal } from "@/lib/approvals/dispatch";
+import { approvalActorFromSession } from "@/lib/approvals/http";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession } from "@/lib/security/session";
 
@@ -40,18 +36,6 @@ const operationInput = z.discriminatedUnion("operation", [
   }),
   z.object({ operation: z.literal("withdraw") }),
 ]);
-
-function actorFromSession(session: {
-  membershipId: string;
-  participantId: string | null;
-  permission: "owner" | "editor" | "viewer";
-}): ApprovalActor {
-  return {
-    membershipId: session.membershipId,
-    participantId: session.participantId,
-    permission: session.permission,
-  };
-}
 
 function approvalError(error: unknown) {
   if (error instanceof ApprovalEngineError) {
@@ -110,7 +94,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const actor = actorFromSession(session);
+  const actor = approvalActorFromSession(session);
 
   try {
     if (parsed.data.operation === "submit") {
@@ -125,35 +109,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (parsed.data.operation === "accept") {
-      const responsibilityApplied = await acceptResponsibilityApprovalProposal({
-        calendarId: session.calendarId,
-        actor,
-        proposalId: parsedId.data,
-      });
-      const expenseApplied =
-        responsibilityApplied ??
-        (await acceptExpenseApprovalProposal({
-          calendarId: session.calendarId,
-          actor,
-          proposalId: parsedId.data,
-        }));
-      const applied =
-        expenseApplied ??
-        (await acceptCalendarApprovalProposal({
-          calendarId: session.calendarId,
-          actor,
-          proposalId: parsedId.data,
-        }));
-
-      if (applied) {
-        if (applied.googleSyncQueued) {
-          kickGoogleCalendarSync(session.calendarId);
-        }
-        return NextResponse.json(applied.details);
-      }
-
       return NextResponse.json(
-        await acceptApprovalProposal({
+        await acceptAndApplyApprovalProposal({
           calendarId: session.calendarId,
           actor,
           proposalId: parsedId.data,

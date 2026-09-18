@@ -44,8 +44,9 @@ test("other-parent responsibility changes enter the reusable approval engine", a
 });
 
 test("responsibility approval applies agreed state transactionally", async () => {
-  const [apply, proposalRoute] = await Promise.all([
+  const [apply, dispatch, proposalRoute] = await Promise.all([
     source("lib/approvals/responsibility-apply.ts"),
+    source("lib/approvals/dispatch.ts"),
     source("app/api/proposals/[id]/route.ts"),
   ]);
 
@@ -54,7 +55,8 @@ test("responsibility approval applies agreed state transactionally", async () =>
   assert.match(apply, /await sql\.transaction\(statements\)/);
   assert.match(apply, /proposal\.approved/);
   assert.match(apply, /completed before the proposal could be approved/);
-  assert.match(proposalRoute, /acceptResponsibilityApprovalProposal/);
+  assert.match(dispatch, /acceptResponsibilityApprovalProposal/);
+  assert.match(proposalRoute, /acceptAndApplyApprovalProposal/);
 });
 
 test("completion is a personal action owned by the responsible parent", async () => {

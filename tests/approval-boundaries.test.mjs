@@ -71,3 +71,25 @@ test("shared approval UI uses calm friendly wording", async () => {
   assert.match(card, /Reason/);
   assert.doesNotMatch(card, /disputed|non-compliant|evidence/i);
 });
+
+
+test("approval acceptance dispatches feature applicators before generic fallback", async () => {
+  const [dispatch, route] = await Promise.all([
+    source("lib/approvals/dispatch.ts"),
+    source("app/api/proposals/[id]/route.ts"),
+  ]);
+
+  const responsibilityIndex = dispatch.indexOf("acceptResponsibilityApprovalProposal");
+  const expenseIndex = dispatch.indexOf("acceptExpenseApprovalProposal");
+  const calendarIndex = dispatch.indexOf("acceptCalendarApprovalProposal");
+  const genericIndex = dispatch.lastIndexOf("acceptApprovalProposal");
+
+  assert.ok(responsibilityIndex >= 0);
+  assert.ok(expenseIndex > responsibilityIndex);
+  assert.ok(calendarIndex > expenseIndex);
+  assert.ok(genericIndex > calendarIndex);
+  assert.match(dispatch, /googleSyncQueued/);
+  assert.match(dispatch, /kickGoogleCalendarSync/);
+  assert.match(route, /acceptAndApplyApprovalProposal/);
+  assert.doesNotMatch(route, /acceptResponsibilityApprovalProposal|acceptExpenseApprovalProposal|acceptCalendarApprovalProposal/);
+});
