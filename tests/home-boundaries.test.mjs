@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
@@ -81,12 +81,14 @@ test("existing core feature screens all expose Home navigation", async () => {
   }
 });
 
-test("Phase 5 is a derived overview and introduces no new database migration", async () => {
-  const drizzleFiles = await readdir(path.join(root, "drizzle"));
-  assert.equal(
-    drizzleFiles.some((file) => /^0009_/.test(file)),
-    false,
-  );
+test("Home remains a derived overview with no Home-specific database model", async () => {
+  const [api, schema] = await Promise.all([
+    source("app/api/home/route.ts"),
+    source("lib/db/schema.ts"),
+  ]);
+
+  assert.doesNotMatch(api, /INSERT INTO .*home|UPDATE .*home|DELETE FROM .*home/i);
+  assert.doesNotMatch(schema, /export const home[A-Z]|pgTable\("home/);
 });
 
 test("Home does not create a new Google Calendar sync surface", async () => {
