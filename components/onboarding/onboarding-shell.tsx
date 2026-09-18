@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowLeft, CalendarPlus2, KeyRound, UsersRound } from "lucide-react";
+import { ArrowLeft, CalendarPlus2, KeyRound, LogOut, UsersRound } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 import {
   createCalendar,
@@ -9,6 +10,7 @@ import {
   type CalendarActionState,
 } from "@/app/calendar/actions";
 import { CovieBrand } from "@/components/workspace/covie-brand";
+import { authClient } from "@/lib/auth/client";
 
 const initialState: CalendarActionState = { error: null };
 const inputClass =
@@ -25,23 +27,58 @@ export function OnboardingShell({
   initialInviteCode: string;
   hasExistingCalendar: boolean;
 }) {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>(initialInviteCode ? "join" : "choose");
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState(false);
   const [createState, createAction, creating] = useActionState(createCalendar, initialState);
   const [joinState, joinAction, joining] = useActionState(joinCalendar, initialState);
+
+  async function signOut() {
+    setSigningOut(true);
+    setSignOutError(false);
+    try {
+      const result = await authClient.signOut();
+      if (result?.error) throw new Error("Sign out failed");
+      router.push("/");
+    } catch {
+      setSignOutError(true);
+      setSigningOut(false);
+    }
+  }
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
       <header className="flex items-center justify-between gap-4">
         <CovieBrand />
-        {hasExistingCalendar ? (
+{hasExistingCalendar ? (
           <Link
             href="/calendar"
             className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-white hover:text-slate-950"
           >
             Back to calendar
           </Link>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            disabled={signingOut}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-600 hover:bg-white hover:text-slate-950 disabled:opacity-60"
+          >
+            <LogOut className="h-4 w-4" aria-hidden="true" />
+            {signingOut ? "Logging out…" : "Log out"}
+          </button>
+        )}
       </header>
+
+      {signOutError ? (
+        <p
+          role="alert"
+          className="mx-auto mt-6 max-w-2xl rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+        >
+          Could not log out. Please try again.
+        </p>
+      ) : null}
 
       <section className="mx-auto mt-10 max-w-2xl sm:mt-16">
         {mode === "choose" ? (
