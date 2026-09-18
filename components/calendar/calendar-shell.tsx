@@ -230,7 +230,13 @@ export function CalendarShell() {
     const markers: Record<string, { handover: boolean; note: boolean }> = {};
     for (const assignment of calendarData?.assignments ?? []) {
       const marker = markers[assignment.date] ?? { handover: false, note: false };
-      marker.handover ||= Boolean(assignment.handoverTime || assignment.handoverLocation);
+      marker.handover ||= Boolean(
+        assignment.handoverTime ||
+          assignment.handoverLocation ||
+          (assignment.morningParentId &&
+            assignment.afternoonParentId &&
+            assignment.morningParentId !== assignment.afternoonParentId),
+      );
       marker.note ||= Boolean(assignment.note);
       markers[assignment.date] = marker;
     }
@@ -362,6 +368,7 @@ export function CalendarShell() {
   const nextHandoverIsTransfer = Boolean(
     nextHandover?.morningParentId && nextHandover.afternoonParentId && nextHandover.morningParentId !== nextHandover.afternoonParentId,
   );
+  const nextHandoverWhen = nextHandover?.handoverTime?.slice(0, 5) ?? (nextHandoverIsTransfer ? "Split day" : "Handover");
 
   const bulkChoices: Array<{ value: OwnershipChoice; label: string; className: string }> = [
     { value: "me_full", label: "Full day you", className: "bg-emerald-100 text-emerald-900 hover:bg-emerald-200" },
@@ -432,14 +439,18 @@ export function CalendarShell() {
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Next handover</p>
           {nextHandover ? (
             <>
-              <p className="mt-3 font-semibold text-slate-900">{format(parseISO(nextHandover.date), "EEE d MMM")} • {nextHandover.handoverTime?.slice(0, 5)}</p>
+              <p className="mt-3 font-semibold text-slate-900">{format(parseISO(nextHandover.date), "EEE d MMM")} • {nextHandoverWhen}</p>
               <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-slate-500">
-                <span>{nextHandoverIsTransfer ? "To" : "With"} {ownerLabel(nextHandoverOwner)}</span>
+                <span>
+                  {nextHandoverIsTransfer
+                    ? `${ownerLabel(nextHandover.morningParentId)} → ${ownerLabel(nextHandover.afternoonParentId)}`
+                    : `With ${ownerLabel(nextHandoverOwner)}`}
+                </span>
                 {nextHandover.handoverLocation ? <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" aria-hidden="true" />{nextHandover.handoverLocation}</span> : null}
               </p>
             </>
           ) : (
-            <><p className="mt-3 font-semibold text-slate-900">No handover scheduled</p><p className="mt-1 text-sm text-slate-500">Add a handover time to any assigned day.</p></>
+            <><p className="mt-3 font-semibold text-slate-900">No handover scheduled</p><p className="mt-1 text-sm text-slate-500">Add a handover time or create a split day.</p></>
           )}
         </div>
 

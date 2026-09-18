@@ -61,3 +61,14 @@ test("calendar UI keeps split colours but exposes direct custody states instead 
   assert.match(panel, /them_then_me/);
   assert.doesNotMatch(panel, /Which part of the day\?/);
 });
+
+test("split half-days count as handovers in the calendar summary and day markers", async () => {
+  const route = await source("app/api/calendar/route.ts");
+  const shell = await source("components/calendar/calendar-shell.tsx");
+
+  assert.match(route, /ne\(parentingAssignments\.parentId, parentingAssignments\.afternoonParentId\)/);
+  assert.match(route, /inferredSplitHandoverTime/);
+  assert.match(shell, /assignment\.morningParentId !== assignment\.afternoonParentId/);
+  assert.match(shell, /nextHandoverIsTransfer \? "Split day"/);
+  assert.match(shell, /ownerLabel\(nextHandover\.morningParentId\).*ownerLabel\(nextHandover\.afternoonParentId\)/s);
+});

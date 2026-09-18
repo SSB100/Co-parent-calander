@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
-import { and, asc, eq, gt, gte, isNotNull, isNull, lte, or } from "drizzle-orm";
+import { and, asc, eq, gt, gte, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
@@ -66,6 +66,7 @@ export async function GET(request: Request) {
   const calendar = calendarRows[0];
   if (!calendar) return NextResponse.json({ error: "Calendar not found." }, { status: 404 });
   const now = localDateTimeParts(calendar.timezone);
+  const inferredSplitHandoverTime = sql<string>`coalesce(${parentingAssignments.handoverTime}, '12:00:00'::time)`;
 
   const [parentRows, childRows, manualAssignmentRows, recurringRuleRows, recurringRuleChildRows, eventRows, nextHandoverRows, nextEventRows] = await db.batch([
     db.select({ id: participants.id, displayName: participants.displayName, colorKey: participants.colorKey })
@@ -125,13 +126,23 @@ export async function GET(request: Request) {
           isNotNull(parentingAssignments.parentId),
           isNotNull(parentingAssignments.afternoonParentId),
         ),
-        isNotNull(parentingAssignments.handoverTime),
+        or(
+          isNotNull(parentingAssignments.handoverTime),
+          and(
+            isNotNull(parentingAssignments.parentId),
+            isNotNull(parentingAssignments.afternoonParentId),
+            ne(parentingAssignments.parentId, parentingAssignments.afternoonParentId),
+          ),
+        ),
         or(
           gt(parentingAssignments.assignmentDate, now.date),
-          and(eq(parentingAssignments.assignmentDate, now.date), gte(parentingAssignments.handoverTime, now.time)),
+          and(
+            eq(parentingAssignments.assignmentDate, now.date),
+            gte(inferredSplitHandoverTime, now.time),
+          ),
         ),
       ))
-      .orderBy(asc(parentingAssignments.assignmentDate), asc(parentingAssignments.handoverTime))
+      .orderBy(asc(parentingAssignments.assignmentDate), asc(inferredSplitHandoverTime))
       .limit(1),
     db.select({ id: events.id, title: events.title, description: events.description, category: events.category, startDate: events.startDate, endDate: events.endDate })
       .from(events)
