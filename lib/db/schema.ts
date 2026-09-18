@@ -27,6 +27,13 @@ export const eventCategory = pgEnum("event_category", [
   "activity",
   "other",
 ]);
+export const eventRecurrence = pgEnum("event_recurrence", [
+  "none",
+  "weekly",
+  "fortnightly",
+  "monthly",
+  "yearly",
+]);
 export const calendarPermission = pgEnum("calendar_permission", [
   "owner",
   "editor",
@@ -365,13 +372,22 @@ export const events = pgTable(
     title: text("title").notNull(),
     description: text("description"),
     category: eventCategory("category").notNull().default("other"),
+    recurrence: eventRecurrence("recurrence").notNull().default("none"),
+    recurrenceEndDate: date("recurrence_end_date", { mode: "string" }),
     createdBy: uuid("created_by").references(() => participants.id, {
       onDelete: "set null",
     }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("events_calendar_date_idx").on(table.calendarId, table.startDate)],
+  (table) => [
+    index("events_calendar_date_idx").on(table.calendarId, table.startDate),
+    index("events_calendar_recurrence_idx").on(
+      table.calendarId,
+      table.recurrence,
+      table.recurrenceEndDate,
+    ),
+  ],
 );
 
 export const approvalProposals = pgTable(

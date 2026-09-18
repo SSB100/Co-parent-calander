@@ -71,6 +71,8 @@ export const sharedEventValueSchema = z.object({
   category: z.enum(["school", "sport", "medical", "birthday", "holiday", "activity", "other"]),
   startDate: proposalIsoDate,
   endDate: proposalIsoDate.nullable(),
+  recurrence: z.enum(["none", "weekly", "fortnightly", "monthly", "yearly"]).default("none"),
+  recurrenceEndDate: proposalIsoDate.nullable().default(null),
 });
 
 export const sharedEventProposalStateSchema = z.object({
