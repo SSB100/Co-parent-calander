@@ -20,6 +20,7 @@
     "@neondatabase/auth": "^0.5.0-beta",
     "@neondatabase/auth-ui": "^0.3.0-beta",
     "@neondatabase/serverless": "^1.0.2",
+    "@vercel/blob": "2.6.1",
     "date-fns": "^4.1.0",
     "drizzle-orm": "0.45.2",
     "lucide-react": "^0.468.0",
