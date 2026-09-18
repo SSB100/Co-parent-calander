@@ -44,7 +44,7 @@ export function InstallApp() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-blue-700"><Smartphone className="h-5 w-5" aria-hidden="true" /></span>
-          <div><h2 className="font-semibold text-slate-950">Add it to your phone</h2><p className="mt-1 text-sm leading-6 text-slate-600">Install the calendar like an app on iPhone, iPad or Android. It opens full-screen and stays one tap away.</p></div>
+          <div><h2 className="font-semibold text-slate-950">Add Covie to your phone</h2><p className="mt-1 text-sm leading-6 text-slate-600">Install Covie like an app on iPhone, iPad or Android. Your shared organiser stays one tap away.</p></div>
         </div>
         {prompt ? (
           <button type="button" onClick={() => void prompt.prompt()} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"><Download className="h-4 w-4" />Install app</button>
