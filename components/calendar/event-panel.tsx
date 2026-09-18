@@ -14,6 +14,8 @@ type EventCategory =
   | "activity"
   | "other";
 
+type EventRecurrence = "none" | "weekly" | "fortnightly" | "monthly" | "yearly";
+
 type CalendarEvent = {
   id: string;
   title: string;
@@ -21,6 +23,8 @@ type CalendarEvent = {
   category: EventCategory;
   startDate: string;
   endDate: string | null;
+  recurrence: EventRecurrence;
+  recurrenceEndDate: string | null;
 };
 
 type EventPanelProps = {
@@ -50,6 +54,14 @@ const categoryIcons: Record<EventCategory, string> = {
   other: "📌",
 };
 
+const recurrenceLabels: Record<EventRecurrence, string> = {
+  none: "Does not repeat",
+  weekly: "Weekly",
+  fortnightly: "Fortnightly",
+  monthly: "Monthly",
+  yearly: "Yearly",
+};
+
 const focusableSelector = [
   "button:not([disabled])",
   "a[href]",
@@ -66,6 +78,8 @@ function blankForm(initialDate?: string) {
     category: "activity" as EventCategory,
     startDate: initialDate ?? format(new Date(), "yyyy-MM-dd"),
     endDate: "",
+    recurrence: "none" as EventRecurrence,
+    recurrenceEndDate: "",
   };
 }
 
@@ -165,6 +179,8 @@ export function EventPanel({
       category: event.category,
       startDate: event.startDate,
       endDate: event.endDate ?? "",
+      recurrence: event.recurrence,
+      recurrenceEndDate: event.recurrenceEndDate ?? "",
     });
     setReason("");
     setMessage(null);
@@ -182,6 +198,9 @@ export function EventPanel({
         category: form.category,
         startDate: form.startDate,
         endDate: form.endDate || null,
+        recurrence: form.recurrence,
+        recurrenceEndDate:
+          form.recurrence === "none" ? null : form.recurrenceEndDate || null,
         reason: reason.trim() || null,
       };
       const response = await fetch("/api/events", {
@@ -333,10 +352,50 @@ export function EventPanel({
                   <input type="date" value={form.startDate} onChange={(event) => setForm((current) => ({ ...current, startDate: event.target.value }))} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-2 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200" />
                 </label>
                 <label>
-                  <span className="text-sm font-semibold text-slate-800">Ends</span>
-                  <input type="date" value={form.endDate} onChange={(event) => setForm((current) => ({ ...current, endDate: event.target.value }))} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-2 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200" />
+                  <span className="text-sm font-semibold text-slate-800">Event ends</span>
+                  <input type="date" value={form.endDate} min={form.startDate} onChange={(event) => setForm((current) => ({ ...current, endDate: event.target.value }))} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-2 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200" />
                 </label>
               </div>
+
+              <label>
+                <span className="text-sm font-semibold text-slate-800">Repeat</span>
+                <select
+                  value={form.recurrence}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      recurrence: event.target.value as EventRecurrence,
+                      recurrenceEndDate:
+                        event.target.value === "none" ? "" : current.recurrenceEndDate,
+                    }))
+                  }
+                  className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                >
+                  {(Object.keys(recurrenceLabels) as EventRecurrence[]).map((value) => (
+                    <option key={value} value={value}>{recurrenceLabels[value]}</option>
+                  ))}
+                </select>
+              </label>
+
+              {form.recurrence !== "none" ? (
+                <label>
+                  <span className="text-sm font-semibold text-slate-800">
+                    Repeat until <span className="font-normal text-slate-400">(optional)</span>
+                  </span>
+                  <input
+                    type="date"
+                    min={form.startDate}
+                    value={form.recurrenceEndDate}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        recurrenceEndDate: event.target.value,
+                      }))
+                    }
+                    className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-2 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  />
+                </label>
+              ) : null}
 
               <label className="sm:col-span-2">
                 <span className="text-sm font-semibold text-slate-800">Details</span>
@@ -409,6 +468,9 @@ export function EventPanel({
                       <p className="mt-1 text-xs text-slate-500">
                         {format(parseISO(event.startDate), "d MMM yyyy")}
                         {event.endDate && event.endDate !== event.startDate ? ` – ${format(parseISO(event.endDate), "d MMM yyyy")}` : ""}
+                        {event.recurrence !== "none"
+                          ? ` · ${recurrenceLabels[event.recurrence]}${event.recurrenceEndDate ? ` until ${format(parseISO(event.recurrenceEndDate), "d MMM yyyy")}` : ""}`
+                          : ""}
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-1">
