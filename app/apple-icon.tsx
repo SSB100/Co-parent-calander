@@ -6,7 +6,19 @@ export const contentType = "image/png";
 
 export default function AppleIcon() {
   return new ImageResponse(
-    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#416653", borderRadius: 36 }}><CovieMark size={112} color="#F7F6F2" /></div>,
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#FFF9F2",
+        borderRadius: 36,
+      }}
+    >
+      <CovieMark size={112} primary="#FF6B5F" secondary="#19A897" />
+    </div>,
     size,
   );
 }
