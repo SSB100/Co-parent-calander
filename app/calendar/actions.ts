@@ -16,7 +16,7 @@ import {
 import { SELECTED_CALENDAR_COOKIE_NAME } from "@/lib/security/session";
 import { hashToken } from "@/lib/security/tokens";
 
-export type DashboardActionState = { error: string | null };
+export type CalendarActionState = { error: string | null };
 
 const calendarSchema = z.object({
   calendarName: z.string().trim().min(1, "Add a calendar name.").max(80),
@@ -50,9 +50,9 @@ async function requireAccount() {
 }
 
 export async function createCalendar(
-  _previous: DashboardActionState,
+  _previous: CalendarActionState,
   formData: FormData,
-): Promise<DashboardActionState> {
+): Promise<CalendarActionState> {
   const user = await requireAccount();
   if (!user) return { error: "Log in again to continue." };
 
@@ -68,10 +68,10 @@ export async function createCalendar(
     return { error: parsed.error.issues[0]?.message ?? "Check the calendar details." };
   }
 
-  const onboardingFlow = formData.get("flow") === "onboarding";
+  const inviteHandoff = ["onboarding", "calendar-management"].includes(String(formData.get("flow") ?? ""));
   const calendarId = randomUUID();
   const participantId = randomUUID();
-  const inviteCode = onboardingFlow ? generateInviteCode() : null;
+  const inviteCode = inviteHandoff ? generateInviteCode() : null;
   const normalizedInviteCode = inviteCode ? normalizeInviteCode(inviteCode) : null;
   const inviteExpiresAt = inviteCode ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null;
   const sql = getSql();
@@ -150,13 +150,13 @@ export async function createCalendar(
     );
   }
 
-  redirect(onboardingFlow ? "/calendar?welcome=created" : "/calendar");
+  redirect(inviteHandoff ? "/calendar?welcome=created" : "/calendar");
 }
 
 export async function joinCalendar(
-  _previous: DashboardActionState,
+  _previous: CalendarActionState,
   formData: FormData,
-): Promise<DashboardActionState> {
+): Promise<CalendarActionState> {
   const user = await requireAccount();
   if (!user) return { error: "Log in again to continue." };
 
@@ -374,7 +374,7 @@ export async function openCalendar(formData: FormData) {
   if (!user) redirect("/auth/sign-in");
 
   const calendarId = z.string().uuid().safeParse(formData.get("calendarId"));
-  if (!calendarId.success) redirect("/dashboard");
+  if (!calendarId.success) redirect("/calendar");
 
   const sql = getSql();
   const rows = await sql`
@@ -382,17 +382,9 @@ export async function openCalendar(formData: FormData) {
     WHERE calendar_id = ${calendarId.data} AND user_id = ${user.id}
     LIMIT 1
   `;
-  if (rows.length === 0) redirect("/dashboard");
+  if (rows.length === 0) redirect("/calendar");
 
   const cookieStore = await cookies();
   cookieStore.set(SELECTED_CALENDAR_COOKIE_NAME, calendarId.data, calendarCookieOptions());
   redirect("/calendar");
-}
-
-export async function signOut() {
-  await auth.signOut();
-  const cookieStore = await cookies();
-  cookieStore.delete(SELECTED_CALENDAR_COOKIE_NAME);
-  cookieStore.delete(NEW_CALENDAR_INVITE_COOKIE_NAME);
-  redirect("/");
 }

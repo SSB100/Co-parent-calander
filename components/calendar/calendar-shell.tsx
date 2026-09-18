@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityPanel } from "@/components/calendar/activity-panel";
+import { CalendarSwitcher, type CalendarOption } from "@/components/calendar/calendar-switcher";
 import { DayDetailsPanel } from "@/components/calendar/day-details-panel";
 import { EventPanel } from "@/components/calendar/event-panel";
 import { MembersPanel } from "@/components/calendar/members-panel";
@@ -178,7 +179,15 @@ function aggregateAssignments(data: CalendarPayload): AssignmentMap {
 
 function eventIcon(category: string) { return <EventCategoryIcon category={category} />; }
 
-export function CalendarShell() {
+export function CalendarShell({
+  calendars,
+  currentCalendarId,
+  defaultName,
+}: {
+  calendars: CalendarOption[];
+  currentCalendarId: string;
+  defaultName: string;
+}) {
   const [currentMonth, setCurrentMonth] = useState<Date>(() => startOfMonth(new Date()));
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
@@ -460,7 +469,11 @@ export function CalendarShell() {
               <UsersRound className="h-4 w-4" aria-hidden="true" /> Shared family calendar
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">{calendarData?.calendar.name ?? "Our Family Calendar"}</h1>
+              <CalendarSwitcher
+                calendars={calendars}
+                currentCalendarId={currentCalendarId}
+                defaultName={defaultName}
+              />
               {accessMode === "checking" ? (
                 <span role="status" aria-live="polite" className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"><LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />Checking access</span>
               ) : accessMode === "editor" ? (

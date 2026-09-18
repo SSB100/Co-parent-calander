@@ -61,16 +61,20 @@ test("Home keeps detail workflows in their existing feature areas", async () => 
   assert.match(shell, /ProposalActions/);
 });
 
-test("calendar selection now enters Calendar and Covie naming is used on the selector", async () => {
-  const [actions, dashboard] = await Promise.all([
-    source("app/dashboard/actions.ts"),
+test("calendar management now lives in Calendar and Dashboard is only a redirect", async () => {
+  const [actions, dashboard, switcher] = await Promise.all([
+    source("app/calendar/actions.ts"),
     source("app/dashboard/page.tsx"),
+    source("components/calendar/calendar-switcher.tsx"),
   ]);
 
   assert.match(actions, /redirect\("\/calendar"\)/);
   assert.doesNotMatch(actions, /redirect\("\/home"\)/);
-  assert.match(dashboard, />Covie</);
-  assert.match(dashboard, />Open Covie</);
+  assert.match(dashboard, /redirect\("\/calendar"\)/);
+  assert.match(switcher, /Your calendars/);
+  assert.match(switcher, /Create another calendar/);
+  assert.match(switcher, /Join another calendar/);
+  assert.doesNotMatch(dashboard, /Open Covie|Your calendars/);
 });
 
 test("existing core feature screens all use the shared workspace navigation", async () => {

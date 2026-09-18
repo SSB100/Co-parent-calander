@@ -9,20 +9,20 @@ async function source(file) {
   return readFile(path.join(root, file), "utf8");
 }
 
-test("legacy setup is retired in favor of managed dashboard calendars", async () => {
-  const [setup, dashboard] = await Promise.all([
+test("legacy setup is retired in favor of managed Covie calendars", async () => {
+  const [setup, calendarActions] = await Promise.all([
     source("app/api/setup/route.ts"),
-    source("app/dashboard/actions.ts"),
+    source("app/calendar/actions.ts"),
   ]);
 
   assert.match(setup, /status: 410/);
   assert.match(setup, /Legacy setup links have been retired/);
   assert.doesNotMatch(setup, /generateSecureToken|access_tokens|editorUrl/);
 
-  assert.match(dashboard, /createCalendar/);
-  assert.match(dashboard, /joinCalendar/);
-  assert.match(dashboard, /calendar_memberships/);
-  assert.match(dashboard, /calendar_invites/);
+  assert.match(calendarActions, /createCalendar/);
+  assert.match(calendarActions, /joinCalendar/);
+  assert.match(calendarActions, /calendar_memberships/);
+  assert.match(calendarActions, /calendar_invites/);
 });
 
 test("day-detail edits keep validation, direct split ownership, transaction, and audit behavior", async () => {

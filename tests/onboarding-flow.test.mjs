@@ -55,7 +55,7 @@ test("onboarding offers one clear create or join choice", async () => {
 
 test("onboarding create generates an editor invite and hands it into Calendar", async () => {
   const [actions, calendar, welcome] = await Promise.all([
-    source("app/dashboard/actions.ts"),
+    source("app/calendar/actions.ts"),
     source("app/calendar/page.tsx"),
     source("components/onboarding/new-calendar-welcome.tsx"),
   ]);
@@ -72,7 +72,7 @@ test("onboarding create generates an editor invite and hands it into Calendar", 
 });
 
 test("join flow explains invalid, expired, used and existing membership cases", async () => {
-  const actions = await source("app/dashboard/actions.ts");
+  const actions = await source("app/calendar/actions.ts");
 
   assert.match(actions, /We couldn’t find that invitation/);
   assert.match(actions, /This invitation has expired/);
