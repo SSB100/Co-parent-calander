@@ -44,6 +44,8 @@ function describe(action: string) {
     "child_profile.document_remove": "removed a child document",
     "attachment.upload": "added a private document",
     "attachment.delete": "removed a private document",
+    "link.create": "linked related Covie items",
+    "link.delete": "unlinked related Covie items",
     "share.viewer_link_generated": "generated a viewer link",
     "share.viewer_link_revoked": "revoked viewer access",
     "share.viewer_create": "created a viewer link",
