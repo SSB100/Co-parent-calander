@@ -27,34 +27,39 @@ test("Phase 6 migration extends children and adds lightweight activities", async
 });
 
 test("shared child reference information updates immediately without approval proposals", async () => {
-  const profileRoute = await source("app/api/children/[id]/route.ts");
-  const activityRoute = await source("app/api/children/[id]/activities/route.ts");
-
-  assert.match(profileRoute, /getEditorSession/);
-  assert.match(activityRoute, /getEditorSession/);
-  assert.doesNotMatch(profileRoute, /createApprovalProposal|getSharedApprovalTarget/);
-  assert.doesNotMatch(activityRoute, /createApprovalProposal|getSharedApprovalTarget/);
-});
-
-test("child history records changed field names instead of sensitive values", async () => {
-  const [profileRoute, activityRoute] = await Promise.all([
+  const [profileRoute, profileService, activityRoute] = await Promise.all([
     source("app/api/children/[id]/route.ts"),
+    source("lib/children/service.ts"),
     source("app/api/children/[id]/activities/route.ts"),
   ]);
 
-  assert.match(profileRoute, /changedFields/);
-  assert.match(profileRoute, /sections: changedSections/);
-  assert.doesNotMatch(profileRoute, /before_state/);
+  assert.match(profileRoute, /getEditorSession/);
+  assert.match(profileRoute, /updateChildProfile/);
+  assert.match(activityRoute, /getEditorSession/);
+  for (const text of [profileRoute, profileService, activityRoute]) {
+    assert.doesNotMatch(text, /createApprovalProposal|getSharedApprovalTarget/);
+  }
+});
+
+test("child history records changed field names instead of sensitive values", async () => {
+  const [profileService, activityRoute] = await Promise.all([
+    source("lib/children/service.ts"),
+    source("app/api/children/[id]/activities/route.ts"),
+  ]);
+
+  assert.match(profileService, /changedFields/);
+  assert.match(profileService, /sections: changedSections/);
+  assert.doesNotMatch(profileService, /before_state/);
   assert.match(activityRoute, /activityName/);
   assert.match(activityRoute, /changedFields/);
 });
 
 test("child profile hub reuses existing linked expenses and responsibilities", async () => {
-  const route = await source("app/api/children/[id]/route.ts");
+  const service = await source("lib/children/service.ts");
   const shell = await source("components/children/child-profile-shell.tsx");
 
-  assert.match(route, /responsibilityChildren/);
-  assert.match(route, /expenses\.childId/);
+  assert.match(service, /responsibilityChildren/);
+  assert.match(service, /expenses\.childId/);
   assert.match(shell, /Responsibilities/);
   assert.match(shell, /Recent expenses/);
   assert.match(shell, /Open Responsibilities/);
@@ -112,6 +117,7 @@ test("Kids is reachable from Home Calendar Expenses and Responsibilities", async
 test("child profiles create no date marker or Google Calendar sync surface", async () => {
   const files = await Promise.all([
     source("app/api/children/[id]/route.ts"),
+    source("lib/children/service.ts"),
     source("app/api/children/[id]/activities/route.ts"),
     source("components/children/child-profile-shell.tsx"),
   ]);
@@ -133,4 +139,17 @@ test("Phase 7 profile photos use the shared private attachment layer", async () 
   assert.match(photo, /role: "profile_photo"/);
   assert.match(photo, /category: "profile_photo"/);
   assert.doesNotMatch(photo, /data:image|base64/);
+});
+
+
+test("child profile route delegates persistence and aggregation to the feature service", async () => {
+  const route = await source("app/api/children/[id]/route.ts");
+  const service = await source("lib/children/service.ts");
+
+  assert.match(route, /getChildProfile/);
+  assert.match(route, /updateChildProfile/);
+  assert.doesNotMatch(route, /responsibilityChildren|UPDATE children|INSERT INTO audit_log/);
+  assert.match(service, /responsibilityChildren/);
+  assert.match(service, /UPDATE children/);
+  assert.match(service, /INSERT INTO audit_log/);
 });
