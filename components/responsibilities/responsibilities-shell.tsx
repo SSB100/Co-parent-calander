@@ -576,7 +576,15 @@ export function ResponsibilitiesShell({ initialDate }: { initialDate: string | n
               Keep practical tasks clear: what needs doing, who owns it and when it is due.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">\n            <Link\n              href="/home"\n              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"\n            >\n              <House className="h-4 w-4" aria-hidden="true" /> Home\n            </Link>\n            <Link\n              href="/calendar"
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/home"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              <House className="h-4 w-4" aria-hidden="true" /> Home
+            </Link>
+            <Link
+              href="/calendar"
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
               <ChevronLeft className="h-4 w-4" aria-hidden="true" />
