@@ -35,7 +35,7 @@ test("calendar page exposes Add parent and explains that account access is optio
 });
 
 test("editor join claims an existing unlinked parent profile before creating a new one", async () => {
-  const actions = await source("app/dashboard/actions.ts");
+  const actions = await source("app/calendar/actions.ts");
 
   assert.match(actions, /available_participant AS/);
   assert.match(actions, /NOT EXISTS \(\s*SELECT 1 FROM calendar_memberships membership\s*WHERE membership\.participant_id = participant\.id/);
