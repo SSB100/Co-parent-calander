@@ -18,6 +18,8 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { AttachmentPanel } from "@/components/attachments/attachment-panel";
+import { ProfilePhoto } from "@/components/attachments/profile-photo";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type ChildProfile = {
@@ -452,9 +454,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
       <header className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-lg font-bold text-white">
-              {initials(child.displayName) || "C"}
-            </div>
+            <ProfilePhoto childId={child.id} displayName={child.displayName} />
             <div>
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                 <UserRound className="h-4 w-4" aria-hidden="true" />
@@ -576,6 +576,20 @@ export function ChildProfileShell({ childId }: { childId: string }) {
             </div>
           </div>
         </article>
+      </section>
+
+      <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-950">Documents</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Private school, medical, registration and other useful files for this child.
+        </p>
+        <AttachmentPanel
+          entityType="child"
+          entityId={child.id}
+          defaultCategory="school_form"
+          title="Documents"
+          defaultOpen
+        />
       </section>
 
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
