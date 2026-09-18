@@ -84,6 +84,7 @@ export function EventPanel({
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(() => blankForm(initialDate));
+  const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -152,6 +153,7 @@ export function EventPanel({
     setOpen(true);
     setEditingId(null);
     setForm(blankForm(initialDate));
+    setReason("");
     await loadEvents();
   }
 
@@ -164,6 +166,7 @@ export function EventPanel({
       startDate: event.startDate,
       endDate: event.endDate ?? "",
     });
+    setReason("");
     setMessage(null);
   }
 
@@ -179,20 +182,32 @@ export function EventPanel({
         category: form.category,
         startDate: form.startDate,
         endDate: form.endDate || null,
+        reason: reason.trim() || null,
       };
       const response = await fetch("/api/events", {
         method: editingId ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; pending?: boolean; approverName?: string | null }
+        | null;
       if (!response.ok) throw new Error(body?.error ?? "The event could not be saved.");
 
       const wasEditing = Boolean(editingId);
       setEditingId(null);
       setForm(blankForm(initialDate));
+      setReason("");
       await loadEvents();
-      setMessage(wasEditing ? "Event updated." : "Event added to the shared calendar.");
+      setMessage(
+        body?.pending
+          ? body.approverName
+            ? `Event change sent to ${body.approverName} for approval.`
+            : "Event change sent for approval."
+          : wasEditing
+            ? "Event updated."
+            : "Event added to the shared calendar.",
+      );
       onChanged?.();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "The event could not be saved.");
@@ -209,16 +224,28 @@ export function EventPanel({
       const response = await fetch("/api/events", {
         method: "DELETE",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({
+          id,
+          reason: reason.trim() || null,
+        }),
       });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; pending?: boolean; approverName?: string | null }
+        | null;
       if (!response.ok) throw new Error(body?.error ?? "The event could not be deleted.");
       if (editingId === id) {
         setEditingId(null);
         setForm(blankForm(initialDate));
+        setReason("");
       }
       await loadEvents();
-      setMessage("Event removed.");
+      setMessage(
+        body?.pending
+          ? body.approverName
+            ? `Event cancellation sent to ${body.approverName} for approval.`
+            : "Event cancellation sent for approval."
+          : "Event removed.",
+      );
       onChanged?.();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "The event could not be deleted.");
@@ -260,7 +287,7 @@ export function EventPanel({
                   {editingId ? "Edit event" : "Create event"}
                 </h2>
                 <p id="event-panel-description" className="mt-1 text-sm leading-6 text-slate-500">
-                  Add birthdays, school shows, sport, appointments, holidays or anything both parents should see.
+                  Add birthdays, school shows, sport, appointments, holidays or anything both parents should see. When both parents are linked, shared event changes wait for approval.
                 </p>
               </div>
               <button
@@ -322,6 +349,23 @@ export function EventPanel({
                   className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                 />
               </label>
+
+              <label className="sm:col-span-2">
+                <span className="text-sm font-semibold text-slate-800">
+                  Reason for change <span className="font-normal text-slate-400">(optional)</span>
+                </span>
+                <textarea
+                  rows={2}
+                  maxLength={500}
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  placeholder="e.g. School has changed the show date"
+                  className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                />
+                <span className="mt-1 block text-xs text-slate-500">
+                  Used only if the other parent needs to approve this event change.
+                </span>
+              </label>
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -335,7 +379,7 @@ export function EventPanel({
                 {editingId ? "Save changes" : "Create event"}
               </button>
               {editingId ? (
-                <button type="button" disabled={saving} onClick={() => { setEditingId(null); setForm(blankForm(initialDate)); setMessage(null); }} className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                <button type="button" disabled={saving} onClick={() => { setEditingId(null); setForm(blankForm(initialDate)); setReason(""); setMessage(null); }} className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50">
                   Cancel edit
                 </button>
               ) : null}
