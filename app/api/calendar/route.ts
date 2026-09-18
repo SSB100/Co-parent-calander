@@ -1,10 +1,11 @@
-import { differenceInCalendarDays, parseISO } from "date-fns";
+import { addYears, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { and, asc, eq, gt, gte, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { projectCalendarPendingProposals } from "@/lib/approvals/calendar-pending";
 import { listApprovalProposals } from "@/lib/approvals/engine";
 import { getDb } from "@/lib/db";
+import { expandEventOccurrences } from "@/lib/events/recurrence";
 import {
   calendars,
   children,
@@ -104,12 +105,33 @@ export async function GET(request: Request) {
       .from(recurringRuleChildren)
       .innerJoin(recurringRules, eq(recurringRuleChildren.recurringRuleId, recurringRules.id))
       .where(and(eq(recurringRules.calendarId, session.calendarId), eq(recurringRules.active, true))),
-    db.select({ id: events.id, title: events.title, description: events.description, category: events.category, startDate: events.startDate, endDate: events.endDate })
+    db.select({
+      id: events.id,
+      title: events.title,
+      description: events.description,
+      category: events.category,
+      startDate: events.startDate,
+      endDate: events.endDate,
+      recurrence: events.recurrence,
+      recurrenceEndDate: events.recurrenceEndDate,
+    })
       .from(events)
       .where(and(
         eq(events.calendarId, session.calendarId),
         lte(events.startDate, to),
-        or(isNull(events.endDate), gte(events.endDate, from)),
+        or(
+          and(
+            eq(events.recurrence, "none"),
+            or(
+              gte(events.startDate, from),
+              and(isNotNull(events.endDate), gte(events.endDate, from)),
+            ),
+          ),
+          and(
+            ne(events.recurrence, "none"),
+            or(isNull(events.recurrenceEndDate), gte(events.recurrenceEndDate, from)),
+          ),
+        ),
       ))
       .orderBy(asc(events.startDate)),
     db.select({
@@ -146,14 +168,36 @@ export async function GET(request: Request) {
       ))
       .orderBy(asc(parentingAssignments.assignmentDate), asc(inferredSplitHandoverTime))
       .limit(1),
-    db.select({ id: events.id, title: events.title, description: events.description, category: events.category, startDate: events.startDate, endDate: events.endDate })
+    db.select({
+      id: events.id,
+      title: events.title,
+      description: events.description,
+      category: events.category,
+      startDate: events.startDate,
+      endDate: events.endDate,
+      recurrence: events.recurrence,
+      recurrenceEndDate: events.recurrenceEndDate,
+    })
       .from(events)
       .where(and(
         eq(events.calendarId, session.calendarId),
-        or(gte(events.startDate, now.date), and(isNotNull(events.endDate), gte(events.endDate, now.date))),
+        lte(events.startDate, format(addYears(parseISO(now.date), 1), "yyyy-MM-dd")),
+        or(
+          and(
+            eq(events.recurrence, "none"),
+            or(
+              gte(events.startDate, now.date),
+              and(isNotNull(events.endDate), gte(events.endDate, now.date)),
+            ),
+          ),
+          and(
+            ne(events.recurrence, "none"),
+            or(isNull(events.recurrenceEndDate), gte(events.recurrenceEndDate, now.date)),
+          ),
+        ),
       ))
       .orderBy(asc(events.startDate))
-      .limit(1),
+      .limit(100),
   ]);
 
   const assignments = resolveRecurringAssignments({
@@ -163,6 +207,17 @@ export async function GET(request: Request) {
     from,
     to,
   });
+
+  const visibleEvents = expandEventOccurrences({
+    events: visibleEvents,
+    from,
+    to,
+  });
+  const nextEvent = expandEventOccurrences({
+    events: nextEventRows,
+    from: now.date,
+    to: format(addYears(parseISO(now.date), 1), "yyyy-MM-dd"),
+  })[0] ?? null;
 
   const waitingProposals = await listApprovalProposals(session.calendarId, {
     status: "waiting",
@@ -191,6 +246,6 @@ export async function GET(request: Request) {
     pendingProposals,
     recurringScheduleActive: recurringRuleRows.length > 0,
     nextHandover: nextHandoverRows[0] ?? null,
-    nextEvent: nextEventRows[0] ?? null,
+    nextEvent,
   });
 }
