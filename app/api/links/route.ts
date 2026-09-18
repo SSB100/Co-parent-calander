@@ -1,695 +1,143 @@
-import { and, asc, eq, or } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
-  assertLinkableEntity,
-  canonicalEntityLink,
   createEntityLinkSchema,
   linkedEntitySchema,
-  loadLinkableSummary,
-  type LinkableSummary,
-  type LinkedEntityType,
-  type RelatedTargetType,
 } from "@/lib/links/model";
-import { getDb, getSql } from "@/lib/db";
 import {
-  attachmentLinks,
-  attachments,
-  children,
-  entityLinks,
-  events,
-  expenses,
-  responsibilities,
-  responsibilityChildren,
-} from "@/lib/db/schema";
+  createRelatedItemLink,
+  deleteRelatedItemLink,
+  listRelatedItems,
+  RelatedItemsServiceError,
+} from "@/lib/links/service";
 import { isSameOriginMutation } from "@/lib/security/request";
-import { getCalendarSession, getEditorSession } from "@/lib/security/session";
+import {
+  getCalendarSession,
+  getEditorSession,
+} from "@/lib/security/session";
 
-type RelatedItem = LinkableSummary & {
-  origin: "explicit" | "native" | "document";
-  removable: boolean;
-};
-
-function itemKey(type: RelatedTargetType, id: string) {
-  return `${type}:${id}`;
-}
-
-async function nativeRelatedItems(
-  calendarId: string,
-  sourceType: LinkedEntityType,
-  sourceId: string,
-) {
-  const db = getDb();
-  const targets: Array<{ type: RelatedTargetType; id: string }> = [];
-
-  if (sourceType === "expense") {
-    const expenseRows = await db
-      .select({ childId: expenses.childId })
-      .from(expenses)
-      .where(and(eq(expenses.calendarId, calendarId), eq(expenses.id, sourceId)))
-      .limit(1);
-    const childId = expenseRows[0]?.childId;
-    if (childId) targets.push({ type: "child", id: childId });
-
-    const taskRows = await db
-      .select({ id: responsibilities.id })
-      .from(responsibilities)
-      .where(
-        and(
-          eq(responsibilities.calendarId, calendarId),
-          eq(responsibilities.linkedExpenseId, sourceId),
-        ),
-      );
-    for (const row of taskRows) targets.push({ type: "responsibility", id: row.id });
+function relatedItemsServiceError(error: unknown) {
+  if (error instanceof RelatedItemsServiceError) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: error.statusCode },
+    );
   }
 
-  if (sourceType === "responsibility") {
-    const rows = await db
-      .select({
-        linkedEventId: responsibilities.linkedEventId,
-        linkedExpenseId: responsibilities.linkedExpenseId,
-      })
-      .from(responsibilities)
-      .where(
-        and(
-          eq(responsibilities.calendarId, calendarId),
-          eq(responsibilities.id, sourceId),
-        ),
-      )
-      .limit(1);
-    const row = rows[0];
-    if (row?.linkedEventId) targets.push({ type: "event", id: row.linkedEventId });
-    if (row?.linkedExpenseId) targets.push({ type: "expense", id: row.linkedExpenseId });
-
-    const childRows = await db
-      .select({ childId: responsibilityChildren.childId })
-      .from(responsibilityChildren)
-      .where(eq(responsibilityChildren.responsibilityId, sourceId));
-    for (const child of childRows) targets.push({ type: "child", id: child.childId });
-  }
-
-  if (sourceType === "event") {
-    const rows = await db
-      .select({ id: responsibilities.id })
-      .from(responsibilities)
-      .where(
-        and(
-          eq(responsibilities.calendarId, calendarId),
-          eq(responsibilities.linkedEventId, sourceId),
-        ),
-      );
-    for (const row of rows) targets.push({ type: "responsibility", id: row.id });
-  }
-
-  if (sourceType === "child") {
-    const expenseRows = await db
-      .select({ id: expenses.id })
-      .from(expenses)
-      .where(and(eq(expenses.calendarId, calendarId), eq(expenses.childId, sourceId)));
-    for (const row of expenseRows) targets.push({ type: "expense", id: row.id });
-
-    const taskRows = await db
-      .select({ id: responsibilities.id })
-      .from(responsibilityChildren)
-      .innerJoin(
-        responsibilities,
-        eq(responsibilityChildren.responsibilityId, responsibilities.id),
-      )
-      .where(
-        and(
-          eq(responsibilityChildren.childId, sourceId),
-          eq(responsibilities.calendarId, calendarId),
-        ),
-      );
-    for (const row of taskRows) targets.push({ type: "responsibility", id: row.id });
-  }
-
-  const unique = new Map<string, RelatedItem>();
-  for (const target of targets) {
-    const summary = await loadLinkableSummary(calendarId, target.type, target.id);
-    if (!summary) continue;
-    unique.set(itemKey(summary.type, summary.id), {
-      ...summary,
-      origin: "native",
-      removable: false,
-    });
-  }
-  return [...unique.values()];
-}
-
-async function explicitRelatedItems(
-  calendarId: string,
-  sourceType: LinkedEntityType,
-  sourceId: string,
-) {
-  const rows = await getDb()
-    .select({
-      leftType: entityLinks.leftType,
-      leftId: entityLinks.leftId,
-      rightType: entityLinks.rightType,
-      rightId: entityLinks.rightId,
-    })
-    .from(entityLinks)
-    .where(
-      and(
-        eq(entityLinks.calendarId, calendarId),
-        or(
-          and(eq(entityLinks.leftType, sourceType), eq(entityLinks.leftId, sourceId)),
-          and(eq(entityLinks.rightType, sourceType), eq(entityLinks.rightId, sourceId)),
-        ),
-      ),
-    )
-    .orderBy(asc(entityLinks.createdAt));
-
-  const items: RelatedItem[] = [];
-  for (const row of rows) {
-    const target =
-      row.leftType === sourceType && row.leftId === sourceId
-        ? { type: row.rightType, id: row.rightId }
-        : { type: row.leftType, id: row.leftId };
-    const summary = await loadLinkableSummary(calendarId, target.type, target.id);
-    if (!summary) continue;
-    items.push({ ...summary, origin: "explicit", removable: true });
-  }
-  return items;
-}
-
-async function documentRelatedItems(
-  calendarId: string,
-  sourceType: LinkedEntityType,
-  sourceId: string,
-) {
-  const rows = await getDb()
-    .select({
-      id: attachments.id,
-      fileName: attachments.originalFileName,
-      category: attachments.category,
-      sizeBytes: attachments.sizeBytes,
-      primaryEntityType: attachments.primaryEntityType,
-      primaryEntityId: attachments.primaryEntityId,
-      primaryRole: attachments.primaryRole,
-    })
-    .from(attachmentLinks)
-    .innerJoin(attachments, eq(attachmentLinks.attachmentId, attachments.id))
-    .where(
-      and(
-        eq(attachmentLinks.calendarId, calendarId),
-        eq(attachmentLinks.entityType, sourceType),
-        eq(attachmentLinks.entityId, sourceId),
-        eq(attachmentLinks.role, "supporting"),
-        eq(attachments.status, "ready"),
-      ),
-    )
-    .orderBy(asc(attachmentLinks.createdAt));
-
-  return rows.map(
-    (row): RelatedItem => ({
-      type: "attachment",
-      id: row.id,
-      title: row.fileName,
-      subtitle: `${row.category.replaceAll("_", " ")} · ${Math.max(
-        0.1,
-        row.sizeBytes / (1024 * 1024),
-      ).toFixed(1)} MB`,
-      href: null,
-      origin: "document",
-      removable: !(
-        row.primaryEntityType === sourceType &&
-        row.primaryEntityId === sourceId &&
-        row.primaryRole === "supporting"
-      ),
-    }),
+  return NextResponse.json(
+    { error: "The related-items request could not be completed." },
+    { status: 500 },
   );
-}
-
-async function candidateItems(calendarId: string) {
-  const db = getDb();
-  const [eventRows, expenseRows, taskRows, childRows, documentRows] =
-    await Promise.all([
-      db
-        .select({
-          id: events.id,
-          title: events.title,
-          startDate: events.startDate,
-          endDate: events.endDate,
-        })
-        .from(events)
-        .where(eq(events.calendarId, calendarId))
-        .orderBy(asc(events.startDate))
-        .limit(150),
-      db
-        .select({
-          id: expenses.id,
-          title: expenses.title,
-          expenseDate: expenses.expenseDate,
-          amountCents: expenses.amountCents,
-        })
-        .from(expenses)
-        .where(eq(expenses.calendarId, calendarId))
-        .orderBy(asc(expenses.expenseDate))
-        .limit(150),
-      db
-        .select({
-          id: responsibilities.id,
-          title: responsibilities.title,
-          dueDate: responsibilities.dueDate,
-          completedAt: responsibilities.completedAt,
-        })
-        .from(responsibilities)
-        .where(eq(responsibilities.calendarId, calendarId))
-        .orderBy(asc(responsibilities.dueDate))
-        .limit(150),
-      db
-        .select({
-          id: children.id,
-          displayName: children.displayName,
-          schoolName: children.schoolName,
-        })
-        .from(children)
-        .where(and(eq(children.calendarId, calendarId), eq(children.active, true)))
-        .orderBy(asc(children.createdAt))
-        .limit(50),
-      db
-        .select({
-          id: attachments.id,
-          fileName: attachments.originalFileName,
-          category: attachments.category,
-          sizeBytes: attachments.sizeBytes,
-        })
-        .from(attachments)
-        .where(
-          and(
-            eq(attachments.calendarId, calendarId),
-            eq(attachments.status, "ready"),
-            eq(attachments.primaryRole, "supporting"),
-          ),
-        )
-        .orderBy(asc(attachments.createdAt))
-        .limit(150),
-    ]);
-
-  const candidates: LinkableSummary[] = [
-    ...eventRows.map(
-      (row): LinkableSummary => ({
-        type: "event",
-        id: row.id,
-        title: row.title,
-        subtitle:
-          row.endDate && row.endDate !== row.startDate
-            ? `${row.startDate} – ${row.endDate}`
-            : row.startDate,
-        href: `/calendar?date=${encodeURIComponent(row.startDate)}`,
-      }),
-    ),
-    ...expenseRows.map(
-      (row): LinkableSummary => ({
-        type: "expense",
-        id: row.id,
-        title: row.title,
-        subtitle: `${row.expenseDate} · NZ$${(row.amountCents / 100).toFixed(2)}`,
-        href: `/expenses?date=${encodeURIComponent(row.expenseDate)}`,
-      }),
-    ),
-    ...taskRows.map(
-      (row): LinkableSummary => ({
-        type: "responsibility",
-        id: row.id,
-        title: row.title,
-        subtitle: row.completedAt
-          ? `Completed · ${row.dueDate}`
-          : `Due ${row.dueDate}`,
-        href: `/responsibilities?date=${encodeURIComponent(row.dueDate)}`,
-      }),
-    ),
-    ...childRows.map(
-      (row): LinkableSummary => ({
-        type: "child",
-        id: row.id,
-        title: row.displayName,
-        subtitle: row.schoolName,
-        href: `/kids/${row.id}`,
-      }),
-    ),
-    ...documentRows.map(
-      (row): LinkableSummary => ({
-        type: "attachment",
-        id: row.id,
-        title: row.fileName,
-        subtitle: `${row.category.replaceAll("_", " ")} · ${Math.max(
-          0.1,
-          row.sizeBytes / (1024 * 1024),
-        ).toFixed(1)} MB`,
-        href: null,
-      }),
-    ),
-  ];
-
-  return candidates;
 }
 
 export async function GET(request: NextRequest) {
   const session = await getCalendarSession();
   if (!session) {
-    return NextResponse.json({ error: "Calendar access is required." }, { status: 401 });
+    return NextResponse.json(
+      { error: "Calendar access is required." },
+      { status: 401 },
+    );
   }
 
   const parsed = linkedEntitySchema.safeParse({
     entityType: request.nextUrl.searchParams.get("entityType"),
     entityId: request.nextUrl.searchParams.get("entityId"),
   });
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Choose a valid related item." }, { status: 400 });
-  }
 
-  try {
-    await assertLinkableEntity(session.calendarId, parsed.data.entityType, parsed.data.entityId);
-  } catch (error) {
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Item not found." },
-      { status: 404 },
+      { error: "Choose a valid related item." },
+      { status: 400 },
     );
   }
 
-  const [explicit, native, documents] = await Promise.all([
-    explicitRelatedItems(session.calendarId, parsed.data.entityType, parsed.data.entityId),
-    nativeRelatedItems(session.calendarId, parsed.data.entityType, parsed.data.entityId),
-    documentRelatedItems(session.calendarId, parsed.data.entityType, parsed.data.entityId),
-  ]);
-
-  const unique = new Map<string, RelatedItem>();
-  for (const item of [...explicit, ...documents, ...native]) {
-    const key = itemKey(item.type, item.id);
-    const existing = unique.get(key);
-    if (!existing || item.origin === "native") unique.set(key, item);
+  try {
+    return NextResponse.json(
+      await listRelatedItems({
+        session,
+        entityType: parsed.data.entityType,
+        entityId: parsed.data.entityId,
+        includeCandidates:
+          request.nextUrl.searchParams.get("includeCandidates") === "true",
+      }),
+    );
+  } catch (error) {
+    return relatedItemsServiceError(error);
   }
-
-  const includeCandidates =
-    request.nextUrl.searchParams.get("includeCandidates") === "true" &&
-    (session.permission === "owner" || session.permission === "editor");
-  const candidates = includeCandidates
-    ? (await candidateItems(session.calendarId)).filter(
-        (candidate) =>
-          candidate.type === "attachment" ||
-          candidate.type !== parsed.data.entityType ||
-          candidate.id !== parsed.data.entityId,
-      )
-    : undefined;
-
-  return NextResponse.json({
-    permission: session.permission,
-    items: [...unique.values()],
-    candidates,
-  });
 }
 
 export async function POST(request: NextRequest) {
   if (!isSameOriginMutation(request)) {
-    return NextResponse.json({ error: "This request was blocked for safety." }, { status: 403 });
-  }
-  const session = await getEditorSession();
-  if (!session) {
-    return NextResponse.json({ error: "Editor access is required." }, { status: 401 });
-  }
-
-  const parsed = createEntityLinkSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Choose two valid Covie items to link." }, { status: 400 });
-  }
-
-  if (
-    parsed.data.targetType === parsed.data.entityType &&
-    parsed.data.targetId === parsed.data.entityId
-  ) {
-    return NextResponse.json({ error: "An item cannot link to itself." }, { status: 400 });
-  }
-
-  try {
-    await Promise.all([
-      assertLinkableEntity(session.calendarId, parsed.data.entityType, parsed.data.entityId),
-      assertLinkableEntity(session.calendarId, parsed.data.targetType, parsed.data.targetId),
-    ]);
-  } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Related item not found." },
-      { status: 404 },
+      { error: "This request was blocked for safety." },
+      { status: 403 },
     );
   }
 
-  const sql = getSql();
-
-  if (parsed.data.targetType === "attachment") {
-    const existingAttachmentLinks = await getDb()
-      .select({ id: attachmentLinks.id })
-      .from(attachmentLinks)
-      .where(
-        and(
-          eq(attachmentLinks.calendarId, session.calendarId),
-          eq(attachmentLinks.attachmentId, parsed.data.targetId),
-          eq(attachmentLinks.entityType, parsed.data.entityType),
-          eq(attachmentLinks.entityId, parsed.data.entityId),
-          eq(attachmentLinks.role, "supporting"),
-        ),
-      )
-      .limit(1);
-    if (existingAttachmentLinks[0]) {
-      return NextResponse.json({ ok: true });
-    }
-
-    try {
-      await sql.transaction([
-        sql`
-          INSERT INTO attachment_links (
-            calendar_id, attachment_id, entity_type, entity_id, role
-          )
-          VALUES (
-            ${session.calendarId}, ${parsed.data.targetId},
-            ${parsed.data.entityType}::attachment_entity_type,
-            ${parsed.data.entityId}, 'supporting'
-          )
-          ON CONFLICT DO NOTHING
-        `,
-        sql`
-          INSERT INTO audit_log (
-            calendar_id, actor_participant_id, action, entity_type, entity_id, after_state
-          )
-          VALUES (
-            ${session.calendarId}, ${session.participantId},
-            'link.create', 'entity_link', ${parsed.data.entityId},
-            ${JSON.stringify({
-              sourceType: parsed.data.entityType,
-              sourceId: parsed.data.entityId,
-              targetType: parsed.data.targetType,
-              targetId: parsed.data.targetId,
-            })}::jsonb
-          )
-        `,
-      ]);
-    } catch {
-      return NextResponse.json({ error: "The document could not be linked." }, { status: 409 });
-    }
-    return NextResponse.json({ ok: true });
+  const session = await getEditorSession();
+  if (!session) {
+    return NextResponse.json(
+      { error: "Editor access is required." },
+      { status: 401 },
+    );
   }
 
-  const pair = canonicalEntityLink({
-    leftType: parsed.data.entityType,
-    leftId: parsed.data.entityId,
-    rightType: parsed.data.targetType,
-    rightId: parsed.data.targetId,
-  });
-
-  const existingEntityLinks = await getDb()
-    .select({ id: entityLinks.id })
-    .from(entityLinks)
-    .where(
-      and(
-        eq(entityLinks.calendarId, session.calendarId),
-        eq(entityLinks.leftType, pair.leftType),
-        eq(entityLinks.leftId, pair.leftId),
-        eq(entityLinks.rightType, pair.rightType),
-        eq(entityLinks.rightId, pair.rightId),
-      ),
-    )
-    .limit(1);
-  if (existingEntityLinks[0]) {
-    return NextResponse.json({ ok: true });
+  const parsed = createEntityLinkSchema.safeParse(
+    await request.json().catch(() => null),
+  );
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Choose two valid Covie items to link." },
+      { status: 400 },
+    );
   }
 
   try {
-    await sql.transaction([
-      sql`
-        INSERT INTO entity_links (
-          calendar_id, left_type, left_id, right_type, right_id, created_by
-        )
-        VALUES (
-          ${session.calendarId}, ${pair.leftType}::linked_entity_type, ${pair.leftId},
-          ${pair.rightType}::linked_entity_type, ${pair.rightId}, ${session.participantId}
-        )
-        ON CONFLICT DO NOTHING
-      `,
-      sql`
-        INSERT INTO audit_log (
-          calendar_id, actor_participant_id, action, entity_type, entity_id, after_state
-        )
-        VALUES (
-          ${session.calendarId}, ${session.participantId},
-          'link.create', 'entity_link', ${parsed.data.entityId},
-          ${JSON.stringify({
-            sourceType: parsed.data.entityType,
-            sourceId: parsed.data.entityId,
-            targetType: parsed.data.targetType,
-            targetId: parsed.data.targetId,
-          })}::jsonb
-        )
-      `,
-    ]);
-  } catch {
-    return NextResponse.json({ error: "The related item could not be linked." }, { status: 409 });
+    return NextResponse.json(
+      await createRelatedItemLink({
+        session,
+        link: parsed.data,
+      }),
+    );
+  } catch (error) {
+    return relatedItemsServiceError(error);
   }
-
-  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request: NextRequest) {
   if (!isSameOriginMutation(request)) {
-    return NextResponse.json({ error: "This request was blocked for safety." }, { status: 403 });
+    return NextResponse.json(
+      { error: "This request was blocked for safety." },
+      { status: 403 },
+    );
   }
+
   const session = await getEditorSession();
   if (!session) {
-    return NextResponse.json({ error: "Editor access is required." }, { status: 401 });
+    return NextResponse.json(
+      { error: "Editor access is required." },
+      { status: 401 },
+    );
   }
 
-  const parsed = createEntityLinkSchema.safeParse(await request.json().catch(() => null));
+  const parsed = createEntityLinkSchema.safeParse(
+    await request.json().catch(() => null),
+  );
   if (!parsed.success) {
-    return NextResponse.json({ error: "Choose a valid related item." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Choose a valid related item." },
+      { status: 400 },
+    );
   }
 
-  const sql = getSql();
-
-  if (parsed.data.targetType === "attachment") {
-    const attachmentRows = await getDb()
-      .select({
-        primaryEntityType: attachments.primaryEntityType,
-        primaryEntityId: attachments.primaryEntityId,
-        primaryRole: attachments.primaryRole,
-      })
-      .from(attachments)
-      .where(
-        and(
-          eq(attachments.calendarId, session.calendarId),
-          eq(attachments.id, parsed.data.targetId),
-          eq(attachments.status, "ready"),
-        ),
-      )
-      .limit(1);
-    const attachment = attachmentRows[0];
-    if (!attachment) {
-      return NextResponse.json({ error: "Document not found." }, { status: 404 });
-    }
-    if (
-      attachment.primaryEntityType === parsed.data.entityType &&
-      attachment.primaryEntityId === parsed.data.entityId &&
-      attachment.primaryRole === "supporting"
-    ) {
-      return NextResponse.json(
-        { error: "Remove the document from its original item instead." },
-        { status: 409 },
-      );
-    }
-
-    const existingAttachmentLinks = await getDb()
-      .select({ id: attachmentLinks.id })
-      .from(attachmentLinks)
-      .where(
-        and(
-          eq(attachmentLinks.calendarId, session.calendarId),
-          eq(attachmentLinks.attachmentId, parsed.data.targetId),
-          eq(attachmentLinks.entityType, parsed.data.entityType),
-          eq(attachmentLinks.entityId, parsed.data.entityId),
-          eq(attachmentLinks.role, "supporting"),
-        ),
-      )
-      .limit(1);
-    if (!existingAttachmentLinks[0]) {
-      return NextResponse.json({ ok: true });
-    }
-
-    await sql.transaction([
-      sql`
-        DELETE FROM attachment_links
-        WHERE calendar_id = ${session.calendarId}
-          AND attachment_id = ${parsed.data.targetId}
-          AND entity_type = ${parsed.data.entityType}::attachment_entity_type
-          AND entity_id = ${parsed.data.entityId}
-          AND role = 'supporting'
-      `,
-      sql`
-        INSERT INTO audit_log (
-          calendar_id, actor_participant_id, action, entity_type, entity_id, before_state
-        )
-        VALUES (
-          ${session.calendarId}, ${session.participantId},
-          'link.delete', 'entity_link', ${parsed.data.entityId},
-          ${JSON.stringify({
-            sourceType: parsed.data.entityType,
-            sourceId: parsed.data.entityId,
-            targetType: parsed.data.targetType,
-            targetId: parsed.data.targetId,
-          })}::jsonb
-        )
-      `,
-    ]);
-    return NextResponse.json({ ok: true });
+  try {
+    return NextResponse.json(
+      await deleteRelatedItemLink({
+        session,
+        link: parsed.data,
+      }),
+    );
+  } catch (error) {
+    return relatedItemsServiceError(error);
   }
-
-  const pair = canonicalEntityLink({
-    leftType: parsed.data.entityType,
-    leftId: parsed.data.entityId,
-    rightType: parsed.data.targetType,
-    rightId: parsed.data.targetId,
-  });
-
-  const existingEntityLinks = await getDb()
-    .select({ id: entityLinks.id })
-    .from(entityLinks)
-    .where(
-      and(
-        eq(entityLinks.calendarId, session.calendarId),
-        eq(entityLinks.leftType, pair.leftType),
-        eq(entityLinks.leftId, pair.leftId),
-        eq(entityLinks.rightType, pair.rightType),
-        eq(entityLinks.rightId, pair.rightId),
-      ),
-    )
-    .limit(1);
-  if (!existingEntityLinks[0]) {
-    return NextResponse.json({ ok: true });
-  }
-
-  await sql.transaction([
-    sql`
-      DELETE FROM entity_links
-      WHERE calendar_id = ${session.calendarId}
-        AND left_type = ${pair.leftType}::linked_entity_type
-        AND left_id = ${pair.leftId}
-        AND right_type = ${pair.rightType}::linked_entity_type
-        AND right_id = ${pair.rightId}
-    `,
-    sql`
-      INSERT INTO audit_log (
-        calendar_id, actor_participant_id, action, entity_type, entity_id, before_state
-      )
-      VALUES (
-        ${session.calendarId}, ${session.participantId},
-        'link.delete', 'entity_link', ${parsed.data.entityId},
-        ${JSON.stringify({
-          sourceType: parsed.data.entityType,
-          sourceId: parsed.data.entityId,
-          targetType: parsed.data.targetType,
-          targetId: parsed.data.targetId,
-        })}::jsonb
-      )
-    `,
-  ]);
-
-  return NextResponse.json({ ok: true });
 }

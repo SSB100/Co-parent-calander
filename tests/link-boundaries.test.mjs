@@ -25,62 +25,73 @@ test("Phase 8 adds a canonical symmetric cross-feature link table", async () => 
   assert.match(schema, /export const linkedEntityType = pgEnum/);
 });
 
-test("Related Items API aggregates native explicit and document relationships", async () => {
-  const route = await source("app/api/links/route.ts");
+test("Related Items service aggregates native explicit and document relationships", async () => {
+  const service = await source("lib/links/service.ts");
 
-  assert.match(route, /nativeRelatedItems/);
-  assert.match(route, /explicitRelatedItems/);
-  assert.match(route, /documentRelatedItems/);
-  assert.match(route, /responsibilities\.linkedEventId/);
-  assert.match(route, /responsibilities\.linkedExpenseId/);
-  assert.match(route, /responsibilityChildren/);
-  assert.match(route, /expenses\.childId/);
-  assert.match(route, /attachmentLinks/);
+  assert.match(service, /nativeRelatedItems/);
+  assert.match(service, /explicitRelatedItems/);
+  assert.match(service, /documentRelatedItems/);
+  assert.match(service, /responsibilities\.linkedEventId/);
+  assert.match(service, /responsibilities\.linkedExpenseId/);
+  assert.match(service, /responsibilityChildren/);
+  assert.match(service, /expenses\.childId/);
+  assert.match(service, /attachmentLinks/);
 });
 
 test("native links remain authoritative and are not removable from the generic panel", async () => {
-  const route = await source("app/api/links/route.ts");
+  const service = await source("lib/links/service.ts");
 
-  assert.match(route, /origin: "native"/);
-  assert.match(route, /removable: false/);
-  assert.match(route, /item\.origin === "native"/);
+  assert.match(service, /origin: "native"/);
+  assert.match(service, /removable: false/);
+  assert.match(service, /item\.origin === "native"/);
 });
 
 test("candidate catalogue is editor-only and loaded in bounded queries", async () => {
-  const route = await source("app/api/links/route.ts");
+  const service = await source("lib/links/service.ts");
 
   assert.match(
-    route,
-    /session\.permission === "owner" \|\| session\.permission === "editor"/,
+    service,
+    /session\.permission === "owner" \|\|\s*session\.permission === "editor"/,
   );
-  assert.match(route, /Promise\.all\(\[/);
-  assert.match(route, /\.limit\(150\)/);
-  assert.match(route, /\.limit\(50\)/);
+  assert.match(service, /Promise\.all\(\[/);
+  assert.match(service, /\.limit\(150\)/);
+  assert.match(service, /\.limit\(50\)/);
 
-  const candidateBlock = route.slice(
-    route.indexOf("async function candidateItems"),
-    route.indexOf("export async function GET"),
+  const candidateBlock = service.slice(
+    service.indexOf("async function candidateItems"),
+    service.indexOf("async function assertSourceAndTarget"),
   );
   assert.doesNotMatch(candidateBlock, /loadLinkableSummary/);
 });
 
 test("cross-feature link mutations are idempotent and audited", async () => {
-  const route = await source("app/api/links/route.ts");
+  const service = await source("lib/links/service.ts");
 
-  assert.match(route, /existingAttachmentLinks/);
-  assert.match(route, /existingEntityLinks/);
-  assert.match(route, /'link\.create'/);
-  assert.match(route, /'link\.delete'/);
-  assert.match(route, /return NextResponse\.json\(\{ ok: true \}\)/);
+  assert.match(service, /existingAttachmentLinks/);
+  assert.match(service, /existingEntityLinks/);
+  assert.match(service, /'link\.create'/);
+  assert.match(service, /'link\.delete'/);
+  assert.match(service, /return \{ ok: true as const \}/);
 });
 
 test("documents reuse attachment_links and cannot detach from their primary owner", async () => {
+  const service = await source("lib/links/service.ts");
+
+  assert.match(service, /INSERT INTO attachment_links/);
+  assert.match(service, /role = 'supporting'/);
+  assert.match(service, /Remove the document from its original item instead/);
+  assert.doesNotMatch(service, /INSERT INTO attachments/);
+});
+
+test("Related Items route keeps access and mutation boundaries at HTTP layer", async () => {
   const route = await source("app/api/links/route.ts");
 
-  assert.match(route, /INSERT INTO attachment_links/);
-  assert.match(route, /role = 'supporting'/);
-  assert.match(route, /Remove the document from its original item instead/);
-  assert.doesNotMatch(route, /INSERT INTO attachments/);
+  assert.match(route, /getCalendarSession\(\)/);
+  assert.match(route, /getEditorSession\(\)/);
+  assert.match(route, /isSameOriginMutation/);
+  assert.match(route, /listRelatedItems/);
+  assert.match(route, /createRelatedItemLink/);
+  assert.match(route, /deleteRelatedItemLink/);
 });
 
 test("Related Items appears on agreed expenses responsibilities events and child profiles", async () => {
@@ -113,7 +124,7 @@ test("Phase 8 does not add another Home attention signal or month-cell marker", 
 
 test("linking is operational and creates neither approval proposals nor Google Calendar jobs", async () => {
   const files = await Promise.all([
-    source("app/api/links/route.ts"),
+    source("lib/links/service.ts"),
     source("lib/links/model.ts"),
     source("components/links/linked-items-panel.tsx"),
   ]);
