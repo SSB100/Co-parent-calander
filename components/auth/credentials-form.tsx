@@ -25,7 +25,7 @@ export function CredentialsForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
             <CalendarDays className="h-4 w-4" aria-hidden="true" />
           </span>
-          Co-parent Calendar
+          Covie
         </Link>
 
         <h1 className="mt-8 text-3xl font-semibold tracking-tight text-slate-950">

@@ -178,7 +178,7 @@ export function GoogleCalendarSettings() {
         <div className="min-w-0">
           <h3 id="google-calendar-title" className="text-sm font-semibold text-slate-900">Google Calendar</h3>
           <p className="mt-1 text-xs leading-5 text-slate-500">
-            Optional one-way sync. Co-parent Calendar stays authoritative and never imports your personal Google events.
+            Optional one-way sync. Covie stays authoritative and never imports your personal Google events.
           </p>
         </div>
       </div>

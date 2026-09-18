@@ -16,7 +16,7 @@ export default async function Home() {
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-white">
             <CalendarDays className="h-4 w-4" aria-hidden="true" />
           </span>
-          Co-parent Calendar
+          Covie
         </div>
         <Link href="/auth/sign-in" className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white">
           Log in

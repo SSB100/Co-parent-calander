@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Co-parent Calendar",
-    short_name: "Co-parent",
+    name: "Covie",
+    short_name: "Covie",
     description: "A calm, shared calendar for co-parenting schedules.",
     start_url: "/dashboard",
     scope: "/",

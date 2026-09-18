@@ -51,7 +51,7 @@ export type DesiredGoogleEvent = {
   body: GoogleEventBody;
 };
 
-const MANAGED_NOTICE = "Managed by Co-parent Calendar. Edit this event in the app.";
+const MANAGED_NOTICE = "Managed by Covie. Edit this event in the app.";
 
 function shortHash(value: string) {
   return createHash("sha256").update(value).digest("hex").slice(0, 20);

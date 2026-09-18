@@ -99,7 +99,7 @@ export async function GET(request: Request) {
     if (!calendar) return redirect("error");
 
     if (!connection.googleCalendarId) {
-      const summary = `Co-parent Calendar — ${calendar.name}`;
+      const summary = `Covie — ${calendar.name}`;
       const created = await createSecondaryCalendar(token.access_token, {
         summary,
         timeZone: calendar.timezone,

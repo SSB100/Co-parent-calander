@@ -16,13 +16,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Co-parent Calendar", template: "%s · Co-parent Calendar" },
+  title: { default: "Covie", template: "%s · Covie" },
   description: "A calm, shared calendar for co-parenting schedules.",
-  applicationName: "Co-parent Calendar",
+  applicationName: "Covie",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Co-parent Calendar",
+    title: "Covie",
   },
 };
 

@@ -53,7 +53,7 @@ async function ensureGeneratedCalendar(
   connection: GoogleConnection,
   calendar: { name: string; timezone: string },
 ) {
-  const summary = `Co-parent Calendar — ${calendar.name}`;
+  const summary = `Covie — ${calendar.name}`;
   if (connection.googleCalendarId) {
     try {
       await withGoogleAccess(connection, (accessToken) =>
@@ -335,7 +335,7 @@ export async function syncGoogleConnection(input: {
     .update(googleCalendarConnections)
     .set({
       status: "active",
-      googleCalendarName: `Co-parent Calendar — ${calendar.name}`,
+      googleCalendarName: `Covie — ${calendar.name}`,
       lastAttemptedSyncAt: now,
       lastSuccessfulSyncAt: now,
       lastError: null,
