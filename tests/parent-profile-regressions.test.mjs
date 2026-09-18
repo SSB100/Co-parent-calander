@@ -77,7 +77,7 @@ test("parent identity is semantic and calendar styling does not depend on partic
   assert.match(calendar, /parentProfileSlotIndex/);
   assert.match(calendar, /participant\?\.profileSlot/);
   assert.match(recurring, /parentProfileSlotIndex/);
-  assert.match(recurring, /participants\[index\]\?\.profileSlot/);
+  assert.match(recurring, /participant\?\.profileSlot/);
 });
 
 
