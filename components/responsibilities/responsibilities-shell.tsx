@@ -17,6 +17,7 @@ import {
   RotateCcw,
   Trash2,
   UserRound,
+  UsersRound,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -582,6 +583,12 @@ export function ResponsibilitiesShell({ initialDate }: { initialDate: string | n
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
               <House className="h-4 w-4" aria-hidden="true" /> Home
+            </Link>
+            <Link
+              href="/kids"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              <UsersRound className="h-4 w-4" aria-hidden="true" /> Kids
             </Link>
             <Link
               href="/calendar"
