@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CalendarShell } from "@/components/calendar/calendar-shell";
 import { NewCalendarWelcome } from "@/components/onboarding/new-calendar-welcome";
+import { InstallApp } from "@/components/pwa/install-app";
 import { getSql } from "@/lib/db";
 import {
   NEW_CALENDAR_INVITE_COOKIE_NAME,
@@ -61,6 +62,9 @@ export default async function CalendarPage({
         currentCalendarId={session.calendarId}
         defaultName={session.userName}
       />
+      <div className="mx-auto w-full max-w-7xl px-3 pb-8 sm:px-6 lg:px-8">
+        <InstallApp />
+      </div>
     </>
   );
 }
