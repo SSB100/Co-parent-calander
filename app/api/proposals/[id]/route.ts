@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { acceptCalendarApprovalProposal } from "@/lib/approvals/calendar-apply";
+import { acceptExpenseApprovalProposal } from "@/lib/approvals/expense-apply";
 import {
   acceptApprovalProposal,
   ApprovalEngineError,
@@ -123,11 +124,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (parsed.data.operation === "accept") {
-      const applied = await acceptCalendarApprovalProposal({
+      const expenseApplied = await acceptExpenseApprovalProposal({
         calendarId: session.calendarId,
         actor,
         proposalId: parsedId.data,
       });
+      const applied =
+        expenseApplied ??
+        (await acceptCalendarApprovalProposal({
+          calendarId: session.calendarId,
+          actor,
+          proposalId: parsedId.data,
+        }));
 
       if (applied) {
         if (applied.googleSyncQueued) {
