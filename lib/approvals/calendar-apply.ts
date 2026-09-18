@@ -595,8 +595,9 @@ async function applyRecurringScheduleProposal(input: {
   const statements = [acceptanceTransitionStatement(sql, markerInput)];
 
   if (parsed.data.mode === "delete") {
+    const deleteState = parsed.data;
     const existing = schedules.find(
-      (schedule) => schedule.scheduleId === parsed.data.scheduleId,
+      (schedule) => schedule.scheduleId === deleteState.scheduleId,
     );
     if (!existing) {
       throw new ApprovalEngineError(
@@ -605,9 +606,9 @@ async function applyRecurringScheduleProposal(input: {
       );
     }
 
-    const scheduleMarker = `%X-COPARENT-SCHEDULE=${parsed.data.scheduleId}%`;
+    const scheduleMarker = `%X-COPARENT-SCHEDULE=${deleteState.scheduleId}%`;
     const ruleIds = activeRuleRows
-      .filter((row) => row.rrule.includes(`X-COPARENT-SCHEDULE=${parsed.data.scheduleId}`))
+      .filter((row) => row.rrule.includes(`X-COPARENT-SCHEDULE=${deleteState.scheduleId}`))
       .map((row) => row.id);
     const ruleIdArray = `{${ruleIds.join(",")}}`;
 
@@ -645,9 +646,10 @@ async function applyRecurringScheduleProposal(input: {
       `,
     );
   } else {
+    const schedule = parsed.data;
     const selectedParentIds = [
       ...new Set(
-        parsed.data.pattern
+        schedule.pattern
           .flatMap((slot) => [slot.morningParentId, slot.afternoonParentId])
           .filter((value): value is string => Boolean(value)),
       ),
@@ -686,7 +688,7 @@ async function applyRecurringScheduleProposal(input: {
     }
 
     const existing = schedules.find(
-      (schedule) => schedule.scheduleId === parsed.data.scheduleId,
+      (schedule) => schedule.scheduleId === schedule.scheduleId,
     );
     if (input.proposal.action === "edit" && !existing) {
       throw new ApprovalEngineError(
@@ -697,10 +699,10 @@ async function applyRecurringScheduleProposal(input: {
 
     const conflict = schedules.find(
       (schedule) =>
-        schedule.scheduleId !== parsed.data.scheduleId &&
+        schedule.scheduleId !== schedule.scheduleId &&
         scheduleRangesOverlap(
-          parsed.data.anchorDate,
-          parsed.data.endDate,
+          schedule.anchorDate,
+          schedule.endDate,
           schedule.anchorDate,
           schedule.endDate,
         ),
@@ -712,7 +714,7 @@ async function applyRecurringScheduleProposal(input: {
       );
     }
 
-    const scheduleMarker = `%X-COPARENT-SCHEDULE=${parsed.data.scheduleId}%`;
+    const scheduleMarker = `%X-COPARENT-SCHEDULE=${schedule.scheduleId}%`;
     if (existing) {
       statements.push(sql`
         UPDATE recurring_rules
@@ -738,10 +740,10 @@ async function applyRecurringScheduleProposal(input: {
       period: RecurrencePeriod,
     ) => {
       const ruleId = randomUUID();
-      const startDate = dateForSlot(parsed.data.anchorDate, slot);
+      const startDate = dateForSlot(schedule.anchorDate, slot);
       const rrule = buildFortnightRuleText({
-        scheduleId: parsed.data.scheduleId,
-        anchorDate: parsed.data.anchorDate,
+        scheduleId: schedule.scheduleId,
+        anchorDate: schedule.anchorDate,
         slot,
         period,
       });
@@ -765,7 +767,7 @@ async function applyRecurringScheduleProposal(input: {
           ${parentId},
           ${rrule},
           ${startDate},
-          ${parsed.data.endDate},
+          ${schedule.endDate},
           true,
           ${input.actor.participantId},
           now(),
@@ -804,7 +806,7 @@ async function applyRecurringScheduleProposal(input: {
     };
 
     for (let slot = 0; slot < FORTNIGHT_SLOTS; slot += 1) {
-      const ownership = parsed.data.pattern[slot];
+      const ownership = schedule.pattern[slot];
       if (!ownership.morningParentId && !ownership.afternoonParentId) continue;
 
       if (
