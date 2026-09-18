@@ -79,10 +79,13 @@ test("approval acceptance dispatches feature applicators before generic fallback
     source("app/api/proposals/[id]/route.ts"),
   ]);
 
-  const responsibilityIndex = dispatch.indexOf("acceptResponsibilityApprovalProposal");
-  const expenseIndex = dispatch.indexOf("acceptExpenseApprovalProposal");
-  const calendarIndex = dispatch.indexOf("acceptCalendarApprovalProposal");
-  const genericIndex = dispatch.lastIndexOf("acceptApprovalProposal");
+  const body = dispatch.slice(
+    dispatch.indexOf("export async function acceptAndApplyApprovalProposal"),
+  );
+  const responsibilityIndex = body.indexOf("acceptResponsibilityApprovalProposal");
+  const expenseIndex = body.indexOf("acceptExpenseApprovalProposal");
+  const calendarIndex = body.indexOf("acceptCalendarApprovalProposal");
+  const genericIndex = body.lastIndexOf("acceptApprovalProposal");
 
   assert.ok(responsibilityIndex >= 0);
   assert.ok(expenseIndex > responsibilityIndex);
