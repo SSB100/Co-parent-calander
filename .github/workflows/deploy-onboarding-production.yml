@@ -1,0 +1,44 @@
+name: Deploy onboarding release to Vercel Production
+
+on:
+  push:
+    branches:
+      - release/onboarding-production-bundle
+    paths:
+      - .github/workflows/deploy-onboarding-production.yml
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Vercel deployment secret
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "VERCEL_TOKEN is not configured"
+            exit 3
+          fi
+          echo "Vercel deployment secret is configured"
+
+      - name: Checkout approved production source
+        uses: actions/checkout@v7
+        with:
+          ref: a7f3719e62820297b3745e0df2f0c829bbb21ff5
+
+      - name: Link Vercel project
+        run: |
+          mkdir -p .vercel
+          cat > .vercel/project.json <<'JSON'
+          {"orgId":"team_vWDwkGoSk1NIOdKApGuukv0C","projectId":"prj_UNfHcQuLfhydY92COjd8OV2ZoGGv"}
+          JSON
+
+      - name: Pull production configuration
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx vercel@59.16.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Deploy approved main to Production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx vercel@59.16.0 deploy --prod --yes --token="$VERCEL_TOKEN"
