@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
 
   const id = randomUUID();
   try {
-    const target = await approvalTargetFor(session);
+    const target = await sharedApprovalTargetForSession(session);
     if (target.required && target.approverMembershipId) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
@@ -300,7 +300,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const target = await approvalTargetFor(session);
+    const target = await sharedApprovalTargetForSession(session);
     if (target.required && target.approverMembershipId) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
@@ -400,7 +400,7 @@ export async function DELETE(request: NextRequest) {
   if (!existing) return NextResponse.json({ error: "Expense not found." }, { status: 404 });
 
   try {
-    const target = await approvalTargetFor(session);
+    const target = await sharedApprovalTargetForSession(session);
     if (target.required && target.approverMembershipId) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
