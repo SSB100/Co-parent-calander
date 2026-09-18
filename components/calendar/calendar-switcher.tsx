@@ -58,7 +58,7 @@ export function CalendarSwitcher({
         />
       </summary>
 
-      <div className="absolute left-0 top-full mt-2 w-[min(92vw,26rem)] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
+      <div className="absolute left-0 top-full mt-2 max-h-[72vh] w-[min(92vw,26rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
         <div className="px-2 pb-2">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
             Your calendars

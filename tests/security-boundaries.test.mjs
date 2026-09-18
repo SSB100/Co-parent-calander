@@ -99,13 +99,16 @@ test("account routes use managed Neon auth and protect the signed-in workspace",
   assert.match(session, /session\.permission === ["']viewer["']/);
 });
 
-test("the public root is a minimal login and signup landing page, not a calendar preview", async () => {
+test("the public root explains Covie and keeps authenticated workspace data private", async () => {
   const home = await source("app/page.tsx");
 
   assert.match(home, /\/auth\/sign-in/);
   assert.match(home, /\/auth\/sign-up/);
-  assert.match(home, /One calendar/);
+  assert.match(home, /Co-parenting,/);
+  assert.match(home, /How Covie works/);
+  assert.match(home, /Create or join/);
   assert.doesNotMatch(home, /CalendarShell/);
+  assert.doesNotMatch(home, /\/api\/calendar/);
 });
 
 test("viewer route contains no calendar mutation fetches or form actions", async () => {
