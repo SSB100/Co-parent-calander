@@ -295,7 +295,7 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
           anchorDate,
           endDate: endDate || null,
           pattern,
-          reason: deleteReason.trim() || null,
+          reason: reason.trim() || null,
         }),
       });
       const body = (await response.json().catch(() => null)) as
@@ -338,7 +338,7 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           scheduleId: schedule.scheduleId,
-          reason: reason.trim() || null,
+          reason: deleteReason.trim() || null,
         }),
       });
       const body = (await response.json().catch(() => null)) as
