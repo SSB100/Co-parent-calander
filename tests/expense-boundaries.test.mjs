@@ -69,3 +69,30 @@ test("expense workflow remains separate from Google Calendar sync", async () => 
   assert.doesNotMatch(apply, /google-calendar/);
   assert.match(apply, /googleSyncQueued: false/);
 });
+
+test("expense UI keeps pending agreement separate and links calendar days into expenses", async () => {
+  const [shell, day, calendar] = await Promise.all([
+    source("components/expenses/expenses-shell.tsx"),
+    source("components/expenses/day-expenses.tsx"),
+    source("components/calendar/calendar-shell.tsx"),
+  ]);
+
+  assert.match(shell, /Waiting for agreement/);
+  assert.match(shell, /Agreed expenses/);
+  assert.match(shell, /50 \/ 50/);
+  assert.match(shell, /Paid by payer only/);
+  assert.match(shell, /Custom split/);
+  assert.match(shell, /Mark settled/);
+  assert.match(shell, /Covie records payments but does not move money/);
+  assert.match(day, /\/expenses\?date=/);
+  assert.match(day, /Expenses on this day/);
+  assert.match(calendar, /href="\/expenses"/);
+});
+
+test("Phase 3 documentation keeps migration and deployment deferred", async () => {
+  const docs = await source("docs/EXPENSES.md");
+
+  assert.match(docs, /does not transfer money/);
+  assert.match(docs, /Do not apply this migration until the full staged build is approved for deployment/);
+  assert.match(docs, /Expense proposals and settlement records are never sent to Google Calendar/);
+});
