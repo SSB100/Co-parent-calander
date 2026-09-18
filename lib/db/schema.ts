@@ -649,6 +649,9 @@ export const attachments = pgTable(
     contentType: varchar("content_type", { length: 160 }).notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     category: attachmentCategory("category").notNull().default("other"),
+    primaryEntityType: attachmentEntityType("primary_entity_type").notNull(),
+    primaryEntityId: uuid("primary_entity_id").notNull(),
+    primaryRole: attachmentRole("primary_role").notNull().default("supporting"),
     status: attachmentStatus("status").notNull().default("pending"),
     uploadedBy: uuid("uploaded_by").references(() => participants.id, {
       onDelete: "set null",
@@ -664,6 +667,12 @@ export const attachments = pgTable(
       table.calendarId,
       table.status,
       table.createdAt,
+    ),
+    index("attachments_primary_target_idx").on(
+      table.calendarId,
+      table.primaryEntityType,
+      table.primaryEntityId,
+      table.primaryRole,
     ),
   ],
 );
