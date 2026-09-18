@@ -35,6 +35,9 @@ CREATE TABLE "attachments" (
   "content_type" varchar(160) NOT NULL,
   "size_bytes" integer NOT NULL,
   "category" "attachment_category" NOT NULL DEFAULT 'other',
+  "primary_entity_type" "attachment_entity_type" NOT NULL,
+  "primary_entity_id" uuid NOT NULL,
+  "primary_role" "attachment_role" NOT NULL DEFAULT 'supporting',
   "status" "attachment_status" NOT NULL DEFAULT 'pending',
   "uploaded_by" uuid REFERENCES "participants"("id") ON DELETE SET NULL,
   "ready_at" timestamp with time zone,
@@ -48,6 +51,9 @@ CREATE UNIQUE INDEX "attachments_storage_key_unique"
 
 CREATE INDEX "attachments_calendar_status_idx"
   ON "attachments" ("calendar_id", "status", "created_at");
+
+CREATE INDEX "attachments_primary_target_idx"
+  ON "attachments" ("calendar_id", "primary_entity_type", "primary_entity_id", "primary_role");
 
 CREATE TABLE "attachment_links" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
