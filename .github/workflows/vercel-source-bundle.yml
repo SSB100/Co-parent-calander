@@ -1,0 +1,61 @@
+name: Build Vercel source bundle
+
+on:
+  push:
+    branches:
+      - release/vercel-source-bundle
+    paths-ignore:
+      - deploy-source-bundle.json
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Create deployment bundle
+        shell: node {0}
+        run: |
+          const fs = require("node:fs");
+          const cp = require("node:child_process");
+
+          const files = cp.execSync("git ls-files -z")
+            .toString("utf8")
+            .split("\0")
+            .filter(Boolean)
+            .filter((file) =>
+              file !== "deploy-source-bundle.json" &&
+              !file.startsWith(".github/") &&
+              !file.startsWith("docs/") &&
+              !file.startsWith("tests/") &&
+              !file.startsWith("drizzle/") &&
+              file !== "README.md" &&
+              file !== ".env.example"
+            );
+
+          const payload = {
+            sourceCommit: "c097a55bdbe20128d3fb3b1f91738405fc0ebea8",
+            files: files.map((file) => ({
+              file,
+              dataBase64: fs.readFileSync(file).toString("base64")
+            }))
+          };
+
+          fs.writeFileSync(
+            "deploy-source-bundle.json",
+            JSON.stringify(payload)
+          );
+
+      - name: Commit bundle
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy-source-bundle.json
+          git commit -m "Build Vercel source bundle"
+          git push
