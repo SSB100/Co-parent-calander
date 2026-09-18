@@ -218,6 +218,8 @@ async function applySharedEventProposal(input: {
         title,
         description,
         category,
+        recurrence,
+        recurrence_end_date,
         created_by,
         created_at,
         updated_at
@@ -230,6 +232,8 @@ async function applySharedEventProposal(input: {
         ${event.title},
         ${event.description},
         ${event.category},
+        ${event.recurrence},
+        ${event.recurrenceEndDate},
         ${input.actor.participantId},
         now(),
         now()
@@ -253,6 +257,8 @@ async function applySharedEventProposal(input: {
         title = ${event.title},
         description = ${event.description},
         category = ${event.category},
+        recurrence = ${event.recurrence},
+        recurrence_end_date = ${event.recurrenceEndDate},
         updated_at = now()
       WHERE id = ${input.proposal.entityId}
         AND calendar_id = ${input.calendarId}
@@ -316,6 +322,12 @@ async function applySharedEventProposal(input: {
       )
   `);
 
+  const touchesRecurringSeries =
+    previousEvent?.recurrence !== undefined &&
+    previousEvent.recurrence !== "none" ||
+    event?.recurrence !== undefined &&
+    event.recurrence !== "none";
+
   const dateValues = [
     previousEvent?.startDate,
     previousEvent?.endDate ?? previousEvent?.startDate,
@@ -324,7 +336,15 @@ async function applySharedEventProposal(input: {
   ].filter((value): value is string => Boolean(value));
   const from = [...dateValues].sort()[0];
   const to = [...dateValues].sort().at(-1);
-  if (from && to) {
+
+  if (touchesRecurringSeries) {
+    statements.push(
+      buildCalendarSyncJobStatement(sql, {
+        calendarId: input.calendarId,
+        jobType: "full",
+      }),
+    );
+  } else if (from && to) {
     const syncRange = expandGoogleSyncRange(from, to);
     statements.push(
       buildCalendarSyncJobStatement(sql, {
@@ -353,7 +373,7 @@ async function applySharedEventProposal(input: {
   await sql.transaction(statements);
   return {
     details: await verifyAccepted(input.calendarId, input.proposal.id),
-    googleSyncQueued: Boolean(from && to),
+    googleSyncQueued: touchesRecurringSeries || Boolean(from && to),
   };
 }
 
