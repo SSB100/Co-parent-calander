@@ -4,6 +4,7 @@ import {
   enqueuePeriodicGoogleReconciliations,
   processDueGoogleSyncJobs,
 } from "@/lib/google-calendar/queue";
+import { runRetentionMaintenance } from "@/lib/retention/service";
 
 function authorized(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -24,7 +25,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
+  const retention = await runRetentionMaintenance();
   await enqueuePeriodicGoogleReconciliations();
-  const result = await processDueGoogleSyncJobs({ limit: 20 });
-  return NextResponse.json({ ok: true, ...result });
+  const googleCalendar = await processDueGoogleSyncJobs({ limit: 20 });
+  return NextResponse.json({ ok: true, retention, googleCalendar });
 }

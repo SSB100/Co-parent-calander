@@ -10,3 +10,4 @@ export * from "@/lib/db/schema/links";
 export * from "@/lib/db/schema/attachments";
 export * from "@/lib/db/schema/approvals";
 export * from "@/lib/db/schema/audit";
+export * from "@/lib/db/schema/retention";

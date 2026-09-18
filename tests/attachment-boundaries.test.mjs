@@ -80,8 +80,9 @@ test("profile photos replace the old private photo through the same attachment l
 
   assert.match(service, /eq\(attachmentLinks\.role, "profile_photo"\)/);
   assert.match(service, /DELETE FROM attachments/);
-  assert.match(service, /deletePrivateBlobsAfterResponse/);
+  assert.match(service, /processStorageCleanupAfterResponse/);
   assert.match(dispatch, /after\(async \(\) =>/);
+  assert.match(dispatch, /processDueStorageCleanupJobs/);
   assert.match(photo, /role: "profile_photo"/);
   assert.match(photo, /category: "profile_photo"/);
   assert.match(photo, /\/api\/attachments/);

@@ -6,7 +6,7 @@ import {
   createPrivateUploadUrl,
   privateBlobMetadata,
 } from "@/lib/attachments/blob";
-import { deletePrivateBlobsAfterResponse } from "@/lib/attachments/dispatch";
+import { processStorageCleanupAfterResponse } from "@/lib/attachments/dispatch";
 import {
   attachmentStorageKey,
   assertAttachmentTarget,
@@ -352,7 +352,7 @@ export async function finalizeAttachment(input: {
     );
   }
 
-  deletePrivateBlobsAfterResponse(
+  processStorageCleanupAfterResponse(
     oldPhotoRows
       .filter((old) => old.attachmentId !== attachment.id)
       .map((old) => old.storageKey),
@@ -442,7 +442,7 @@ export async function deleteAttachment(input: {
     );
   }
 
-  deletePrivateBlobsAfterResponse([attachment.storageKey]);
+  processStorageCleanupAfterResponse([attachment.storageKey]);
 
   return { ok: true as const };
 }

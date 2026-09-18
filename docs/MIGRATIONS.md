@@ -4,7 +4,7 @@ Covie uses ordered SQL migration files under `drizzle/`.
 
 ## Current production baseline
 
-Production contains migrations `0000` through `0012`. Migrations `0013_parenting_schedules.sql`, `0014_retire_legacy_auth.sql` and `0015_parent_profile_identity.sql` are staged in GitHub and must not be treated as Production-applied until the final database deployment pass.
+Production contains migrations `0000` through `0012`. Migrations `0013_parenting_schedules.sql`, `0014_retire_legacy_auth.sql`, `0015_parent_profile_identity.sql` and `0016_retention_foundation.sql` are staged in GitHub and must not be treated as Production-applied until the final database deployment pass.
 
 Those files must **not** be replayed.
 
@@ -93,3 +93,11 @@ Migration `0015_parent_profile_identity.sql` adds a stable semantic `profile_slo
 Existing active parents are backfilled by creation order within each calendar. A partial unique index prevents two profiles in the same calendar from sharing the same semantic slot.
 
 The existing `color_key` column remains for presentation compatibility only. Runtime ownership and account identity continue to use participant IDs, while visual palette selection can map from `profile_slot` without making a colour name part of the domain model.
+
+## 0016 privacy retention and durable storage cleanup
+
+Migration `0016_retention_foundation.sql` adds `storage_cleanup_jobs` and a transactional attachment-deletion trigger. The queue retains only a storage provider/object key, retry state and bounded error metadata. It allows user deletions, profile-photo replacement, stale upload expiry and cascade deletion to remove private Blob bytes reliably even when the first provider call fails.
+
+The matching daily worker also enforces the policy documented in `docs/RETENTION.md` for stale Pending uploads, abandoned Draft proposals, terminal proposal history and audit entries.
+
+This migration is staged only. Apply it after `0013`, `0014` and `0015`; do not run the worker code against a database that has not yet applied `0016`.

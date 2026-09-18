@@ -50,6 +50,7 @@ Saved parenting schedules use first-class `parenting_schedules`, `parenting_sche
 - approvals
 - Google Calendar
 - audit
+- retention
 
 Application code can keep importing from `@/lib/db/schema`, while feature-level schema ownership stays explicit and the Drizzle entry point remains stable.
 
@@ -74,6 +75,12 @@ Feature-specific approval applicators apply the agreed mutation and proposal tra
 
 Calendar/event mutations enqueue durable database sync jobs in the same transaction where practical. A prompt post-response worker attempt may process them immediately, while the daily worker provides reconciliation/retry.
 
+## Privacy and retention
+
+Attachment metadata deletion queues the private object key transactionally in `storage_cleanup_jobs`. A prompt post-response attempt handles normal user deletions, while the authenticated daily worker retries failures and reclaims expired processing leases.
+
+The same daily maintenance removes stale incomplete uploads, abandoned proposal drafts and operational proposal/audit history after the documented windows. Active domain records, Waiting proposals and Ready attachments are not age-expired. See `docs/RETENTION.md`.
+
 ## Relationships
 
 Native domain relationships remain authoritative, for example Expense → Child or Responsibility → Event.
@@ -95,7 +102,7 @@ Production Neon:
 - project: `delicate-sunset-36051658`
 - branch: `br-quiet-sea-a7duq4r3`
 - schema migrations applied in Production: `0000` through `0012`
-- staged migrations awaiting the final database release: `0013_parenting_schedules.sql`, `0014_retire_legacy_auth.sql`, `0015_parent_profile_identity.sql`
+- staged migrations awaiting the final database release: `0013_parenting_schedules.sql`, `0014_retire_legacy_auth.sql`, `0015_parent_profile_identity.sql`, `0016_retention_foundation.sql`
 - `covie_schema_migrations` is the authoritative migration ledger from `0012` onward
 
 A pre-Phase-8 rollback branch is currently retained:
@@ -130,4 +137,4 @@ Before the brand/UI redesign, cleanup work should:
 - split the large client shells into controllers/hooks and smaller UI components
 - introduce a shared authenticated application shell
 - modularise approval applicators and relationship aggregation
-- add data-retention/privacy rules and selected database constraints
+- keep the staged privacy/retention policy and durable cleanup queue verified through the final database release

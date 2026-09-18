@@ -1,15 +1,16 @@
 import { after } from "next/server";
-import { deletePrivateBlob } from "@/lib/attachments/blob";
+import { processDueStorageCleanupJobs } from "@/lib/retention/service";
 
-export function deletePrivateBlobsAfterResponse(pathnames: string[]) {
+export function processStorageCleanupAfterResponse(pathnames: string[]) {
   const unique = [...new Set(pathnames.filter(Boolean))];
   if (unique.length === 0) return;
 
   after(async () => {
-    for (const pathname of unique) {
-      try {
-        await deletePrivateBlob(pathname);
-      } catch {}
-    }
+    try {
+      await processDueStorageCleanupJobs({
+        storageKeys: unique,
+        limit: unique.length,
+      });
+    } catch {}
   });
 }

@@ -319,6 +319,10 @@ Google continues to see only agreed calendar/event information from the existing
 
 ## Failure and cleanup behavior
 
+Attachment deletion is durable in staged migration `0016`: the database queues the private object key in `storage_cleanup_jobs` inside the same transaction that removes attachment metadata. Covie attempts the queued deletion after the response, retains failures for retry, and processes due cleanup jobs during the authenticated daily worker. Stale Pending uploads are removed after 24 hours and enter the same queue.
+
+See `docs/RETENTION.md` for the full policy. Until `0016` is deliberately applied and the matching application is deployed, Production continues to use the earlier best-effort cleanup behavior.
+
 Pending attachment rows are hidden from normal lists.
 
 If client upload/finalization fails, the UI makes a best-effort request to remove the pending attachment.

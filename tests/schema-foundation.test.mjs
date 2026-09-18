@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0015", async () => {
+test("schema migrations are sequential through 0016", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 16 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 17 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
