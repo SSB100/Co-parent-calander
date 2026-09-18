@@ -278,7 +278,7 @@ export function EventPanel({
       <button
         type="button"
         onClick={() => void openPanel()}
-        className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-sky-600 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700"
+        className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-900"
       >
         <CalendarPlus2 className="h-4 w-4" aria-hidden="true" />
         <span>{buttonLabel}</span>

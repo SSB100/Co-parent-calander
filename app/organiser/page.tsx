@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { HomeShell } from "@/components/home/home-shell";
 import { getCalendarSession } from "@/lib/security/session";
-
+import { OrganiserShell } from "@/components/workspace/organiser-shell";
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Updates" };
-
-export default async function HomePage() {
+export const metadata: Metadata = { title: "Organiser" };
+export default async function OrganiserPage() {
   const session = await getCalendarSession();
   if (!session) redirect("/dashboard");
-
-  return <HomeShell />;
+  return <OrganiserShell />;
 }

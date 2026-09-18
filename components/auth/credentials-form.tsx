@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowRight, CalendarDays } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { CovieBrand } from "@/components/workspace/covie-brand";
 import Link from "next/link";
 import { useActionState } from "react";
 import {
@@ -22,10 +23,7 @@ export function CredentialsForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     <main className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
       <section className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm sm:p-8">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
-            <CalendarDays className="h-4 w-4" aria-hidden="true" />
-          </span>
-          Covie
+          <CovieBrand />
         </Link>
 
         <h1 className="mt-8 text-3xl font-semibold tracking-tight text-slate-950">
@@ -94,7 +92,7 @@ export function CredentialsForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           <button
             type="submit"
             disabled={pending}
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white transition hover:bg-emerald-900 disabled:cursor-wait disabled:opacity-60"
           >
             {pending ? (isSignUp ? "Creating account…" : "Logging in…") : isSignUp ? "Create account" : "Log in"}
             {!pending ? <ArrowRight className="h-4 w-4" aria-hidden="true" /> : null}
