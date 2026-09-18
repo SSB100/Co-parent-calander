@@ -14,6 +14,7 @@ import {
   LogOut,
   MapPin,
   ReceiptText,
+  UsersRound,
   WalletCards,
 } from "lucide-react";
 import Link from "next/link";
@@ -94,6 +95,7 @@ type HomePayload = {
   currentUserName: string;
   permission: "owner" | "editor" | "viewer";
   participants: Participant[];
+  children: Array<{ id: string; displayName: string }>;
   today: {
     date: string;
     parentingLabel: string;
@@ -310,6 +312,13 @@ export function HomeShell() {
             >
               <ListChecks className="h-4 w-4" aria-hidden="true" />
               Responsibilities
+            </Link>
+            <Link
+              href="/kids"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              <UsersRound className="h-4 w-4" aria-hidden="true" />
+              Kids
             </Link>
             <Link
               href="/dashboard"
@@ -780,6 +789,31 @@ export function HomeShell() {
                 </p>
               )}
             </Link>
+          </div>
+        </section>
+      ) : null}
+
+      {data && data.children.length > 0 ? (
+        <section className="mt-8 pb-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Kids
+            </p>
+            <h2 className="mt-1 text-xl font-semibold text-slate-950">
+              Your child profiles
+            </h2>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {data.children.map((child) => (
+              <Link
+                key={child.id}
+                href={`/kids/${child.id}`}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                <UsersRound className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                {child.displayName}
+              </Link>
+            ))}
           </div>
         </section>
       ) : null}
