@@ -25,16 +25,19 @@ test("expense persistence uses cents, explicit shares and settlement state", asy
 });
 
 test("shared expense create edit and delete use the reusable approval engine", async () => {
-  const route = await source("app/api/expenses/route.ts");
+  const [route, service] = await Promise.all([
+    source("app/api/expenses/route.ts"),
+    source("lib/expenses/service.ts"),
+  ]);
 
-  assert.match(route, /sharedApprovalTargetForSession/);
-  assert.match(route, /createApprovalProposal/);
-  assert.match(route, /entityType: "expense"/);
-  assert.match(route, /action: "create"/);
-  assert.match(route, /action: "edit"/);
-  assert.match(route, /action: "delete"/);
-  assert.match(route, /pending: true/);
-  assert.match(route, /status: 202/);
+  assert.match(service, /sharedApprovalTargetForSession/);
+  assert.match(service, /createApprovalProposal/);
+  assert.match(service, /entityType: "expense"/);
+  assert.match(service, /action: "create"/);
+  assert.match(service, /action: "edit"/);
+  assert.match(service, /action: "delete"/);
+  assert.match(service, /pending: true/);
+  assert.match(route, /result\.pending \? 202 : 200/);
 });
 
 test("expense approval applies target mutation and proposal transition together", async () => {
@@ -51,21 +54,27 @@ test("expense approval applies target mutation and proposal transition together"
 });
 
 test("settlement is an audited operational status rather than a second approval proposal", async () => {
-  const settlement = await source("app/api/expenses/[id]/settlement/route.ts");
+  const [contracts, settlementRoute, service] = await Promise.all([
+    source("lib/expenses/contracts.ts"),
+    source("app/api/expenses/[id]/settlement/route.ts"),
+    source("lib/expenses/service.ts"),
+  ]);
 
-  assert.match(settlement, /operation: z\.enum\(\["settle", "reopen"\]\)/);
-  assert.match(settlement, /expense\.settlement\.update/);
-  assert.doesNotMatch(settlement, /createApprovalProposal/);
-  assert.match(settlement, /settled_by_participant_id/);
+  assert.match(contracts, /operation: z\.enum\(\["settle", "reopen"\]\)/);
+  const settlementService = service.slice(service.indexOf("export async function updateExpenseSettlement"));
+  assert.match(settlementService, /expense\.settlement\.update/);
+  assert.doesNotMatch(settlementService, /createApprovalProposal/);
+  assert.match(settlementService, /settled_by_participant_id/);
+  assert.match(settlementRoute, /updateExpenseSettlement/);
 });
 
 test("expense workflow remains separate from Google Calendar sync", async () => {
-  const [route, apply] = await Promise.all([
-    source("app/api/expenses/route.ts"),
+  const [service, apply] = await Promise.all([
+    source("lib/expenses/service.ts"),
     source("lib/approvals/expense-apply.ts"),
   ]);
 
-  assert.doesNotMatch(route, /google-calendar/);
+  assert.doesNotMatch(service, /google-calendar/);
   assert.doesNotMatch(apply, /google-calendar/);
   assert.match(apply, /googleSyncQueued: false/);
 });
