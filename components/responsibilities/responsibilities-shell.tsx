@@ -24,6 +24,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
+import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 
 type Participant = {
   id: string;
@@ -912,6 +913,14 @@ export function ResponsibilitiesShell({ initialDate }: { initialDate: string | n
                       ) : null}
                     </div>
                   ) : null}
+
+                  <AttachmentPanel
+                    entityType="responsibility"
+                    entityId={item.id}
+                    defaultCategory="school_form"
+                    title="Documents"
+                    compact
+                  />
 
                   {editable && item.status !== "completed" ? (
                     <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
