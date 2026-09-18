@@ -230,8 +230,49 @@ export function ExpensesShell({ initialDate }: { initialDate: string | null }) {
   }, [dateFilter]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    const query = dateFilter ? `?date=${encodeURIComponent(dateFilter)}` : "";
+
+    fetch(`/api/expenses${query}`, { cache: "no-store" })
+      .then(async (response) => ({
+        response,
+        body: (await response.json().catch(() => null)) as
+          | ExpensePayload
+          | { error?: string }
+          | null,
+      }))
+      .then(({ response, body }) => {
+        if (cancelled) return;
+        if (!response.ok || !body || !("expenses" in body)) {
+          setError(
+            body && "error" in body && body.error
+              ? body.error
+              : "Expenses could not be loaded.",
+          );
+          return;
+        }
+        setData(body);
+        setError(null);
+        setForm((current) => ({
+          ...current,
+          paidByParticipantId:
+            current.paidByParticipantId ||
+            body.currentParticipantId ||
+            body.participants[0]?.id ||
+            "",
+        }));
+      })
+      .catch(() => {
+        if (!cancelled) setError("Expenses could not be loaded.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dateFilter]);
 
   const participants = data?.participants ?? [];
   const children = data?.children ?? [];
