@@ -461,6 +461,7 @@ export async function GET() {
     currentUserName: session.userName,
     permission: session.permission,
     participants: parentRows,
+    children: childRows,
     today: {
       date: now.date,
       parentingLabel,
