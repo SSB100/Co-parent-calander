@@ -6,6 +6,7 @@ import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { EventPanel } from "@/components/calendar/event-panel";
 import { DayExpenses } from "@/components/expenses/day-expenses";
+import { DayResponsibilities } from "@/components/responsibilities/day-responsibilities";
 import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
 import {
   parentingAssignmentsProposalStateSchema,
@@ -584,6 +585,8 @@ export function DayDetailsPanel({
             ))}
           </div>
         </div>
+
+        <DayResponsibilities date={date} readOnly={readOnly} onChanged={onProposalChanged} />
 
         <DayExpenses date={date} readOnly={readOnly} />
 
