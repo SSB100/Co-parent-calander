@@ -3,6 +3,7 @@ import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { acceptCalendarApprovalProposal } from "@/lib/approvals/calendar-apply";
 import { acceptExpenseApprovalProposal } from "@/lib/approvals/expense-apply";
+import { acceptResponsibilityApprovalProposal } from "@/lib/approvals/responsibility-apply";
 import {
   acceptApprovalProposal,
   ApprovalEngineError,
@@ -124,11 +125,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (parsed.data.operation === "accept") {
-      const expenseApplied = await acceptExpenseApprovalProposal({
+      const responsibilityApplied = await acceptResponsibilityApprovalProposal({
         calendarId: session.calendarId,
         actor,
         proposalId: parsedId.data,
       });
+      const expenseApplied =
+        responsibilityApplied ??
+        (await acceptExpenseApprovalProposal({
+          calendarId: session.calendarId,
+          actor,
+          proposalId: parsedId.data,
+        }));
       const applied =
         expenseApplied ??
         (await acceptCalendarApprovalProposal({
