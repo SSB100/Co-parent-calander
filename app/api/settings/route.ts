@@ -1,11 +1,11 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb, getSql } from "@/lib/db";
 import { calendars, children, participants } from "@/lib/db/schema";
 import { buildCalendarSyncJobStatement } from "@/lib/google-calendar/outbox";
-import { processDueGoogleSyncJobs } from "@/lib/google-calendar/queue";
+import { kickGoogleCalendarSync } from "@/lib/google-calendar/dispatch";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession, getEditorSession } from "@/lib/security/session";
 
@@ -150,10 +150,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Settings could not be saved." }, { status: 409 });
   }
 
-  after(async () => {
-    try {
-      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
-    } catch {}
-  });
+  kickGoogleCalendarSync(session.calendarId);
   return NextResponse.json({ ok: true });
 }

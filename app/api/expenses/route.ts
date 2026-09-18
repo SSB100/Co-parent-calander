@@ -8,7 +8,7 @@ import {
   createApprovalProposal,
   listApprovalProposals,
 } from "@/lib/approvals/engine";
-import { getSharedApprovalTarget } from "@/lib/approvals/shared";
+import { approvalActorFromSession, proposalReasonSchema, sharedApprovalTargetForSession } from "@/lib/approvals/http";
 import { getDb, getSql } from "@/lib/db";
 import {
   children,
@@ -28,48 +28,16 @@ import {
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession, getEditorSession } from "@/lib/security/session";
 
-const proposalReason = z
-  .string()
-  .trim()
-  .max(500, "Keep the reason under 500 characters.")
-  .nullable()
-  .optional()
-  .transform((value) => (value ? value : null));
-
-const createSchema = expenseDetailsSchema.safeExtend({ reason: proposalReason });
+const createSchema = expenseDetailsSchema.safeExtend({ reason: proposalReasonSchema });
 const editSchema = expenseDetailsSchema.safeExtend({
   id: z.string().uuid(),
-  reason: proposalReason,
+  reason: proposalReasonSchema,
 });
 const deleteSchema = z.object({
   id: z.string().uuid(),
-  reason: proposalReason,
+  reason: proposalReasonSchema,
 });
 const dateQuery = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-
-function approvalActor(session: {
-  membershipId: string;
-  participantId: string;
-  permission: "owner" | "editor" | "viewer";
-}) {
-  return {
-    membershipId: session.membershipId,
-    participantId: session.participantId,
-    permission: session.permission,
-  } as const;
-}
-
-async function approvalTargetFor(session: {
-  calendarId: string;
-  membershipId: string;
-  participantId: string;
-}) {
-  return getSharedApprovalTarget({
-    calendarId: session.calendarId,
-    actorMembershipId: session.membershipId,
-    actorParticipantId: session.participantId,
-  });
-}
 
 function approvalError(error: unknown, fallback: string) {
   if (error instanceof ApprovalEngineError) {
@@ -244,7 +212,7 @@ export async function POST(request: NextRequest) {
     if (target.required && target.approverMembershipId) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
-        actor: approvalActor(session),
+        actor: approvalActorFromSession(session),
         entityType: "expense",
         entityId: id,
         action: "create",
@@ -336,7 +304,7 @@ export async function PATCH(request: NextRequest) {
     if (target.required && target.approverMembershipId) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
-        actor: approvalActor(session),
+        actor: approvalActorFromSession(session),
         entityType: "expense",
         entityId: id,
         action: "edit",
@@ -436,7 +404,7 @@ export async function DELETE(request: NextRequest) {
     if (target.required && target.approverMembershipId) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
-        actor: approvalActor(session),
+        actor: approvalActorFromSession(session),
         entityType: "expense",
         entityId: existing.id,
         action: "delete",

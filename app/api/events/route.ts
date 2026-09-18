@@ -2,32 +2,24 @@ import { randomUUID } from "node:crypto";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { and, asc, eq, gte, isNotNull, isNull, lte, ne, or } from "drizzle-orm";
 import type { NextRequest } from "next/server";
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   ApprovalEngineError,
   createApprovalProposal,
 } from "@/lib/approvals/engine";
-import { getSharedApprovalTarget } from "@/lib/approvals/shared";
+import { approvalActorFromSession, proposalReasonSchema, sharedApprovalTargetForSession } from "@/lib/approvals/http";
 import { getDb, getSql } from "@/lib/db";
 import { expandEventOccurrences } from "@/lib/events/recurrence";
 import { events } from "@/lib/db/schema";
 import { buildCalendarSyncJobStatement, expandGoogleSyncRange } from "@/lib/google-calendar/outbox";
-import { processDueGoogleSyncJobs } from "@/lib/google-calendar/queue";
+import { kickGoogleCalendarSync } from "@/lib/google-calendar/dispatch";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession, getEditorSession } from "@/lib/security/session";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => !Number.isNaN(parseISO(value).getTime()), "Choose a valid date.");
 const category = z.enum(["school", "sport", "medical", "birthday", "holiday", "activity", "other"]);
 const recurrence = z.enum(["none", "weekly", "fortnightly", "monthly", "yearly"]);
-const proposalReason = z
-  .string()
-  .trim()
-  .max(500, "Keep the reason under 500 characters.")
-  .nullable()
-  .optional()
-  .transform((value) => (value ? value : null));
-
 const eventFields = z.object({
   title: z.string().trim().min(1, "Add an event title.").max(80, "Keep the title under 80 characters."),
   description: z.string().trim().max(500, "Keep the event note under 500 characters.").nullable().transform((value) => (value ? value : null)),
@@ -62,9 +54,9 @@ const eventFields = z.object({
     });
   }
 });
-const createSchema = eventFields.safeExtend({ reason: proposalReason });
-const editSchema = eventFields.safeExtend({ id: z.string().uuid(), reason: proposalReason });
-const deleteSchema = z.object({ id: z.string().uuid(), reason: proposalReason });
+const createSchema = eventFields.safeExtend({ reason: proposalReasonSchema });
+const editSchema = eventFields.safeExtend({ id: z.string().uuid(), reason: proposalReasonSchema });
+const deleteSchema = z.object({ id: z.string().uuid(), reason: proposalReasonSchema });
 
 function localDate(timeZone: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -75,30 +67,6 @@ function approvalError(error: unknown, fallback: string) {
     return NextResponse.json({ error: error.message }, { status: error.statusCode });
   }
   return NextResponse.json({ error: fallback }, { status: 409 });
-}
-
-async function approvalTargetFor(session: {
-  calendarId: string;
-  membershipId: string;
-  participantId: string;
-}) {
-  return getSharedApprovalTarget({
-    calendarId: session.calendarId,
-    actorMembershipId: session.membershipId,
-    actorParticipantId: session.participantId,
-  });
-}
-
-function approvalActor(session: {
-  membershipId: string;
-  participantId: string;
-  permission: "owner" | "editor" | "viewer";
-}) {
-  return {
-    membershipId: session.membershipId,
-    participantId: session.participantId,
-    permission: session.permission,
-  } as const;
 }
 
 export async function GET(request: NextRequest) {
@@ -176,17 +144,13 @@ export async function POST(request: NextRequest) {
   const { reason, ...data } = parsed.data;
 
   try {
-    const target = await approvalTargetFor({
-      calendarId: session.calendarId,
-      membershipId: session.membershipId,
-      participantId: session.participantId,
-    });
+    const target = await sharedApprovalTargetForSession(session);
 
     if (target.required && target.approverMembershipId) {
       const proposedState = { kind: "shared_event" as const, event: { id, ...data } };
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
-        actor: approvalActor(session),
+        actor: approvalActorFromSession(session),
         entityType: "shared_event",
         entityId: id,
         action: "create",
@@ -231,11 +195,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "The event could not be saved." }, { status: 409 });
   }
-  after(async () => {
-    try {
-      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
-    } catch {}
-  });
+  kickGoogleCalendarSync(session.calendarId);
   return NextResponse.json({ ok: true, pending: false, id });
 }
 
@@ -253,16 +213,12 @@ export async function PATCH(request: NextRequest) {
   const { id, reason, ...data } = parsed.data;
 
   try {
-    const target = await approvalTargetFor({
-      calendarId: session.calendarId,
-      membershipId: session.membershipId,
-      participantId: session.participantId,
-    });
+    const target = await sharedApprovalTargetForSession(session);
 
     if (target.required && target.approverMembershipId) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
-        actor: approvalActor(session),
+        actor: approvalActorFromSession(session),
         entityType: "shared_event",
         entityId: id,
         action: "edit",
@@ -313,11 +269,7 @@ export async function PATCH(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "The event could not be updated." }, { status: 409 });
   }
-  after(async () => {
-    try {
-      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
-    } catch {}
-  });
+  kickGoogleCalendarSync(session.calendarId);
   return NextResponse.json({ ok: true, pending: false, id });
 }
 
@@ -333,16 +285,12 @@ export async function DELETE(request: NextRequest) {
   if (!existing[0]) return NextResponse.json({ error: "Event not found." }, { status: 404 });
 
   try {
-    const target = await approvalTargetFor({
-      calendarId: session.calendarId,
-      membershipId: session.membershipId,
-      participantId: session.participantId,
-    });
+    const target = await sharedApprovalTargetForSession(session);
 
     if (target.required && target.approverMembershipId) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
-        actor: approvalActor(session),
+        actor: approvalActorFromSession(session),
         entityType: "shared_event",
         entityId: parsed.data.id,
         action: "delete",
@@ -390,10 +338,6 @@ export async function DELETE(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "The event could not be deleted." }, { status: 409 });
   }
-  after(async () => {
-    try {
-      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
-    } catch {}
-  });
+  kickGoogleCalendarSync(session.calendarId);
   return NextResponse.json({ ok: true, pending: false });
 }

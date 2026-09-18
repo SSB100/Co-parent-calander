@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { acceptCalendarApprovalProposal } from "@/lib/approvals/calendar-apply";
 import { acceptExpenseApprovalProposal } from "@/lib/approvals/expense-apply";
@@ -13,7 +13,7 @@ import {
   withdrawApprovalProposal,
 } from "@/lib/approvals/engine";
 import type { ApprovalActor } from "@/lib/approvals/types";
-import { processDueGoogleSyncJobs } from "@/lib/google-calendar/queue";
+import { kickGoogleCalendarSync } from "@/lib/google-calendar/dispatch";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession } from "@/lib/security/session";
 
@@ -147,14 +147,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       if (applied) {
         if (applied.googleSyncQueued) {
-          after(async () => {
-            try {
-              await processDueGoogleSyncJobs({
-                calendarId: session.calendarId,
-                limit: 8,
-              });
-            } catch {}
-          });
+          kickGoogleCalendarSync(session.calendarId);
         }
         return NextResponse.json(applied.details);
       }

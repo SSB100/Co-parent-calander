@@ -1,18 +1,18 @@
 import { parseISO } from "date-fns";
 import { and, eq, inArray } from "drizzle-orm";
 import type { NextRequest } from "next/server";
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   ApprovalEngineError,
   createApprovalProposal,
 } from "@/lib/approvals/engine";
-import { getSharedApprovalTarget } from "@/lib/approvals/shared";
+import { approvalActorFromSession, proposalReasonSchema, sharedApprovalTargetForSession } from "@/lib/approvals/http";
 import { loadEffectiveAssignmentMap } from "@/lib/assignments/effective";
 import { getDb, getSql } from "@/lib/db";
 import { children, parentingAssignments, participants } from "@/lib/db/schema";
 import { buildCalendarSyncJobStatement, expandGoogleSyncRange } from "@/lib/google-calendar/outbox";
-import { processDueGoogleSyncJobs } from "@/lib/google-calendar/queue";
+import { kickGoogleCalendarSync } from "@/lib/google-calendar/dispatch";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getEditorSession } from "@/lib/security/session";
 
@@ -32,13 +32,7 @@ const mutationSchema = z
     parentId: z.string().uuid().nullable().optional(),
     period: z.enum(["full_day", "morning", "afternoon"]).optional(),
     ownership: ownershipSchema.optional(),
-    reason: z
-      .string()
-      .trim()
-      .max(500, "Keep the reason under 500 characters.")
-      .nullable()
-      .optional()
-      .transform((value) => (value ? value : null)),
+    reason: proposalReasonSchema,
   })
   .superRefine((value, context) => {
     if (!value.ownership && value.parentId === undefined) {
@@ -206,20 +200,12 @@ export async function POST(request: NextRequest) {
   );
 
   try {
-    const approvalTarget = await getSharedApprovalTarget({
-      calendarId: session.calendarId,
-      actorMembershipId: session.membershipId,
-      actorParticipantId: session.participantId!,
-    });
+    const approvalTarget = await sharedApprovalTargetForSession(session);
 
     if (approvalTarget.required && approvalTarget.approverMembershipId) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
-        actor: {
-          membershipId: session.membershipId,
-          participantId: session.participantId,
-          permission: session.permission,
-        },
+        actor: approvalActorFromSession(session),
         entityType: "parenting_schedule",
         entityId: session.calendarId,
         action: "edit",
@@ -383,11 +369,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  after(async () => {
-    try {
-      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
-    } catch {}
-  });
+  kickGoogleCalendarSync(session.calendarId);
 
   return NextResponse.json({
     ok: true,

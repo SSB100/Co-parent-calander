@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb, getSql } from "@/lib/db";
 import { calendarMemberships, participants } from "@/lib/db/schema";
 import { buildCalendarSyncJobStatement } from "@/lib/google-calendar/outbox";
-import { processDueGoogleSyncJobs } from "@/lib/google-calendar/queue";
+import { kickGoogleCalendarSync } from "@/lib/google-calendar/dispatch";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getOwnerSession } from "@/lib/security/session";
 
@@ -137,11 +137,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  after(async () => {
-    try {
-      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
-    } catch {}
-  });
+  kickGoogleCalendarSync(session.calendarId);
   return NextResponse.json({
     ok: true,
     parent: {

@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { parseISO } from "date-fns";
 import { and, asc, desc, eq, inArray, like } from "drizzle-orm";
 import type { NextRequest } from "next/server";
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { ApprovalEngineError, createApprovalProposal } from "@/lib/approvals/engine";
-import { getSharedApprovalTarget } from "@/lib/approvals/shared";
+import { approvalActorFromSession, proposalReasonSchema, sharedApprovalTargetForSession } from "@/lib/approvals/http";
 import { getDb, getSql } from "@/lib/db";
 import { children, participants, recurringRules } from "@/lib/db/schema";
 import {
@@ -18,7 +18,7 @@ import {
   type RecurrencePeriod,
 } from "@/lib/recurrence/fortnight";
 import { buildCalendarSyncJobStatement } from "@/lib/google-calendar/outbox";
-import { processDueGoogleSyncJobs } from "@/lib/google-calendar/queue";
+import { kickGoogleCalendarSync } from "@/lib/google-calendar/dispatch";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getEditorSession } from "@/lib/security/session";
 
@@ -52,13 +52,7 @@ const scheduleSchema = z
     anchorDate: isoDate,
     endDate: isoDate.nullable(),
     pattern: z.array(scheduleSlotSchema).length(FORTNIGHT_SLOTS),
-    reason: z
-      .string()
-      .trim()
-      .max(500, "Keep the reason under 500 characters.")
-      .nullable()
-      .optional()
-      .transform((value) => (value ? value : null)),
+    reason: proposalReasonSchema,
   })
   .superRefine((value, context) => {
     if (value.endDate && value.endDate < value.anchorDate) {
@@ -72,13 +66,7 @@ const scheduleSchema = z
 
 const deleteSchema = z.object({
   scheduleId: z.string().uuid(),
-  reason: z
-    .string()
-    .trim()
-    .max(500, "Keep the reason under 500 characters.")
-    .nullable()
-    .optional()
-    .transform((value) => (value ? value : null)),
+  reason: proposalReasonSchema,
 });
 
 type ScheduleSlot = {
@@ -313,20 +301,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const approvalTarget = await getSharedApprovalTarget({
-      calendarId: session.calendarId,
-      actorMembershipId: session.membershipId,
-      actorParticipantId: session.participantId!,
-    });
+    const approvalTarget = await sharedApprovalTargetForSession(session);
 
     if (approvalTarget.required && approvalTarget.approverMembershipId) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
-        actor: {
-          membershipId: session.membershipId,
-          participantId: session.participantId,
-          permission: session.permission,
-        },
+        actor: approvalActorFromSession(session),
         entityType: "parenting_schedule",
         entityId: session.calendarId,
         action: existingSchedule ? "edit" : "create",
@@ -475,11 +455,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  after(async () => {
-    try {
-      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
-    } catch {}
-  });
+  kickGoogleCalendarSync(session.calendarId);
 
   return NextResponse.json({
     ok: true,
@@ -542,20 +518,12 @@ export async function DELETE(request: NextRequest) {
   const beforeState = JSON.stringify({ schedules: savedSchedules });
 
   try {
-    const approvalTarget = await getSharedApprovalTarget({
-      calendarId: session.calendarId,
-      actorMembershipId: session.membershipId,
-      actorParticipantId: session.participantId!,
-    });
+    const approvalTarget = await sharedApprovalTargetForSession(session);
 
     if (approvalTarget.required && approvalTarget.approverMembershipId) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
-        actor: {
-          membershipId: session.membershipId,
-          participantId: session.participantId,
-          permission: session.permission,
-        },
+        actor: approvalActorFromSession(session),
         entityType: "parenting_schedule",
         entityId: session.calendarId,
         action: "delete",
@@ -638,10 +606,6 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
-  after(async () => {
-    try {
-      await processDueGoogleSyncJobs({ calendarId: session.calendarId, limit: 8 });
-    } catch {}
-  });
+  kickGoogleCalendarSync(session.calendarId);
   return NextResponse.json({ ok: true, pending: false, scheduleId });
 }

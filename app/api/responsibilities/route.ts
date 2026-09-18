@@ -8,7 +8,7 @@ import {
   createApprovalProposal,
   listApprovalProposals,
 } from "@/lib/approvals/engine";
-import { getSharedApprovalTarget } from "@/lib/approvals/shared";
+import { approvalActorFromSession, proposalReasonSchema, sharedApprovalTargetForSession } from "@/lib/approvals/http";
 import { getDb, getSql } from "@/lib/db";
 import {
   children,
@@ -30,22 +30,14 @@ import {
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession, getEditorSession } from "@/lib/security/session";
 
-const proposalReason = z
-  .string()
-  .trim()
-  .max(500, "Keep the reason under 500 characters.")
-  .nullable()
-  .optional()
-  .transform((value) => (value ? value : null));
-
-const createSchema = responsibilityDetailsSchema.safeExtend({ reason: proposalReason });
+const createSchema = responsibilityDetailsSchema.safeExtend({ reason: proposalReasonSchema });
 const editSchema = responsibilityDetailsSchema.safeExtend({
   id: z.string().uuid(),
-  reason: proposalReason,
+  reason: proposalReasonSchema,
 });
 const deleteSchema = z.object({
   id: z.string().uuid(),
-  reason: proposalReason,
+  reason: proposalReasonSchema,
 });
 const dateQuery = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -56,18 +48,6 @@ function todayInAuckland() {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
-}
-
-function approvalActor(session: {
-  membershipId: string;
-  participantId: string;
-  permission: "owner" | "editor" | "viewer";
-}) {
-  return {
-    membershipId: session.membershipId,
-    participantId: session.participantId,
-    permission: session.permission,
-  } as const;
 }
 
 function approvalError(error: unknown, fallback: string) {
@@ -127,18 +107,6 @@ function proposalTouchesDate(
     if (parsed.success && parsed.data.responsibility?.dueDate === date) return true;
   }
   return false;
-}
-
-async function approvalTarget(session: {
-  calendarId: string;
-  membershipId: string;
-  participantId: string;
-}) {
-  return getSharedApprovalTarget({
-    calendarId: session.calendarId,
-    actorMembershipId: session.membershipId,
-    actorParticipantId: session.participantId,
-  });
 }
 
 export async function GET(request: NextRequest) {
@@ -290,7 +258,7 @@ export async function POST(request: NextRequest) {
   const id = randomUUID();
   const seriesId = id;
   try {
-    const target = await approvalTarget(session);
+    const target = await sharedApprovalTargetForSession(session);
     if (
       needsResponsibilityApproval({
         sharedApprovalAvailable: target.required,
@@ -301,7 +269,7 @@ export async function POST(request: NextRequest) {
     ) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
-        actor: approvalActor(session),
+        actor: approvalActorFromSession(session),
         entityType: "responsibility",
         entityId: id,
         action: "create",
@@ -401,7 +369,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const target = await approvalTarget(session);
+    const target = await sharedApprovalTargetForSession(session);
     if (
       needsResponsibilityApproval({
         sharedApprovalAvailable: target.required,
@@ -413,7 +381,7 @@ export async function PATCH(request: NextRequest) {
     ) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
-        actor: approvalActor(session),
+        actor: approvalActorFromSession(session),
         entityType: "responsibility",
         entityId: id,
         action: "edit",
@@ -510,7 +478,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const target = await approvalTarget(session);
+    const target = await sharedApprovalTargetForSession(session);
     if (
       needsResponsibilityApproval({
         sharedApprovalAvailable: target.required,
@@ -521,7 +489,7 @@ export async function DELETE(request: NextRequest) {
     ) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
-        actor: approvalActor(session),
+        actor: approvalActorFromSession(session),
         entityType: "responsibility",
         entityId: existing.id,
         action: "delete",
