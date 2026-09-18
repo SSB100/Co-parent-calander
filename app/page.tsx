@@ -136,7 +136,7 @@ export default async function Home() {
 
           <div
             className="relative mx-auto w-full max-w-xl"
-            aria-label="Example Covie calendar"
+            aria-hidden="true"
           >
             <div className="absolute -inset-4 rounded-[2rem] bg-white/35 blur-2xl" />
             <div className="relative overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_24px_70px_rgba(39,54,50,0.12)]">
