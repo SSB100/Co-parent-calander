@@ -10,6 +10,7 @@ import {
   recurringScheduleSnapshotProposalStateSchema,
   sharedEventProposalStateSchema,
 } from "@/lib/approvals/calendar-state";
+import { expandEventOccurrences } from "@/lib/events/recurrence";
 
 export type CalendarPendingProposal = {
   id: string;
@@ -64,13 +65,20 @@ function addEventDates(
   const event = parsed.success ? parsed.data.event : null;
   if (!event) return;
 
-  const end = event.endDate ?? event.startDate;
-  for (const day of eachDayOfInterval({
-    start: parseISO(event.startDate),
-    end: parseISO(end),
-  })) {
-    const date = format(day, "yyyy-MM-dd");
-    if (inRange(date, from, to)) target.add(date);
+  const occurrences = expandEventOccurrences({
+    events: [event],
+    from,
+    to,
+  });
+  for (const occurrence of occurrences) {
+    const end = occurrence.endDate ?? occurrence.startDate;
+    for (const day of eachDayOfInterval({
+      start: parseISO(occurrence.startDate),
+      end: parseISO(end),
+    })) {
+      const date = format(day, "yyyy-MM-dd");
+      if (inRange(date, from, to)) target.add(date);
+    }
   }
 }
 
