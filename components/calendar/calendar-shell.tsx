@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Hourglass,
   LoaderCircle,
   LayoutDashboard,
   LogOut,
@@ -38,6 +39,7 @@ import { MembersPanel } from "@/components/calendar/members-panel";
 import { RecurringSchedulePanel } from "@/components/calendar/recurring-schedule-panel";
 import { SettingsPanel } from "@/components/calendar/settings-panel";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
+import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
 import { authClient } from "@/lib/auth/client";
 
 type Participant = { id: string; displayName: string; colorKey: string };
@@ -71,12 +73,14 @@ type HandoverSummary = {
 type CalendarPayload = {
   calendar: { id: string; name: string; timezone: string; shareEnabled: boolean };
   currentParticipantId: string | null;
+  currentMembershipId: string;
   currentUserName: string;
   permission: "owner" | "editor" | "viewer";
   participants: Participant[];
   children: Child[];
   assignments: ApiAssignment[];
   events: CalendarEvent[];
+  pendingProposals: CalendarPendingProposal[];
   recurringScheduleActive: boolean;
   nextHandover: HandoverSummary | null;
   nextEvent: CalendarEvent | null;
@@ -170,6 +174,7 @@ export function CalendarShell() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [detailsDate, setDetailsDate] = useState<string | null>(null);
+  const [bulkReason, setBulkReason] = useState("");
 
   const calendarRange = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 });
@@ -255,6 +260,16 @@ export function CalendarShell() {
     return map;
   }, [calendarData]);
 
+  const pendingByDate = useMemo(() => {
+    const map: Record<string, CalendarPendingProposal[]> = {};
+    for (const proposal of calendarData?.pendingProposals ?? []) {
+      for (const date of proposal.affectedDates) {
+        (map[date] ??= []).push(proposal);
+      }
+    }
+    return map;
+  }, [calendarData]);
+
   const today = new Date();
   const todayAssignment = assignments[keyFor(today)];
   const currentEditor = calendarData?.participants.find((participant) => participant.id === calendarData.currentParticipantId);
@@ -300,7 +315,10 @@ export function CalendarShell() {
   function toggleSelectionMode() {
     setSelectionMode((current) => {
       const next = !current;
-      if (!next) setSelectedDays([]);
+      if (!next) {
+        setSelectedDays([]);
+        setBulkReason("");
+      }
       setDetailsDate(null);
       return next;
     });
@@ -333,15 +351,28 @@ export function CalendarShell() {
       const response = await fetch("/api/assignments", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ dates: selectedDays, ownership }),
+        body: JSON.stringify({
+          dates: selectedDays,
+          ownership,
+          reason: bulkReason.trim() || null,
+        }),
       });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; pending?: boolean; approverName?: string | null }
+        | null;
       if (!response.ok) throw new Error(body?.error ?? "Those dates could not be updated.");
 
       const count = selectedDays.length;
       setSelectedDays([]);
       setSelectionMode(false);
-      setMessage(`${choiceLabel(choice)} saved for ${count} ${count === 1 ? "day" : "days"}.`);
+      setBulkReason("");
+      setMessage(
+        body?.pending
+          ? body.approverName
+            ? `Change sent to ${body.approverName} for approval.`
+            : "Change sent for approval."
+          : `${choiceLabel(choice)} saved for ${count} ${count === 1 ? "day" : "days"}.`,
+      );
       setRefreshKey((value) => value + 1);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Those dates could not be updated.");
@@ -354,6 +385,7 @@ export function CalendarShell() {
     setCurrentMonth((month) => direction === "previous" ? subMonths(month, 1) : addMonths(month, 1));
     setSelectedDays([]);
     setSelectionMode(false);
+    setBulkReason("");
     setDetailsDate(null);
   }
 
@@ -361,6 +393,7 @@ export function CalendarShell() {
     setCurrentMonth(startOfMonth(new Date()));
     setSelectedDays([]);
     setSelectionMode(false);
+    setBulkReason("");
     setDetailsDate(null);
   }
 
@@ -508,6 +541,7 @@ export function CalendarShell() {
               const isToday = isSameDay(day, today);
               const marker = detailMarkers[key];
               const dayEvents = eventsByDate[key] ?? [];
+              const dayPending = pendingByDate[key] ?? [];
               const morningStyle = ownerStyle(assignment?.morning);
               const afternoonStyle = ownerStyle(assignment?.afternoon);
               const fullDayOwner = assignment?.morning && assignment.morning === assignment.afternoon ? assignment.morning : null;
@@ -521,7 +555,7 @@ export function CalendarShell() {
                   disabled={!inMonth || saving}
                   aria-selected={selected}
                   aria-current={isToday ? "date" : undefined}
-                  aria-label={`${format(day, "EEEE d MMMM")}, ${assignmentLabel(assignment)}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}` : ""}`}
+                  aria-label={`${format(day, "EEEE d MMMM")}, ${assignmentLabel(assignment)}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}` : ""}${dayPending.length ? `, ${dayPending.length} pending change${dayPending.length === 1 ? "" : "s"}` : ""}`}
                   onClick={() => handleDayClick(day)}
                   className={`relative min-h-20 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 text-left transition sm:min-h-28 sm:rounded-2xl sm:p-2.5 ${inMonth ? "hover:-translate-y-0.5 hover:shadow-sm" : "cursor-default opacity-30"} ${selected ? "ring-2 ring-blue-500 ring-offset-1" : ""} ${selectionMode && inMonth ? "cursor-pointer" : ""}`}
                 >
@@ -558,10 +592,19 @@ export function CalendarShell() {
                   ) : null}
                   {dayEvents.length > 1 && inMonth ? <span className="relative z-10 mt-1 block text-[9px] font-semibold text-sky-800">+{dayEvents.length - 1} more event{dayEvents.length === 2 ? "" : "s"}</span> : null}
 
-                  {inMonth && marker ? (
-                    <div className="absolute bottom-1.5 right-1.5 z-10 flex items-center gap-1 rounded-full bg-white/80 px-1 text-slate-500 sm:bottom-2 sm:right-2">
-                      {marker.handover ? <Clock3 className="h-3.5 w-3.5" aria-hidden="true" /> : null}
-                      {marker.note ? <StickyNote className="h-3.5 w-3.5" aria-hidden="true" /> : null}
+                  {inMonth && (marker || dayPending.length > 0) ? (
+                    <div className="absolute bottom-1.5 right-1.5 z-10 flex items-center gap-1 rounded-full bg-white/85 px-1 text-slate-500 sm:bottom-2 sm:right-2">
+                      {dayPending.length > 0 ? (
+                        <Hourglass
+                          className="h-3.5 w-3.5 text-amber-600"
+                          aria-label="Pending change"
+                        />
+                      ) : null}
+                      {marker?.handover ? (
+                        <Clock3 className="h-3.5 w-3.5" aria-label="Handover" />
+                      ) : marker?.note ? (
+                        <StickyNote className="h-3.5 w-3.5" aria-label="Note" />
+                      ) : null}
                     </div>
                   ) : null}
                 </button>
@@ -580,6 +623,20 @@ export function CalendarShell() {
             </div>
             <span className="text-xs text-slate-500">Choose one state</span>
           </div>
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-600">
+              Reason for change <span className="font-normal text-slate-400">(optional)</span>
+            </span>
+            <input
+              type="text"
+              maxLength={500}
+              value={bulkReason}
+              disabled={saving}
+              placeholder="e.g. Family event"
+              onChange={(event) => setBulkReason(event.target.value)}
+              className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
+            />
+          </label>
           <div className="grid gap-2 sm:grid-cols-5">
             {bulkChoices.map((item) => (
               <button
@@ -602,8 +659,12 @@ export function CalendarShell() {
           date={detailsDate}
           participants={calendarData.participants}
           currentParticipantId={calendarData.currentParticipantId}
+          currentMembershipId={calendarData.currentMembershipId}
           assignments={calendarData.assignments}
           activeChildCount={calendarData.children.length}
+          pendingProposals={(calendarData.pendingProposals ?? []).filter((proposal) =>
+            proposal.affectedDates.includes(detailsDate),
+          )}
           readOnly={accessMode === "viewer"}
           onClose={() => setDetailsDate(null)}
           onSaved={(savedMessage) => {
@@ -612,12 +673,16 @@ export function CalendarShell() {
             setMessage(savedMessage);
             setRefreshKey((value) => value + 1);
           }}
+          onProposalChanged={() => {
+            setMessage("Proposal updated.");
+            setRefreshKey((value) => value + 1);
+          }}
         />
       ) : null}
 
       <p className="mx-auto mt-5 max-w-2xl text-center text-xs leading-5 text-slate-400">
         {accessMode === "editor"
-          ? `Changes are saved to the shared calendar${calendarData?.children.length ? ` for ${calendarData.children.length} active ${calendarData.children.length === 1 ? "child" : "children"}` : ""}.`
+          ? "Shared changes become part of the agreed calendar after approval when both parents are linked."
           : "You have view-only access. Ask the calendar owner if you need editing permission."}
       </p>
     </main>

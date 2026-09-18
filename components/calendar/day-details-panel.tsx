@@ -2,7 +2,16 @@
 
 import { CalendarDays, Clock3, LoaderCircle, MapPin, StickyNote, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ProposalActions } from "@/components/approvals/proposal-actions";
+import { ProposalCard } from "@/components/approvals/proposal-card";
 import { EventPanel } from "@/components/calendar/event-panel";
+import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
+import {
+  parentingAssignmentsProposalStateSchema,
+  recurringScheduleProposalStateSchema,
+  recurringScheduleSnapshotProposalStateSchema,
+  sharedEventProposalStateSchema,
+} from "@/lib/approvals/calendar-state";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
 
 type Participant = {
@@ -33,10 +42,13 @@ type DayDetailsPanelProps = {
   date: string;
   participants: Participant[];
   currentParticipantId: string | null;
+  currentMembershipId: string;
   assignments: AssignmentRow[];
   activeChildCount: number;
+  pendingProposals: CalendarPendingProposal[];
   onClose: () => void;
   onSaved: (message: string) => void;
+  onProposalChanged: () => void;
   readOnly?: boolean;
 };
 
@@ -77,14 +89,148 @@ function choiceLabel(choice: OwnershipChoice, themName: string) {
   return "Unassigned";
 }
 
+function participantLabel(
+  participantId: string | null,
+  participants: Participant[],
+  currentParticipantId: string | null,
+) {
+  if (!participantId) return "Unassigned";
+  if (participantId === currentParticipantId) return "You";
+  return (
+    participants.find((participant) => participant.id === participantId)?.displayName ??
+    "Parent"
+  );
+}
+
+function assignmentStateSummary(
+  state: unknown,
+  date: string,
+  participants: Participant[],
+  currentParticipantId: string | null,
+) {
+  const parsed = parentingAssignmentsProposalStateSchema.safeParse(state);
+  if (!parsed.success) return null;
+  const rows = parsed.data.assignments.filter((row) => row.date === date);
+  if (rows.length === 0) return null;
+
+  const morningValues = new Set(rows.map((row) => row.morningParentId));
+  const afternoonValues = new Set(rows.map((row) => row.afternoonParentId));
+  if (morningValues.size !== 1 || afternoonValues.size !== 1) {
+    return "Mixed across children";
+  }
+
+  const morning = [...morningValues][0] ?? null;
+  const afternoon = [...afternoonValues][0] ?? null;
+  if (morning === afternoon) {
+    return morning
+      ? `Full day ${participantLabel(morning, participants, currentParticipantId)}`
+      : "Unassigned";
+  }
+
+  return `${participantLabel(morning, participants, currentParticipantId)} → ${participantLabel(
+    afternoon,
+    participants,
+    currentParticipantId,
+  )}`;
+}
+
+function formatProposalDate(date: string) {
+  return new Intl.DateTimeFormat("en-NZ", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T00:00:00Z`));
+}
+
+function eventStateSummary(state: unknown) {
+  const parsed = sharedEventProposalStateSchema.safeParse(state);
+  if (!parsed.success || !parsed.data.event) return null;
+  const event = parsed.data.event;
+  const range =
+    event.endDate && event.endDate !== event.startDate
+      ? `${formatProposalDate(event.startDate)} – ${formatProposalDate(event.endDate)}`
+      : formatProposalDate(event.startDate);
+  return `${event.title} · ${range}`;
+}
+
+function recurringStateSummary(state: unknown) {
+  const proposed = recurringScheduleProposalStateSchema.safeParse(state);
+  if (proposed.success) {
+    if (proposed.data.mode === "delete") return "Cancel repeating schedule";
+    const end = proposed.data.endDate
+      ? ` to ${formatProposalDate(proposed.data.endDate)}`
+      : "";
+    return `Fortnightly schedule from ${formatProposalDate(proposed.data.anchorDate)}${end}`;
+  }
+
+  const previous = recurringScheduleSnapshotProposalStateSchema.safeParse(state);
+  if (previous.success && previous.data.schedule) {
+    const end = previous.data.schedule.endDate
+      ? ` to ${formatProposalDate(previous.data.schedule.endDate)}`
+      : "";
+    return `Fortnightly schedule from ${formatProposalDate(
+      previous.data.schedule.anchorDate,
+    )}${end}`;
+  }
+
+  return null;
+}
+
+function proposalSummaries(
+  proposal: CalendarPendingProposal,
+  date: string,
+  participants: Participant[],
+  currentParticipantId: string | null,
+) {
+  if (proposal.kind === "parenting") {
+    return {
+      agreed:
+        assignmentStateSummary(
+          proposal.previousState,
+          date,
+          participants,
+          currentParticipantId,
+        ) ?? "Current agreed schedule",
+      proposed:
+        assignmentStateSummary(
+          proposal.proposedState,
+          date,
+          participants,
+          currentParticipantId,
+        ) ?? "Proposed schedule change",
+    };
+  }
+
+  if (proposal.kind === "event") {
+    return {
+      agreed:
+        eventStateSummary(proposal.previousState) ??
+        (proposal.action === "create" ? "Not on the agreed calendar" : "Current event"),
+      proposed:
+        proposal.action === "delete"
+          ? "Cancel event"
+          : eventStateSummary(proposal.proposedState) ?? "Proposed event change",
+    };
+  }
+
+  return {
+    agreed: recurringStateSummary(proposal.previousState) ?? "Current repeating schedule",
+    proposed: recurringStateSummary(proposal.proposedState) ?? "Proposed repeating schedule",
+  };
+}
+
 export function DayDetailsPanel({
   date,
   participants,
   currentParticipantId,
+  currentMembershipId,
   assignments,
   activeChildCount,
+  pendingProposals,
   onClose,
   onSaved,
+  onProposalChanged,
   readOnly = false,
 }: DayDetailsPanelProps) {
   const dialogRef = useRef<HTMLElement>(null);
@@ -145,6 +291,7 @@ export function DayDetailsPanel({
   const [handoverTime, setHandoverTime] = useState(initialState.handoverTime);
   const [handoverLocation, setHandoverLocation] = useState(initialState.handoverLocation);
   const [note, setNote] = useState(initialState.note);
+  const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dayEvents, setDayEvents] = useState<CalendarEvent[]>([]);
@@ -256,12 +403,27 @@ export function DayDetailsPanel({
           handoverTime: hasAssignment && handoverTime ? handoverTime : null,
           handoverLocation: hasAssignment && handoverLocation ? handoverLocation : null,
           note: hasAssignment && note ? note : null,
+          reason: reason.trim() || null,
         }),
       });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; pending?: boolean; approverName?: string | null }
+        | null;
       if (!response.ok) throw new Error(body?.error ?? "That day could not be updated.");
 
-      onSaved(choice === "unassigned" ? "Day cleared." : `${choiceLabel(choice, them?.displayName ?? "them")} saved.`);
+      if (body?.pending) {
+        onSaved(
+          body.approverName
+            ? `Change sent to ${body.approverName} for approval.`
+            : "Change sent for approval.",
+        );
+      } else {
+        onSaved(
+          choice === "unassigned"
+            ? "Day cleared."
+            : `${choiceLabel(choice, them?.displayName ?? "them")} saved.`,
+        );
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "That day could not be updated.");
     } finally {
@@ -304,6 +466,46 @@ export function DayDetailsPanel({
 
         {error ? <div id="day-details-error" role="alert" className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div> : null}
 
+        {pendingProposals.length > 0 ? (
+          <div className="mt-5 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Pending changes</p>
+              <p className="mt-1 text-xs text-slate-500">
+                The agreed calendar stays in place until a proposal is accepted.
+              </p>
+            </div>
+            {pendingProposals.map((proposal) => {
+              const summaries = proposalSummaries(
+                proposal,
+                date,
+                participants,
+                currentParticipantId,
+              );
+              return (
+                <ProposalCard
+                  key={proposal.id}
+                  status={proposal.status}
+                  title={proposal.title}
+                  proposedByName={proposal.proposedByName}
+                  approverName={proposal.approverName}
+                  reason={proposal.reason}
+                  agreedSummary={summaries.agreed}
+                  proposedSummary={summaries.proposed}
+                  actions={
+                    <ProposalActions
+                      proposalId={proposal.id}
+                      currentMembershipId={currentMembershipId}
+                      proposedByMembershipId={proposal.proposedByMembershipId}
+                      approverMembershipId={proposal.approverMembershipId}
+                      onChanged={onProposalChanged}
+                    />
+                  }
+                />
+              );
+            })}
+          </div>
+        ) : null}
+
         {!readOnly ? (
           <div className="mt-6">
             <p className="text-sm font-semibold text-slate-800">Custody for this day</p>
@@ -321,6 +523,24 @@ export function DayDetailsPanel({
           <label className="block"><span className="flex items-center gap-2 text-sm font-semibold text-slate-800"><MapPin className="h-4 w-4" aria-hidden="true" />Handover location</span><input type="text" maxLength={120} value={handoverLocation} disabled={detailsDisabled || readOnly} placeholder="e.g. School gate, home, rugby club" onChange={(event) => setHandoverLocation(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50" /></label>
           <label className="block"><span className="flex items-center gap-2 text-sm font-semibold text-slate-800"><StickyNote className="h-4 w-4" aria-hidden="true" />Note</span><textarea rows={3} maxLength={500} value={note} disabled={detailsDisabled || readOnly} placeholder="Short practical note for this day" onChange={(event) => setNote(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50" /></label>
         </div>
+
+        {!readOnly ? (
+          <label className="mt-5 block">
+            <span className="text-sm font-semibold text-slate-800">Reason for change <span className="font-normal text-slate-400">(optional)</span></span>
+            <textarea
+              rows={2}
+              maxLength={500}
+              value={reason}
+              disabled={submitting}
+              placeholder="e.g. Family birthday lunch"
+              onChange={(event) => setReason(event.target.value)}
+              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
+            />
+            <span className="mt-1 block text-xs text-slate-500">
+              Used only if this change needs the other parent&apos;s approval.
+            </span>
+          </label>
+        ) : null}
 
         <div className="mt-6 border-t border-slate-200 pt-5">
           <div className="flex items-center justify-between gap-3">
