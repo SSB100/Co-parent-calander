@@ -60,7 +60,7 @@ jobs:
           const chunks = [];
           let current = [];
           let currentSize = 0;
-          const maxSize = 90000;
+          const maxSize = 280000;
 
           for (const entry of entries) {
             const size = entry.file.length + entry.dataBase64.length + 64;
