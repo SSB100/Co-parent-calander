@@ -37,8 +37,8 @@ export function NewCalendarWelcome({ inviteCode }: { inviteCode: string }) {
 
           <div className="w-full max-w-md rounded-2xl border border-emerald-200 bg-white p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Private invite code</p>
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <code className="text-lg font-semibold tracking-[0.12em] text-slate-950">{inviteCode}</code>
+            <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <code className="break-all text-lg font-semibold tracking-[0.1em] text-slate-950">{inviteCode}</code>
               <button
                 type="button"
                 onClick={() => void copy(inviteCode, "code")}
