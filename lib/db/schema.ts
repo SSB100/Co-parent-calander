@@ -661,6 +661,10 @@ export const entityLinks = pgTable(
       "entity_link_not_self",
       sql`NOT (${table.leftType} = ${table.rightType} AND ${table.leftId} = ${table.rightId})`,
     ),
+    check(
+      "entity_link_canonical",
+      sql`${table.leftType} < ${table.rightType} OR (${table.leftType} = ${table.rightType} AND ${table.leftId}::text < ${table.rightId}::text)`,
+    ),
     uniqueIndex("entity_links_unique").on(
       table.calendarId,
       table.leftType,
