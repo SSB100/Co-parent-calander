@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { parentColorHex } from "@/lib/parents/identity";
 
 type Permission = "owner" | "editor" | "viewer";
 type Member = {
@@ -236,7 +237,8 @@ export function MembersPanel({ onChanged }: { onChanged?: () => void }) {
                 <div key={parent.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 p-4">
                   <div className="flex min-w-0 items-center gap-3">
                     <span
-                      className={`h-3 w-3 shrink-0 rounded-full ${parent.colorKey === "violet" ? "bg-violet-500" : "bg-emerald-500"}`}
+                      className="h-3 w-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: parentColorHex(parent.colorKey) }}
                       aria-hidden="true"
                     />
                     <p className="truncate font-semibold text-slate-900">{parent.displayName}</p>

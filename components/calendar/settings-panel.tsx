@@ -1,12 +1,14 @@
 "use client";
 
 import { LoaderCircle, Settings2, X } from "lucide-react";
+import { parentColorOptions } from "@/lib/parents/identity";
 import { useEffect, useRef, useState } from "react";
 
 type NamedItem = { id: string; displayName: string };
+type ParentItem = NamedItem & { colorKey: string };
 type SettingsPayload = {
   calendar: { id: string; name: string; timezone: string };
-  parents: NamedItem[];
+  parents: ParentItem[];
   children: NamedItem[];
 };
 type MessageKind = "success" | "error";
@@ -220,21 +222,56 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
                   <p className="text-sm font-semibold text-slate-800">Parents</p>
                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
                     {data.parents.map((parent, index) => (
-                      <input
-                        key={parent.id}
-                        value={parent.displayName}
-                        disabled={saving || readOnly}
-                        aria-label={`Parent ${index + 1} name`}
-                        onChange={(event) =>
-                          setData({
-                            ...data,
-                            parents: data.parents.map((item) =>
-                              item.id === parent.id ? { ...item, displayName: event.target.value } : item,
-                            ),
-                          })
-                        }
-                        className="min-h-11 rounded-xl border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50 disabled:opacity-70"
-                      />
+                      <div key={parent.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                        <input
+                          value={parent.displayName}
+                          disabled={saving || readOnly}
+                          aria-label={`Parent ${index + 1} name`}
+                          onChange={(event) =>
+                            setData({
+                              ...data,
+                              parents: data.parents.map((item) =>
+                                item.id === parent.id ? { ...item, displayName: event.target.value } : item,
+                              ),
+                            })
+                          }
+                          className="min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50 disabled:opacity-70"
+                        />
+                        <div className="mt-3">
+                          <p className="text-xs font-semibold text-slate-600">Calendar colour</p>
+                          <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={`${parent.displayName} calendar colour`}>
+                            {parentColorOptions.map((option) => {
+                              const usedByOtherParent = data.parents.some(
+                                (item) => item.id !== parent.id && item.colorKey === option.key,
+                              );
+                              const selected = parent.colorKey === option.key;
+                              return (
+                                <button
+                                  key={option.key}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={selected}
+                                  aria-label={option.label}
+                                  title={usedByOtherParent ? `${option.label} is already used by the other parent` : option.label}
+                                  disabled={saving || readOnly || usedByOtherParent}
+                                  onClick={() =>
+                                    setData({
+                                      ...data,
+                                      parents: data.parents.map((item) =>
+                                        item.id === parent.id ? { ...item, colorKey: option.key } : item,
+                                      ),
+                                    })
+                                  }
+                                  className={`flex h-9 w-9 items-center justify-center rounded-full border-2 transition disabled:cursor-not-allowed disabled:opacity-30 ${selected ? "border-slate-950 ring-2 ring-slate-300 ring-offset-2" : "border-white shadow-sm"}`}
+                                  style={{ backgroundColor: option.swatch }}
+                                >
+                                  <span className="sr-only">{option.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>

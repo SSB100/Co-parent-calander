@@ -79,3 +79,26 @@ test("parent identity is semantic and calendar styling does not depend on partic
   assert.match(recurring, /parentProfileSlotIndex/);
   assert.match(recurring, /participants\[index\]\?\.profileSlot/);
 });
+
+
+test("parent calendar colours use a curated unique palette without a schema migration", async () => {
+  const [identity, settingsRoute, settingsPanel, calendar] = await Promise.all([
+    source("lib/parents/identity.ts"),
+    source("app/api/settings/route.ts"),
+    source("components/calendar/settings-panel.tsx"),
+    source("components/calendar/calendar-shell.tsx"),
+  ]);
+
+  assert.match(identity, /parentColorKeys/);
+  assert.match(identity, /emerald/);
+  assert.match(identity, /violet/);
+  assert.match(identity, /coral/);
+  assert.match(identity, /sunshine/);
+  assert.match(identity, /sky/);
+  assert.match(settingsRoute, /colorKey: z\.enum\(parentColorKeys\)/);
+  assert.match(settingsRoute, /Choose a different calendar colour for each parent/);
+  assert.match(settingsRoute, /color_key = \$\{parent\.colorKey\}/);
+  assert.match(settingsPanel, /role="radiogroup"/);
+  assert.match(settingsPanel, /usedByOtherParent/);
+  assert.match(calendar, /participant\?\.colorKey/);
+});

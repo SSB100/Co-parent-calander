@@ -101,19 +101,41 @@ type AssignmentMap = Record<string, DayOwnership>;
 type VisualStyle = { dot: string; slot: string; pill: string; button: string };
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const visualStyles: VisualStyle[] = [
-  {
-    dot: "covie-parent-green",
-    slot: "covie-parent-green",
-    pill: "bg-emerald-100 text-emerald-800",
-    button: "bg-emerald-100 text-emerald-900 hover:bg-emerald-200",
+const visualStylesByColorKey: Record<string, VisualStyle> = {
+  emerald: {
+    dot: "bg-[#19A897]",
+    slot: "bg-[#BDEBE5]",
+    pill: "bg-[#D9F4F0] text-[#0B5E55]",
+    button: "bg-[#D9F4F0] text-[#0B5E55] hover:bg-[#C8EEE8]",
   },
-  {
-    dot: "covie-parent-plum",
-    slot: "covie-parent-plum",
-    pill: "bg-violet-100 text-violet-800",
-    button: "bg-violet-100 text-violet-900 hover:bg-violet-200",
+  violet: {
+    dot: "bg-[#765ED6]",
+    slot: "bg-[#E1D8FA]",
+    pill: "bg-[#EEE9FF] text-[#4D3AA0]",
+    button: "bg-[#EEE9FF] text-[#4D3AA0] hover:bg-[#E3DBFF]",
   },
+  coral: {
+    dot: "bg-[#FF6B5F]",
+    slot: "bg-[#FFD7D3]",
+    pill: "bg-[#FFE6E3] text-[#9B3029]",
+    button: "bg-[#FFE6E3] text-[#9B3029] hover:bg-[#FFD9D4]",
+  },
+  sunshine: {
+    dot: "bg-[#D9A918]",
+    slot: "bg-[#FCEBB3]",
+    pill: "bg-[#FFF3CC] text-[#725408]",
+    button: "bg-[#FFF3CC] text-[#725408] hover:bg-[#FCE8A8]",
+  },
+  sky: {
+    dot: "bg-[#3B82B8]",
+    slot: "bg-[#D4EAF7]",
+    pill: "bg-[#E5F2FA] text-[#235C82]",
+    button: "bg-[#E5F2FA] text-[#235C82] hover:bg-[#D7EAF6]",
+  },
+};
+const fallbackVisualStyles = [
+  visualStylesByColorKey.emerald,
+  visualStylesByColorKey.violet,
 ];
 const mixedStyle: VisualStyle = {
   dot: "bg-slate-500",
@@ -130,7 +152,11 @@ function styleForParticipant(participants: Participant[], participantId: string)
   const index = participants.findIndex((participant) => participant.id === participantId);
   const participant = participants[index];
   const visualIndex = parentProfileSlotIndex(participant?.profileSlot, index);
-  return visualStyles[visualIndex % visualStyles.length] ?? visualStyles[0];
+  return (
+    visualStylesByColorKey[participant?.colorKey ?? ""] ??
+    fallbackVisualStyles[visualIndex % fallbackVisualStyles.length] ??
+    fallbackVisualStyles[0]
+  );
 }
 
 function splitChoiceStyle(
@@ -141,13 +167,7 @@ function splitChoiceStyle(
   if (!firstId || !secondId) return mixedStyle.button;
   const first = styleForParticipant(participants, firstId);
   const second = styleForParticipant(participants, secondId);
-  if (first === visualStyles[0] && second === visualStyles[1]) {
-    return "covie-split-forward text-slate-900 hover:ring-2 hover:ring-slate-200";
-  }
-  if (first === visualStyles[1] && second === visualStyles[0]) {
-    return "covie-split-reverse text-slate-900 hover:ring-2 hover:ring-slate-200";
-  }
-  return mixedStyle.button;
+  return first === second ? first.button : mixedStyle.button;
 }
 
 function aggregateSlot(
@@ -444,12 +464,12 @@ export function CalendarShell({
     {
       value: "me_full",
       label: "Full day you",
-      className: me ? styleForParticipant(participants, me.id).button : visualStyles[0].button,
+      className: me ? styleForParticipant(participants, me.id).button : fallbackVisualStyles[0].button,
     },
     {
       value: "them_full",
       label: `Full day ${them?.displayName ?? "them"}`,
-      className: them ? styleForParticipant(participants, them.id).button : visualStyles[1].button,
+      className: them ? styleForParticipant(participants, them.id).button : fallbackVisualStyles[1].button,
     },
     {
       value: "me_then_them",
