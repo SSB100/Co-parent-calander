@@ -93,7 +93,7 @@ test("account routes use managed Neon auth and protect the signed-in workspace",
 
   assert.match(handler, /auth\.handler\(\)/);
   assert.match(proxy, /auth\.middleware/);
-  assert.match(proxy, /\/calendarActions\/\:path\*/);
+  assert.match(proxy, /\/dashboard\/\:path\*/);
   assert.match(proxy, /\/calendar\/\:path\*/);
   assert.match(session, /calendarMemberships\.userId/);
   assert.match(session, /session\.permission === ["']viewer["']/);
