@@ -320,3 +320,13 @@ After release, verify:
 25. Month calendar gains no extra relationship marker.
 26. Link actions create no approval proposals.
 27. Link actions create no Google Calendar jobs.
+
+
+## Release checkpoint
+
+Production release prepared on 18 September 2026 after:
+
+- Phase 8 CI passed on the feature branch
+- migrations 0005 through 0011 were validated on a temporary Neon branch
+- the same migrations were applied atomically to production Neon
+- a pre-release Neon backup branch was created
