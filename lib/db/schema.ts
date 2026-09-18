@@ -1,8 +1,8 @@
 import {
-  type AnyPgColumn,
   boolean,
   check,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -624,10 +624,7 @@ export const responsibilities = pgTable(
       () => participants.id,
       { onDelete: "set null" },
     ),
-    nextOccurrenceId: uuid("next_occurrence_id").references(
-      (): AnyPgColumn => responsibilities.id,
-      { onDelete: "set null" },
-    ),
+    nextOccurrenceId: uuid("next_occurrence_id"),
     createdBy: uuid("created_by").references(() => participants.id, {
       onDelete: "set null",
     }),
@@ -651,6 +648,11 @@ export const responsibilities = pgTable(
       table.dueDate,
     ),
     index("responsibilities_series_idx").on(table.calendarId, table.seriesId, table.dueDate),
+    foreignKey({
+      name: "responsibilities_next_occurrence_id_fk",
+      columns: [table.nextOccurrenceId],
+      foreignColumns: [table.id],
+    }).onDelete("set null"),
     index("responsibilities_next_occurrence_idx").on(table.nextOccurrenceId),
     index("responsibilities_linked_event_idx").on(table.linkedEventId),
     index("responsibilities_linked_expense_idx").on(table.linkedExpenseId),
