@@ -122,8 +122,15 @@ test("child profiles create no date marker or Google Calendar sync surface", asy
   }
 });
 
-test("photo upload is not faked before the attachments phase", async () => {
-  const shell = await source("components/children/child-profile-shell.tsx");
-  assert.doesNotMatch(shell, /type="file"/);
-  assert.match(shell, /initials\(child\.displayName\)/);
+test("Phase 7 profile photos use the shared private attachment layer", async () => {
+  const [shell, photo] = await Promise.all([
+    source("components/children/child-profile-shell.tsx"),
+    source("components/attachments/profile-photo.tsx"),
+  ]);
+
+  assert.match(shell, /ProfilePhoto/);
+  assert.match(photo, /\/api\/attachments/);
+  assert.match(photo, /role: "profile_photo"/);
+  assert.match(photo, /category: "profile_photo"/);
+  assert.doesNotMatch(photo, /data:image|base64/);
 });
