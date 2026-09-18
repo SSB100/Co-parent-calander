@@ -5,7 +5,6 @@ import { CreateCalendarForm, JoinCalendarForm } from "@/components/dashboard/das
 import { InstallApp } from "@/components/pwa/install-app";
 import { auth } from "@/lib/auth/server";
 import { getSql } from "@/lib/db";
-import { claimLegacyCalendarForCurrentUser } from "@/lib/security/session";
 import { openCalendar, signOut } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +14,6 @@ export default async function DashboardPage() {
   const { data: session } = await auth.getSession();
   if (!session?.user) redirect("/auth/sign-in");
 
-  await claimLegacyCalendarForCurrentUser();
   const sql = getSql();
   const calendars = (await sql`
     SELECT calendar.id, calendar.name, membership.permission, participant.display_name

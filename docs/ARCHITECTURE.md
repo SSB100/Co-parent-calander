@@ -6,7 +6,7 @@ Last reviewed: 18 September 2026.
 
 Covie is organised around one selected family calendar.
 
-Account identity comes from Managed Neon Auth. Application access is represented by `calendar_memberships`. Parent profiles in `participants` are domain records and can exist without an account.
+Account identity comes from Managed Neon Auth. Application access is represented by `calendar_memberships`. Parent profiles in `participants` are domain records and can exist without an account. Legacy token/session authentication is retired in staged migration `0014`; legacy-only calendars remain preserved as inert domain data unless they are explicitly recovered into a membership.
 
 The primary business domains are:
 
@@ -74,7 +74,7 @@ Production Neon:
 - project: `delicate-sunset-36051658`
 - branch: `br-quiet-sea-a7duq4r3`
 - schema migrations applied in Production: `0000` through `0012`
-- staged next migration: `0013_parenting_schedules.sql`
+- staged migrations awaiting the final database release: `0013_parenting_schedules.sql`, `0014_retire_legacy_auth.sql`
 - `covie_schema_migrations` is the authoritative migration ledger from `0012` onward
 
 A pre-Phase-8 rollback branch is currently retained:
@@ -105,7 +105,6 @@ This prevents production from being promoted before CI finishes and avoids unnec
 
 Before the brand/UI redesign, cleanup work should:
 
-- retire the legacy token/session authentication path after its remaining calendar is migrated or archived
 - move business workflows out of large route handlers into feature services
 - split the large client shells into controllers/hooks and smaller UI components
 - introduce a shared authenticated application shell

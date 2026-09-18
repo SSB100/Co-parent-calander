@@ -16,7 +16,6 @@ const calendarMutationRoutes = [
   { file: "app/api/events/route.ts", methods: ["POST", "PATCH", "DELETE"] },
   { file: "app/api/recurring-schedule/route.ts", methods: ["POST", "DELETE"] },
   { file: "app/api/settings/route.ts", methods: ["PATCH"] },
-  { file: "app/api/setup/route.ts", methods: ["POST"] },
   { file: "app/api/share/route.ts", methods: ["POST", "DELETE"] },
 ];
 const sameOriginMutationRoutes = [
@@ -73,11 +72,18 @@ test("legacy public share links now require account login", async () => {
   assert.doesNotMatch(text, /accessTokens/);
 });
 
-test("editor access is a separate token path that explicitly creates an editor session", async () => {
-  const text = await source("app/access/editor/[token]/route.ts");
+test("legacy editor links are retired and cannot authenticate", async () => {
+  const [route, session, schema] = await Promise.all([
+    source("app/access/editor/[token]/route.ts"),
+    source("lib/security/session.ts"),
+    source("lib/db/schema.ts"),
+  ]);
 
-  assert.match(text, /eq\(accessTokens\.type,\s*["']editor["']\)/);
-  assert.match(text, /createEditorSessionRecord\s*\(/);
+  assert.match(route, /\/auth\/sign-in/);
+  assert.match(route, /legacy.*retired/);
+  assert.doesNotMatch(route, /accessTokens|createEditorSessionRecord|SESSION_COOKIE_NAME/);
+  assert.doesNotMatch(session, /coparent_session|getLegacyEditorSession|claimLegacyCalendarForCurrentUser/);
+  assert.doesNotMatch(schema, /accessTokens|sessions = pgTable|access_token_type/);
 });
 
 test("account routes use managed Neon auth and protect the signed-in workspace", async () => {
@@ -118,4 +124,20 @@ test("calendar invite management is owner-only and uses hashed one-use codes", a
   assert.match(text, /max_uses/);
   assert.match(text, /lt\(calendarInvites\.useCount, calendarInvites\.maxUses\)/);
   assert.match(text, /z\.enum\(\[["']editor["'], ["']viewer["']\]\)/);
+});
+
+
+test("legacy setup is retired while managed calendar creation and joining remain account based", async () => {
+  const [setup, dashboard] = await Promise.all([
+    source("app/api/setup/route.ts"),
+    source("app/dashboard/actions.ts"),
+  ]);
+
+  assert.match(setup, /status: 410/);
+  assert.match(setup, /Legacy setup links have been retired/);
+  assert.doesNotMatch(setup, /access_tokens|generateSecureToken|editorUrl/);
+
+  assert.match(dashboard, /calendar_memberships/);
+  assert.match(dashboard, /calendar_invites/);
+  assert.match(dashboard, /requireAccount/);
 });

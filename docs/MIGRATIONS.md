@@ -4,7 +4,7 @@ Covie uses ordered SQL migration files under `drizzle/`.
 
 ## Current production baseline
 
-Production contains migrations `0000` through `0012`. Migration `0013_parenting_schedules.sql` is staged in GitHub and must not be treated as Production-applied until the final database deployment pass.
+Production contains migrations `0000` through `0012`. Migrations `0013_parenting_schedules.sql` and `0014_retire_legacy_auth.sql` are staged in GitHub and must not be treated as Production-applied until the final database deployment pass.
 
 Those files must **not** be replayed.
 
@@ -66,3 +66,18 @@ This migration is currently staged only. Before Production application:
 4. compare effective assignments over representative date ranges before/after
 5. confirm Google Calendar desired parenting output is unchanged for the same source data
 6. apply to Production only during the explicitly approved release pass
+
+
+## 0014 legacy authentication retirement
+
+Migration `0014_retire_legacy_auth.sql` removes the obsolete token/session credential tables after the application has moved fully to Managed Neon Auth and `calendar_memberships`.
+
+It drops:
+
+- `sessions`
+- `access_tokens`
+- `access_token_type`
+
+It intentionally does **not** delete any calendar or family-domain data. Legacy-only calendars become archive/inert data until deliberately recovered through a modern membership.
+
+Apply `0013` before `0014`. See `docs/LEGACY_AUTH_RETIREMENT.md` for the recovery and verification rules.

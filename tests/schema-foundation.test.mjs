@@ -9,14 +9,14 @@ async function source(file) {
   return readFile(path.join(root, file), "utf8");
 }
 
-test("schema migrations are sequential through 0013", async () => {
+test("schema migrations are sequential through 0014", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 14 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 15 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -80,4 +80,21 @@ test("0013 introduces first-class parenting schedules and backfills active legac
   assert.match(effective, /parentingSchedules/);
   assert.match(effective, /resolveParentingScheduleAssignments/);
   assert.doesNotMatch(effective, /recurringRules|parseFortnightRuleText/);
+});
+
+
+test("0014 retires legacy credential tables without deleting calendar data", async () => {
+  const [migration, schema, session] = await Promise.all([
+    source("drizzle/0014_retire_legacy_auth.sql"),
+    source("lib/db/schema.ts"),
+    source("lib/security/session.ts"),
+  ]);
+
+  assert.match(migration, /DROP TABLE IF EXISTS "sessions"/);
+  assert.match(migration, /DROP TABLE IF EXISTS "access_tokens"/);
+  assert.match(migration, /DROP TYPE IF EXISTS "access_token_type"/);
+  assert.match(migration, /'0014', 'Retire legacy token and session authentication'/);
+  assert.doesNotMatch(migration, /DROP TABLE.*calendars|DROP TABLE.*participants/);
+  assert.doesNotMatch(schema, /accessTokens|sessions = pgTable|accessTokenType/);
+  assert.doesNotMatch(session, /coparent_session|getLegacyEditorSession|claimLegacyCalendarForCurrentUser/);
 });

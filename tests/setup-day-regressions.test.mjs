@@ -9,26 +9,20 @@ async function source(file) {
   return readFile(path.join(root, file), "utf8");
 }
 
-test("setup keeps one-time bootstrap validation, editor links, transaction, and audit guarantees", async () => {
-  const text = await source("app/api/setup/route.ts");
+test("legacy setup is retired in favor of managed dashboard calendars", async () => {
+  const [setup, dashboard] = await Promise.all([
+    source("app/api/setup/route.ts"),
+    source("app/dashboard/actions.ts"),
+  ]);
 
-  assert.match(text, /calendarName:\s*z\.string\(\)\.trim\(\)\.min\(1\)\.max\(80\)/);
-  assert.match(text, /parentOneName:\s*z\.string\(\)\.trim\(\)\.min\(1\)\.max\(50\)/);
-  assert.match(text, /parentTwoName:\s*z\.string\(\)\.trim\(\)\.min\(1\)\.max\(50\)/);
-  assert.match(text, /children:\s*z\.array\([^\n]+\)\.min\(1\)\.max\(10\)/);
-  assert.match(text, /Use a different display name for each parent\./);
+  assert.match(setup, /status: 410/);
+  assert.match(setup, /Legacy setup links have been retired/);
+  assert.doesNotMatch(setup, /generateSecureToken|access_tokens|editorUrl/);
 
-  assert.match(text, /bootstrapRows\[0\]\?\.colorKey\s*!==\s*["']setup["']/);
-  assert.match(text, /This calendar has already been set up\./);
-
-  assert.match(text, /const parentOneToken\s*=\s*generateSecureToken\(\)/);
-  assert.match(text, /const parentTwoToken\s*=\s*generateSecureToken\(\)/);
-  assert.match(text, /type = 'editor'/);
-  assert.match(text, /parentOne:\s*\{[\s\S]*editorUrl:/);
-  assert.match(text, /parentTwo:\s*\{[\s\S]*editorUrl:/);
-
-  assert.match(text, /await sql\.transaction\(statements\)/);
-  assert.match(text, /calendar\.setup_completed/);
+  assert.match(dashboard, /createCalendar/);
+  assert.match(dashboard, /joinCalendar/);
+  assert.match(dashboard, /calendar_memberships/);
+  assert.match(dashboard, /calendar_invites/);
 });
 
 test("day-detail edits keep validation, direct split ownership, transaction, and audit behavior", async () => {

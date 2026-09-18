@@ -8,7 +8,7 @@ Production uses:
 - Vercel project: `co-parent-calander`
 - Neon project: `delicate-sunset-36051658`
 - Production Neon branch: `main` (`br-quiet-sea-a7duq4r3`)
-- Current application schema: migrations `0000` through `0011`
+- Production schema: migrations `0000` through `0012`
 
 ## Product model
 
@@ -86,8 +86,10 @@ SQL migrations live in `drizzle/`:
 - `0010_attachments.sql`
 - `0011_entity_links.sql`
 - `0012_schema_foundation.sql`
+- `0013_parenting_schedules.sql` — staged, not yet Production-applied
+- `0014_retire_legacy_auth.sql` — staged, not yet Production-applied
 
-Production has migrations through `0012` applied. The `covie_schema_migrations` ledger records the historical `0000`–`0011` baseline plus normal migration `0012`. Migration `0013_parenting_schedules.sql` is staged in GitHub for the eventual approved database release.
+Production has migrations through `0012` applied. The `covie_schema_migrations` ledger records the historical `0000`–`0011` baseline plus normal migration `0012`. Migrations `0013_parenting_schedules.sql` and `0014_retire_legacy_auth.sql` are staged in GitHub for the eventual approved database release.
 
 Do not replay historical migrations against production. The architecture-cleanup work is introducing an explicit migration ledger/baseline before the next schema migration.
 
