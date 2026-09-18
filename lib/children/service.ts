@@ -1,10 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, or } from "drizzle-orm";
 import type { CalendarApprovalPermission } from "@/lib/approvals/types";
 import { localDateInTimeZone } from "@/lib/calendar/time";
 import {
   childProfileFieldSections,
+  changedActivityFields,
   changedProfileFields,
   historySummary,
+  type ChildActivityInput,
   type ChildProfileInput,
 } from "@/lib/children/profile";
 import { getDb, getSql } from "@/lib/db";
@@ -126,6 +129,70 @@ async function loadActiveChild(calendarId: string, childId: string) {
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+export async function listChildren(session: ChildProfileReadSession) {
+  const rows = await getDb()
+    .select({
+      id: children.id,
+      displayName: children.displayName,
+      fullName: children.fullName,
+      dateOfBirth: children.dateOfBirth,
+      schoolName: children.schoolName,
+      yearClass: children.yearClass,
+      updatedAt: children.updatedAt,
+    })
+    .from(children)
+    .where(
+      and(
+        eq(children.calendarId, session.calendarId),
+        eq(children.active, true),
+      ),
+    )
+    .orderBy(asc(children.createdAt));
+
+  return {
+    permission: session.permission,
+    children: rows,
+  };
+}
+
+async function assertActiveChild(calendarId: string, childId: string) {
+  const rows = await getDb()
+    .select({ id: children.id })
+    .from(children)
+    .where(
+      and(
+        eq(children.id, childId),
+        eq(children.calendarId, calendarId),
+        eq(children.active, true),
+      ),
+    )
+    .limit(1);
+
+  if (!rows[0]) {
+    throw new ChildProfileServiceError(404, "Child profile not found.");
+  }
+}
+
+function activityInput(row: {
+  activityName: string;
+  organisation: string | null;
+  contactName: string | null;
+  contactDetails: string | null;
+  location: string | null;
+  scheduleInfo: string | null;
+  notes: string | null;
+}): ChildActivityInput {
+  return {
+    activityName: row.activityName,
+    organisation: row.organisation,
+    contactName: row.contactName,
+    contactDetails: row.contactDetails,
+    location: row.location,
+    scheduleInfo: row.scheduleInfo,
+    notes: row.notes,
+  };
 }
 
 export async function getChildProfile(input: {
@@ -348,4 +415,195 @@ export async function updateChildProfile(input: {
     changedFields,
     sections: changedSections,
   };
+}
+
+
+export async function createChildActivity(input: {
+  session: ChildProfileWriteSession;
+  childId: string;
+  activity: ChildActivityInput;
+}) {
+  const { session, childId, activity } = input;
+  await assertActiveChild(session.calendarId, childId);
+
+  const id = randomUUID();
+  const sql = getSql();
+
+  try {
+    await sql.transaction([
+      sql`
+        INSERT INTO child_activities (
+          id, calendar_id, child_id, activity_name, organisation, contact_name,
+          contact_details, location, schedule_info, notes, created_by, updated_at
+        )
+        VALUES (
+          ${id}, ${session.calendarId}, ${childId},
+          ${activity.activityName}, ${activity.organisation},
+          ${activity.contactName}, ${activity.contactDetails},
+          ${activity.location}, ${activity.scheduleInfo},
+          ${activity.notes}, ${session.participantId}, now()
+        )
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action, entity_type, entity_id, after_state
+        )
+        VALUES (
+          ${session.calendarId}, ${session.participantId},
+          'child_activity.create', 'child_activity', ${childId},
+          ${JSON.stringify({
+            activityId: id,
+            activityName: activity.activityName,
+          })}::jsonb
+        )
+      `,
+    ]);
+  } catch {
+    throw new ChildProfileServiceError(
+      409,
+      "The activity could not be added.",
+    );
+  }
+
+  return { ok: true as const, id };
+}
+
+export async function updateChildActivity(input: {
+  session: ChildProfileWriteSession;
+  childId: string;
+  activityId: string;
+  activity: ChildActivityInput;
+}) {
+  const { session, childId, activityId, activity } = input;
+  const existingRows = await getDb()
+    .select({
+      activityName: childActivities.activityName,
+      organisation: childActivities.organisation,
+      contactName: childActivities.contactName,
+      contactDetails: childActivities.contactDetails,
+      location: childActivities.location,
+      scheduleInfo: childActivities.scheduleInfo,
+      notes: childActivities.notes,
+    })
+    .from(childActivities)
+    .where(
+      and(
+        eq(childActivities.id, activityId),
+        eq(childActivities.childId, childId),
+        eq(childActivities.calendarId, session.calendarId),
+      ),
+    )
+    .limit(1);
+
+  const existing = existingRows[0];
+  if (!existing) {
+    throw new ChildProfileServiceError(404, "Activity not found.");
+  }
+
+  const changedFields = changedActivityFields(
+    activityInput(existing),
+    activity,
+  );
+
+  if (changedFields.length === 0) {
+    return { ok: true as const, changedFields: [] };
+  }
+
+  const sql = getSql();
+  try {
+    await sql.transaction([
+      sql`
+        UPDATE child_activities
+        SET
+          activity_name = ${activity.activityName},
+          organisation = ${activity.organisation},
+          contact_name = ${activity.contactName},
+          contact_details = ${activity.contactDetails},
+          location = ${activity.location},
+          schedule_info = ${activity.scheduleInfo},
+          notes = ${activity.notes},
+          updated_at = now()
+        WHERE id = ${activityId}
+          AND child_id = ${childId}
+          AND calendar_id = ${session.calendarId}
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action, entity_type, entity_id, after_state
+        )
+        VALUES (
+          ${session.calendarId}, ${session.participantId},
+          'child_activity.update', 'child_activity', ${childId},
+          ${JSON.stringify({
+            activityId,
+            activityName: activity.activityName,
+            changedFields,
+          })}::jsonb
+        )
+      `,
+    ]);
+  } catch {
+    throw new ChildProfileServiceError(
+      409,
+      "The activity could not be updated.",
+    );
+  }
+
+  return { ok: true as const, changedFields };
+}
+
+export async function deleteChildActivity(input: {
+  session: ChildProfileWriteSession;
+  childId: string;
+  activityId: string;
+}) {
+  const { session, childId, activityId } = input;
+  const existingRows = await getDb()
+    .select({ activityName: childActivities.activityName })
+    .from(childActivities)
+    .where(
+      and(
+        eq(childActivities.id, activityId),
+        eq(childActivities.childId, childId),
+        eq(childActivities.calendarId, session.calendarId),
+      ),
+    )
+    .limit(1);
+
+  const existing = existingRows[0];
+  if (!existing) {
+    throw new ChildProfileServiceError(404, "Activity not found.");
+  }
+
+  const sql = getSql();
+  try {
+    await sql.transaction([
+      sql`
+        DELETE FROM child_activities
+        WHERE id = ${activityId}
+          AND child_id = ${childId}
+          AND calendar_id = ${session.calendarId}
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action, entity_type, entity_id, after_state
+        )
+        VALUES (
+          ${session.calendarId}, ${session.participantId},
+          'child_activity.delete', 'child_activity', ${childId},
+          ${JSON.stringify({
+            activityId,
+            activityName: existing.activityName,
+          })}::jsonb
+        )
+      `,
+    ]);
+  } catch {
+    throw new ChildProfileServiceError(
+      409,
+      "The activity could not be removed.",
+    );
+  }
+
+  return { ok: true as const };
 }

@@ -36,22 +36,26 @@ test("shared child reference information updates immediately without approval pr
   assert.match(profileRoute, /getEditorSession/);
   assert.match(profileRoute, /updateChildProfile/);
   assert.match(activityRoute, /getEditorSession/);
+  assert.match(activityRoute, /createChildActivity/);
+  assert.match(activityRoute, /updateChildActivity/);
+  assert.match(activityRoute, /deleteChildActivity/);
   for (const text of [profileRoute, profileService, activityRoute]) {
     assert.doesNotMatch(text, /createApprovalProposal|getSharedApprovalTarget/);
   }
 });
 
 test("child history records changed field names instead of sensitive values", async () => {
-  const [profileService, activityRoute] = await Promise.all([
-    source("lib/children/service.ts"),
-    source("app/api/children/[id]/activities/route.ts"),
-  ]);
+  const service = await source("lib/children/service.ts");
 
-  assert.match(profileService, /changedFields/);
-  assert.match(profileService, /sections: changedSections/);
-  assert.doesNotMatch(profileService, /before_state/);
-  assert.match(activityRoute, /activityName/);
-  assert.match(activityRoute, /changedFields/);
+  assert.match(service, /changedFields/);
+  assert.match(service, /sections: changedSections/);
+  assert.doesNotMatch(service, /before_state/);
+  assert.match(service, /activityName/);
+  assert.match(service, /child_activity\.update/);
+  assert.match(
+    service,
+    /'child_activity\.update'[\s\S]*?JSON\.stringify\(\{[\s\S]*?activityId,[\s\S]*?activityName: activity\.activityName,[\s\S]*?changedFields,[\s\S]*?\}\)/,
+  );
 });
 
 test("child profile hub reuses existing linked expenses and responsibilities", async () => {
@@ -152,4 +156,25 @@ test("child profile route delegates persistence and aggregation to the feature s
   assert.match(service, /responsibilityChildren/);
   assert.match(service, /UPDATE children/);
   assert.match(service, /INSERT INTO audit_log/);
+});
+
+
+test("children list and activities routes delegate database work to the feature service", async () => {
+  const [listRoute, activityRoute, service] = await Promise.all([
+    source("app/api/children/route.ts"),
+    source("app/api/children/[id]/activities/route.ts"),
+    source("lib/children/service.ts"),
+  ]);
+
+  assert.match(listRoute, /listChildren/);
+  assert.doesNotMatch(listRoute, /getDb|\.select\(/);
+  assert.match(activityRoute, /createChildActivity/);
+  assert.match(activityRoute, /updateChildActivity/);
+  assert.match(activityRoute, /deleteChildActivity/);
+  assert.doesNotMatch(activityRoute, /INSERT INTO child_activities|UPDATE child_activities|DELETE FROM child_activities/);
+
+  assert.match(service, /export async function listChildren/);
+  assert.match(service, /INSERT INTO child_activities/);
+  assert.match(service, /UPDATE child_activities/);
+  assert.match(service, /DELETE FROM child_activities/);
 });

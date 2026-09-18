@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { childIdSchema } from "@/lib/children/contracts";
 import { childProfileSchema } from "@/lib/children/profile";
 import {
   ChildProfileServiceError,
@@ -17,7 +17,6 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-const childIdSchema = z.string().uuid();
 
 function childProfileServiceError(error: unknown) {
   if (error instanceof ChildProfileServiceError) {
