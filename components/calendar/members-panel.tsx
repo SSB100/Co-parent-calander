@@ -214,7 +214,7 @@ export function MembersPanel({ onChanged }: { onChanged?: () => void }) {
                     Parent profiles
                   </h2>
                   <p className="covie-dialog-description">
-                    Use a parent&apos;s name and colour in Covie even if they do not have an account.
+                    Use a parent&apos;s name and colour in Covie. A parent does not need an account or calendar access.
                   </p>
                 </div>
               </div>
