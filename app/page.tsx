@@ -76,7 +76,7 @@ export default async function Home() {
         </div>
       </nav>
 
-      <section className="border-b-2 border-[#243139] lg:h-[calc(100svh-5rem)] lg:min-h-[570px] lg:max-h-[760px]">
+      <section className="border-b-2 border-[#243139] lg:h-[calc(100svh-5rem)] lg:min-h-[480px] lg:max-h-[760px]">
         <div className="mx-auto grid h-full w-full max-w-[1500px] lg:grid-cols-[0.9fr_1.1fr]">
           <div className="flex items-center px-4 py-10 sm:px-8 sm:py-12 lg:px-12 lg:py-8 xl:px-16">
             <div className="max-w-2xl">

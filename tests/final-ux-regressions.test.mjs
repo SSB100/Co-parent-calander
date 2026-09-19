@@ -38,7 +38,8 @@ test("landing hero fits the desktop viewport beneath navigation", async () => {
   assert.match(home, /h-20/);
   assert.match(home, /lg:h-\[calc\(100svh-5rem\)\]/);
   assert.match(home, /lg:max-h-\[760px\]/);
-  assert.doesNotMatch(home, /lg:min-h-\[720px\]/);
+  assert.match(home, /lg:min-h-\[480px\]/);
+  assert.doesNotMatch(home, /lg:min-h-\[(?:570|720)px\]/);
 });
 
 test("public brand uses solid Covie colours without decorative gradients", async () => {
