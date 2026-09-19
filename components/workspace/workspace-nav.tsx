@@ -25,10 +25,10 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
   const [signOutError, setSignOutError] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const accountRef = useRef<HTMLDetailsElement>(null);
-  const mobileActionsRef = useRef<HTMLDetailsElement>(null);
+  const mobileActionsRef = useRef<HTMLDivElement>(null);
   useDismissibleDetails(accountRef);
-  useDismissibleDetails(mobileActionsRef);
   const section = active && ["expenses", "responsibilities", "kids"].includes(active) ? "organiser" : active;
 
   useEffect(() => {
@@ -55,6 +55,28 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
     };
   }, []);
 
+  useEffect(() => {
+    if (!mobileActionsOpen) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!(event.target instanceof Node)) return;
+      if (!mobileActionsRef.current?.contains(event.target)) {
+        setMobileActionsOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setMobileActionsOpen(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mobileActionsOpen]);
+
   async function signOut() {
     setSigningOut(true);
     setSignOutError(false);
@@ -71,7 +93,7 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
   function closeMobileActionsAfterAction(target: EventTarget | null) {
     if (!(target instanceof HTMLElement)) return;
     if (!target.closest("a, button")) return;
-    mobileActionsRef.current?.removeAttribute("open");
+    setMobileActionsOpen(false);
   }
 
   return <>
@@ -97,11 +119,20 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
     </nav>
 
     <div className="workspace-actions">
-      <details ref={mobileActionsRef} className="workspace-mobile-actions relative">
-        <summary className="workspace-mobile-actions-trigger" aria-label="Open actions menu">
+      <div
+        ref={mobileActionsRef}
+        className={`workspace-mobile-actions relative${mobileActionsOpen ? " is-open" : ""}`}
+      >
+        <button
+          type="button"
+          className="workspace-mobile-actions-trigger"
+          aria-label={mobileActionsOpen ? "Close actions menu" : "Open actions menu"}
+          aria-expanded={mobileActionsOpen}
+          onClick={() => setMobileActionsOpen((current) => !current)}
+        >
           <Menu size={22} aria-hidden="true" />
           <span className="sr-only">Menu</span>
-        </summary>
+        </button>
         <div
           className="workspace-mobile-action-panel"
           onClick={(event) => closeMobileActionsAfterAction(event.target)}
@@ -131,7 +162,7 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
             </p>
           ) : null}
         </div>
-      </details>
+      </div>
     </div>
   </>;
 }
