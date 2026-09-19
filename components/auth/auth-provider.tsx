@@ -12,8 +12,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <NeonAuthUIProvider
       authClient={authClient}
       credentials={{ forgotPassword: true }}
+      social={{ providers: ["google"] }}
       defaultTheme="light"
       navigate={(href) => router.push(href)}
+      replace={(href) => router.replace(href)}
+      onSessionChange={() => router.refresh()}
     >
       {children}
     </NeonAuthUIProvider>

@@ -1,6 +1,7 @@
 "use client";
 
 import { CalendarSync, LoaderCircle, RefreshCw, Unplug } from "lucide-react";
+import { GoogleGMark, googleActionClassName } from "@/components/google/google-brand";
 import { useEffect, useMemo, useState } from "react";
 
 type Connection = {
@@ -172,8 +173,8 @@ export function GoogleCalendarSettings() {
   return (
     <section className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4" aria-labelledby="google-calendar-title">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-slate-700 shadow-sm">
-          <CalendarSync className="h-5 w-5" aria-hidden="true" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+          <GoogleGMark />
         </div>
         <div className="min-w-0">
           <h3 id="google-calendar-title" className="text-sm font-semibold text-slate-900">Google Calendar</h3>
@@ -207,9 +208,9 @@ export function GoogleCalendarSettings() {
           <p className="mb-3 text-sm font-semibold text-slate-800">Not connected</p>
           <a
             href="/api/google-calendar/connect"
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800"
+            className={googleActionClassName}
           >
-            <CalendarSync className="h-4 w-4" aria-hidden="true" />
+            <GoogleGMark className="h-4.5 w-4.5" />
             Connect Google Calendar
           </a>
         </div>
@@ -227,8 +228,8 @@ export function GoogleCalendarSettings() {
               ) : null}
             </div>
             {connection.status === "reconnect_required" ? (
-              <a href="/api/google-calendar/connect" className="text-sm font-semibold text-blue-700 hover:underline">
-                Reconnect
+              <a href="/api/google-calendar/connect" className={`${googleActionClassName} min-h-9 px-3 text-xs`}>
+                <GoogleGMark className="h-4 w-4" /> Reconnect Google Calendar
               </a>
             ) : null}
           </div>

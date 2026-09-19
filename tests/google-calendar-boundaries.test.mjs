@@ -120,3 +120,21 @@ test("Production OAuth uses Vercel's canonical production URL", async () => {
   assert.match(config, /https:\/\/\$\{process\.env\.VERCEL_PROJECT_PRODUCTION_URL\}/);
   assert.match(config, /NEXT_PUBLIC_APP_URL/);
 });
+
+
+test("Google Calendar actions use the shared official Google visual treatment", async () => {
+  const [quick, settings, brand] = await Promise.all([
+    readFile(path.join(root, "components/calendar/google-calendar-quick-action.tsx"), "utf8"),
+    readFile(path.join(root, "components/calendar/google-calendar-settings.tsx"), "utf8"),
+    readFile(path.join(root, "components/google/google-brand.tsx"), "utf8"),
+  ]);
+
+  assert.match(quick, /GoogleGMark/);
+  assert.match(quick, /Connect Google Calendar/);
+  assert.match(quick, /Sync Google Calendar/);
+  assert.match(settings, /GoogleGMark/);
+  assert.match(settings, /Reconnect Google Calendar/);
+  assert.match(brand, /googleActionClassName/);
+  assert.match(brand, /#747775/);
+  assert.match(brand, /#1F1F1F/);
+});
