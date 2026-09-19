@@ -487,7 +487,6 @@ export function CalendarShell({
                   {accessMode === "editor" ? (
                     <>
                       <EventPanel includeRangeTools={false} onChanged={() => setRefreshKey((value) => value + 1)} />
-                      <GoogleCalendarQuickAction />
                       <details className="relative">
                       <summary className="covie-menu-trigger"><span><span className="hidden sm:inline">Calendar </span>Tools</span><ChevronDown size={16} aria-hidden="true" /></summary>
                         <div className="covie-menu covie-tool-menu">
@@ -499,6 +498,7 @@ export function CalendarShell({
 
                     </>
                   ) : null}
+                  {accessMode === "editor" || accessMode === "viewer" ? <GoogleCalendarQuickAction /> : null}
                   {accessMode === "editor" || accessMode === "viewer" ? (
                     <details className="relative">
                       <summary className="covie-menu-trigger"><span><span className="hidden sm:inline">Calendar </span>Settings</span><ChevronDown size={16} aria-hidden="true" /></summary>

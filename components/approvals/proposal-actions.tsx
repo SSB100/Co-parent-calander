@@ -53,6 +53,7 @@ export function ProposalActions({
       }
 
       onChanged();
+      window.dispatchEvent(new Event("covie-records-updated"));
     } catch (caught) {
       setError(
         caught instanceof Error
