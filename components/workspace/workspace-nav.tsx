@@ -1,7 +1,7 @@
 "use client";
 import { CalendarDays, Bell, LayoutGrid, LogOut, UsersRound, ListChecks, WalletCards, ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
@@ -19,11 +19,36 @@ const items = [
   { key: "home", href: "/home", label: "Updates", icon: Bell },
   { key: "organiser", href: "/organiser", label: "Organiser", icon: LayoutGrid },
 ];
-export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; actions?: ReactNode }) {
+export function WorkspaceNav({ active, actions, showDesktopEvents = true }: { active?: WorkspaceSection; actions?: ReactNode; showDesktopEvents?: boolean }) {
   const router = useRouter();
   const [signOutError, setSignOutError] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
   const section = active && ["expenses", "responsibilities", "kids"].includes(active) ? "organiser" : active;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function refreshNotifications() {
+      try {
+        const response = await fetch("/api/notifications", {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        const body = (await response.json().catch(() => null)) as { count?: number } | null;
+        if (response.ok && body && typeof body.count === "number" && !controller.signal.aborted) {
+          setNotificationCount(body.count);
+        }
+      } catch {}
+    }
+    void refreshNotifications();
+    window.addEventListener("focus", refreshNotifications);
+    window.addEventListener("covie-records-updated", refreshNotifications);
+    return () => {
+      controller.abort();
+      window.removeEventListener("focus", refreshNotifications);
+      window.removeEventListener("covie-records-updated", refreshNotifications);
+    };
+  }, []);
   async function signOut() {
     setSigningOut(true);
     setSignOutError(false);
@@ -39,11 +64,20 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
       <div className="workspace-destinations">
         {items.map(({ key, href, label, icon: Icon }) => (
           <Link key={key} href={href} aria-current={section === key ? "page" : undefined}>
-            <Icon size={20} aria-hidden="true" /><span>{label}</span>
+            <Icon size={20} aria-hidden="true" />
+            <span>{label}</span>
+            {key === "home" && notificationCount > 0 ? (
+              <span
+                className="workspace-notification-badge"
+                aria-label={`${notificationCount} update${notificationCount === 1 ? "" : "s"} need review`}
+              >
+                {notificationCount > 99 ? "99+" : notificationCount}
+              </span>
+            ) : null}
           </Link>
         ))}
       </div>
-      <div className="desktop-coming-up"><ComingUp /></div>
+      {showDesktopEvents ? <div className="desktop-coming-up"><ComingUp /></div> : null}
     </nav>
     <div className="workspace-actions flex flex-wrap items-center gap-2">
       {actions}

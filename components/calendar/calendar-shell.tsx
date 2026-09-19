@@ -38,10 +38,11 @@ import { RangeAssignmentPanel } from "@/components/calendar/range-assignment-pan
 import { SettingsPanel } from "@/components/calendar/settings-panel";
 import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
 import { InstallApp } from "@/components/pwa/install-app";
+import { ComingUp } from "@/components/workspace/coming-up";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
 import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
-import { parentProfileSlotIndex, type ParentProfileSlot } from "@/lib/parents/identity";
+import { normalizeParentColorKey, parentColorOptions, parentProfileSlotIndex, type ParentProfileSlot } from "@/lib/parents/identity";
 
 type Participant = { id: string; displayName: string; colorKey: string; profileSlot: ParentProfileSlot | null };
 type Child = { id: string; displayName: string };
@@ -96,24 +97,18 @@ type AccessMode = "checking" | "viewer" | "editor" | "error";
 type SlotOwnership = string | "mixed" | null;
 type DayOwnership = { morning: SlotOwnership; afternoon: SlotOwnership };
 type AssignmentMap = Record<string, DayOwnership>;
-type VisualStyle = { dot: string; slot: string; pill: string; button: string };
+type VisualStyle = { key: string; dot: string; slot: string; pill: string; button: string };
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const visualStyles: VisualStyle[] = [
-  {
-    dot: "covie-parent-green",
-    slot: "covie-parent-green",
-    pill: "bg-emerald-100 text-emerald-800",
-    button: "bg-emerald-100 text-emerald-900 hover:bg-emerald-200",
-  },
-  {
-    dot: "covie-parent-plum",
-    slot: "covie-parent-plum",
-    pill: "bg-violet-100 text-violet-800",
-    button: "bg-violet-100 text-violet-900 hover:bg-violet-200",
-  },
-];
+const visualStyles: VisualStyle[] = parentColorOptions.map((option) => ({
+  key: option.key,
+  dot: option.dotClass,
+  slot: option.slotClass,
+  pill: option.pillClass,
+  button: option.buttonClass,
+}));
 const mixedStyle: VisualStyle = {
+  key: "mixed",
   dot: "bg-slate-500",
   slot: "bg-slate-200",
   pill: "bg-slate-200 text-slate-700",
@@ -128,7 +123,8 @@ function styleForParticipant(participants: Participant[], participantId: string)
   const index = participants.findIndex((participant) => participant.id === participantId);
   const participant = participants[index];
   const visualIndex = parentProfileSlotIndex(participant?.profileSlot, index);
-  return visualStyles[visualIndex % visualStyles.length] ?? visualStyles[0];
+  const colorKey = normalizeParentColorKey(participant?.colorKey, visualIndex);
+  return visualStyles.find((style) => style.key === colorKey) ?? visualStyles[visualIndex % visualStyles.length] ?? visualStyles[0];
 }
 
 function splitChoiceStyle(
@@ -139,13 +135,7 @@ function splitChoiceStyle(
   if (!firstId || !secondId) return mixedStyle.button;
   const first = styleForParticipant(participants, firstId);
   const second = styleForParticipant(participants, secondId);
-  if (first === visualStyles[0] && second === visualStyles[1]) {
-    return "covie-split-forward text-slate-900 hover:ring-2 hover:ring-slate-200";
-  }
-  if (first === visualStyles[1] && second === visualStyles[0]) {
-    return "covie-split-reverse text-slate-900 hover:ring-2 hover:ring-slate-200";
-  }
-  return mixedStyle.button;
+  return `${first.button} ring-1 ring-inset ring-slate-300 after:content-['']`;
 }
 
 function aggregateSlot(
@@ -497,6 +487,7 @@ export function CalendarShell({
 
           <WorkspaceNav
               active="calendar"
+              showDesktopEvents={false}
               actions={
                 <>
                   {accessMode === "editor" ? (
@@ -548,6 +539,7 @@ export function CalendarShell({
         </> : <span>No handover scheduled</span>}
       </p>
 
+      <div className="covie-calendar-content flex min-h-0 flex-1 gap-3">
       <section className="covie-calendar-board flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
         <div className="shrink-0 flex flex-col gap-2 border-b border-slate-200 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-3">
           <div className="flex items-center justify-between gap-2 sm:justify-start">
@@ -715,6 +707,10 @@ export function CalendarShell({
           </div>
         </div>
       </section>
+      <aside className="covie-calendar-events-rail hidden w-64 shrink-0 xl:block">
+        <ComingUp variant="rail" />
+      </aside>
+      </div>
 
       {accessMode === "editor" && selectionMode && selectedDays.length > 0 ? (
         <div className="sticky bottom-3 z-20 mx-auto mt-4 flex max-w-4xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur">

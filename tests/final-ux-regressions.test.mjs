@@ -145,3 +145,35 @@ test("first invite panel remains usable on narrow screens", async () => {
   assert.match(welcome, /Copy invite link/);
   assert.match(welcome, /Maybe later/);
 });
+
+
+test("Your Events is a chronological event and handover feed with a desktop calendar rail", async () => {
+  const [route, coming, shell, nav] = await Promise.all([
+    source("app/api/coming-up/route.ts"),
+    source("components/workspace/coming-up.tsx"),
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/workspace/workspace-nav.tsx"),
+  ]);
+
+  assert.match(coming, /Your Events/);
+  assert.match(coming, /Next events and handovers in date order/);
+  assert.match(route, /loadEffectiveAssignmentMap/);
+  assert.match(route, /morningParentId === assignment\.afternoonParentId/);
+  assert.match(route, /Handover/);
+  assert.match(shell, /covie-calendar-events-rail/);
+  assert.match(shell, /ComingUp variant="rail"/);
+  assert.match(nav, /showDesktopEvents/);
+});
+
+test("Updates navigation shows an actionable approval notification count on desktop and mobile", async () => {
+  const [route, nav, styles] = await Promise.all([
+    source("app/api/notifications/route.ts"),
+    source("components/workspace/workspace-nav.tsx"),
+    source("app/globals.css"),
+  ]);
+
+  assert.match(route, /approverMembershipId === session\.membershipId/);
+  assert.match(nav, /notificationCount/);
+  assert.match(nav, /workspace-notification-badge/);
+  assert.match(styles, /workspace-notification-badge/);
+});

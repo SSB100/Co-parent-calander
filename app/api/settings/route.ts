@@ -6,6 +6,7 @@ import { getDb, getSql } from "@/lib/db";
 import { calendars, children, participants } from "@/lib/db/schema";
 import { buildCalendarSyncJobStatement } from "@/lib/google-calendar/outbox";
 import { kickGoogleCalendarSync } from "@/lib/google-calendar/dispatch";
+import { normalizeParentColorKey, parentColorKeys, parentProfileSlotIndex } from "@/lib/parents/identity";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession, getEditorSession } from "@/lib/security/session";
 
@@ -14,9 +15,13 @@ const namedItem = z.object({
   displayName: z.string().trim().min(1, "Names cannot be blank.").max(50, "Keep names under 50 characters."),
 });
 
+const parentItem = namedItem.extend({
+  colorKey: z.enum(parentColorKeys),
+});
+
 const settingsSchema = z.object({
   calendarName: z.string().trim().min(1, "Add a calendar name.").max(80, "Keep the calendar name under 80 characters."),
-  parents: z.array(namedItem).min(1).max(2),
+  parents: z.array(parentItem).min(1).max(2),
   children: z.array(namedItem).min(1).max(10),
 });
 
@@ -34,7 +39,12 @@ export async function GET() {
       .where(eq(calendars.id, session.calendarId))
       .limit(1),
     db
-      .select({ id: participants.id, displayName: participants.displayName })
+      .select({
+        id: participants.id,
+        displayName: participants.displayName,
+        colorKey: participants.colorKey,
+        profileSlot: participants.profileSlot,
+      })
       .from(participants)
       .where(and(eq(participants.calendarId, session.calendarId), eq(participants.active, true)))
       .orderBy(asc(participants.createdAt)),
@@ -50,7 +60,18 @@ export async function GET() {
     return NextResponse.json({ error: "Calendar not found." }, { status: 404 });
   }
 
-  return NextResponse.json({ calendar, parents: parentRows, children: childRows });
+  return NextResponse.json({
+    calendar,
+    parents: parentRows.map((parent, index) => ({
+      id: parent.id,
+      displayName: parent.displayName,
+      colorKey: normalizeParentColorKey(
+        parent.colorKey,
+        parentProfileSlotIndex(parent.profileSlot, index),
+      ),
+    })),
+    children: childRows,
+  });
 }
 
 export async function PATCH(request: NextRequest) {
@@ -76,7 +97,12 @@ export async function PATCH(request: NextRequest) {
       .where(eq(calendars.id, session.calendarId))
       .limit(1),
     db
-      .select({ id: participants.id, displayName: participants.displayName })
+      .select({
+        id: participants.id,
+        displayName: participants.displayName,
+        colorKey: participants.colorKey,
+        profileSlot: participants.profileSlot,
+      })
       .from(participants)
       .where(and(eq(participants.calendarId, session.calendarId), eq(participants.active, true))),
     db
@@ -103,6 +129,9 @@ export async function PATCH(request: NextRequest) {
   if (new Set(parsed.data.parents.map((item) => item.displayName.toLowerCase())).size !== parsed.data.parents.length) {
     return NextResponse.json({ error: "Use a different display name for each parent." }, { status: 400 });
   }
+  if (new Set(parsed.data.parents.map((item) => item.colorKey)).size !== parsed.data.parents.length) {
+    return NextResponse.json({ error: "Choose a different colour for each parent." }, { status: 400 });
+  }
 
   const sql = getSql();
   const statements = [
@@ -112,7 +141,7 @@ export async function PATCH(request: NextRequest) {
   for (const parent of parsed.data.parents) {
     statements.push(sql`
       UPDATE participants
-      SET display_name = ${parent.displayName}, updated_at = now()
+      SET display_name = ${parent.displayName}, color_key = ${parent.colorKey}, updated_at = now()
       WHERE id = ${parent.id} AND calendar_id = ${session.calendarId}
     `);
   }

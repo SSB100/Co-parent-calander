@@ -156,3 +156,50 @@ main:has(.workspace-nav) { background: #dde6df; }
     padding: 8px 8px calc(82px + env(safe-area-inset-bottom));
   }
 }
+
+
+.workspace-notification-badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ff6b5f;
+  color: #243139;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+.covie-calendar-events-rail {
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #dce3dc;
+  border-radius: 12px;
+  background: white;
+}
+.covie-events-rail {
+  height: 100%;
+  margin: 0;
+  border: 0;
+  padding: 14px;
+  overflow-y: auto;
+}
+.covie-events-rail .coming-up-content {
+  margin-top: 10px;
+}
+@media (max-width: 1023px) {
+  .workspace-notification-badge {
+    position: absolute;
+    top: 5px;
+    right: max(10px, calc(50% - 23px));
+    min-width: 18px;
+    height: 18px;
+    font-size: 9px;
+  }
+  .workspace-destinations a {
+    position: relative;
+  }
+}
