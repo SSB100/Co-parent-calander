@@ -171,3 +171,32 @@ main:has(.workspace-nav) { background: #dde6df; }
     padding-bottom: calc(78px + env(safe-area-inset-bottom));
   }
 }
+
+
+.covie-calendar-events-rail {
+  display: none;
+}
+@media (min-width: 1280px) {
+  .covie-calendar-frame-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 240px;
+    gap: 14px;
+  }
+  .covie-calendar-events-rail {
+    display: block;
+    min-height: 0;
+    overflow-y: auto;
+    border: 1px solid #dce3dc;
+    border-radius: 12px;
+    background: #fff;
+    padding: 14px;
+  }
+  .covie-calendar-events-rail .workspace-coming-up {
+    margin-top: 0;
+    border-top: 0;
+    padding-top: 0;
+  }
+  .covie-calendar-page .desktop-coming-up {
+    display: none;
+  }
+}

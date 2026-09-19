@@ -40,6 +40,7 @@ import { SettingsPanel } from "@/components/calendar/settings-panel";
 import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
 import { GoogleCalendarSettings } from "@/components/calendar/google-calendar-settings";
 import { InstallApp } from "@/components/pwa/install-app";
+import { ComingUp } from "@/components/workspace/coming-up";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
 import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
@@ -577,7 +578,8 @@ export function CalendarShell({
         </> : <span>No handover scheduled</span>}
       </p>
 
-      <section className="covie-calendar-frame flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+      <div className="covie-calendar-frame-row flex min-h-0 flex-1">
+        <section className="covie-calendar-frame flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
         <div className="flex shrink-0 flex-col gap-2 border-b border-slate-200 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="flex items-center justify-between gap-2 sm:justify-start">
             <button type="button" aria-label="Previous month" onClick={() => moveMonth("previous")} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"><ChevronLeft className="h-5 w-5" aria-hidden="true" /></button>
@@ -738,7 +740,11 @@ export function CalendarShell({
             })}
           </div>
         </div>
-      </section>
+        </section>
+        <aside className="covie-calendar-events-rail" aria-label="Your Events">
+          <ComingUp />
+        </aside>
+      </div>
 
       {accessMode === "editor" && selectionMode && selectedDays.length > 0 ? (
         <div className="sticky bottom-3 z-20 mx-auto mt-4 flex max-w-4xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur">

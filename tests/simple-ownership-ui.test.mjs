@@ -95,3 +95,17 @@ test("Google sync is a first-level Calendar action and install prompt is mobile-
   assert.match(install, /md:hidden/);
   assert.match(install, /Dismiss install prompt/);
 });
+
+
+test("wide Calendar layout places Your Events in a dedicated right-hand rail", async () => {
+  const [shell, styles] = await Promise.all([
+    readFile(path.join(root, "components/calendar/calendar-shell.tsx"), "utf8"),
+    readFile(path.join(root, "app/globals.css"), "utf8"),
+  ]);
+
+  assert.match(shell, /covie-calendar-events-rail/);
+  assert.match(shell, /aria-label="Your Events"/);
+  assert.match(shell, /<ComingUp \/>/);
+  assert.match(styles, /grid-template-columns:\s*minmax\(0, 1fr\) 240px/);
+  assert.match(styles, /\.covie-calendar-page \.desktop-coming-up/);
+});
