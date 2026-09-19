@@ -8,6 +8,7 @@ import {
   Plus,
 } from "lucide-react";
 import { useActionState, useRef } from "react";
+import { useDismissibleDetails } from "@/lib/client/use-details-dismiss";
 import {
   createCalendar,
   joinCalendar,
