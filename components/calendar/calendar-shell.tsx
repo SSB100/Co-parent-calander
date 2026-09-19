@@ -135,7 +135,8 @@ function splitChoiceStyle(
   if (!firstId || !secondId) return mixedStyle.button;
   const first = styleForParticipant(participants, firstId);
   const second = styleForParticipant(participants, secondId);
-  return `${first.button} ring-1 ring-inset ring-slate-300 after:content-['']`;
+  if (first.key === second.key) return mixedStyle.button;
+  return `${first.button} ring-1 ring-inset ring-slate-300`;
 }
 
 function aggregateSlot(
@@ -306,13 +307,6 @@ export function CalendarShell({
     if (owner === "mixed") return "Mixed";
     if (owner === calendarData?.currentParticipantId) return "You";
     return participants.find((participant) => participant.id === owner)?.displayName ?? "Assigned";
-  }
-
-  function shortOwnerLabel(owner: SlotOwnership | undefined) {
-    const label = ownerLabel(owner);
-    if (label === "Unassigned") return "—";
-    if (label === "Mixed" || label === "You") return label;
-    return label.split(/\s+/)[0] ?? label;
   }
 
   function parentTileName(owner: SlotOwnership | undefined) {

@@ -34,6 +34,7 @@ export async function GET() {
         .select({
           id: events.id,
           title: events.title,
+          description: events.description,
           category: events.category,
           startDate: events.startDate,
           endDate: events.endDate,
