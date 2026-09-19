@@ -118,29 +118,7 @@ export function ActivityPanel() {
     }
 
     document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      previouslyFocused?.focus();
-    };
-  }, [open]);
-
-  async function openPanel() {
-    setOpen(true);
-    setLoading(true);
-    setMessage(null);
-    try {
-      const response = await fetch("/api/activity", { cache: "no-store" });
-      const body = (await response.json().catch(() => null)) as { activity?: ActivityItem[]; error?: string } | null;
-      if (!response.ok) throw new Error(body?.error ?? "Activity could not be loaded.");
-      setItems(body?.activity ?? []);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Activity could not be loaded.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
+    return (
     <>
       <button
         type="button"
@@ -151,11 +129,12 @@ export function ActivityPanel() {
         <History className="h-4 w-4" aria-hidden="true" />
         <span>Activity</span>
       </button>
+
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 backdrop-blur-sm sm:items-center sm:p-6">
+        <div className="covie-dialog-backdrop">
           <section
             ref={dialogRef}
-            className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6"
+            className="covie-dialog covie-dialog-sm"
             role="dialog"
             aria-modal="true"
             aria-labelledby="activity-title"
@@ -163,15 +142,19 @@ export function ActivityPanel() {
             aria-busy={loading}
             tabIndex={-1}
           >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                  <History className="h-5 w-5" aria-hidden="true" />
+            <header className="covie-dialog-header">
+              <div className="covie-dialog-heading">
+                <div className="covie-dialog-icon sunshine">
+                  <History aria-hidden="true" />
                 </div>
-                <h2 id="activity-title" className="text-xl font-semibold text-slate-900">Recent activity</h2>
-                <p id="activity-description" className="mt-1 text-sm text-slate-500">
-                  A simple history of important changes made to this shared calendar.
-                </p>
+                <div className="min-w-0">
+                  <h2 id="activity-title" className="covie-dialog-title">
+                    Recent activity
+                  </h2>
+                  <p id="activity-description" className="covie-dialog-description">
+                    Important changes to this shared calendar, newest first.
+                  </p>
+                </div>
               </div>
               <button
                 ref={closeButtonRef}
@@ -179,38 +162,62 @@ export function ActivityPanel() {
                 aria-label="Close activity"
                 disabled={loading}
                 onClick={() => setOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="covie-dialog-close"
               >
-                <X className="h-5 w-5" aria-hidden="true" />
+                <X aria-hidden="true" />
               </button>
-            </div>
-            {loading ? (
-              <div role="status" aria-live="polite" className="mt-6 flex items-center gap-2 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-                <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Loading activity…
-              </div>
-            ) : null}
-            {message ? (
-              <p role="alert" className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
-                {message}
-              </p>
-            ) : null}
-            {!loading ? (
-              <div className="mt-5 space-y-1">
-                {items.length === 0 ? <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No activity recorded yet.</p> : null}
-                {items.map((item) => (
-                  <div key={item.id} className="flex gap-3 border-b border-slate-100 py-3 last:border-b-0">
-                    <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-slate-300" aria-hidden="true" />
-                    <div className="min-w-0">
-                      <p className="text-sm text-slate-800">
-                        <span className="font-semibold">{item.actorName || "Calendar"}</span> {describe(item.action)}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-400">{when(item.occurredAt)}</p>
+            </header>
+
+            <div className="covie-dialog-body">
+              {loading ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="covie-dialog-status flex items-center gap-2"
+                >
+                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Loading activity…
+                </div>
+              ) : null}
+
+              {message ? (
+                <p role="alert" className="covie-dialog-status">
+                  {message}
+                </p>
+              ) : null}
+
+              {!loading ? (
+                <div className="space-y-2">
+                  {items.length === 0 ? (
+                    <p className="covie-dialog-status">No activity recorded yet.</p>
+                  ) : null}
+                  {items.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className="flex gap-3 rounded-xl border border-slate-200 bg-white p-3"
+                    >
+                      <span
+                        className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
+                          index % 3 === 0
+                            ? "bg-[#FF6B5F]"
+                            : index % 3 === 1
+                              ? "bg-[#19A897]"
+                              : "bg-[#765ED6]"
+                        }`}
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm text-slate-800">
+                          <span className="font-semibold">{item.actorName || "Calendar"}</span>{" "}
+                          {describe(item.action)}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">{when(item.occurredAt)}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </section>
         </div>
       ) : null}
