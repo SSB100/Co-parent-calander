@@ -157,6 +157,69 @@ export async function listChildren(session: ChildProfileReadSession) {
   };
 }
 
+export async function createChild(input: {
+  session: ChildProfileWriteSession;
+  displayName: string;
+}) {
+  const { session, displayName } = input;
+  const db = getDb();
+  const existing = await db
+    .select({ id: children.id })
+    .from(children)
+    .where(
+      and(
+        eq(children.calendarId, session.calendarId),
+        eq(children.active, true),
+      ),
+    )
+    .limit(10);
+
+  if (existing.length >= 10) {
+    throw new ChildProfileServiceError(
+      409,
+      "This calendar already has the maximum of 10 child profiles.",
+    );
+  }
+
+  const id = randomUUID();
+  const sql = getSql();
+
+  try {
+    await sql.transaction([
+      sql`
+        INSERT INTO children (id, calendar_id, display_name, active, updated_at)
+        VALUES (${id}, ${session.calendarId}, ${displayName}, true, now())
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id,
+          actor_participant_id,
+          action,
+          entity_type,
+          entity_id,
+          after_state
+        )
+        VALUES (
+          ${session.calendarId},
+          ${session.participantId},
+          'child_profile.create',
+          'child_profile',
+          ${id},
+          ${JSON.stringify({ displayName })}::jsonb
+        )
+      `,
+    ]);
+  } catch {
+    throw new ChildProfileServiceError(
+      409,
+      "The child profile could not be added.",
+    );
+  }
+
+  return { ok: true as const, id, displayName };
+}
+
+
 async function assertActiveChild(calendarId: string, childId: string) {
   const rows = await getDb()
     .select({ id: children.id })

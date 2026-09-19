@@ -26,20 +26,23 @@ test("Phase 6 migration extends children and adds lightweight activities", async
   assert.match(schema, /export const childActivities = pgTable/);
 });
 
-test("shared child reference information updates immediately without approval proposals", async () => {
-  const [profileRoute, profileService, activityRoute] = await Promise.all([
+test("shared child reference information and child creation update immediately without approval proposals", async () => {
+  const [listRoute, profileRoute, profileService, activityRoute] = await Promise.all([
+    source("app/api/children/route.ts"),
     source("app/api/children/[id]/route.ts"),
     source("lib/children/service.ts"),
     source("app/api/children/[id]/activities/route.ts"),
   ]);
 
+  assert.match(listRoute, /getEditorSession/);
+  assert.match(listRoute, /createChild/);
   assert.match(profileRoute, /getEditorSession/);
   assert.match(profileRoute, /updateChildProfile/);
   assert.match(activityRoute, /getEditorSession/);
   assert.match(activityRoute, /createChildActivity/);
   assert.match(activityRoute, /updateChildActivity/);
   assert.match(activityRoute, /deleteChildActivity/);
-  for (const text of [profileRoute, profileService, activityRoute]) {
+  for (const text of [listRoute, profileRoute, profileService, activityRoute]) {
     assert.doesNotMatch(text, /createApprovalProposal|getSharedApprovalTarget/);
   }
 });
@@ -66,18 +69,22 @@ test("child profile hub reuses existing linked expenses and responsibilities", a
   assert.match(service, /expenses\.childId/);
   assert.match(shell, /Responsibilities/);
   assert.match(shell, /Recent expenses/);
-  assert.match(shell, /Open Responsibilities/);
-  assert.match(shell, /Open Expenses/);
+  assert.match(shell, /Open responsibilities/);
+  assert.match(shell, /Recent expenses/);
+  assert.match(shell, /href="\/responsibilities"/);
+  assert.match(shell, /href="\/expenses"/);
 });
 
-test("child profile contains the planned Basic School Health Activities and Practical sections", async () => {
+test("child profile keeps detail available but collapses it behind intuitive sections", async () => {
   const shell = await source("components/children/child-profile-shell.tsx");
 
-  assert.match(shell, />Basic</);
-  assert.match(shell, />School</);
+  assert.match(shell, /School & care/);
   assert.match(shell, />Health</);
+  assert.match(shell, /Practical details/);
   assert.match(shell, />Activities</);
-  assert.match(shell, /Useful practical information/);
+  assert.match(shell, /Documents & related items/);
+  assert.match(shell, /Recent changes/);
+  assert.match(shell, /<details/);
   assert.match(shell, /Preferred name/);
   assert.match(shell, /Date of birth/);
   assert.match(shell, /Before \/ after-school care/);
@@ -116,7 +123,7 @@ test("Kids is reachable through the shared workspace navigation", async () => {
   for (const text of files) {
     assert.match(text, /WorkspaceNav/);
   }
-  assert.match(files[0], /Your child profiles/);
+  assert.match(files[0], /Children/);
   assert.match(files[0], /\/kids\/\$\{child\.id\}/);
 });
 
@@ -179,4 +186,24 @@ test("children list and activities routes delegate database work to the feature 
   assert.match(service, /INSERT INTO child_activities/);
   assert.match(service, /UPDATE child_activities/);
   assert.match(service, /DELETE FROM child_activities/);
+});
+
+
+test("children can be added after onboarding from the Children workspace", async () => {
+  const [route, service, shell, panel] = await Promise.all([
+    source("app/api/children/route.ts"),
+    source("lib/children/service.ts"),
+    source("components/children/kids-shell.tsx"),
+    source("components/children/add-child-panel.tsx"),
+  ]);
+
+  assert.match(route, /export async function POST/);
+  assert.match(route, /isSameOriginMutation/);
+  assert.match(route, /getEditorSession/);
+  assert.match(service, /export async function createChild/);
+  assert.match(service, /existing\.length >= 10/);
+  assert.match(service, /'child_profile\.create'/);
+  assert.match(shell, /AddChildPanel/);
+  assert.match(panel, /fetch\("\/api\/children"/);
+  assert.match(panel, /Add child/);
 });

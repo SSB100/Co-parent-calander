@@ -161,9 +161,11 @@ test("child profile supports both supporting documents and private profile photo
   const child = await source("components/children/child-profile-shell.tsx");
 
   assert.match(child, /ProfilePhoto/);
+  assert.match(child, /Documents & related items/);
+  assert.match(child, /AttachmentPanel/);
   assert.match(child, /entityType="child"/);
   assert.match(child, /title="Documents"/);
-  assert.match(child, /Private school, medical, registration/);
+  assert.doesNotMatch(child, /defaultOpen/);
 });
 
 test("supporting file types and size boundaries are intentionally narrow", async () => {

@@ -25,7 +25,7 @@ import {
   StickyNote,
   ChevronDown,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityPanel } from "@/components/calendar/activity-panel";
 import { CalendarSwitcher, type CalendarOption } from "@/components/calendar/calendar-switcher";
 import { GoogleCalendarQuickAction } from "@/components/calendar/google-calendar-quick-action";
@@ -39,6 +39,7 @@ import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
 import { InstallApp } from "@/components/pwa/install-app";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
+import { useDismissibleDetails } from "@/lib/client/use-details-dismiss";
 import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
 import { normalizeParentColorKey, parentColorOptions, parentProfileSlotIndex, type ParentProfileSlot } from "@/lib/parents/identity";
 
@@ -189,6 +190,10 @@ export function CalendarShell({
   const [message, setMessage] = useState<string | null>(null);
   const [detailsDate, setDetailsDate] = useState<string | null>(null);
   const [bulkReason, setBulkReason] = useState("");
+  const toolsMenuRef = useRef<HTMLDetailsElement>(null);
+  const settingsMenuRef = useRef<HTMLDetailsElement>(null);
+  useDismissibleDetails(toolsMenuRef);
+  useDismissibleDetails(settingsMenuRef);
 
   const calendarRange = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 });
@@ -473,7 +478,7 @@ export function CalendarShell({
                   {accessMode === "editor" ? (
                     <>
                       <EventPanel includeRangeTools={false} onChanged={() => setRefreshKey((value) => value + 1)} />
-                      <details className="relative">
+                      <details ref={toolsMenuRef} className="relative">
                       <summary className="covie-menu-trigger"><span><span className="hidden sm:inline">Calendar </span>Tools</span><ChevronDown size={16} aria-hidden="true" /></summary>
                         <div className="covie-menu covie-tool-menu">
                           <RangeAssignmentPanel onChanged={() => setRefreshKey((value) => value + 1)} />
@@ -486,7 +491,7 @@ export function CalendarShell({
                   ) : null}
                   {accessMode === "editor" || accessMode === "viewer" ? <GoogleCalendarQuickAction /> : null}
                   {accessMode === "editor" || accessMode === "viewer" ? (
-                    <details className="relative">
+                    <details ref={settingsMenuRef} className="relative">
                       <summary className="covie-menu-trigger"><span><span className="hidden sm:inline">Calendar </span>Settings</span><ChevronDown size={16} aria-hidden="true" /></summary>
                       <div className="covie-menu covie-tool-menu">
                         {calendarData?.permission === "owner" ? (

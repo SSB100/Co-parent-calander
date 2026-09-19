@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   HeartPulse,
   History,
-  Home,
   LoaderCircle,
   Pencil,
   Plus,
@@ -14,7 +13,6 @@ import {
   Ruler,
   School,
   Trash2,
-  UserRound,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -104,12 +102,6 @@ type ProfileForm = Omit<ChildProfile, "id" | "updatedAt">;
 type ActivityForm = Omit<ChildActivity, "id" | "createdAt" | "updatedAt"> & {
   id: string | null;
 };
-
-const currency = new Intl.NumberFormat("en-NZ", {
-  style: "currency",
-  currency: "NZD",
-  minimumFractionDigits: 2,
-});
 
 function dateLabel(value: string) {
   return new Intl.DateTimeFormat("en-NZ", {
@@ -442,31 +434,36 @@ export function ChildProfileShell({ childId }: { childId: string }) {
   const child = data.child;
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
+    <main className="mx-auto min-h-screen w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
       <header className="covie-page-header">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
             <ProfilePhoto childId={child.id} displayName={child.displayName} />
             <div>
-              <div className="mb-2 h-2 w-16 rounded-full bg-[#765ED6]" aria-hidden="true" />\n              <h1 className="covie-page-title text-3xl sm:text-4xl">{child.displayName}</h1>
-              {child.fullName && child.fullName !== child.displayName ? (
-                <p className="mt-1 text-sm text-slate-500">{child.fullName}</p>
-              ) : null}
+              <div className="mb-2 h-2 w-16 rounded-full bg-[#765ED6]" aria-hidden="true" />
+              <h1 className="covie-page-title text-3xl sm:text-4xl">{child.displayName}</h1>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                {child.schoolName ? (
+                  <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-600">
+                    {child.schoolName}{child.yearClass ? ` · ${child.yearClass}` : ""}
+                  </span>
+                ) : null}
+                {child.dateOfBirth ? (
+                  <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-600">
+                    {dateLabel(child.dateOfBirth)}
+                  </span>
+                ) : null}
+              </div>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <Link
               href="/kids"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#243139] bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Kids
-            </Link>
-            <Link
-              href="/home"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <Home className="h-4 w-4" aria-hidden="true" /> Home
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              Children
             </Link>
             {editable ? (
               <button
@@ -474,7 +471,8 @@ export function ChildProfileShell({ childId }: { childId: string }) {
                 onClick={openProfileEditor}
                 className="covie-primary-action inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm"
               >
-                <Pencil className="h-4 w-4" aria-hidden="true" /> Edit profile
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+                Edit profile
               </button>
             ) : null}
           </div>
@@ -482,37 +480,83 @@ export function ChildProfileShell({ childId }: { childId: string }) {
       </header>
 
       {message ? (
-        <div role="status" className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <div role="status" className="mt-3 rounded-xl border border-[#19A897] bg-[#EAF8F5] px-4 py-2.5 text-sm text-[#0B665C]">
           {message}
         </div>
       ) : null}
       {error ? (
-        <div role="alert" className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+        <div role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-900">
           {error}
         </div>
       ) : null}
 
-      <section className="mt-5 grid gap-4 lg:grid-cols-2">
-        <article className="rounded-2xl border border-[#E6DBCF] bg-white p-5 shadow-[4px_4px_0_#765ED612]">
-          <div className="flex items-center gap-2">
-            <UserRound className="h-5 w-5 text-slate-600" aria-hidden="true" />
-            <h2 className="text-lg font-semibold text-slate-950">Basic</h2>
+      <section className="mt-5 grid gap-3 md:grid-cols-3">
+        <Link
+          href="/responsibilities"
+          className="rounded-2xl border-2 border-[#243139] bg-[#BFEDE6] p-4 transition hover:-translate-y-0.5"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white">
+              <CalendarDays className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <strong className="text-2xl text-[#243139]">{openResponsibilities.length}</strong>
           </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Value label="Preferred name" value={child.displayName} />
-            <Value label="Full name" value={child.fullName} />
-            <Value label="Date of birth" value={child.dateOfBirth ? dateLabel(child.dateOfBirth) : null} />
-            <Value label="School" value={child.schoolName} />
-            <Value label="Year / class" value={child.yearClass} />
-          </div>
-        </article>
+          <h2 className="mt-3 font-bold text-[#243139]">Open responsibilities</h2>
+          <p className="mt-1 text-xs text-[#526168]">
+            {openResponsibilities[0]?.title ?? "Nothing waiting right now."}
+          </p>
+        </Link>
 
-        <article className="rounded-2xl border border-[#E6DBCF] bg-white p-5 shadow-[4px_4px_0_#765ED612]">
-          <div className="flex items-center gap-2">
-            <School className="h-5 w-5 text-sky-600" aria-hidden="true" />
-            <h2 className="text-lg font-semibold text-slate-950">School</h2>
+        <Link
+          href="/expenses"
+          className="rounded-2xl border-2 border-[#243139] bg-[#F7DC86] p-4 transition hover:-translate-y-0.5"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white">
+              <ReceiptText className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <strong className="text-2xl text-[#243139]">{recentExpenses.length}</strong>
           </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <h2 className="mt-3 font-bold text-[#243139]">Recent expenses</h2>
+          <p className="mt-1 text-xs text-[#526168]">
+            {recentExpenses[0]?.title ?? "No linked expenses yet."}
+          </p>
+        </Link>
+
+        <button
+          type="button"
+          onClick={openNewActivity}
+          disabled={!editable}
+          className="rounded-2xl border-2 border-[#243139] bg-[#DDD3FA] p-4 text-left transition hover:-translate-y-0.5 disabled:cursor-default disabled:opacity-70"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white">
+              <Activity className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <strong className="text-2xl text-[#243139]">{data.activities.length}</strong>
+          </div>
+          <h2 className="mt-3 font-bold text-[#243139]">Activities</h2>
+          <p className="mt-1 text-xs text-[#526168]">
+            {editable ? "Add or update sport, lessons and regular activities." : "View regular activities."}
+          </p>
+        </button>
+      </section>
+
+      <section className="mt-5 grid gap-3 lg:grid-cols-2">
+        <details className="group rounded-2xl border border-[#E6DBCF] bg-white">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 [&::-webkit-details-marker]:hidden">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F4F1FF]">
+              <School className="h-4 w-4 text-[#6651B7]" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <strong className="block text-sm text-slate-900">School & care</strong>
+              <span className="block truncate text-xs text-slate-500">
+                {child.schoolName ?? "No school information added yet"}
+              </span>
+            </span>
+            <Plus className="h-4 w-4 text-slate-400 transition group-open:rotate-45" aria-hidden="true" />
+          </summary>
+          <div className="grid gap-4 border-t border-slate-200 p-4 sm:grid-cols-2">
             <Value label="School" value={child.schoolName} />
             <Value label="Year / class" value={child.yearClass} />
             <Value label="Teacher" value={child.teacherName} />
@@ -522,21 +566,30 @@ export function ChildProfileShell({ childId }: { childId: string }) {
             <div className="sm:col-span-2">
               <Value label="Before / after-school care" value={child.careDetails} />
             </div>
-            <div className="sm:col-span-2">
-              <Value label="School notes" value={child.schoolNotes} />
-            </div>
+            {child.schoolNotes ? (
+              <div className="sm:col-span-2">
+                <Value label="School notes" value={child.schoolNotes} />
+              </div>
+            ) : null}
           </div>
-        </article>
+        </details>
 
-        <article className="rounded-2xl border border-[#E6DBCF] bg-white p-5 shadow-[4px_4px_0_#765ED612]">
-          <div className="flex items-center gap-2">
-            <HeartPulse className="h-5 w-5 text-rose-500" aria-hidden="true" />
-            <h2 className="text-lg font-semibold text-slate-950">Health</h2>
-          </div>
-          <p className="mt-1 text-xs text-slate-500">
-            Health and identifier fields are optional. Only add information useful for shared care.
-          </p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <details className="group rounded-2xl border border-[#E6DBCF] bg-white">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 [&::-webkit-details-marker]:hidden">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFD0CB]">
+              <HeartPulse className="h-4 w-4 text-[#8C332D]" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <strong className="block text-sm text-slate-900">Health</strong>
+              <span className="block truncate text-xs text-slate-500">
+                {child.allergies || child.medications || child.medicalNotes
+                  ? "Important shared health information"
+                  : "Optional health information"}
+              </span>
+            </span>
+            <Plus className="h-4 w-4 text-slate-400 transition group-open:rotate-45" aria-hidden="true" />
+          </summary>
+          <div className="grid gap-4 border-t border-slate-200 p-4 sm:grid-cols-2">
             <Value label="GP" value={child.gpName} sensitive />
             <Value label="Dentist" value={child.dentistName} sensitive />
             <Value label="Allergies" value={child.allergies} sensitive />
@@ -546,14 +599,22 @@ export function ChildProfileShell({ childId }: { childId: string }) {
               <Value label="Important medical notes" value={child.medicalNotes} sensitive />
             </div>
           </div>
-        </article>
+        </details>
 
-        <article className="rounded-2xl border border-[#E6DBCF] bg-white p-5 shadow-[4px_4px_0_#765ED612]">
-          <div className="flex items-center gap-2">
-            <Ruler className="h-5 w-5 text-violet-600" aria-hidden="true" />
-            <h2 className="text-lg font-semibold text-slate-950">Useful practical information</h2>
-          </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <details className="group rounded-2xl border border-[#E6DBCF] bg-white">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 [&::-webkit-details-marker]:hidden">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF9DF]">
+              <Ruler className="h-4 w-4 text-[#77570B]" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <strong className="block text-sm text-slate-900">Practical details</strong>
+              <span className="block truncate text-xs text-slate-500">
+                Sizes, requirements and useful day-to-day notes
+              </span>
+            </span>
+            <Plus className="h-4 w-4 text-slate-400 transition group-open:rotate-45" aria-hidden="true" />
+          </summary>
+          <div className="grid gap-4 border-t border-slate-200 p-4 sm:grid-cols-3">
             <Value label="Clothing size" value={child.clothingSize} />
             <Value label="Shoe size" value={child.shoeSize} />
             <Value label="Uniform size" value={child.uniformSize} />
@@ -561,208 +622,143 @@ export function ChildProfileShell({ childId }: { childId: string }) {
               <Value label="Requirements / preferences" value={child.practicalNotes} />
             </div>
           </div>
-        </article>
-      </section>
+        </details>
 
-      <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-950">Related items</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Connect events, costs, tasks, children and existing documents that belong to the same situation.
-        </p>
-        <LinkedItemsPanel
-          entityType="child"
-          entityId={child.id}
-          title="Related items"
-          defaultOpen
-        />
-      </section>
-
-      <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-950">Documents</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Private school, medical, registration and other useful files for this child.
-        </p>
-        <AttachmentPanel
-          entityType="child"
-          entityId={child.id}
-          defaultCategory="school_form"
-          title="Documents"
-          defaultOpen
-        />
-      </section>
-
-      <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-              <h2 className="text-lg font-semibold text-slate-950">Activities</h2>
-            </div>
-            <p className="mt-1 text-sm text-slate-500">
-              Teams, lessons and regular activities. Event/expense/task linking can be added later without changing these records.
-            </p>
-          </div>
-          {editable ? (
-            <button
-              type="button"
-              onClick={openNewActivity}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" /> Add activity
-            </button>
-          ) : null}
-        </div>
-
-        {data.activities.length === 0 ? (
-          <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
-            No activities added yet.
-          </p>
-        ) : (
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
-            {data.activities.map((item) => (
-              <article key={item.id} className="rounded-2xl border border-slate-200 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="truncate font-semibold text-slate-950">{item.activityName}</h3>
-                    {item.organisation ? <p className="mt-1 text-sm text-slate-500">{item.organisation}</p> : null}
-                  </div>
-                  {editable ? (
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => openActivityEditor(item)}
-                        aria-label={`Edit ${item.activityName}`}
-                        className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-50"
-                      >
-                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void removeActivity(item)}
-                        aria-label={`Remove ${item.activityName}`}
-                        className="flex h-9 w-9 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50 disabled:opacity-50"
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-                <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-                  <Value label="Coach / contact" value={item.contactName} />
-                  <Value label="Contact details" value={item.contactDetails} />
-                  <Value label="Normal location" value={item.location} />
-                  <Value label="Schedule" value={item.scheduleInfo} />
-                  {item.notes ? (
-                    <div className="sm:col-span-2">
-                      <Value label="Notes" value={item.notes} />
-                    </div>
-                  ) : null}
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="mt-6 grid gap-4 lg:grid-cols-2">
-        <article className="rounded-2xl border border-[#E6DBCF] bg-white p-5 shadow-[4px_4px_0_#765ED612]">
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-slate-600" aria-hidden="true" />
-            <h2 className="text-lg font-semibold text-slate-950">Responsibilities</h2>
-          </div>
-          <p className="mt-1 text-sm text-slate-500">Current child-linked tasks.</p>
-          {openResponsibilities.length === 0 ? (
-            <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No open responsibilities linked to this child.</p>
-          ) : (
-            <div className="mt-4 space-y-2">
-              {openResponsibilities.map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/responsibilities?date=${encodeURIComponent(item.dueDate)}`}
-                  className="block rounded-xl border border-slate-200 px-3 py-3 hover:bg-slate-50"
+        <details className="group rounded-2xl border border-[#E6DBCF] bg-white">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 [&::-webkit-details-marker]:hidden">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EAF8F5]">
+              <Activity className="h-4 w-4 text-[#0D7A6D]" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <strong className="block text-sm text-slate-900">Activities</strong>
+              <span className="block truncate text-xs text-slate-500">
+                {data.activities.length === 0
+                  ? "No regular activities added"
+                  : `${data.activities.length} regular ${data.activities.length === 1 ? "activity" : "activities"}`}
+              </span>
+            </span>
+            <Plus className="h-4 w-4 text-slate-400 transition group-open:rotate-45" aria-hidden="true" />
+          </summary>
+          <div className="border-t border-slate-200 p-4">
+            <div className="flex justify-end">
+              {editable ? (
+                <button
+                  type="button"
+                  onClick={openNewActivity}
+                  className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-[#243139] bg-white px-3 text-xs font-bold text-[#243139]"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="font-semibold text-slate-900">{item.title}</p>
-                    <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
-                      item.status === "overdue"
-                        ? "bg-rose-100 text-rose-700"
-                        : item.status === "due_today" || item.status === "due_soon"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-slate-100 text-slate-600"
-                    }`}>
-                      {item.status.replaceAll("_", " ")}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">Due {dateLabel(item.dueDate)}</p>
-                </Link>
-              ))}
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  Add activity
+                </button>
+              ) : null}
             </div>
-          )}
-          <Link href="/responsibilities" className="mt-4 inline-flex text-sm font-semibold text-slate-700 hover:underline">
-            Open Responsibilities
-          </Link>
-        </article>
-
-        <article className="rounded-2xl border border-[#E6DBCF] bg-white p-5 shadow-[4px_4px_0_#765ED612]">
-          <div className="flex items-center gap-2">
-            <ReceiptText className="h-5 w-5 text-slate-600" aria-hidden="true" />
-            <h2 className="text-lg font-semibold text-slate-950">Recent expenses</h2>
-          </div>
-          <p className="mt-1 text-sm text-slate-500">Expenses directly linked to this child.</p>
-          {recentExpenses.length === 0 ? (
-            <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No expenses linked to this child yet.</p>
-          ) : (
-            <div className="mt-4 space-y-2">
-              {recentExpenses.map((expense) => (
-                <Link
-                  key={expense.id}
-                  href={`/expenses?date=${encodeURIComponent(expense.expenseDate)}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-3 hover:bg-slate-50"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-slate-900">{expense.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">{dateLabel(expense.expenseDate)}</p>
-                  </div>
-                  <p className="shrink-0 font-semibold text-slate-900">
-                    {currency.format(expense.amountCents / 100)}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          )}
-          <Link href="/expenses" className="mt-4 inline-flex text-sm font-semibold text-slate-700 hover:underline">
-            Open Expenses
-          </Link>
-        </article>
-      </section>
-
-      <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-2">
-          <History className="h-5 w-5 text-slate-600" aria-hidden="true" />
-          <h2 className="text-lg font-semibold text-slate-950">Recent changes</h2>
-        </div>
-        <p className="mt-1 text-sm text-slate-500">
-          Change history records what was updated without copying sensitive field values.
-        </p>
-        {data.history.length === 0 ? (
-          <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No child-profile changes recorded yet.</p>
-        ) : (
-          <div className="mt-4 space-y-1">
-            {data.history.map((item) => (
-              <div key={item.id} className="flex gap-3 border-b border-slate-100 py-3 last:border-b-0">
-                <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-slate-300" aria-hidden="true" />
-                <div>
-                  <p className="text-sm text-slate-800">
-                    <span className="font-semibold">{item.actorName ?? "Covie"}</span> {item.summary.charAt(0).toLowerCase() + item.summary.slice(1)}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">{when(item.occurredAt)}</p>
-                </div>
+            {data.activities.length === 0 ? (
+              <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
+                Add sport, lessons or other recurring activities when they become useful.
+              </p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {data.activities.map((item) => (
+                  <article key={item.id} className="rounded-xl border border-slate-200 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="truncate font-semibold text-slate-950">{item.activityName}</h3>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {[item.organisation, item.scheduleInfo].filter(Boolean).join(" · ") || "No extra details"}
+                        </p>
+                      </div>
+                      {editable ? (
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => openActivityEditor(item)}
+                            aria-label={`Edit ${item.activityName}`}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+                          >
+                            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void removeActivity(item)}
+                            aria-label={`Remove ${item.activityName}`}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
+        </details>
+
+        <details className="group rounded-2xl border border-[#E6DBCF] bg-white">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 [&::-webkit-details-marker]:hidden">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F4F1FF]">
+              <ReceiptText className="h-4 w-4 text-[#6651B7]" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <strong className="block text-sm text-slate-900">Documents & related items</strong>
+              <span className="block truncate text-xs text-slate-500">
+                Files and links connected to this child
+              </span>
+            </span>
+            <Plus className="h-4 w-4 text-slate-400 transition group-open:rotate-45" aria-hidden="true" />
+          </summary>
+          <div className="space-y-4 border-t border-slate-200 p-4">
+            <AttachmentPanel
+              entityType="child"
+              entityId={child.id}
+              defaultCategory="school_form"
+              title="Documents"
+            />
+            <LinkedItemsPanel
+              entityType="child"
+              entityId={child.id}
+              title="Related items"
+            />
+          </div>
+        </details>
+
+        <details className="group rounded-2xl border border-[#E6DBCF] bg-white">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 [&::-webkit-details-marker]:hidden">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100">
+              <History className="h-4 w-4 text-slate-600" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <strong className="block text-sm text-slate-900">Recent changes</strong>
+              <span className="block truncate text-xs text-slate-500">
+                {data.history.length === 0 ? "No changes recorded yet" : `${data.history.length} recent updates`}
+              </span>
+            </span>
+            <Plus className="h-4 w-4 text-slate-400 transition group-open:rotate-45" aria-hidden="true" />
+          </summary>
+          <div className="border-t border-slate-200 p-4">
+            {data.history.length === 0 ? (
+              <p className="text-sm text-slate-500">No child-profile changes recorded yet.</p>
+            ) : (
+              <div className="space-y-1">
+                {data.history.slice(0, 10).map((item) => (
+                  <div key={item.id} className="flex gap-3 border-b border-slate-100 py-2.5 last:border-b-0">
+                    <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#765ED6]" aria-hidden="true" />
+                    <div>
+                      <p className="text-sm text-slate-800">
+                        <span className="font-semibold">{item.actorName ?? "Covie"}</span>{" "}
+                        {item.summary.charAt(0).toLowerCase() + item.summary.slice(1)}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">{when(item.occurredAt)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </details>
       </section>
 
       {profileOpen && profileForm ? (
