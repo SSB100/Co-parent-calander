@@ -651,13 +651,13 @@ main:has(.workspace-nav) { background: #fff9f2; }
   }
 
   .workspace-mobile-action-panel {
-    position: fixed;
-    left: 8px;
-    right: 8px;
-    bottom: calc(84px + env(safe-area-inset-bottom));
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
     z-index: 45;
     display: flex;
-    max-height: min(68dvh, 560px);
+    width: min(320px, calc(100vw - 16px));
+    max-height: min(70dvh, 560px);
     flex-direction: column;
     gap: 8px;
     overflow-y: auto;
