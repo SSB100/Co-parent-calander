@@ -103,12 +103,6 @@ type ActivityForm = Omit<ChildActivity, "id" | "createdAt" | "updatedAt"> & {
   id: string | null;
 };
 
-const currency = new Intl.NumberFormat("en-NZ", {
-  style: "currency",
-  currency: "NZD",
-  minimumFractionDigits: 2,
-});
-
 function dateLabel(value: string) {
   return new Intl.DateTimeFormat("en-NZ", {
     day: "numeric",

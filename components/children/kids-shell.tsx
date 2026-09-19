@@ -67,9 +67,16 @@ export function KidsShell() {
   }, []);
 
   useEffect(() => {
-    void refresh().catch((caught) =>
-      setError(caught instanceof Error ? caught.message : "Child profiles could not be loaded."),
-    );
+    const timer = window.setTimeout(() => {
+      void refresh().catch((caught) =>
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "Child profiles could not be loaded.",
+        ),
+      );
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [refresh]);
 
   const editable = data?.permission === "owner" || data?.permission === "editor";
