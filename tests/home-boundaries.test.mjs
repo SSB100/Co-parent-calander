@@ -137,3 +137,22 @@ test("calendar settings and parent changes refetch without hard page reloads", a
   assert.doesNotMatch(members, /location\.reload/);
   assert.doesNotMatch(settings, /location\.reload/);
 });
+
+
+test("phone workspace styling stays compact without changing desktop breakpoints", async () => {
+  const [styles, organiser, expenses, responsibilities] = await Promise.all([
+    source("app/globals.css"),
+    source("components/workspace/organiser-shell.tsx"),
+    source("components/expenses/expenses-shell.tsx"),
+    source("components/responsibilities/responsibilities-shell.tsx"),
+  ]);
+
+  assert.match(styles, /@media \(max-width: 639px\)/);
+  assert.match(styles, /covie-calendar-header \.workspace-actions[\s\S]*overflow-x: auto/);
+  assert.match(styles, /bottom: calc\(84px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(styles, /div\.fixed\.inset-0\.z-50 > section\[role="dialog"\]/);
+  assert.match(styles, /box-shadow: 0 -6px 0 #765ed6/);
+  assert.match(organiser, /p-4 sm:p-6/);
+  assert.match(expenses, /grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-3/);
+  assert.match(responsibilities, /grid grid-cols-2 gap-2 sm:mt-5/);
+});

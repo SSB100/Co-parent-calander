@@ -490,16 +490,16 @@ export function ChildProfileShell({ childId }: { childId: string }) {
         </div>
       ) : null}
 
-      <section className="mt-5 grid gap-3 md:grid-cols-3">
+      <section className="mt-4 grid grid-cols-3 gap-2 sm:mt-5 sm:gap-3">
         <Link
           href="/responsibilities"
-          className="rounded-2xl border-2 border-[#243139] bg-[#BFEDE6] p-4 transition hover:-translate-y-0.5"
+          className="rounded-xl border-2 border-[#243139] bg-[#BFEDE6] p-2.5 transition hover:-translate-y-0.5 sm:rounded-2xl sm:p-4"
         >
           <div className="flex items-center justify-between gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white">
               <CalendarDays className="h-4 w-4" aria-hidden="true" />
             </span>
-            <strong className="text-2xl text-[#243139]">{openResponsibilities.length}</strong>
+            <strong className="text-lg text-[#243139] sm:text-2xl">{openResponsibilities.length}</strong>
           </div>
           <h2 className="mt-3 font-bold text-[#243139]">Open responsibilities</h2>
           <p className="mt-1 text-xs text-[#526168]">
@@ -509,13 +509,13 @@ export function ChildProfileShell({ childId }: { childId: string }) {
 
         <Link
           href="/expenses"
-          className="rounded-2xl border-2 border-[#243139] bg-[#F7DC86] p-4 transition hover:-translate-y-0.5"
+          className="rounded-xl border-2 border-[#243139] bg-[#F7DC86] p-2.5 transition hover:-translate-y-0.5 sm:rounded-2xl sm:p-4"
         >
           <div className="flex items-center justify-between gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white">
               <ReceiptText className="h-4 w-4" aria-hidden="true" />
             </span>
-            <strong className="text-2xl text-[#243139]">{recentExpenses.length}</strong>
+            <strong className="text-lg text-[#243139] sm:text-2xl">{recentExpenses.length}</strong>
           </div>
           <h2 className="mt-3 font-bold text-[#243139]">Recent expenses</h2>
           <p className="mt-1 text-xs text-[#526168]">
@@ -527,13 +527,13 @@ export function ChildProfileShell({ childId }: { childId: string }) {
           type="button"
           onClick={openNewActivity}
           disabled={!editable}
-          className="rounded-2xl border-2 border-[#243139] bg-[#DDD3FA] p-4 text-left transition hover:-translate-y-0.5 disabled:cursor-default disabled:opacity-70"
+          className="rounded-xl border-2 border-[#243139] bg-[#DDD3FA] p-2.5 text-left transition hover:-translate-y-0.5 disabled:cursor-default disabled:opacity-70 sm:rounded-2xl sm:p-4"
         >
           <div className="flex items-center justify-between gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white">
               <Activity className="h-4 w-4" aria-hidden="true" />
             </span>
-            <strong className="text-2xl text-[#243139]">{data.activities.length}</strong>
+            <strong className="text-lg text-[#243139] sm:text-2xl">{data.activities.length}</strong>
           </div>
           <h2 className="mt-3 font-bold text-[#243139]">Activities</h2>
           <p className="mt-1 text-xs text-[#526168]">

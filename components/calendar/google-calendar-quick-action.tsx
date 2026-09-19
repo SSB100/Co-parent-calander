@@ -38,7 +38,7 @@ export function GoogleCalendarQuickAction() {
         <span className="hidden sm:inline">
           {payload.connection ? "Reconnect Google Calendar" : "Connect Google Calendar"}
         </span>
-        <span className="sm:hidden">Calendar</span>
+        <span className="sm:hidden">Sync</span>
       </a>
     );
   }
@@ -73,7 +73,7 @@ export function GoogleCalendarQuickAction() {
           <GoogleGMark className="h-4.5 w-4.5" />
         )}
         <span className="hidden sm:inline">Sync Google Calendar</span>
-        <span className="sm:hidden">Google</span>
+        <span className="sm:hidden">Sync</span>
         {payload.connection.pendingOrFailedCount > 0 ? (
           <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
             {payload.connection.pendingOrFailedCount}
@@ -83,7 +83,7 @@ export function GoogleCalendarQuickAction() {
       {message ? (
         <p
           role="status"
-          className="absolute right-0 top-full z-40 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-700 shadow-lg"
+          className="absolute right-0 top-full z-40 mt-2 w-56 rounded-xl border border-[#243139] bg-white p-2 text-xs text-slate-700 shadow-[4px_4px_0_#F4C64E]"
         >
           {message}
         </p>

@@ -621,20 +621,20 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
         </div>
       ) : null}
 
-      <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-[#243139] bg-[#BFEDE6] p-4">
+      <section className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 lg:grid-cols-4">
+        <div className="rounded-2xl border border-[#243139] bg-[#BFEDE6] p-3 sm:p-4">
           <p className="text-xs font-bold text-[#0B665C]">Open</p>
           <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.open}</p>
         </div>
-        <div className="rounded-2xl border border-[#243139] bg-[#F7DC86] p-4">
+        <div className="rounded-2xl border border-[#243139] bg-[#F7DC86] p-3 sm:p-4">
           <p className="text-xs font-bold text-[#5F4709]">Due today</p>
           <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.dueToday}</p>
         </div>
-        <div className="rounded-2xl border border-[#243139] bg-[#FFD0CB] p-4">
+        <div className="rounded-2xl border border-[#243139] bg-[#FFD0CB] p-3 sm:p-4">
           <p className="text-xs font-bold text-[#8C332D]">Overdue</p>
           <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.overdue}</p>
         </div>
-        <div className="rounded-2xl border border-[#243139] bg-[#DDD3FA] p-4">
+        <div className="rounded-2xl border border-[#243139] bg-[#DDD3FA] p-3 sm:p-4">
           <p className="text-xs font-bold text-[#544394]">Archived</p>
           <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.archived}</p>
         </div>

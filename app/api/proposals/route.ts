@@ -7,6 +7,7 @@ import {
   listApprovalProposals,
 } from "@/lib/approvals/engine";
 import type { ApprovalActor } from "@/lib/approvals/types";
+import { sendApprovalEmail } from "@/lib/email/approval-notifications";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession } from "@/lib/security/session";
 
@@ -142,6 +143,14 @@ export async function POST(request: NextRequest) {
       approverMembershipId: parsed.data.approverMembershipId,
       saveAsDraft: parsed.data.saveAsDraft,
     });
+
+    if (result?.proposal.status === "waiting") {
+      await sendApprovalEmail({
+        calendarId: session.calendarId,
+        membershipId: result.proposal.approverMembershipId,
+        kind: "approval_requested",
+      });
+    }
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
