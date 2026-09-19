@@ -37,7 +37,6 @@ import { RangeAssignmentPanel } from "@/components/calendar/range-assignment-pan
 import { SettingsPanel } from "@/components/calendar/settings-panel";
 import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
 import { InstallApp } from "@/components/pwa/install-app";
-import { ComingUp } from "@/components/workspace/coming-up";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
 import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
@@ -298,8 +297,6 @@ export function CalendarShell({
 
   const today = new Date();
   const currentEditor = calendarData?.participants.find((participant) => participant.id === calendarData.currentParticipantId);
-  const nextHandover = calendarData?.nextHandover ?? null;
-
 
   function ownerLabel(owner: SlotOwnership | undefined) {
     if (!owner) return "Unassigned";
@@ -421,12 +418,6 @@ export function CalendarShell({
     setDetailsDate(null);
   }
 
-  const nextHandoverOwner = nextHandover ? nextHandover.afternoonParentId ?? nextHandover.morningParentId : null;
-  const nextHandoverIsTransfer = Boolean(
-    nextHandover?.morningParentId && nextHandover.afternoonParentId && nextHandover.morningParentId !== nextHandover.afternoonParentId,
-  );
-  const nextHandoverWhen = nextHandover?.handoverTime?.slice(0, 5) ?? (nextHandoverIsTransfer ? "Split day" : "Handover");
-
   const bulkChoices: Array<{ value: OwnershipChoice; label: string; className: string }> = [
     {
       value: "me_full",
@@ -477,7 +468,6 @@ export function CalendarShell({
 
           <WorkspaceNav
               active="calendar"
-              showDesktopEvents={false}
               actions={
                 <>
                   {accessMode === "editor" ? (
@@ -519,17 +509,7 @@ export function CalendarShell({
         <div role={accessMode === "error" ? "alert" : "status"} aria-live={accessMode === "error" ? "assertive" : "polite"} className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">{message}</div>
       ) : null}
 
-      <p className="mb-3 hidden shrink-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600 sm:flex">
-        <Clock3 size={16} aria-hidden="true" />
-        <strong className="font-medium text-slate-900">Next handover:</strong>
-        {nextHandover ? <>
-          <span>{format(parseISO(nextHandover.date), "EEE d MMM")} · {nextHandoverWhen}</span>
-          <span>{nextHandoverIsTransfer ? [ownerLabel(nextHandover.morningParentId), ownerLabel(nextHandover.afternoonParentId)].join(" → ") : ownerLabel(nextHandoverOwner)}</span>
-          {nextHandover.handoverLocation && <span>· {nextHandover.handoverLocation}</span>}
-        </> : <span>No handover scheduled</span>}
-      </p>
-
-      <div className="covie-calendar-content flex min-h-0 flex-1 gap-3">
+      <div className="covie-calendar-content flex min-h-0 flex-1">
       <section className="covie-calendar-board flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
         <div className="shrink-0 flex flex-col gap-2 border-b border-slate-200 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-3">
           <div className="flex items-center justify-between gap-2 sm:justify-start">
@@ -697,9 +677,6 @@ export function CalendarShell({
           </div>
         </div>
       </section>
-      <aside className="covie-calendar-events-rail hidden w-64 shrink-0 xl:block">
-        <ComingUp variant="rail" />
-      </aside>
       </div>
 
       {accessMode === "editor" && selectionMode && selectedDays.length > 0 ? (
@@ -763,6 +740,10 @@ export function CalendarShell({
           }}
           onProposalChanged={() => {
             setMessage("Proposal updated.");
+            setRefreshKey((value) => value + 1);
+          }}
+          onEventChanged={(eventMessage) => {
+            setMessage(eventMessage);
             setRefreshKey((value) => value + 1);
           }}
         />

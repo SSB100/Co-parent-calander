@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Clock3, LoaderCircle, MapPin, StickyNote, X } from "lucide-react";
+import { CalendarDays, Clock3, LoaderCircle, MapPin, StickyNote, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
@@ -41,6 +41,7 @@ type CalendarEvent = {
   category: string;
   startDate: string;
   endDate: string | null;
+  recurrence?: "none" | "weekly" | "fortnightly" | "monthly" | "yearly";
 };
 
 type DayDetailsPanelProps = {
@@ -54,6 +55,7 @@ type DayDetailsPanelProps = {
   onClose: () => void;
   onSaved: (message: string) => void;
   onProposalChanged: () => void;
+  onEventChanged: (message: string) => void;
   readOnly?: boolean;
 };
 
@@ -241,6 +243,7 @@ export function DayDetailsPanel({
   onClose,
   onSaved,
   onProposalChanged,
+  onEventChanged,
   readOnly = false,
 }: DayDetailsPanelProps) {
   const dialogRef = useRef<HTMLElement>(null);
@@ -306,6 +309,8 @@ export function DayDetailsPanel({
   const [error, setError] = useState<string | null>(null);
   const [dayEvents, setDayEvents] = useState<CalendarEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [eventMessage, setEventMessage] = useState<string | null>(null);
 
   async function refreshDayEvents() {
     setEventsLoading(true);
@@ -315,6 +320,51 @@ export function DayDetailsPanel({
       if (response.ok) setDayEvents(body?.events ?? []);
     } finally {
       setEventsLoading(false);
+    }
+  }
+
+  async function deleteDayEvent(event: CalendarEvent) {
+    if (readOnly || submitting || deletingEventId) return;
+    const recurring = event.recurrence && event.recurrence !== "none";
+    const confirmed = window.confirm(
+      recurring
+        ? `Delete “${event.title}” and all of its repeated occurrences?`
+        : `Delete “${event.title}” from the shared calendar?`,
+    );
+    if (!confirmed) return;
+
+    setDeletingEventId(event.id);
+    setEventMessage(null);
+    setError(null);
+    try {
+      const response = await fetch("/api/events", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: event.id, reason: null }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; pending?: boolean; approverName?: string | null }
+        | null;
+      if (!response.ok) {
+        throw new Error(body?.error ?? "The event could not be deleted.");
+      }
+
+      const message = body?.pending
+        ? body.approverName
+          ? `Event cancellation sent to ${body.approverName} for approval.`
+          : "Event cancellation sent for approval."
+        : "Event removed.";
+
+      if (!body?.pending) await refreshDayEvents();
+      setEventMessage(message);
+      onEventChanged(message);
+      window.dispatchEvent(new Event("covie-records-updated"));
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "The event could not be deleted.",
+      );
+    } finally {
+      setDeletingEventId(null);
     }
   }
 
@@ -341,8 +391,8 @@ export function DayDetailsPanel({
   }, [onClose]);
 
   useEffect(() => {
-    submittingRef.current = submitting;
-  }, [submitting]);
+    submittingRef.current = submitting || Boolean(deletingEventId);
+  }, [deletingEventId, submitting]);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -458,15 +508,110 @@ export function DayDetailsPanel({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 sm:items-center sm:p-4">
-      <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="day-details-title" aria-describedby={error ? "day-details-error" : undefined} aria-busy={submitting} tabIndex={-1} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6">
+      <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="day-details-title" aria-describedby={error ? "day-details-error" : undefined} aria-busy={submitting || Boolean(deletingEventId)} tabIndex={-1} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Day details</p>
-            <h2 id="day-details-title" className="mt-1 text-2xl font-semibold text-slate-900">
+            <h2 id="day-details-title" className="text-2xl font-semibold text-slate-900">
               {new Intl.DateTimeFormat("en-NZ", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`))}
             </h2>
           </div>
-          <button ref={closeButtonRef} type="button" aria-label="Close day details" disabled={submitting} onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50"><X className="h-5 w-5" aria-hidden="true" /></button>
+          <button ref={closeButtonRef} type="button" aria-label="Close day details" disabled={submitting || Boolean(deletingEventId)} onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50"><X className="h-5 w-5" aria-hidden="true" /></button>
+        </div>
+
+        <div className="mt-5 border-b border-slate-200 pb-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="flex items-center gap-2 font-semibold text-slate-900">
+                <CalendarDays className="h-4 w-4 text-[#D94D43]" aria-hidden="true" />
+                Events
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Shared plans recorded for this day.
+              </p>
+            </div>
+            {!readOnly ? (
+              <EventPanel
+                onChanged={() => {
+                  void refreshDayEvents();
+                  onEventChanged("Events updated.");
+                  window.dispatchEvent(new Event("covie-records-updated"));
+                }}
+                initialDate={date}
+                includeRangeTools={false}
+                buttonLabel="Create event"
+              />
+            ) : null}
+          </div>
+
+          {eventMessage ? (
+            <p role="status" className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-700">
+              {eventMessage}
+            </p>
+          ) : null}
+
+          <div className="mt-3 space-y-2">
+            {eventsLoading ? (
+              <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Loading events…
+              </div>
+            ) : dayEvents.length === 0 ? (
+              <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                No events on this day.
+              </p>
+            ) : (
+              dayEvents.map((event) => (
+                <div key={event.id} className="rounded-xl border border-[#F4C64E] bg-[#FFF9DF] px-4 py-3">
+                  <div className="flex items-start gap-3">
+                    <span className="text-lg" aria-hidden="true">
+                      <EventCategoryIcon category={event.category} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-slate-900">{event.title}</p>
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                          {categoryLabels[event.category] ?? "Other"}
+                        </span>
+                      </div>
+                      {event.description ? (
+                        <p className="mt-1 text-sm leading-5 text-slate-600">{event.description}</p>
+                      ) : null}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <AttachmentPanel
+                          entityType="event"
+                          entityId={event.id}
+                          defaultCategory="school_form"
+                          title="Files"
+                          compact
+                        />
+                        <LinkedItemsPanel
+                          entityType="event"
+                          entityId={event.id}
+                          title="Related"
+                          compact
+                        />
+                        {!readOnly ? (
+                          <button
+                            type="button"
+                            onClick={() => void deleteDayEvent(event)}
+                            disabled={submitting || Boolean(deletingEventId)}
+                            className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                          >
+                            {deletingEventId === event.id ? (
+                              <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            )}
+                            Delete event
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -552,48 +697,7 @@ export function DayDetailsPanel({
           </label>
         ) : null}
 
-        <div className="mt-6 border-t border-slate-200 pt-5">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="flex items-center gap-2 font-semibold text-slate-900"><CalendarDays className="h-4 w-4 text-sky-600" aria-hidden="true" />Events on this day</p>
-              <p className="mt-1 text-xs text-slate-500">Birthdays, school events, sport, appointments and other shared plans.</p>
-            </div>
-            {!readOnly ? <EventPanel onChanged={() => void refreshDayEvents()} initialDate={date} includeRangeTools={false} buttonLabel="Create event" /> : null}
-          </div>
 
-          <div className="mt-3 space-y-2">
-            {eventsLoading ? (
-              <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />Loading events…</div>
-            ) : dayEvents.length === 0 ? (
-              <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">No events on this day.</p>
-            ) : dayEvents.map((event) => (
-              <div key={event.id} className="rounded-2xl border border-sky-200 bg-sky-50/70 px-4 py-3">
-                <div className="flex items-start gap-3">
-                  <span className="text-lg" aria-hidden="true"><EventCategoryIcon category={event.category} /></span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2"><p className="font-semibold text-slate-900">{event.title}</p><span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-sky-700">{categoryLabels[event.category] ?? "Other"}</span></div>
-                    {event.description ? <p className="mt-1 text-sm leading-5 text-slate-600">{event.description}</p> : null}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <AttachmentPanel
-                        entityType="event"
-                        entityId={event.id}
-                        defaultCategory="school_form"
-                        title="Files"
-                        compact
-                      />
-                      <LinkedItemsPanel
-                        entityType="event"
-                        entityId={event.id}
-                        title="Related"
-                        compact
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
 
         <DayResponsibilities date={date} readOnly={readOnly} onChanged={onProposalChanged} />
 
@@ -601,7 +705,7 @@ export function DayDetailsPanel({
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" disabled={submitting} onClick={onClose} className="min-h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Close</button>
-          {!readOnly ? <button type="button" disabled={submitting || choice === "mixed" || !selectedOwnership} onClick={() => void save()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">{submitting ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}Save day</button> : null}
+          {!readOnly ? <button type="button" disabled={submitting || Boolean(deletingEventId) || choice === "mixed" || !selectedOwnership} onClick={() => void save()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">{submitting ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}Save day</button> : null}
         </div>
       </section>
     </div>

@@ -19,7 +19,7 @@ const items = [
   { key: "home", href: "/home", label: "Updates", icon: Bell },
   { key: "organiser", href: "/organiser", label: "Organiser", icon: LayoutGrid },
 ];
-export function WorkspaceNav({ active, actions, showDesktopEvents = true }: { active?: WorkspaceSection; actions?: ReactNode; showDesktopEvents?: boolean }) {
+export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; actions?: ReactNode }) {
   const router = useRouter();
   const [signOutError, setSignOutError] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -77,7 +77,7 @@ export function WorkspaceNav({ active, actions, showDesktopEvents = true }: { ac
           </Link>
         ))}
       </div>
-      {showDesktopEvents ? <div className="desktop-coming-up"><ComingUp /></div> : null}
+      <div className="desktop-coming-up"><ComingUp /></div>
     </nav>
     <div className="workspace-actions flex flex-wrap items-center gap-2">
       {actions}

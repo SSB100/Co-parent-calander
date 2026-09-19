@@ -176,23 +176,6 @@ main:has(.workspace-nav) { background: #fff9f2; }
   font-weight: 800;
   line-height: 1;
 }
-.covie-calendar-events-rail {
-  min-height: 0;
-  overflow: hidden;
-  border: 1px solid #dce3dc;
-  border-radius: 12px;
-  background: white;
-}
-.covie-events-rail {
-  height: 100%;
-  margin: 0;
-  border: 0;
-  padding: 14px;
-  overflow-y: auto;
-}
-.covie-events-rail .coming-up-content {
-  margin-top: 10px;
-}
 @media (max-width: 1023px) {
   .workspace-notification-badge {
     position: absolute;
