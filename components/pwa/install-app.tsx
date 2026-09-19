@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Share2, Smartphone } from "lucide-react";
+import { Download, Share2, Smartphone, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type InstallPrompt = Event & {
@@ -12,6 +12,7 @@ export function InstallApp() {
   const [prompt, setPrompt] = useState<InstallPrompt | null>(null);
   const [isIos, setIsIos] = useState(false);
   const [installed, setInstalled] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -37,11 +38,14 @@ export function InstallApp() {
     };
   }, []);
 
-  if (installed) return null;
+  if (installed || dismissed) return null;
 
   return (
-    <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <section className="covie-install-mobile fixed inset-x-3 bottom-[calc(78px+env(safe-area-inset-bottom))] z-40 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl md:hidden">
+      <button type="button" aria-label="Dismiss install prompt" onClick={() => setDismissed(true)} className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100">
+        <X className="h-4 w-4" aria-hidden="true" />
+      </button>
+      <div className="flex flex-col gap-3 pr-7">
         <div className="flex gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-blue-700"><Smartphone className="h-5 w-5" aria-hidden="true" /></span>
           <div><h2 className="font-semibold text-slate-950">Add Covie to your phone</h2><p className="mt-1 text-sm leading-6 text-slate-600">Install Covie like an app on iPhone, iPad or Android. Your shared organiser stays one tap away.</p></div>

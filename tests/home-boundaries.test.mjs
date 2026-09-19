@@ -131,3 +131,33 @@ test("calendar settings and parent changes refetch without hard page reloads", a
   assert.doesNotMatch(members, /location\.reload/);
   assert.doesNotMatch(settings, /location\.reload/);
 });
+
+
+test("workspace Your Events includes calendar events and inferred split-day handovers", async () => {
+  const [route, panel] = await Promise.all([
+    source("app/api/coming-up/route.ts"),
+    source("components/workspace/coming-up.tsx"),
+  ]);
+
+  assert.match(panel, /Your Events/);
+  assert.match(panel, /No upcoming events or handovers/);
+  assert.match(route, /expandEventOccurrences/);
+  assert.match(route, /loadEffectiveAssignmentMap/);
+  assert.match(route, /morningParentId === assignment\.afternoonParentId/);
+  assert.match(route, /Handover ·/);
+});
+
+test("Updates navigation exposes an actionable approval notification badge", async () => {
+  const [route, nav, actions] = await Promise.all([
+    source("app/api/updates-count/route.ts"),
+    source("components/workspace/workspace-nav.tsx"),
+    source("components/approvals/proposal-actions.tsx"),
+  ]);
+
+  assert.match(route, /status: "waiting"/);
+  assert.match(route, /approverMembershipId === session\.membershipId/);
+  assert.match(nav, /fetch\("\/api\/updates-count"/);
+  assert.match(nav, /updatesCount > 0/);
+  assert.match(nav, /bg-\[#FF6B5F\]/);
+  assert.match(actions, /covie-records-updated/);
+});

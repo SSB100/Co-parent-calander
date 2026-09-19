@@ -1,8 +1,40 @@
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
-import { comingUp } from '../lib/workspace/coming-up';
-test('coming up uses due dates, excludes finished records, and counts undated expenses',()=>{
-const result=comingUp([{id:'a',title:'Undated',dueDate:null,settlementStatus:'outstanding'},{id:'b',title:'Paid',dueDate:'2026-09-01',settlementStatus:'settled'},{id:'c',title:'Cost',dueDate:'2026-09-21',settlementStatus:'outstanding'}],[{id:'d',title:'Form',dueDate:'2026-09-18',completedAt:null},{id:'e',title:'Done',dueDate:'2026-09-17',completedAt:new Date()}],'2026-09-19');
-assert.deepEqual(result.items.map(x=>x.id),['d','c']); assert.equal(result.items[0].overdue,true); assert.equal(result.undated,1); assert.equal(result.items[1].href,'/expenses#record-c');
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { comingUp } from "../lib/workspace/coming-up";
+
+test("Your Events sorts calendar events and split-day handovers chronologically", () => {
+  const result = comingUp(
+    [
+      { id: "event-b", title: "School show", startDate: "2026-09-21" },
+      { id: "event-a", title: "Football", startDate: "2026-09-20" },
+    ],
+    [
+      { id: "handover-a", title: "Handover · Steven → Jess", date: "2026-09-20" },
+    ],
+    "2026-09-19",
+  );
+
+  assert.equal(result.total, 3);
+  assert.deepEqual(
+    result.items.map((item) => [item.kind, item.title]),
+    [
+      ["Event", "Football"],
+      ["Handover", "Handover · Steven → Jess"],
+      ["Event", "School show"],
+    ],
+  );
+  assert.equal(result.items[0]?.href, "/calendar?date=2026-09-20");
 });
-test('summary is limited to four chronological entries',()=>{const r=comingUp([],Array.from({length:6},(_,i)=>({id:String(i),title:'Task',dueDate:'2026-09-'+(20+i),completedAt:null})),'2026-09-19');assert.equal(r.total,6);assert.equal(r.items.length,4);});
+
+test("Your Events excludes past items and limits the next six entries", () => {
+  const events = Array.from({ length: 8 }, (_, index) => ({
+    id: String(index),
+    title: `Event ${index}`,
+    startDate: `2026-09-${String(18 + index).padStart(2, "0")}`,
+  }));
+  const result = comingUp(events, [], "2026-09-19");
+
+  assert.equal(result.total, 7);
+  assert.equal(result.items.length, 6);
+  assert.equal(result.items[0]?.date, "2026-09-19");
+});

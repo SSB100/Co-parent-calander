@@ -83,10 +83,16 @@ function scheduleRangeLabel(schedule: SavedSchedule) {
 function slotColor(participants: Participant[], parentId: string | null) {
   const index = participants.findIndex((participant) => participant.id === parentId);
   if (index < 0) return "bg-white";
-  const visualIndex = parentProfileSlotIndex(participants[index]?.profileSlot, index);
-  if (visualIndex === 0) return "bg-emerald-100";
-  if (visualIndex === 1) return "bg-violet-100";
-  return "bg-white";
+  const participant = participants[index];
+  const byColorKey: Record<string, string> = {
+    emerald: "bg-[#BDEBE5]",
+    violet: "bg-[#E1D8FA]",
+    coral: "bg-[#FFD7D3]",
+    sunshine: "bg-[#FCEBB3]",
+    sky: "bg-[#D4EAF7]",
+  };
+  const visualIndex = parentProfileSlotIndex(participant?.profileSlot, index);
+  return byColorKey[participant?.colorKey ?? ""] ?? (visualIndex === 1 ? "bg-[#E1D8FA]" : "bg-[#BDEBE5]");
 }
 
 export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }) {

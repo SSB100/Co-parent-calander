@@ -131,3 +131,72 @@ main:has(.workspace-nav) { background: #dde6df; }
  .mobile-coming-up summary { border: 1px solid #7a8981; background: white; border-radius: 10px; padding: 10px; }
  .mobile-coming-up .coming-up-content { position: absolute; top: 48px; left: 0; z-index: 35; width: min(280px, calc(100vw - 32px)); max-height: 50vh; overflow: auto; background: white; border: 1px solid #7a8981; border-radius: 10px; padding: 12px; box-shadow: 0 8px 24px #27363218; }
 }
+
+
+/* Calendar viewport: the month is the fixed workspace surface; dialogs and menus scroll internally. */
+.covie-calendar-page {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.covie-calendar-grid {
+  grid-template-rows: auto repeat(var(--covie-week-rows), minmax(0, 1fr));
+}
+.covie-calendar-day {
+  height: 100%;
+}
+@media (max-height: 760px) {
+  .covie-calendar-instructions,
+  .covie-calendar-footer-note {
+    display: none;
+  }
+  .covie-next-handover {
+    margin-bottom: 0.35rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+}
+@media (min-width: 1024px) {
+  .covie-calendar-page:has(.workspace-nav) {
+    padding-top: 18px;
+    padding-right: 28px;
+    padding-bottom: 18px;
+    padding-left: 28px;
+  }
+}
+@media (max-width: 1023px) {
+  .covie-calendar-page:has(.workspace-nav) {
+    padding-bottom: calc(78px + env(safe-area-inset-bottom));
+  }
+}
+
+
+.covie-calendar-events-rail {
+  display: none;
+}
+@media (min-width: 1280px) {
+  .covie-calendar-frame-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 240px;
+    gap: 14px;
+  }
+  .covie-calendar-events-rail {
+    display: block;
+    min-height: 0;
+    overflow-y: auto;
+    border: 1px solid #dce3dc;
+    border-radius: 12px;
+    background: #fff;
+    padding: 14px;
+  }
+  .covie-calendar-events-rail .workspace-coming-up {
+    margin-top: 0;
+    border-top: 0;
+    padding-top: 0;
+  }
+  .covie-calendar-page .desktop-coming-up {
+    display: none;
+  }
+}
