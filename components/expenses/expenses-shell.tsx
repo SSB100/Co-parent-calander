@@ -196,7 +196,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<ExpenseFormState>(() => blankForm(initialDate, null, calendarTimezone));
   const [dateFilter, setDateFilter] = useState<string | null>(initialDate);
-  const [statusFilter, setStatusFilter] = useState<"all" | "outstanding" | "settled">("all");
+  const [statusFilter, setStatusFilter] = useState<"current" | "archive">("current");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -275,13 +275,9 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
 
   const filteredExpenses = useMemo(() => {
     const rows = data?.expenses ?? [];
-    if (statusFilter === "outstanding") {
-      return rows.filter((expense) => expense.settlementStatus === "outstanding");
-    }
-    if (statusFilter === "settled") {
-      return rows.filter((expense) => expense.settlementStatus === "settled");
-    }
-    return rows;
+    return statusFilter === "current"
+      ? rows.filter((expense) => expense.settlementStatus === "outstanding")
+      : rows.filter((expense) => expense.settlementStatus !== "outstanding");
   }, [data?.expenses, statusFilter]);
 
   const summary = useMemo(() => {
@@ -291,7 +287,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
       outstanding: rows
         .filter((expense) => expense.settlementStatus === "outstanding")
         .reduce((sum, expense) => sum + owedAmount(expense), 0),
-      settled: rows.filter((expense) => expense.settlementStatus === "settled").length,
+      archived: rows.filter((expense) => expense.settlementStatus !== "outstanding").length,
     };
   }, [data?.expenses]);
 
@@ -506,6 +502,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
       <header className="covie-page-header">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
+            <div className="mb-2 h-2 w-16 rounded-full bg-[#F4C64E]" aria-hidden="true" />
             <h1 className="covie-page-title text-3xl sm:text-4xl">Expenses</h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
               Keep the amount, who paid, each parent&apos;s share and reimbursement status clear.
@@ -557,20 +554,20 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
       ) : null}
 
       <section className="mt-5 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Recorded</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-950">{money(summary.recorded)}</p>
-          <p className="mt-1 text-xs text-slate-500">Total value in this view</p>
+        <div className="rounded-2xl border border-[#243139] bg-[#F7DC86] p-4">
+          <p className="text-xs font-bold text-[#5F4709]">Outstanding</p>
+          <p className="mt-2 text-3xl font-semibold text-[#243139]">{money(summary.outstanding)}</p>
+          <p className="mt-1 text-xs text-[#5F4709]">Still waiting to be settled</p>
         </div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">Outstanding</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-950">{money(summary.outstanding)}</p>
-          <p className="mt-1 text-xs text-slate-500">Reimbursement still recorded as owing</p>
+        <div className="rounded-2xl border border-[#243139] bg-[#DDD3FA] p-4">
+          <p className="text-xs font-bold text-[#544394]">Recorded</p>
+          <p className="mt-2 text-3xl font-semibold text-[#243139]">{money(summary.recorded)}</p>
+          <p className="mt-1 text-xs text-[#544394]">Total shared expense value</p>
         </div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">Settled</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-950">{summary.settled}</p>
-          <p className="mt-1 text-xs text-slate-500">Expenses marked reimbursed</p>
+        <div className="rounded-2xl border border-[#243139] bg-[#BFEDE6] p-4">
+          <p className="text-xs font-bold text-[#0B665C]">Archived</p>
+          <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.archived}</p>
+          <p className="mt-1 text-xs text-[#0B665C]">Settled or no reimbursement needed</p>
         </div>
       </section>
 
@@ -632,22 +629,30 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
       <section className="mt-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">Agreed expenses</h2>
+            <h2 className="text-lg font-semibold text-slate-950">
+              {statusFilter === "current" ? "Current expenses" : "Expense archive"}
+            </h2>
             <p className="mt-1 text-sm text-slate-500">
-              These are the current shared records. Pending changes are shown separately above.
+              {statusFilter === "current"
+                ? "Only expenses that still need attention stay here."
+                : "Settled expenses remain available as history without cluttering the active view."}
             </p>
           </div>
           <div className="flex rounded-xl border border-slate-200 bg-white p-1">
-            {(["all", "outstanding", "settled"] as const).map((value) => (
+            {(["current", "archive"] as const).map((value) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setStatusFilter(value)}
-                className={`min-h-9 rounded-lg px-3 text-xs font-semibold capitalize ${
-                  statusFilter === value ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"
+                className={`min-h-9 rounded-lg px-3 text-xs font-semibold ${
+                  statusFilter === value
+                    ? value === "current"
+                      ? "bg-[#F4C64E] text-[#243139]"
+                      : "bg-[#765ED6] text-white"
+                    : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                {value}
+                {value === "current" ? "Current" : "Archive"}
               </button>
             ))}
           </div>
@@ -675,7 +680,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
               );
               const child = children.find((item) => item.id === expense.childId);
               return (
-                <article key={expense.id} id={`record-${expense.id}`} tabIndex={-1} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <article key={expense.id} id={`record-${expense.id}`} tabIndex={-1} className="rounded-2xl border border-[#E6DBCF] bg-white p-4 shadow-[4px_4px_0_#24313910] sm:p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">

@@ -417,7 +417,8 @@ export async function GET() {
   const actionableApprovals = waitingProposals
     .filter(
       (proposal) =>
-        proposal.approverMembershipId === session.membershipId,
+        proposal.approverMembershipId === session.membershipId ||
+        proposal.proposedByMembershipId === session.membershipId,
     )
     .map((proposal) => ({
       id: proposal.id,

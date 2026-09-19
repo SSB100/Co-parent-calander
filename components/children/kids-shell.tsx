@@ -82,7 +82,7 @@ export function KidsShell() {
       <header className="covie-page-header">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="covie-page-title text-3xl sm:text-4xl">Children</h1>
+            <div className="mb-2 h-2 w-16 rounded-full bg-[#765ED6]" aria-hidden="true" />\n            <h1 className="covie-page-title text-3xl sm:text-4xl">Children</h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
               Shared practical information for each child, kept in one calm place.
             </p>
@@ -120,10 +120,10 @@ export function KidsShell() {
                 <Link
                   key={child.id}
                   href={`/kids/${child.id}`}
-                  className="group rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  className="group rounded-2xl border-2 border-[#243139] bg-[#F4F1FF] p-5 transition hover:-translate-y-0.5"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-base font-bold text-white">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[#243139] bg-[#765ED6] text-base font-bold text-white">
                       {initials(child.displayName) || "C"}
                     </div>
                     <div className="min-w-0 flex-1">

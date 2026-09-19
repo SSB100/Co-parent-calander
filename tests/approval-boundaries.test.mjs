@@ -96,3 +96,17 @@ test("approval acceptance dispatches feature applicators before generic fallback
   assert.match(route, /acceptAndApplyApprovalProposal/);
   assert.doesNotMatch(route, /acceptResponsibilityApprovalProposal|acceptExpenseApprovalProposal|acceptCalendarApprovalProposal/);
 });
+
+
+test("proposal withdrawal stays proposer-owned and safely records enum history", async () => {
+  const [engine, rules] = await Promise.all([
+    source("lib/approvals/engine.ts"),
+    source("lib/approvals/rules.ts"),
+  ]);
+
+  assert.match(engine, /\$\{fromStatus\}::proposal_status/);
+  assert.match(engine, /status IN \('draft', 'waiting'\)/);
+  assert.match(engine, /proposed_by_membership_id = \$\{input\.actor\.membershipId\}/);
+  assert.match(rules, /proposal\.proposedByMembershipId === actor\.membershipId/);
+  assert.match(rules, /proposal\.status === "draft" \|\| proposal\.status === "waiting"/);
+});

@@ -1,6 +1,12 @@
 "use client";
 
-import { CalendarClock, Clock3 } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarClock,
+  CircleDollarSign,
+  Clock3,
+  ListChecks,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -13,16 +19,57 @@ type EventItem = {
   category: string;
   href: string;
 };
-type Payload = { items: EventItem[]; total: number };
 
-function eventDate(item: EventItem) {
-  const date = new Date(`${item.date}T12:00:00`);
-  const label = date.toLocaleDateString("en-NZ", {
-    weekday: "short",
+type ResponsibilityItem = {
+  id: string;
+  title: string;
+  date: string;
+  time: string | null;
+  overdue: boolean;
+  href: string;
+};
+
+type ExpenseItem = {
+  id: string;
+  title: string;
+  amountCents: number;
+  dueDate: string | null;
+  overdue: boolean;
+  href: string;
+};
+
+type Payload = {
+  organiser: {
+    responsibilities: ResponsibilityItem[];
+    responsibilityTotal: number;
+    expenses: ExpenseItem[];
+    expenseTotal: number;
+  };
+  items: EventItem[];
+  total: number;
+};
+
+const currency = new Intl.NumberFormat("en-NZ", {
+  style: "currency",
+  currency: "NZD",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
+function shortDate(value: string) {
+  return new Date(`${value}T12:00:00`).toLocaleDateString("en-NZ", {
     day: "numeric",
     month: "short",
   });
-  return item.time ? `${label} · ${item.time}` : label;
+}
+
+function eventDate(item: EventItem) {
+  const date = new Date(`${item.date}T12:00:00`);
+  const day = date.toLocaleDateString("en-NZ", {
+    weekday: "short",
+    day: "numeric",
+  });
+  return item.time ? `${day} · ${item.time}` : day;
 }
 
 export function ComingUp() {
@@ -35,6 +82,7 @@ export function ComingUp() {
       .forEach((element) => element.removeAttribute("open"));
 
     const controller = new AbortController();
+
     async function refresh() {
       try {
         const response = await fetch("/api/coming-up", {
@@ -58,6 +106,7 @@ export function ComingUp() {
     void refresh();
     window.addEventListener("focus", refresh);
     window.addEventListener("covie-records-updated", refresh);
+
     return () => {
       controller.abort();
       window.removeEventListener("focus", refresh);
@@ -66,34 +115,107 @@ export function ComingUp() {
   }, []);
 
   const content = (
-    <div className="coming-up-content">
+    <div className="workspace-context-content">
       {error ? (
-        <p role="status">Unable to load events right now.</p>
+        <p role="status" className="workspace-context-empty">
+          Unable to load your organiser right now.
+        </p>
       ) : !data ? (
-        <p>Loading…</p>
+        <p className="workspace-context-empty">Loading…</p>
       ) : (
         <>
-          {data.items.length === 0 ? <p>No upcoming events or handovers.</p> : null}
-          {data.items.map((item) => (
-            <Link key={item.id} href={item.href} className="coming-up-item">
-              <span className="flex items-start gap-2 font-medium">
-                {item.kind === "Handover" ? (
-                  <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                ) : (
-                  <CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                )}
-                <span>{item.title}</span>
+          <section className="workspace-context-section" aria-labelledby="workspace-priorities-title">
+            <div className="workspace-context-heading">
+              <h2 id="workspace-priorities-title">Organiser</h2>
+              <Link href="/organiser">Open</Link>
+            </div>
+
+            <Link href="/responsibilities" className="workspace-priority-card workspace-priority-responsibility">
+              <span className="workspace-priority-icon">
+                <ListChecks aria-hidden="true" />
               </span>
-              <span className="text-xs">
-                {item.kind} · {eventDate(item)}
+              <span className="min-w-0 flex-1">
+                <strong>Responsibilities</strong>
+                <span>
+                  {data.organiser.responsibilityTotal === 0
+                    ? "Nothing open"
+                    : `${data.organiser.responsibilityTotal} open`}
+                </span>
               </span>
+              <ArrowRight aria-hidden="true" />
             </Link>
-          ))}
-          {data.total > data.items.length ? (
-            <Link className="coming-up-item text-xs underline" href="/calendar">
-              View more in Calendar
+
+            {data.organiser.responsibilities.map((item) => (
+              <Link key={item.id} href={item.href} className="workspace-priority-row">
+                <span className={item.overdue ? "workspace-date-chip is-overdue" : "workspace-date-chip"}>
+                  {shortDate(item.date)}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{item.title}</span>
+              </Link>
+            ))}
+
+            <Link href="/expenses" className="workspace-priority-card workspace-priority-expense">
+              <span className="workspace-priority-icon">
+                <CircleDollarSign aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <strong>Expenses</strong>
+                <span>
+                  {data.organiser.expenseTotal === 0
+                    ? "Nothing outstanding"
+                    : `${data.organiser.expenseTotal} outstanding`}
+                </span>
+              </span>
+              <ArrowRight aria-hidden="true" />
             </Link>
-          ) : null}
+
+            {data.organiser.expenses.map((item) => (
+              <Link key={item.id} href={item.href} className="workspace-priority-row">
+                <span className={item.overdue ? "workspace-date-chip is-overdue" : "workspace-date-chip"}>
+                  {item.dueDate ? shortDate(item.dueDate) : "Open"}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                <strong className="shrink-0 text-[11px]">
+                  {currency.format(item.amountCents / 100)}
+                </strong>
+              </Link>
+            ))}
+          </section>
+
+          <section className="workspace-context-section" aria-labelledby="workspace-events-title">
+            <div className="workspace-context-heading">
+              <h2 id="workspace-events-title">Your Events</h2>
+              <Link href="/calendar">
+                {data.total > 3 ? `+${data.total - 3}` : "Calendar"}
+              </Link>
+            </div>
+
+            {data.items.length === 0 ? (
+              <p className="workspace-context-empty">Nothing coming up.</p>
+            ) : (
+              <div className="workspace-event-stack">
+                {data.items.map((item, index) => (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className={`workspace-event-card workspace-event-tone-${index % 3}`}
+                  >
+                    <span className="workspace-event-icon">
+                      {item.kind === "Handover" ? (
+                        <Clock3 aria-hidden="true" />
+                      ) : (
+                        <CalendarClock aria-hidden="true" />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <strong>{item.title}</strong>
+                      <span>{eventDate(item)}</span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
         </>
       )}
     </div>
@@ -101,7 +223,7 @@ export function ComingUp() {
 
   return (
     <details className="workspace-coming-up" open>
-      <summary>Your Events</summary>
+      <summary>At a glance</summary>
       {content}
     </details>
   );

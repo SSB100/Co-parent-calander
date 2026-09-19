@@ -90,11 +90,11 @@ test("expense UI keeps pending agreement separate and links calendar days into e
   ]);
 
   assert.match(shell, /Waiting for agreement/);
-  assert.match(shell, /Agreed expenses/);
+  assert.match(shell, /Current expenses/);\n  assert.match(shell, /Expense archive/);
   assert.match(shell, /50 \/ 50/);
   assert.match(shell, /Paid by payer only/);
   assert.match(shell, /Custom split/);
-  assert.match(shell, /Mark settled/);
+  assert.match(shell, /Mark settled/);\n  assert.match(shell, /statusFilter === "current"/);\n  assert.match(shell, /settlementStatus !== "outstanding"/);
   assert.match(shell, /Covie records payments but does not move money/);
   assert.match(day, /\/expenses\?date=/);
   assert.match(day, /Expenses on this day/);

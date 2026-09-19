@@ -140,14 +140,6 @@ function weekdayDateLabel(value: string) {
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
-function shortDateLabel(value: string) {
-  return new Intl.DateTimeFormat("en-NZ", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  }).format(new Date(`${value}T00:00:00Z`));
-}
 
 function urgencyLabel(value: HomeExpense["urgency"] | HomeResponsibility["urgency"]) {
   if (value === "overdue") return "Overdue";
@@ -264,6 +256,7 @@ export function HomeShell() {
       <header className="covie-page-header">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
+            <div className="mb-2 h-2 w-16 rounded-full bg-[#FF6B5F]" aria-hidden="true" />
             <h1 className="covie-page-title text-3xl sm:text-4xl">Updates</h1>
             <p className="mt-1 text-sm text-slate-500">
               {data
@@ -294,20 +287,20 @@ export function HomeShell() {
         </div>
       ) : null}
 
-      <section className="mt-5">
+      <section className="mt-5 rounded-2xl border-2 border-[#243139] bg-white p-4 sm:p-5">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-slate-950">Needs attention</h2>
+            <h2 className="text-xl font-semibold text-slate-950">Open updates</h2>
             <p className="mt-1 text-sm text-slate-500">
               {attentionCount > 0
-                ? `${attentionCount} ${attentionCount === 1 ? "item" : "items"} to look at`
+                ? `${attentionCount} ${attentionCount === 1 ? "item" : "items"} open or waiting`
                 : "You're all caught up."}
             </p>
           </div>
         </div>
 
         {data && attentionCount === 0 ? (
-          <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5">
+          <div className="mt-4 rounded-xl border border-[#19A897] bg-[#BFEDE6] p-5">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-600">
                 <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
@@ -367,7 +360,7 @@ export function HomeShell() {
                 <Link
                   key={expense.id}
                   href={`/expenses?date=${encodeURIComponent(expense.dueDate)}`}
-                  className="group rounded-2xl border border-amber-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  className="group rounded-2xl border border-[#243139] bg-[#FFF9DF] p-4 transition hover:-translate-y-0.5"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
@@ -408,7 +401,7 @@ export function HomeShell() {
               <Link
                 key={item.id}
                 href={`/responsibilities?date=${encodeURIComponent(item.dueDate)}`}
-                className="group rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
+                className="group rounded-2xl border border-[#243139] bg-[#EAF8F5] p-4 transition hover:-translate-y-0.5"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">
@@ -456,10 +449,10 @@ export function HomeShell() {
             <p className="mt-1 text-sm text-slate-500">{weekdayDateLabel(data.today.date)}</p>
           </div>
 
-          <div className="mt-3 grid gap-x-6 md:grid-cols-2">
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
             <Link
               href="/calendar"
-              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
+              className="rounded-2xl border-2 border-[#243139] bg-[#BFEDE6] p-5 transition hover:-translate-y-0.5"
             >
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 <CalendarDays className="h-4 w-4" aria-hidden="true" />
@@ -475,7 +468,7 @@ export function HomeShell() {
 
             <Link
               href="/calendar"
-              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
+              className="rounded-2xl border-2 border-[#243139] bg-[#DDD3FA] p-5 transition hover:-translate-y-0.5"
             >
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 <Clock3 className="h-4 w-4" aria-hidden="true" />
@@ -509,7 +502,7 @@ export function HomeShell() {
 
             <Link
               href="/calendar"
-              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
+              className="rounded-2xl border-2 border-[#243139] bg-[#F7DC86] p-5 transition hover:-translate-y-0.5"
             >
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 <ReceiptText className="h-4 w-4" aria-hidden="true" />
@@ -545,7 +538,7 @@ export function HomeShell() {
 
             <Link
               href={`/responsibilities?date=${encodeURIComponent(data.today.date)}`}
-              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
+              className="rounded-2xl border-2 border-[#243139] bg-[#FFD0CB] p-5 transition hover:-translate-y-0.5"
             >
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                 <ListChecks className="h-4 w-4" aria-hidden="true" />
@@ -591,137 +584,6 @@ export function HomeShell() {
         </section>
       ) : null}
 
-      {data ? (
-        <section className="mt-8 pb-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Coming up
-            </p>
-            <h2 className="mt-1 text-xl font-semibold text-slate-950">
-              Upcoming
-            </h2>
-          </div>
-
-          <div className="mt-3 grid gap-x-6 md:grid-cols-2">
-            <Link
-              href="/calendar"
-              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
-            >
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                <Clock3 className="h-4 w-4" aria-hidden="true" />
-                Next handover
-              </div>
-              {data.comingUp.handover ? (
-                <>
-                  <p className="mt-3 font-semibold text-slate-950">
-                    {shortDateLabel(data.comingUp.handover.date)}
-                    {data.comingUp.handover.handoverTime
-                      ? ` · ${data.comingUp.handover.handoverTime.slice(0, 5)}`
-                      : ""}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {participantName(data.comingUp.handover.morningParentId)} →{" "}
-                    {participantName(data.comingUp.handover.afternoonParentId)}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-3 text-sm font-semibold text-slate-700">
-                  No handover scheduled
-                </p>
-              )}
-            </Link>
-
-            <Link
-              href="/calendar"
-              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
-            >
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                <CalendarDays className="h-4 w-4" aria-hidden="true" />
-                Next event
-              </div>
-              {data.comingUp.event ? (
-                <>
-                  <p className="mt-3 truncate font-semibold text-slate-950">
-                    {eventIcon(data.comingUp.event.category)}{" "}
-                    {data.comingUp.event.title}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {shortDateLabel(data.comingUp.event.startDate)}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-3 text-sm font-semibold text-slate-700">
-                  Nothing scheduled
-                </p>
-              )}
-            </Link>
-
-            <Link
-              href={
-                data.comingUp.expense
-                  ? `/expenses?date=${encodeURIComponent(
-                      data.comingUp.expense.dueDate,
-                    )}`
-                  : "/expenses"
-              }
-              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
-            >
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                <CircleDollarSign className="h-4 w-4" aria-hidden="true" />
-                Next expense
-              </div>
-              {data.comingUp.expense ? (
-                <>
-                  <p className="mt-3 truncate font-semibold text-slate-950">
-                    {data.comingUp.expense.title}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Due {shortDateLabel(data.comingUp.expense.dueDate)}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-3 text-sm font-semibold text-slate-700">
-                  Nothing due later
-                </p>
-              )}
-            </Link>
-
-            <Link
-              href={
-                data.comingUp.responsibility
-                  ? `/responsibilities?date=${encodeURIComponent(
-                      data.comingUp.responsibility.dueDate,
-                    )}`
-                  : "/responsibilities"
-              }
-              className="rounded-lg border-b border-slate-200 px-4 py-5 transition hover:bg-white"
-            >
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                <CheckSquare2 className="h-4 w-4" aria-hidden="true" />
-                Next responsibility
-              </div>
-              {data.comingUp.responsibility ? (
-                <>
-                  <p className="mt-3 truncate font-semibold text-slate-950">
-                    {data.comingUp.responsibility.title}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {shortDateLabel(data.comingUp.responsibility.dueDate)}
-                    {data.comingUp.responsibility.dueTime
-                      ? ` · ${data.comingUp.responsibility.dueTime}`
-                      : ""}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-3 text-sm font-semibold text-slate-700">
-                  Nothing due next
-                </p>
-              )}
-            </Link>
-          </div>
-        </section>
-      ) : null}
-
       {data && data.children.length > 0 ? (
         <section className="mt-8 pb-2">
           <div>
@@ -737,7 +599,7 @@ export function HomeShell() {
               <Link
                 key={child.id}
                 href={`/kids/${child.id}`}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#243139] bg-[#DDD3FA] px-4 text-sm font-semibold text-[#243139] hover:-translate-y-0.5"
               >
                 <UsersRound className="h-4 w-4 text-slate-500" aria-hidden="true" />
                 {child.displayName}
