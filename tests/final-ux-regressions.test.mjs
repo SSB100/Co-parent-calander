@@ -321,3 +321,51 @@ test("calendar modal save controls stay outside the scrolling dialog body", asyn
     assert.ok(footerAction > bodyEnd);
   }
 });
+
+
+test("workspace dropdowns dismiss when users click elsewhere or press Escape", async () => {
+  const [hook, switcher, nav, shell, coming] = await Promise.all([
+    source("lib/client/use-details-dismiss.ts"),
+    source("components/calendar/calendar-switcher.tsx"),
+    source("components/workspace/workspace-nav.tsx"),
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/workspace/coming-up.tsx"),
+  ]);
+
+  assert.match(hook, /pointerdown/);
+  assert.match(hook, /details\.contains\(event\.target\)/);
+  assert.match(hook, /event\.key !== "Escape"/);
+  assert.match(switcher, /useDismissibleDetails\(detailsRef\)/);
+  assert.match(nav, /useDismissibleDetails\(accountRef\)/);
+  assert.match(shell, /useDismissibleDetails\(toolsMenuRef\)/);
+  assert.match(shell, /useDismissibleDetails\(settingsMenuRef\)/);
+  assert.match(coming, /mobileOnly: true/);
+  assert.match(switcher, /name="calendar-management"/);
+});
+
+test("Updates uses a compact single-viewport desktop layout", async () => {
+  const shell = await source("components/home/home-shell.tsx");
+
+  assert.match(shell, /lg:flex lg:h-screen lg:flex-col lg:overflow-hidden/);
+  assert.match(shell, /lg:grid-cols-\[1\.12fr_0\.88fr\]/);
+  assert.match(shell, /lg:overflow-y-auto/);
+  assert.match(shell, /grid grid-cols-2 gap-2/);
+  assert.match(shell, /Open updates/);
+  assert.match(shell, /Today/);
+  assert.match(shell, /Children/);
+});
+
+test("Children workspace starts simple and exposes Add child after onboarding", async () => {
+  const [kids, profile] = await Promise.all([
+    source("components/children/kids-shell.tsx"),
+    source("components/children/child-profile-shell.tsx"),
+  ]);
+
+  assert.match(kids, /AddChildPanel/);
+  assert.match(kids, /Start with the basics/);
+  assert.match(kids, /Open profile/);
+  assert.match(profile, /School & care/);
+  assert.match(profile, /Documents & related items/);
+  assert.match(profile, /<details/);
+  assert.doesNotMatch(profile, /defaultOpen/);
+});

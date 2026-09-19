@@ -7,7 +7,7 @@ import {
   KeyRound,
   Plus,
 } from "lucide-react";
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import {
   createCalendar,
   joinCalendar,
@@ -47,9 +47,11 @@ export function CalendarSwitcher({
     joinCalendar,
     initialState,
   );
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  useDismissibleDetails(detailsRef);
 
   return (
-    <details className="relative z-40 max-w-[calc(100vw-9rem)] sm:max-w-none">
+    <details ref={detailsRef} className="relative z-40 max-w-[calc(100vw-9rem)] sm:max-w-none">
       <summary className="group inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl px-1 text-left text-2xl font-semibold tracking-tight text-slate-900 outline-none transition hover:text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-200 sm:text-3xl [&::-webkit-details-marker]:hidden">
         <span className="truncate">{current?.name ?? "Covie calendar"}</span>
         <ChevronDown
@@ -96,7 +98,7 @@ export function CalendarSwitcher({
 
         <div className="my-3 border-t border-slate-100" />
 
-        <details className="group/create">
+        <details name="calendar-management" className="group/create">
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
             <CalendarPlus2 className="h-4 w-4 text-emerald-700" aria-hidden="true" />
             Create another calendar
@@ -152,7 +154,7 @@ export function CalendarSwitcher({
           </form>
         </details>
 
-        <details className="group/join mt-1">
+        <details name="calendar-management" className="group/join mt-1">
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
             <KeyRound className="h-4 w-4 text-violet-700" aria-hidden="true" />
             Join another calendar

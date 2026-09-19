@@ -151,6 +151,8 @@ export function historySummary(input: {
       ? (input.details as Record<string, unknown>)
       : {};
 
+  if (input.action === "child_profile.create") return "Created child profile";
+
   if (input.action === "child_profile.update") {
     const fields = Array.isArray(details.changedFields)
       ? details.changedFields.filter((field): field is string => typeof field === "string")

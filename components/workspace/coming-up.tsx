@@ -8,7 +8,8 @@ import {
   ListChecks,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useDismissibleDetails } from "@/lib/client/use-details-dismiss";
+import { useEffect, useRef, useState } from "react";
 
 type EventItem = {
   id: string;
@@ -73,6 +74,8 @@ function eventDate(item: EventItem) {
 }
 
 export function ComingUp() {
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  useDismissibleDetails(detailsRef, { mobileOnly: true });
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState(false);
 
@@ -222,7 +225,7 @@ export function ComingUp() {
   );
 
   return (
-    <details className="workspace-coming-up" open>
+    <details ref={detailsRef} className="workspace-coming-up" open>
       <summary>At a glance</summary>
       {content}
     </details>

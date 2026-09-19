@@ -4,10 +4,12 @@ import {
   ChevronRight,
   GraduationCap,
   LoaderCircle,
+  UserRound,
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { AddChildPanel } from "@/components/children/add-child-panel";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
 type ChildSummary = {
@@ -27,7 +29,7 @@ type Payload = {
 
 function initials(name: string) {
   return name
-    .split(/\s+/)
+    .split(/s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
@@ -47,58 +49,62 @@ export function KidsShell() {
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    fetch("/api/children", { cache: "no-store" })
-      .then(async (response) => ({
-        response,
-        body: (await response.json().catch(() => null)) as Payload | { error?: string } | null,
-      }))
-      .then(({ response, body }) => {
-        if (cancelled) return;
-        if (!response.ok || !body || !("children" in body)) {
-          setError(
-            body && "error" in body && body.error
-              ? body.error
-              : "Child profiles could not be loaded.",
-          );
-          return;
-        }
-        setData(body);
-        setError(null);
-      })
-      .catch(() => {
-        if (!cancelled) setError("Child profiles could not be loaded.");
-      });
-
-    return () => {
-      cancelled = true;
-    };
+  const refresh = useCallback(async () => {
+    const response = await fetch("/api/children", { cache: "no-store" });
+    const body = (await response.json().catch(() => null)) as
+      | Payload
+      | { error?: string }
+      | null;
+    if (!response.ok || !body || !("children" in body)) {
+      throw new Error(
+        body && "error" in body && body.error
+          ? body.error
+          : "Child profiles could not be loaded.",
+      );
+    }
+    setData(body);
+    setError(null);
   }, []);
 
+  useEffect(() => {
+    void refresh().catch((caught) =>
+      setError(caught instanceof Error ? caught.message : "Child profiles could not be loaded."),
+    );
+  }, [refresh]);
+
+  const editable = data?.permission === "owner" || data?.permission === "editor";
+
   return (
-    <main className="mx-auto min-h-screen w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
+    <main className="mx-auto min-h-screen w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
       <header className="covie-page-header">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="mb-2 h-2 w-16 rounded-full bg-[#765ED6]" aria-hidden="true" />\n            <h1 className="covie-page-title text-3xl sm:text-4xl">Children</h1>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500">
-              Shared practical information for each child, kept in one calm place.
+            <div className="mb-2 h-2 w-16 rounded-full bg-[#765ED6]" aria-hidden="true" />
+            <h1 className="covie-page-title text-3xl sm:text-4xl">Children</h1>
+            <p className="mt-1 max-w-xl text-sm text-slate-500">
+              Start with the basics. Open a profile only when you need the extra detail.
             </p>
           </div>
-          <WorkspaceNav active="kids" />
+          <div className="flex flex-wrap items-center gap-2">
+            {editable ? (
+              <AddChildPanel onChanged={() => void refresh()} />
+            ) : null}
+            <WorkspaceNav active="kids" />
+          </div>
         </div>
       </header>
 
       {error ? (
-        <div role="alert" className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+        <div
+          role="alert"
+          className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+        >
           {error}
         </div>
       ) : null}
 
       {!data && !error ? (
-        <div className="mt-5 flex min-h-48 items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm text-slate-500">
+        <div className="mt-5 flex min-h-40 items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm text-slate-500">
           <LoaderCircle className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
           Loading child profiles…
         </div>
@@ -107,72 +113,94 @@ export function KidsShell() {
       {data ? (
         <section className="mt-5">
           {data.children.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center">
-              <UsersRound className="mx-auto h-7 w-7 text-slate-400" aria-hidden="true" />
-              <p className="mt-2 font-semibold text-slate-800">No child profiles yet</p>
-              <p className="mt-1 text-sm text-slate-500">
-                Child profiles are created as part of the family calendar setup.
+            <div className="rounded-2xl border-2 border-dashed border-[#765ED6] bg-[#F4F1FF] px-5 py-9 text-center">
+              <UsersRound className="mx-auto h-8 w-8 text-[#765ED6]" aria-hidden="true" />
+              <h2 className="covie-display mt-3 text-2xl font-semibold text-[#243139]">
+                Add your first child
+              </h2>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
+                You only need a name to begin. School, activities, health notes and documents can all be added later.
               </p>
+              {editable ? (
+                <div className="mt-5 flex justify-center">
+                  <AddChildPanel onChanged={() => void refresh()} buttonLabel="Add child" />
+                </div>
+              ) : null}
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {data.children.map((child) => (
-                <Link
-                  key={child.id}
-                  href={`/kids/${child.id}`}
-                  className="group rounded-2xl border-2 border-[#243139] bg-[#F4F1FF] p-5 transition hover:-translate-y-0.5"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[#243139] bg-[#765ED6] text-base font-bold text-white">
+            <>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-700">
+                  {data.children.length} {data.children.length === 1 ? "child" : "children"}
+                </p>
+                <p className="hidden text-xs text-slate-500 sm:block">
+                  Select a child to view school, care, activities and documents.
+                </p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {data.children.map((child, index) => (
+                  <Link
+                    key={child.id}
+                    href={`/kids/${child.id}`}
+                    className={`group flex items-center gap-4 rounded-2xl border-2 border-[#243139] p-4 transition hover:-translate-y-0.5 ${
+                      index % 3 === 0
+                        ? "bg-[#F4F1FF]"
+                        : index % 3 === 1
+                          ? "bg-[#EAF8F5]"
+                          : "bg-[#FFF9DF]"
+                    }`}
+                  >
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[#243139] bg-white text-base font-black text-[#243139]">
                       {initials(child.displayName) || "C"}
                     </div>
+
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <h2 className="truncate text-lg font-semibold text-slate-950">
+                          <h2 className="truncate text-lg font-bold text-slate-950">
                             {child.displayName}
                           </h2>
                           {child.fullName && child.fullName !== child.displayName ? (
-                            <p className="mt-0.5 truncate text-sm text-slate-500">{child.fullName}</p>
+                            <p className="truncate text-xs text-slate-500">{child.fullName}</p>
                           ) : null}
                         </div>
                         <ChevronRight
-                          className="mt-1 h-5 w-5 shrink-0 text-slate-400 transition group-hover:translate-x-0.5"
+                          className="h-5 w-5 shrink-0 text-slate-500 transition group-hover:translate-x-1"
                           aria-hidden="true"
                         />
                       </div>
 
-                      <div className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                            School
-                          </p>
-                          <p className="mt-1 font-medium text-slate-700">
-                            {child.schoolName ?? "Not added"}
-                          </p>
-                          {child.yearClass ? (
-                            <p className="text-xs text-slate-500">{child.yearClass}</p>
-                          ) : null}
-                        </div>
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                            Date of birth
-                          </p>
-                          <p className="mt-1 font-medium text-slate-700">
-                            {child.dateOfBirth ? dateLabel(child.dateOfBirth) : "Not added"}
-                          </p>
-                        </div>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                        {child.schoolName ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-700">
+                            <GraduationCap className="h-3.5 w-3.5" aria-hidden="true" />
+                            {child.schoolName}
+                            {child.yearClass ? ` · ${child.yearClass}` : ""}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-500">
+                            <GraduationCap className="h-3.5 w-3.5" aria-hidden="true" />
+                            Add school
+                          </span>
+                        )}
+
+                        {child.dateOfBirth ? (
+                          <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-600">
+                            {dateLabel(child.dateOfBirth)}
+                          </span>
+                        ) : null}
                       </div>
 
-                      <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-500">
-                        <GraduationCap className="h-4 w-4" aria-hidden="true" />
+                      <p className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-[#6651B7]">
+                        <UserRound className="h-3.5 w-3.5" aria-hidden="true" />
                         Open profile
-                      </div>
+                      </p>
                     </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  </Link>
+                ))}
+              </div>
+            </>
           )}
         </section>
       ) : null}

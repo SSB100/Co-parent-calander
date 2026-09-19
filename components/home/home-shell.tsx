@@ -9,7 +9,6 @@ import {
   Clock3,
   ListChecks,
   LoaderCircle,
-  MapPin,
   ReceiptText,
   UsersRound,
 } from "lucide-react";
@@ -17,7 +16,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
-import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
 type Participant = {
@@ -156,7 +154,6 @@ function urgencyClass(value: HomeExpense["urgency"] | HomeResponsibility["urgenc
   return "bg-slate-100 text-slate-600";
 }
 
-function eventIcon(category: string) { return <EventCategoryIcon category={category} />; }
 
 export function HomeShell() {
   const [data, setData] = useState<HomePayload | null>(null);
@@ -252,366 +249,251 @@ export function HomeShell() {
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
-      <header className="covie-page-header">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <main className="mx-auto min-h-screen w-full max-w-7xl px-3 py-3 sm:px-5 sm:py-4 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden lg:px-6">
+      <header className="covie-page-header shrink-0">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="mb-2 h-2 w-16 rounded-full bg-[#FF6B5F]" aria-hidden="true" />
+            <div className="mb-1.5 h-1.5 w-14 rounded-full bg-[#FF6B5F]" aria-hidden="true" />
             <h1 className="covie-page-title text-3xl sm:text-4xl">Updates</h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
               {data
                 ? `${data.calendar.name} · ${weekdayDateLabel(data.today.date)} · Hi, ${data.currentUserName}`
                 : "Your shared updates"}
             </p>
           </div>
-
           <WorkspaceNav active="home" />
         </div>
       </header>
 
       {message ? (
-        <div
-          role="status"
-          className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-        >
+        <div role="status" className="mt-2 shrink-0 rounded-xl border border-[#19A897] bg-[#EAF8F5] px-3 py-2 text-sm text-[#0B665C]">
           {message}
         </div>
       ) : null}
-
       {error ? (
-        <div
-          role="alert"
-          className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-        >
+        <div role="alert" className="mt-2 shrink-0 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
           {error}
         </div>
       ) : null}
 
-      <section className="mt-5 rounded-2xl border-2 border-[#243139] bg-white p-4 sm:p-5">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-950">Open updates</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {attentionCount > 0
-                ? `${attentionCount} ${attentionCount === 1 ? "item" : "items"} open or waiting`
-                : "You're all caught up."}
-            </p>
+      <div className="mt-3 grid min-h-0 gap-3 lg:flex-1 lg:grid-cols-[1.12fr_0.88fr]">
+        <section className="flex min-h-0 flex-col rounded-2xl border-2 border-[#243139] bg-white p-3 sm:p-4">
+          <div className="flex shrink-0 items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">Open updates</h2>
+              <p className="text-xs text-slate-500">
+                {attentionCount > 0
+                  ? `${attentionCount} ${attentionCount === 1 ? "item" : "items"} open or waiting`
+                  : "You're all caught up."}
+              </p>
+            </div>
+            <span className="rounded-full bg-[#FFD0CB] px-2.5 py-1 text-xs font-bold text-[#8C332D]">
+              {attentionCount}
+            </span>
           </div>
-        </div>
 
-        {data && attentionCount === 0 ? (
-          <div className="mt-4 rounded-xl border border-[#19A897] bg-[#BFEDE6] p-5">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-600">
-                <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+          {data && attentionCount === 0 ? (
+            <div className="mt-3 flex items-center gap-3 rounded-xl border border-[#19A897] bg-[#BFEDE6] px-3 py-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white">
+                <CheckCircle2 className="h-4 w-4 text-emerald-700" aria-hidden="true" />
               </div>
               <div>
-                <p className="font-semibold text-slate-900">Nothing needs action right now.</p>
-                <p className="mt-1 text-sm text-slate-600">
-                  No approvals are waiting on you, and there are no urgent expenses or overdue responsibilities.
-                </p>
+                <p className="text-sm font-bold text-slate-900">Nothing needs action right now.</p>
+                <p className="text-xs text-slate-600">No approvals, urgent expenses or overdue responsibilities.</p>
               </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {data && attentionCount > 0 ? (
-          <div className="mt-3 grid gap-3 xl:grid-cols-2">
-            {data.needsAttention.approvals.map((proposal) => (
-              <ProposalCard
-                key={proposal.id}
-                status="waiting"
-                title={proposal.title}
-                proposedByName={proposal.proposedByName}
-                approverName={proposal.approverName}
-                reason={proposal.reason}
-                proposedSummary={proposal.summary}
-                actions={
-                  <ProposalActions
-                    proposalId={proposal.id}
-                    currentMembershipId={data.currentMembershipId}
-                    proposedByMembershipId={proposal.proposedByMembershipId}
-                    approverMembershipId={proposal.approverMembershipId}
-                    onChanged={() => {
-                      setMessage("Proposal updated.");
-                      void refresh().catch((caught) =>
-                        setError(
-                          caught instanceof Error
-                            ? caught.message
-                            : "Updates could not be refreshed.",
-                        ),
-                      );
-                    }}
-                  />
-                }
-              />
-            ))}
-
-            {data.needsAttention.expenses.map((expense) => {
-              const payerName = participantName(expense.paidByParticipantId);
-              const moneyText =
-                expense.reimbursement.direction === "owed_to_you"
-                  ? `${money(expense.reimbursement.amountCents)} owed to you`
-                  : expense.reimbursement.direction === "you_owe"
-                    ? `You owe ${money(expense.reimbursement.amountCents)}`
-                    : `${money(expense.reimbursement.amountCents)} reimbursement outstanding`;
-
-              return (
-                <Link
-                  key={expense.id}
-                  href={`/expenses?date=${encodeURIComponent(expense.dueDate)}`}
-                  className="group rounded-2xl border border-[#243139] bg-[#FFF9DF] p-4 transition hover:-translate-y-0.5"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
-                        <CircleDollarSign className="h-5 w-5" aria-hidden="true" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={`rounded-full px-2 py-1 text-[10px] font-semibold ${urgencyClass(
-                              expense.urgency,
-                            )}`}
-                          >
-                            {urgencyLabel(expense.urgency)}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            {dateLabel(expense.dueDate)}
-                          </span>
-                        </div>
-                        <h3 className="mt-2 truncate font-semibold text-slate-950">
-                          {expense.title}
-                        </h3>
-                        <p className="mt-1 text-sm text-slate-600">
-                          {moneyText} · paid by {payerName}
-                        </p>
-                      </div>
-                    </div>
-                    <ChevronRight
-                      className="mt-1 h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5"
-                      aria-hidden="true"
+          {data && attentionCount > 0 ? (
+            <div className="mt-3 min-h-0 space-y-2 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+              {data.needsAttention.approvals.map((proposal) => (
+                <ProposalCard
+                  key={proposal.id}
+                  status="waiting"
+                  title={proposal.title}
+                  proposedByName={proposal.proposedByName}
+                  approverName={proposal.approverName}
+                  reason={proposal.reason}
+                  proposedSummary={proposal.summary}
+                  actions={
+                    <ProposalActions
+                      proposalId={proposal.id}
+                      currentMembershipId={data.currentMembershipId}
+                      proposedByMembershipId={proposal.proposedByMembershipId}
+                      approverMembershipId={proposal.approverMembershipId}
+                      onChanged={() => {
+                        setMessage("Proposal updated.");
+                        void refresh().catch((caught) =>
+                          setError(
+                            caught instanceof Error
+                              ? caught.message
+                              : "Updates could not be refreshed.",
+                          ),
+                        );
+                      }}
                     />
-                  </div>
-                </Link>
-              );
-            })}
+                  }
+                />
+              ))}
 
-            {data.needsAttention.responsibilities.map((item) => (
-              <Link
-                key={item.id}
-                href={`/responsibilities?date=${encodeURIComponent(item.dueDate)}`}
-                className="group rounded-2xl border border-[#243139] bg-[#EAF8F5] p-4 transition hover:-translate-y-0.5"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                      <CheckSquare2 className="h-5 w-5" aria-hidden="true" />
+              {data.needsAttention.expenses.map((expense) => {
+                const payerName = participantName(expense.paidByParticipantId);
+                const moneyText =
+                  expense.reimbursement.direction === "owed_to_you"
+                    ? `${money(expense.reimbursement.amountCents)} owed to you`
+                    : expense.reimbursement.direction === "you_owe"
+                      ? `You owe ${money(expense.reimbursement.amountCents)}`
+                      : `${money(expense.reimbursement.amountCents)} outstanding`;
+
+                return (
+                  <Link
+                    key={expense.id}
+                    href={`/expenses?date=${encodeURIComponent(expense.dueDate)}`}
+                    className="group flex items-center gap-3 rounded-xl border border-[#243139] bg-[#FFF9DF] p-3 transition hover:-translate-y-0.5"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white">
+                      <CircleDollarSign className="h-4 w-4 text-amber-700" aria-hidden="true" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`rounded-full px-2 py-1 text-[10px] font-semibold ${urgencyClass(
-                            item.urgency,
-                          )}`}
-                        >
-                          {urgencyLabel(item.urgency)}
-                        </span>
-                        <span className="text-xs text-slate-500">
-                          {item.dueTime
-                            ? `${dateLabel(item.dueDate)} · ${item.dueTime}`
-                            : dateLabel(item.dueDate)}
+                        <h3 className="truncate text-sm font-bold text-slate-950">{expense.title}</h3>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${urgencyClass(expense.urgency)}`}>
+                          {urgencyLabel(expense.urgency)}
                         </span>
                       </div>
-                      <h3 className="mt-2 truncate font-semibold text-slate-950">
-                        {item.title}
-                      </h3>
-                      <p className="mt-1 text-sm text-slate-600">
-                        Responsible: {participantName(item.responsibleParticipantId)}
+                      <p className="mt-0.5 truncate text-xs text-slate-600">
+                        {moneyText} · paid by {payerName} · {dateLabel(expense.dueDate)}
                       </p>
                     </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                  </Link>
+                );
+              })}
+
+              {data.needsAttention.responsibilities.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`/responsibilities?date=${encodeURIComponent(item.dueDate)}`}
+                  className="group flex items-center gap-3 rounded-xl border border-[#243139] bg-[#EAF8F5] p-3 transition hover:-translate-y-0.5"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white">
+                    <CheckSquare2 className="h-4 w-4 text-[#0D7A6D]" aria-hidden="true" />
                   </div>
-                  <ChevronRight
-                    className="mt-1 h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5"
-                    aria-hidden="true"
-                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="truncate text-sm font-bold text-slate-950">{item.title}</h3>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${urgencyClass(item.urgency)}`}>
+                        {urgencyLabel(item.urgency)}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-slate-600">
+                      {participantName(item.responsibleParticipantId)} · {dateLabel(item.dueDate)}
+                      {item.dueTime ? ` · ${item.dueTime}` : ""}
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                </Link>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+        {data ? (
+          <div className="flex min-h-0 flex-col gap-3">
+            <section className="rounded-2xl border-2 border-[#243139] bg-[#FFF9F2] p-3 sm:p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-950">Today</h2>
+                  <p className="text-xs text-slate-500">{weekdayDateLabel(data.today.date)}</p>
                 </div>
-              </Link>
-            ))}
+                <Link href="/calendar" className="text-xs font-bold text-[#0D7A6D] hover:underline">
+                  Calendar
+                </Link>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Link href="/calendar" className="rounded-xl border border-[#243139] bg-[#BFEDE6] p-3">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600">
+                    <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+                    Parenting
+                  </div>
+                  <p className="mt-2 truncate text-sm font-bold text-slate-950">{data.today.parentingLabel}</p>
+                </Link>
+
+                <Link href="/calendar" className="rounded-xl border border-[#243139] bg-[#DDD3FA] p-3">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600">
+                    <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
+                    Handover
+                  </div>
+                  <p className="mt-2 truncate text-sm font-bold text-slate-950">
+                    {data.today.handover
+                      ? data.today.handover.handoverTime?.slice(0, 5) ?? "Split day"
+                      : "None today"}
+                  </p>
+                </Link>
+
+                <Link href="/calendar" className="rounded-xl border border-[#243139] bg-[#F7DC86] p-3">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600">
+                    <ReceiptText className="h-3.5 w-3.5" aria-hidden="true" />
+                    Events
+                  </div>
+                  <p className="mt-2 truncate text-sm font-bold text-slate-950">
+                    {data.today.events[0]?.title ?? "No events"}
+                  </p>
+                  {data.today.events.length > 1 ? (
+                    <p className="mt-0.5 text-[10px] text-slate-500">+{data.today.events.length - 1} more</p>
+                  ) : null}
+                </Link>
+
+                <Link
+                  href={`/responsibilities?date=${encodeURIComponent(data.today.date)}`}
+                  className="rounded-xl border border-[#243139] bg-[#FFD0CB] p-3"
+                >
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600">
+                    <ListChecks className="h-3.5 w-3.5" aria-hidden="true" />
+                    Responsibilities
+                  </div>
+                  <p className="mt-2 truncate text-sm font-bold text-slate-950">
+                    {data.today.responsibilities[0]?.title ?? "Nothing due"}
+                  </p>
+                  {data.today.responsibilities.length > 1 ? (
+                    <p className="mt-0.5 text-[10px] text-slate-500">+{data.today.responsibilities.length - 1} more</p>
+                  ) : null}
+                </Link>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[#E6DBCF] bg-white p-3 sm:p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-900">Children</h2>
+                <Link href="/kids" className="text-xs font-bold text-[#6651B7] hover:underline">
+                  Manage
+                </Link>
+              </div>
+              {data.children.length === 0 ? (
+                <p className="mt-2 text-xs text-slate-500">No child profiles yet.</p>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {data.children.map((child) => (
+                    <Link
+                      key={child.id}
+                      href={`/kids/${child.id}`}
+                      className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-[#243139] bg-[#F4F1FF] px-3 text-xs font-bold text-[#243139]"
+                    >
+                      <UsersRound className="h-3.5 w-3.5" aria-hidden="true" />
+                      {child.displayName}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
         ) : null}
-      </section>
-
-      {data ? (
-        <section className="mt-8">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-950">Today</h2>
-            <p className="mt-1 text-sm text-slate-500">{weekdayDateLabel(data.today.date)}</p>
-          </div>
-
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <Link
-              href="/calendar"
-              className="rounded-2xl border-2 border-[#243139] bg-[#BFEDE6] p-5 transition hover:-translate-y-0.5"
-            >
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                <CalendarDays className="h-4 w-4" aria-hidden="true" />
-                Parenting
-              </div>
-              <p className="mt-3 font-semibold text-slate-950">
-                {data.today.parentingLabel}
-              </p>
-              <p className="mt-1 text-sm text-slate-500">
-                Open the calendar for full day details.
-              </p>
-            </Link>
-
-            <Link
-              href="/calendar"
-              className="rounded-2xl border-2 border-[#243139] bg-[#DDD3FA] p-5 transition hover:-translate-y-0.5"
-            >
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                <Clock3 className="h-4 w-4" aria-hidden="true" />
-                Handover
-              </div>
-              {data.today.handover ? (
-                <>
-                  <p className="mt-3 font-semibold text-slate-950">
-                    {data.today.handover.handoverTime?.slice(0, 5) ?? "Split day"}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {participantName(data.today.handover.morningParentId)} →{" "}
-                    {participantName(data.today.handover.afternoonParentId)}
-                  </p>
-                  {data.today.handover.handoverLocation ? (
-                    <p className="mt-2 flex items-center gap-1 text-xs text-slate-500">
-                      <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                      {data.today.handover.handoverLocation}
-                    </p>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <p className="mt-3 font-semibold text-slate-950">No handover today</p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Nothing practical is recorded for today.
-                  </p>
-                </>
-              )}
-            </Link>
-
-            <Link
-              href="/calendar"
-              className="rounded-2xl border-2 border-[#243139] bg-[#F7DC86] p-5 transition hover:-translate-y-0.5"
-            >
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                <ReceiptText className="h-4 w-4" aria-hidden="true" />
-                Events
-              </div>
-              {data.today.events.length > 0 ? (
-                <div className="mt-3 space-y-2">
-                  {data.today.events.slice(0, 3).map((event) => (
-                    <div key={event.id}>
-                      <p className="truncate text-sm font-semibold text-slate-900">
-                        <span className="mr-1" aria-hidden="true">
-                          {eventIcon(event.category)}
-                        </span>
-                        {event.title}
-                      </p>
-                    </div>
-                  ))}
-                  {data.today.events.length > 3 ? (
-                    <p className="text-xs text-slate-500">
-                      +{data.today.events.length - 3} more
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <>
-                  <p className="mt-3 font-semibold text-slate-950">No events today</p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Shared plans are clear.
-                  </p>
-                </>
-              )}
-            </Link>
-
-            <Link
-              href={`/responsibilities?date=${encodeURIComponent(data.today.date)}`}
-              className="rounded-2xl border-2 border-[#243139] bg-[#FFD0CB] p-5 transition hover:-translate-y-0.5"
-            >
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                <ListChecks className="h-4 w-4" aria-hidden="true" />
-                Responsibilities
-              </div>
-              {data.today.responsibilities.length > 0 ? (
-                <div className="mt-3 space-y-2">
-                  {data.today.responsibilities.slice(0, 3).map((item) => (
-                    <div key={item.id} className="flex items-center gap-2">
-                      <span
-                        className={`h-2 w-2 shrink-0 rounded-full ${
-                          item.completedAt ? "bg-emerald-500" : "bg-slate-500"
-                        }`}
-                        aria-hidden="true"
-                      />
-                      <p
-                        className={`truncate text-sm font-semibold ${
-                          item.completedAt
-                            ? "text-slate-500 line-through"
-                            : "text-slate-900"
-                        }`}
-                      >
-                        {item.title}
-                      </p>
-                    </div>
-                  ))}
-                  {data.today.responsibilities.length > 3 ? (
-                    <p className="text-xs text-slate-500">
-                      +{data.today.responsibilities.length - 3} more
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <>
-                  <p className="mt-3 font-semibold text-slate-950">Nothing due today</p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    No responsibilities are due today.
-                  </p>
-                </>
-              )}
-            </Link>
-          </div>
-        </section>
-      ) : null}
-
-      {data && data.children.length > 0 ? (
-        <section className="mt-8 pb-2">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Kids
-            </p>
-            <h2 className="mt-1 text-xl font-semibold text-slate-950">
-              Your child profiles
-            </h2>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {data.children.map((child) => (
-              <Link
-                key={child.id}
-                href={`/kids/${child.id}`}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#243139] bg-[#DDD3FA] px-4 text-sm font-semibold text-[#243139] hover:-translate-y-0.5"
-              >
-                <UsersRound className="h-4 w-4 text-slate-500" aria-hidden="true" />
-                {child.displayName}
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      </div>
 
       {data?.permission === "viewer" ? (
-        <p className="mx-auto mb-6 max-w-2xl text-center text-xs leading-5 text-slate-400">
-          You have view-only access. Home still shows the shared picture, but editing actions are hidden.
+        <p className="mt-2 shrink-0 text-center text-[11px] text-slate-400">
+          View-only access: editing actions are hidden.
         </p>
       ) : null}
 

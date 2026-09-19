@@ -16,6 +16,7 @@ const calendarMutationRoutes = [
   { file: "app/api/events/route.ts", methods: ["POST", "PATCH", "DELETE"] },
   { file: "app/api/recurring-schedule/route.ts", methods: ["POST", "DELETE"] },
   { file: "app/api/settings/route.ts", methods: ["PATCH"] },
+  { file: "app/api/children/route.ts", methods: ["POST"] },
   { file: "app/api/share/route.ts", methods: ["POST", "DELETE"] },
 ];
 const sameOriginMutationRoutes = [

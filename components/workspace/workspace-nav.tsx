@@ -1,10 +1,11 @@
 "use client";
 import { CalendarDays, Bell, LayoutGrid, LogOut, UsersRound, ListChecks, WalletCards, ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
+import { useDismissibleDetails } from "@/lib/client/use-details-dismiss";
 import { ComingUp } from "./coming-up";
 import { CovieBrand } from "./covie-brand";
 
@@ -24,6 +25,8 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
   const [signOutError, setSignOutError] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+  const accountRef = useRef<HTMLDetailsElement>(null);
+  useDismissibleDetails(accountRef);
   const section = active && ["expenses", "responsibilities", "kids"].includes(active) ? "organiser" : active;
 
   useEffect(() => {
@@ -82,7 +85,7 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
     <div className="workspace-actions flex flex-wrap items-center gap-2">
       {actions}
       <div className="mobile-coming-up"><ComingUp /></div>
-      <details className="workspace-account relative">
+      <details ref={accountRef} className="workspace-account relative">
         <summary className="covie-menu-trigger">Account <ChevronDown size={16} aria-hidden="true" /></summary>
         <div className="covie-menu">
           <button type="button" onClick={() => void signOut()} disabled={signingOut} className="covie-menu-item">
