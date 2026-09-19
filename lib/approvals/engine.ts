@@ -714,7 +714,7 @@ export async function withdrawApprovalProposal(input: {
         ${input.actor.membershipId},
         ${input.actor.participantId},
         'proposal.withdrawn',
-        ${fromStatus},
+        ${fromStatus}::proposal_status,
         'withdrawn',
         NULL
       FROM transitioned

@@ -37,7 +37,7 @@ export function ProposalCard({
             : "Draft";
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-2xl border-2 border-[#243139] bg-white p-4 shadow-[5px_5px_0_#FF6B5F22]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold text-slate-900">{title}</h3>

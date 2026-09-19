@@ -200,7 +200,7 @@ test("first invite panel remains usable on narrow screens", async () => {
 });
 
 
-test("Your Events lives under the left navigation and Calendar keeps the full content width", async () => {
+test("workspace rail prioritises organiser context and caps Your Events at three", async () => {
   const [route, coming, shell, nav, styles] = await Promise.all([
     source("app/api/coming-up/route.ts"),
     source("components/workspace/coming-up.tsx"),
@@ -209,14 +209,20 @@ test("Your Events lives under the left navigation and Calendar keeps the full co
     source("app/globals.css"),
   ]);
 
+  assert.match(coming, /Organiser/);
+  assert.match(coming, /Responsibilities/);
+  assert.match(coming, /Expenses/);
   assert.match(coming, /Your Events/);
+  assert.match(coming, /workspace-event-card/);
+  assert.match(route, /items: allEventItems\.slice\(0, 3\)/);
+  assert.match(route, /responsibilityTotal/);
+  assert.match(route, /expenseTotal/);
   assert.match(route, /loadEffectiveAssignmentMap/);
-  assert.match(route, /Handover/);
   assert.match(nav, /workspace-destinations[\s\S]*desktop-coming-up[\s\S]*ComingUp/);
-  assert.doesNotMatch(nav, /showDesktopEvents/);
+  assert.match(styles, /width: 252px/);
+  assert.match(shell, /max-w-none/);
   assert.doesNotMatch(shell, /covie-calendar-events-rail/);
   assert.doesNotMatch(shell, /ComingUp variant=/);
-  assert.doesNotMatch(styles, /covie-calendar-events-rail|covie-events-rail/);
 });
 
 test("Calendar removes the redundant next handover summary row", async () => {

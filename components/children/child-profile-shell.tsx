@@ -448,7 +448,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
           <div className="flex items-center gap-4">
             <ProfilePhoto childId={child.id} displayName={child.displayName} />
             <div>
-              <h1 className="covie-page-title text-3xl sm:text-4xl">{child.displayName}</h1>
+              <div className="mb-2 h-2 w-16 rounded-full bg-[#765ED6]" aria-hidden="true" />\n              <h1 className="covie-page-title text-3xl sm:text-4xl">{child.displayName}</h1>
               {child.fullName && child.fullName !== child.displayName ? (
                 <p className="mt-1 text-sm text-slate-500">{child.fullName}</p>
               ) : null}
@@ -493,7 +493,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
       ) : null}
 
       <section className="mt-5 grid gap-4 lg:grid-cols-2">
-        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <article className="rounded-2xl border border-[#E6DBCF] bg-white p-5 shadow-[4px_4px_0_#765ED612]">
           <div className="flex items-center gap-2">
             <UserRound className="h-5 w-5 text-slate-600" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-slate-950">Basic</h2>
@@ -507,7 +507,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
           </div>
         </article>
 
-        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <article className="rounded-2xl border border-[#E6DBCF] bg-white p-5 shadow-[4px_4px_0_#765ED612]">
           <div className="flex items-center gap-2">
             <School className="h-5 w-5 text-sky-600" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-slate-950">School</h2>
@@ -528,7 +528,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
           </div>
         </article>
 
-        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <article className="rounded-2xl border border-[#E6DBCF] bg-white p-5 shadow-[4px_4px_0_#765ED612]">
           <div className="flex items-center gap-2">
             <HeartPulse className="h-5 w-5 text-rose-500" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-slate-950">Health</h2>
@@ -548,7 +548,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
           </div>
         </article>
 
-        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <article className="rounded-2xl border border-[#E6DBCF] bg-white p-5 shadow-[4px_4px_0_#765ED612]">
           <div className="flex items-center gap-2">
             <Ruler className="h-5 w-5 text-violet-600" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-slate-950">Useful practical information</h2>
@@ -667,7 +667,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
       </section>
 
       <section className="mt-6 grid gap-4 lg:grid-cols-2">
-        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <article className="rounded-2xl border border-[#E6DBCF] bg-white p-5 shadow-[4px_4px_0_#765ED612]">
           <div className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5 text-slate-600" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-slate-950">Responsibilities</h2>
@@ -705,7 +705,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
           </Link>
         </article>
 
-        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <article className="rounded-2xl border border-[#E6DBCF] bg-white p-5 shadow-[4px_4px_0_#765ED612]">
           <div className="flex items-center gap-2">
             <ReceiptText className="h-5 w-5 text-slate-600" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-slate-950">Recent expenses</h2>

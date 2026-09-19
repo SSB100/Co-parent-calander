@@ -443,7 +443,7 @@ export function CalendarShell({
   ];
 
   return (
-    <main className="covie-calendar-page mx-auto w-full max-w-7xl px-3 py-3 sm:px-5 sm:py-4 lg:px-7">
+    <main className="covie-calendar-page w-full max-w-none px-3 py-3 sm:px-5 sm:py-4 lg:px-4">
       <header className="covie-calendar-header relative mb-3 sm:mb-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>

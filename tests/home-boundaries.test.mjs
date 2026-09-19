@@ -14,6 +14,7 @@ test("Home aggregates approvals urgent expenses responsibilities and daily calen
 
   assert.match(api, /listApprovalProposals/);
   assert.match(api, /approverMembershipId === session\.membershipId/);
+  assert.match(api, /proposedByMembershipId === session\.membershipId/);
   assert.match(api, /attentionCutoff/);
   assert.match(api, /expenseReimbursementContext/);
   assert.match(api, /responsibilityAttention/);
@@ -25,24 +26,29 @@ test("Home aggregates approvals urgent expenses responsibilities and daily calen
   assert.match(api, /nextResponsibility/);
 });
 
-test("Needs Attention stays actionable rather than becoming a general activity feed", async () => {
+test("Open Updates includes incoming decisions plus the user's own withdrawable requests", async () => {
   const api = await source("app/api/home/route.ts");
 
   assert.match(api, /proposal\.approverMembershipId === session\.membershipId/);
+  assert.match(api, /proposal\.proposedByMembershipId === session\.membershipId/);
   assert.match(api, /expense\.dueDate <= attentionThrough/);
   assert.match(api, /!item\.completedAt/);
   assert.match(api, /item\.dueDate <= now\.date/);
   assert.doesNotMatch(api, /auditLog|audit_log/);
 });
 
-test("Home UI uses calm sections and all-caught-up state without graphs", async () => {
+test("Updates uses branded action-first sections without duplicating the side-rail feed", async () => {
   const shell = await source("components/home/home-shell.tsx");
 
-  assert.match(shell, /Needs attention/);
+  assert.match(shell, /Open updates/);
+  assert.match(shell, /#FF6B5F/);
+  assert.match(shell, /#BFEDE6/);
+  assert.match(shell, /#DDD3FA/);
+  assert.match(shell, /#F7DC86/);
   assert.match(shell, /You're all caught up\./);
   assert.match(shell, /Today/);
-  assert.match(shell, /Coming up/);
   assert.match(shell, /Nothing needs action right now/);
+  assert.doesNotMatch(shell, /Coming up/);
   assert.doesNotMatch(shell, /chart|graph|recharts|canvas/i);
 });
 

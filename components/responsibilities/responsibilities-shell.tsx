@@ -254,7 +254,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(() => blankForm(initialDate, null, calendarTimezone));
   const [dateFilter, setDateFilter] = useState<string | null>(initialDate);
-  const [statusFilter, setStatusFilter] = useState<"all" | ResponsibilityStatus>("all");
+  const [statusFilter, setStatusFilter] = useState<"current" | "archive" | "upcoming" | "due_soon" | "due_today" | "overdue">("current");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -337,9 +337,13 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
 
   const filtered = useMemo(() => {
     const rows = data?.responsibilities ?? [];
-    return statusFilter === "all"
-      ? rows
-      : rows.filter((item) => item.status === statusFilter);
+    if (statusFilter === "current") {
+      return rows.filter((item) => item.status !== "completed");
+    }
+    if (statusFilter === "archive") {
+      return rows.filter((item) => item.status === "completed");
+    }
+    return rows.filter((item) => item.status === statusFilter);
   }, [data?.responsibilities, statusFilter]);
 
   const summary = useMemo(() => {
@@ -348,7 +352,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
       open: rows.filter((item) => item.status !== "completed").length,
       dueToday: rows.filter((item) => item.status === "due_today").length,
       overdue: rows.filter((item) => item.status === "overdue").length,
-      completed: rows.filter((item) => item.status === "completed").length,
+      archived: rows.filter((item) => item.status === "completed").length,
     };
   }, [data?.responsibilities]);
 
@@ -560,6 +564,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
       <header className="covie-page-header">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
+            <div className="mb-2 h-2 w-16 rounded-full bg-[#19A897]" aria-hidden="true" />
             <h1 className="covie-page-title text-3xl sm:text-4xl">Responsibilities</h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
               Keep practical tasks clear: what needs doing, who owns it and when it is due.
@@ -617,29 +622,21 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
       ) : null}
 
       <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Open
-          </p>
-          <p className="mt-2 text-2xl font-semibold text-slate-950">{summary.open}</p>
+        <div className="rounded-2xl border border-[#243139] bg-[#BFEDE6] p-4">
+          <p className="text-xs font-bold text-[#0B665C]">Open</p>
+          <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.open}</p>
         </div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">
-            Due today
-          </p>
-          <p className="mt-2 text-2xl font-semibold text-slate-950">{summary.dueToday}</p>
+        <div className="rounded-2xl border border-[#243139] bg-[#F7DC86] p-4">
+          <p className="text-xs font-bold text-[#5F4709]">Due today</p>
+          <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.dueToday}</p>
         </div>
-        <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-700">
-            Overdue
-          </p>
-          <p className="mt-2 text-2xl font-semibold text-slate-950">{summary.overdue}</p>
+        <div className="rounded-2xl border border-[#243139] bg-[#FFD0CB] p-4">
+          <p className="text-xs font-bold text-[#8C332D]">Overdue</p>
+          <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.overdue}</p>
         </div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
-            Completed
-          </p>
-          <p className="mt-2 text-2xl font-semibold text-slate-950">{summary.completed}</p>
+        <div className="rounded-2xl border border-[#243139] bg-[#DDD3FA] p-4">
+          <p className="text-xs font-bold text-[#544394]">Archived</p>
+          <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.archived}</p>
         </div>
       </section>
 
@@ -705,13 +702,17 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
       <section className="mt-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">Agreed responsibilities</h2>
+            <h2 className="text-lg font-semibold text-slate-950">
+              {statusFilter === "archive" ? "Responsibility archive" : "Current responsibilities"}
+            </h2>
             <p className="mt-1 text-sm text-slate-500">
-              One parent owns each task. If both parents need separate actions, create two responsibilities.
+              {statusFilter === "archive"
+                ? "Completed responsibilities stay available here as history."
+                : "Completed items disappear from this active view automatically."}
             </p>
           </div>
           <div className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1">
-            {(["all", "upcoming", "due_soon", "due_today", "overdue", "completed"] as const).map(
+            {(["current", "overdue", "due_today", "due_soon", "upcoming", "archive"] as const).map(
               (value) => (
                 <button
                   key={value}
@@ -719,11 +720,17 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
                   onClick={() => setStatusFilter(value)}
                   className={`min-h-9 shrink-0 rounded-lg px-3 text-xs font-semibold ${
                     statusFilter === value
-                      ? "bg-slate-900 text-white"
+                      ? value === "archive"
+                        ? "bg-[#765ED6] text-white"
+                        : "bg-[#19A897] text-[#243139]"
                       : "text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  {value === "all" ? "All" : statusLabels[value]}
+                  {value === "current"
+                    ? "Current"
+                    : value === "archive"
+                      ? "Archive"
+                      : statusLabels[value]}
                 </button>
               ),
             )}
@@ -765,7 +772,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
               return (
                 <article
                   key={item.id} id={`record-${item.id}`} tabIndex={-1}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+                  className="rounded-2xl border border-[#E6DBCF] bg-white p-4 shadow-[4px_4px_0_#24313910] sm:p-5"
                 >
                   <div className="flex items-start gap-3">
                     <button
