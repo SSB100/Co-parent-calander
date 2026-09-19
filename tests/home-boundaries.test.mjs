@@ -151,7 +151,8 @@ test("phone workspace styling stays compact without changing desktop breakpoints
 
   assert.match(styles, /@media \(max-width: 639px\)/);
   assert.match(styles, /workspace-mobile-actions-trigger/);
-  assert.match(styles, /workspace-mobile-action-panel[\s\S]*position: fixed/);
+  assert.match(styles, /workspace-mobile-action-panel[\s\S]*position: absolute/);
+  assert.match(styles, /top: calc\(100% \+ 8px\)/);
   assert.match(styles, /workspace-mobile-actions:not\(\.is-open\)/);
   assert.match(styles, /bottom: calc\(84px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(styles, /div\.fixed\.inset-0\.z-50 > section\[role="dialog"\]/);
