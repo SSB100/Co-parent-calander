@@ -20,8 +20,8 @@ export default async function AuthPage({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
-      <section className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6">
+    <main className="flex min-h-screen items-center justify-center bg-[#FFF9F2] px-4 py-10 sm:px-6">
+      <section className="w-full max-w-md rounded-xl border-2 border-[#243139] bg-white p-4 shadow-[8px_8px_0_#765ED6] sm:p-6">
         <AuthView path={path} />
       </section>
     </main>

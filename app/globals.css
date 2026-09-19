@@ -3,52 +3,55 @@
 
 /* Shared palette: opaque text/state pairs meet AA normal-text contrast. */
 @theme {
-  --color-slate-50: #f7f6f2;
-  --color-slate-100: #eef0eb;
-  --color-slate-200: #dce3dc;
-  --color-slate-300: #7a8981;
-  --color-slate-400: #56635c;
-  --color-slate-500: #56635c;
-  --color-slate-600: #56635c;
-  --color-slate-700: #416653;
-  --color-slate-800: #355442;
-  --color-slate-900: #273632;
-  --color-slate-950: #273632;
-  --color-emerald-50: #e8efe9;
-  --color-emerald-100: #e5eee8;
-  --color-emerald-200: #d0e0d5;
-  --color-emerald-500: #527064;
-  --color-emerald-600: #416653;
-  --color-emerald-700: #416653;
-  --color-emerald-800: #416653;
-  --color-emerald-900: #355442;
-  --color-violet-50: #f5f1f8;
-  --color-violet-100: #eee8f3;
-  --color-violet-200: #e2d8e9;
-  --color-violet-500: #66577c;
-  --color-violet-600: #66577c;
-  --color-violet-700: #66577c;
-  --color-violet-800: #66577c;
-  --color-violet-900: #514562;
-  --color-amber-50: #faeed9;
-  --color-amber-100: #faeed9;
-  --color-amber-600: #82551d;
-  --color-amber-700: #82551d;
-  --color-amber-800: #704718;
+  --color-slate-50: #fffaf4;
+  --color-slate-100: #f7efe5;
+  --color-slate-200: #e6dbcf;
+  --color-slate-300: #b9aea3;
+  --color-slate-400: #7d8588;
+  --color-slate-500: #66747a;
+  --color-slate-600: #526168;
+  --color-slate-700: #3d4a50;
+  --color-slate-800: #2e3b41;
+  --color-slate-900: #243139;
+  --color-slate-950: #243139;
+  --color-emerald-50: #eaf8f5;
+  --color-emerald-100: #d7f2ec;
+  --color-emerald-200: #b8e5db;
+  --color-emerald-500: #19a897;
+  --color-emerald-600: #128b7d;
+  --color-emerald-700: #0d7a6d;
+  --color-emerald-800: #0b665c;
+  --color-emerald-900: #084f48;
+  --color-violet-50: #f4f1ff;
+  --color-violet-100: #e9e3ff;
+  --color-violet-200: #d8cefb;
+  --color-violet-500: #8d75e6;
+  --color-violet-600: #765ed6;
+  --color-violet-700: #6651b7;
+  --color-violet-800: #544394;
+  --color-violet-900: #443679;
+  --color-amber-50: #fff9df;
+  --color-amber-100: #fff1b7;
+  --color-amber-600: #9c7310;
+  --color-amber-700: #77570b;
+  --color-amber-800: #604708;
   --color-rose-50: #fbece8;
   --color-rose-100: #fbece8;
   --color-rose-600: #a23f39;
   --color-rose-700: #a23f39;
   --color-rose-800: #8c332d;
-  --color-blue-500: #376584;
-  --color-blue-600: #376584;
-  --color-blue-700: #305771;
+  --color-blue-50: #eef5fc;
+  --color-blue-100: #dceafb;
+  --color-blue-200: #c3dcf7;
+  --color-blue-500: #4d89c7;
+  --color-blue-600: #3b73ae;
+  --color-blue-700: #315f91;
   --radius-2xl: 0.75rem;
   --radius-3xl: 1rem;
 }
 :root {
-  --background: #dde6df;
-  --foreground: #273632;
+  --background: #fff9f2;
+  --foreground: #243139;
   --covie-coral: #ff6b5f;
   --covie-teal: #19a897;
   --covie-sunshine: #f4c64e;
@@ -70,25 +73,25 @@ button:disabled { cursor: not-allowed; }
 .covie-split-reverse { background: linear-gradient(to right, #796286 0 50%, #527761 50%); }
 .covie-menu-trigger { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; cursor: pointer; border: 1px solid #7a8981; border-radius: 10px; background: #fff; font-size: 14px; font-weight: 500; list-style: none; }
 .covie-menu-trigger::-webkit-details-marker { display: none; }
-.covie-menu { position: absolute; right: 0; z-index: 30; margin-top: 8px; width: 248px; max-width: calc(100vw - 32px); padding: 8px; border: 1px solid #dce3dc; border-radius: 12px; background: #fff; box-shadow: 0 8px 24px #27363218; }
+.covie-menu { position: absolute; right: 0; z-index: 30; margin-top: 8px; width: 248px; max-width: calc(100vw - 32px); padding: 8px; border: 1px solid #e6dbcf; border-radius: 12px; background: #fff; box-shadow: 6px 6px 0 #24313918; }
 .covie-menu-item { display: flex; align-items: center; gap: 8px; min-height: 44px; width: 100%; padding: 10px 12px; border-radius: 8px; text-align: left; font-size: 14px; }
-.covie-menu-item:hover { background: #e8efe9; }
+.covie-menu-item:hover { background: #f7efe5; }
 .covie-tool-menu { display: flex; flex-direction: column; gap: 8px; }
 .covie-tool-menu > button { min-height: 44px; justify-content: flex-start; }
-.workspace-nav { position: fixed; z-index: 20; background: #dde6df; }
-.workspace-brand { display: block; margin: 0 12px 32px; font-size: 28px; font-weight: 600; letter-spacing: -0.04em; color: #416653; }
+.workspace-nav { position: fixed; z-index: 20; background: #fff9f2; }
+.workspace-brand { display: block; margin: 0 12px 32px; font-size: 28px; font-weight: 700; letter-spacing: -0.04em; color: #243139; }
 .workspace-destinations { display: flex; gap: 8px; }
-.workspace-destinations a { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 500; color: #56635c; }
-.workspace-destinations a:hover { background: #eef0eb; }
-.workspace-destinations a[aria-current="page"] { background: #e8efe9; color: #416653; font-weight: 600; box-shadow: inset 3px 0 #416653; }
+.workspace-destinations a { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 650; color: #526168; }
+.workspace-destinations a:hover { background: #f7efe5; }
+.workspace-destinations a[aria-current="page"] { background: #ff6b5f; color: #243139; font-weight: 800; box-shadow: none; }
 @media (min-width: 1024px) {
-  .workspace-nav { inset: 0 auto 0 0; width: 192px; padding: 28px 16px; border-right: 1px solid #dce3dc; }
+  .workspace-nav { inset: 0 auto 0 0; width: 192px; padding: 28px 16px; border-right: 1px solid #e6dbcf; }
   .workspace-destinations { flex-direction: column; }
   main:has(.workspace-nav) { margin-left: 192px; width: calc(100% - 192px); max-width: 1600px; }
 }
 @media (max-width: 1023px) {
   .covie-menu { position: fixed; left: 16px; right: 16px; width: auto; }
-  .workspace-nav { inset: auto 0 0; border-top: 1px solid #dce3dc; padding: 4px 8px max(8px, env(safe-area-inset-bottom)); }
+  .workspace-nav { inset: auto 0 0; border-top: 2px solid #243139; padding: 4px 8px max(8px, env(safe-area-inset-bottom)); }
   .workspace-brand { display: none; }
   .workspace-destinations { justify-content: space-around; }
   .workspace-destinations a { flex: 1; flex-direction: column; gap: 2px; padding: 8px; }
@@ -113,8 +116,8 @@ button:disabled { cursor: not-allowed; }
 }
 .covie-parent-green { background: #527761; }
 .covie-parent-plum { background: #796286; }
-main:has(.workspace-nav) { background: #dde6df; }
-.workspace-coming-up { margin-top: 28px; border-top: 1px solid #7a8981; padding-top: 16px; font-size: 13px; }
+main:has(.workspace-nav) { background: #fff9f2; }
+.workspace-coming-up { margin-top: 28px; border-top: 1px solid #e6dbcf; padding-top: 16px; font-size: 13px; }
 .workspace-coming-up summary { cursor: pointer; min-height: 44px; font-weight: 600; }
 .coming-up-item { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; min-height: 44px; overflow-wrap: anywhere; }
 .coming-up-item:hover { text-decoration: underline; }
@@ -173,23 +176,6 @@ main:has(.workspace-nav) { background: #dde6df; }
   font-weight: 800;
   line-height: 1;
 }
-.covie-calendar-events-rail {
-  min-height: 0;
-  overflow: hidden;
-  border: 1px solid #dce3dc;
-  border-radius: 12px;
-  background: white;
-}
-.covie-events-rail {
-  height: 100%;
-  margin: 0;
-  border: 0;
-  padding: 14px;
-  overflow-y: auto;
-}
-.covie-events-rail .coming-up-content {
-  margin-top: 10px;
-}
 @media (max-width: 1023px) {
   .workspace-notification-badge {
     position: absolute;
@@ -202,4 +188,37 @@ main:has(.workspace-nav) { background: #dde6df; }
   .workspace-destinations a {
     position: relative;
   }
+}
+
+
+/* Shared Covie app chrome */
+.covie-page-header {
+  border: 0;
+  border-bottom: 2px solid #243139;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0 0 18px;
+}
+.covie-page-title {
+  font-family: var(--font-covie-display), Georgia, "Times New Roman", serif;
+  color: #243139;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+}
+.covie-primary-action {
+  background: #ff6b5f;
+  color: #243139;
+  border: 1px solid #243139;
+  font-weight: 800;
+}
+.covie-primary-action:hover {
+  background: #f35f54;
+}
+.covie-surface {
+  border-color: #e6dbcf;
+  background: #fff;
+}
+.covie-muted-surface {
+  background: #f7efe5;
 }

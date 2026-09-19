@@ -25,7 +25,7 @@ function eventDate(item: EventItem) {
   return item.time ? `${label} · ${item.time}` : label;
 }
 
-export function ComingUp({ variant = "nav" }: { variant?: "nav" | "rail" }) {
+export function ComingUp() {
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState(false);
 
@@ -98,20 +98,6 @@ export function ComingUp({ variant = "nav" }: { variant?: "nav" | "rail" }) {
       )}
     </div>
   );
-
-  if (variant === "rail") {
-    return (
-      <section className="workspace-coming-up covie-events-rail" aria-labelledby="your-events-title">
-        <h2 id="your-events-title" className="text-sm font-bold text-slate-900">
-          Your Events
-        </h2>
-        <p className="mt-1 text-xs leading-5 text-slate-500">
-          Next events and handovers in date order.
-        </p>
-        {content}
-      </section>
-    );
-  }
 
   return (
     <details className="workspace-coming-up" open>

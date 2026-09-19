@@ -443,18 +443,12 @@ export function ChildProfileShell({ childId }: { childId: string }) {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
-      <header className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+      <header className="covie-page-header">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
             <ProfilePhoto childId={child.id} displayName={child.displayName} />
             <div>
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                <UserRound className="h-4 w-4" aria-hidden="true" />
-                Child profile
-              </div>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
-                {child.displayName}
-              </h1>
+              <h1 className="covie-page-title text-3xl sm:text-4xl">{child.displayName}</h1>
               {child.fullName && child.fullName !== child.displayName ? (
                 <p className="mt-1 text-sm text-slate-500">{child.fullName}</p>
               ) : null}
@@ -478,7 +472,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
               <button
                 type="button"
                 onClick={openProfileEditor}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"
+                className="covie-primary-action inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm"
               >
                 <Pencil className="h-4 w-4" aria-hidden="true" /> Edit profile
               </button>

@@ -104,9 +104,9 @@ test("the public root explains Covie and keeps authenticated workspace data priv
 
   assert.match(home, /\/auth\/sign-in/);
   assert.match(home, /\/auth\/sign-up/);
-  assert.match(home, /Co-parenting,/);
-  assert.match(home, /How Covie works/);
+  assert.match(home, /Life between two homes, made simpler/);
   assert.match(home, /Create or join/);
+  assert.match(home, /The same screens you will actually use/);
   assert.doesNotMatch(home, /CalendarShell/);
   assert.doesNotMatch(home, /\/api\/calendar/);
 });

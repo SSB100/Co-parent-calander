@@ -11,7 +11,6 @@ import {
   ReceiptText,
   RotateCcw,
   Trash2,
-  WalletCards,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -504,15 +503,10 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
-      <header className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+      <header className="covie-page-header">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              <WalletCards className="h-4 w-4" aria-hidden="true" /> Covie expenses
-            </div>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-              Shared expenses
-            </h1>
+            <h1 className="covie-page-title text-3xl sm:text-4xl">Expenses</h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
               Keep the amount, who paid, each parent&apos;s share and reimbursement status clear.
               Covie records payments but does not move money.
@@ -525,7 +519,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
                 <button
                   type="button"
                   onClick={openCreate}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"
+                  className="covie-primary-action inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm"
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" /> Add expense
                 </button>

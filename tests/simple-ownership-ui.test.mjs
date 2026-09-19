@@ -24,7 +24,8 @@ test("day editor uses direct custody states and shows events", async () => {
   assert.match(panel, /them_full/);
   assert.match(panel, /me_then_them/);
   assert.match(panel, /them_then_me/);
-  assert.match(panel, /Events on this day/);
+  assert.match(panel, /Shared plans recorded for this day/);
+  assert.match(panel, /Delete event/);
   assert.doesNotMatch(panel, /Which part of the day\?/);
 });
 

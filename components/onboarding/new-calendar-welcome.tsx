@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, Link2, UsersRound } from "lucide-react";
+import { Check, Copy, Link2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -21,13 +21,10 @@ export function NewCalendarWelcome({ inviteCode }: { inviteCode: string }) {
 
   return (
     <section className="mx-auto mt-4 w-full max-w-7xl px-3 sm:px-6 lg:px-8">
-      <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm sm:p-6">
+      <div className="rounded-xl border-2 border-[#243139] bg-[#FFF9F2] p-5 shadow-[7px_7px_0_#19A897] sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
-            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-800">
-              <UsersRound className="h-4 w-4" aria-hidden="true" /> Your calendar is ready
-            </div>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+            <h2 className="covie-display text-3xl font-semibold tracking-tight text-slate-950">
               Invite your co-parent when you&apos;re ready
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -35,7 +32,7 @@ export function NewCalendarWelcome({ inviteCode }: { inviteCode: string }) {
             </p>
           </div>
 
-          <div className="w-full max-w-md rounded-2xl border border-emerald-200 bg-white p-4">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Private invite code</p>
             <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <code className="break-all text-lg font-semibold tracking-[0.1em] text-slate-950">{inviteCode}</code>
@@ -53,7 +50,7 @@ export function NewCalendarWelcome({ inviteCode }: { inviteCode: string }) {
               <button
                 type="button"
                 onClick={() => void copyInviteLink()}
-                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-900"
+                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#FF6B5F] px-4 text-sm font-bold text-[#243139] hover:bg-[#F35F54]"
               >
                 {copied === "link" ? <Check className="h-4 w-4" aria-hidden="true" /> : <Link2 className="h-4 w-4" aria-hidden="true" />}
                 {copied === "link" ? "Link copied" : "Copy invite link"}
