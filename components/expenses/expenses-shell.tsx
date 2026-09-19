@@ -553,18 +553,18 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
         </div>
       ) : null}
 
-      <section className="mt-5 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-[#243139] bg-[#F7DC86] p-4">
+      <section className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3">
+        <div className="rounded-2xl border border-[#243139] bg-[#F7DC86] p-3 sm:p-4">
           <p className="text-xs font-bold text-[#5F4709]">Outstanding</p>
           <p className="mt-2 text-3xl font-semibold text-[#243139]">{money(summary.outstanding)}</p>
           <p className="mt-1 text-xs text-[#5F4709]">Still waiting to be settled</p>
         </div>
-        <div className="rounded-2xl border border-[#243139] bg-[#DDD3FA] p-4">
+        <div className="rounded-2xl border border-[#243139] bg-[#DDD3FA] p-3 sm:p-4">
           <p className="text-xs font-bold text-[#544394]">Recorded</p>
           <p className="mt-2 text-3xl font-semibold text-[#243139]">{money(summary.recorded)}</p>
           <p className="mt-1 text-xs text-[#544394]">Total shared expense value</p>
         </div>
-        <div className="rounded-2xl border border-[#243139] bg-[#BFEDE6] p-4">
+        <div className="col-span-2 rounded-2xl border border-[#243139] bg-[#BFEDE6] p-3 sm:col-span-1 sm:p-4">
           <p className="text-xs font-bold text-[#0B665C]">Archived</p>
           <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.archived}</p>
           <p className="mt-1 text-xs text-[#0B665C]">Settled or no reimbursement needed</p>

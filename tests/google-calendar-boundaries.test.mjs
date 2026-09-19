@@ -138,3 +138,16 @@ test("Google Calendar actions use the shared official Google visual treatment", 
   assert.match(brand, /#747775/);
   assert.match(brand, /#1F1F1F/);
 });
+
+
+test("Google Calendar quick action sits before Create event and stays compact on mobile", async () => {
+  const [shell, quick] = await Promise.all([
+    readFile(path.join(root, "components/calendar/calendar-shell.tsx"), "utf8"),
+    readFile(path.join(root, "components/calendar/google-calendar-quick-action.tsx"), "utf8"),
+  ]);
+
+  assert.ok(shell.indexOf("<GoogleCalendarQuickAction") < shell.indexOf("<EventPanel"));
+  assert.match(quick, /<span className="sm:hidden">Sync<\/span>/);
+  assert.match(quick, /GoogleGMark/);
+  assert.match(quick, /hidden sm:inline">Sync Google Calendar/);
+});

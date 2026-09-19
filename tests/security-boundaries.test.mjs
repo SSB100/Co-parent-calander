@@ -171,3 +171,19 @@ test("sign-in and sign-up explicitly follow Neon Google OAuth redirects", async 
   assert.match(brand, /#747775/);
   assert.doesNotMatch(form, /GOOGLE_CLIENT_SECRET|GOOGLE_CLIENT_ID/);
 });
+
+
+test("approval notification email config is optional and does not expose provider secrets to the client", async () => {
+  const [email, env, packageJson] = await Promise.all([
+    source("lib/email/approval-notifications.ts"),
+    source(".env.example"),
+    source("package.json"),
+  ]);
+
+  assert.match(env, /RESEND_API_KEY=/);
+  assert.match(env, /EMAIL_FROM=/);
+  assert.match(email, /process\.env\.RESEND_API_KEY/);
+  assert.match(email, /process\.env\.EMAIL_FROM/);
+  assert.doesNotMatch(email, /NEXT_PUBLIC_RESEND|NEXT_PUBLIC_EMAIL/);
+  assert.doesNotMatch(packageJson, /"resend"/);
+});

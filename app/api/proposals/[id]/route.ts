@@ -10,6 +10,7 @@ import {
 } from "@/lib/approvals/engine";
 import { acceptAndApplyApprovalProposal } from "@/lib/approvals/dispatch";
 import { approvalActorFromSession } from "@/lib/approvals/http";
+import { sendApprovalEmail } from "@/lib/email/approval-notifications";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession } from "@/lib/security/session";
 
@@ -98,44 +99,60 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   try {
     if (parsed.data.operation === "submit") {
-      return NextResponse.json(
-        await submitApprovalProposal({
-          calendarId: session.calendarId,
-          actor,
-          proposalId: parsedId.data,
-          approverMembershipId: parsed.data.approverMembershipId,
-        }),
-      );
-    }
-
-    if (parsed.data.operation === "accept") {
-      return NextResponse.json(
-        await acceptAndApplyApprovalProposal({
-          calendarId: session.calendarId,
-          actor,
-          proposalId: parsedId.data,
-        }),
-      );
-    }
-
-    if (parsed.data.operation === "decline") {
-      return NextResponse.json(
-        await declineApprovalProposal({
-          calendarId: session.calendarId,
-          actor,
-          proposalId: parsedId.data,
-          declineReason: parsed.data.declineReason,
-        }),
-      );
-    }
-
-    return NextResponse.json(
-      await withdrawApprovalProposal({
+      const result = await submitApprovalProposal({
         calendarId: session.calendarId,
         actor,
         proposalId: parsedId.data,
-      }),
-    );
+        approverMembershipId: parsed.data.approverMembershipId,
+      });
+      await sendApprovalEmail({
+        calendarId: session.calendarId,
+        membershipId: result?.proposal.approverMembershipId,
+        kind: "approval_requested",
+      });
+      return NextResponse.json(result);
+    }
+
+    if (parsed.data.operation === "accept") {
+      const result = await acceptAndApplyApprovalProposal({
+        calendarId: session.calendarId,
+        actor,
+        proposalId: parsedId.data,
+      });
+      await sendApprovalEmail({
+        calendarId: session.calendarId,
+        membershipId: result?.proposal.proposedByMembershipId,
+        kind: "approval_approved",
+      });
+      return NextResponse.json(result);
+    }
+
+    if (parsed.data.operation === "decline") {
+      const result = await declineApprovalProposal({
+        calendarId: session.calendarId,
+        actor,
+        proposalId: parsedId.data,
+        declineReason: parsed.data.declineReason,
+      });
+      await sendApprovalEmail({
+        calendarId: session.calendarId,
+        membershipId: result?.proposal.proposedByMembershipId,
+        kind: "approval_declined",
+      });
+      return NextResponse.json(result);
+    }
+
+    const result = await withdrawApprovalProposal({
+      calendarId: session.calendarId,
+      actor,
+      proposalId: parsedId.data,
+    });
+    await sendApprovalEmail({
+      calendarId: session.calendarId,
+      membershipId: result?.proposal.approverMembershipId,
+      kind: "approval_withdrawn",
+    });
+    return NextResponse.json(result);
   } catch (error) {
     return approvalError(error);
   }

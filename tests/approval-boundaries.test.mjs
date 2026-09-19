@@ -110,3 +110,25 @@ test("proposal withdrawal stays proposer-owned and safely records enum history",
   assert.match(rules, /proposal\.proposedByMembershipId === actor\.membershipId/);
   assert.match(rules, /proposal\.status === "draft" \|\| proposal\.status === "waiting"/);
 });
+
+
+test("approval lifecycle sends best-effort email notifications to registered account memberships", async () => {
+  const [createRoute, operationRoute, email] = await Promise.all([
+    source("app/api/proposals/route.ts"),
+    source("app/api/proposals/[id]/route.ts"),
+    source("lib/email/approval-notifications.ts"),
+  ]);
+
+  assert.match(createRoute, /sendApprovalEmail/);
+  assert.match(createRoute, /kind: "approval_requested"/);
+  assert.match(operationRoute, /kind: "approval_requested"/);
+  assert.match(operationRoute, /kind: "approval_approved"/);
+  assert.match(operationRoute, /kind: "approval_declined"/);
+  assert.match(operationRoute, /kind: "approval_withdrawn"/);
+  assert.match(email, /JOIN neon_auth\."user"/);
+  assert.match(email, /membership\.user_id/);
+  assert.match(email, /RESEND_API_KEY/);
+  assert.match(email, /EMAIL_FROM/);
+  assert.match(email, /Covie keeps the details inside your private account/);
+  assert.doesNotMatch(email, /previousState|proposedState|handover|childName/);
+});

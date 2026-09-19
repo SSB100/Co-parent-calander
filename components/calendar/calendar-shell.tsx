@@ -475,6 +475,7 @@ export function CalendarShell({
               active="calendar"
               actions={
                 <>
+                  {accessMode === "editor" || accessMode === "viewer" ? <GoogleCalendarQuickAction /> : null}
                   {accessMode === "editor" ? (
                     <>
                       <EventPanel includeRangeTools={false} onChanged={() => setRefreshKey((value) => value + 1)} />
@@ -489,7 +490,6 @@ export function CalendarShell({
 
                     </>
                   ) : null}
-                  {accessMode === "editor" || accessMode === "viewer" ? <GoogleCalendarQuickAction /> : null}
                   {accessMode === "editor" || accessMode === "viewer" ? (
                     <details ref={settingsMenuRef} className="relative">
                       <summary className="covie-menu-trigger"><span><span className="hidden sm:inline">Calendar </span>Settings</span><ChevronDown size={16} aria-hidden="true" /></summary>
