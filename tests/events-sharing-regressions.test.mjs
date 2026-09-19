@@ -78,8 +78,11 @@ test("event creation stays explicit and approval-aware in the UI", async () => {
   assert.match(eventPanel, /Event added to the shared calendar\./);
   assert.match(eventPanel, /Event removed\./);
   assert.match(eventPanel, /await loadEvents\(\)/);
-  assert.match(dayPanel, /Events on this day/);
+  assert.match(dayPanel, /Shared plans recorded for this day/);
   assert.match(dayPanel, /\/api\/events\?date=/);
+  assert.match(dayPanel, /Delete event/);
+  assert.match(dayPanel, /method: "DELETE"/);
+  assert.match(dayPanel, /Event cancellation sent to/);
   assert.match(activityPanel, /aria-label="Activity"/);
   assert.match(settingsPanel, /aria-label="Settings"/);
 });
