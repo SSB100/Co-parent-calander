@@ -73,11 +73,11 @@ button:disabled { cursor: not-allowed; }
 .covie-split-reverse { background: linear-gradient(to right, #796286 0 50%, #527761 50%); }
 .covie-menu-trigger { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; cursor: pointer; border: 1px solid #7a8981; border-radius: 10px; background: #fff; font-size: 14px; font-weight: 500; list-style: none; }
 .covie-menu-trigger::-webkit-details-marker { display: none; }
-.covie-menu { position: absolute; right: 0; z-index: 30; margin-top: 8px; width: 248px; max-width: calc(100vw - 32px); padding: 8px; border: 1px solid #e6dbcf; border-radius: 12px; background: #fff; box-shadow: 6px 6px 0 #24313918; }
+.covie-menu { position: absolute; right: 0; z-index: 30; margin-top: 8px; width: 272px; max-width: calc(100vw - 32px); padding: 8px; border: 2px solid #243139; border-radius: 12px; background: #fff9f2; box-shadow: 6px 6px 0 #243139; }
 .covie-menu-item { display: flex; align-items: center; gap: 8px; min-height: 44px; width: 100%; padding: 10px 12px; border-radius: 8px; text-align: left; font-size: 14px; }
 .covie-menu-item:hover { background: #f7efe5; }
 .covie-tool-menu { display: flex; flex-direction: column; gap: 8px; }
-.covie-tool-menu > button { min-height: 44px; justify-content: flex-start; }
+.covie-tool-menu > button { min-height: 44px; justify-content: flex-start; border-color: #e6dbcf; background: #fff; }
 .workspace-nav { position: fixed; z-index: 20; background: #fff9f2; }
 .workspace-brand { display: block; margin: 0 12px 24px; font-size: 28px; font-weight: 700; letter-spacing: -0.04em; color: #243139; }
 .workspace-destinations { display: flex; gap: 8px; }
@@ -394,4 +394,204 @@ main:has(.workspace-nav) { background: #fff9f2; }
 }
 .covie-muted-surface {
   background: #f7efe5;
+}
+
+
+/* Shared Covie dialog system */
+.covie-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: #24313966;
+  padding: 0;
+}
+.covie-dialog {
+  display: flex;
+  width: 100%;
+  max-height: calc(100dvh - 8px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 2px solid #243139;
+  border-bottom: 0;
+  border-radius: 18px 18px 0 0;
+  background: #fff;
+  box-shadow: 8px 8px 0 #243139;
+}
+.covie-dialog-sm { max-width: 540px; }
+.covie-dialog-md { max-width: 680px; }
+.covie-dialog-lg { max-width: 920px; }
+.covie-dialog-header {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 2px solid #243139;
+  background: #fff9f2;
+  padding: 14px 14px 13px;
+}
+.covie-dialog-heading {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 11px;
+}
+.covie-dialog-icon {
+  display: flex;
+  height: 38px;
+  width: 38px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #243139;
+  border-radius: 10px;
+  background: #ff6b5f;
+  color: #243139;
+}
+.covie-dialog-icon.teal { background: #bfeDE6; }
+.covie-dialog-icon.sunshine { background: #f7dc86; }
+.covie-dialog-icon.violet { background: #ddd3fa; }
+.covie-dialog-icon.coral { background: #ffd0cb; }
+.covie-dialog-icon svg { height: 19px; width: 19px; }
+.covie-dialog-title {
+  font-family: var(--font-covie-display), Georgia, "Times New Roman", serif;
+  color: #243139;
+  font-size: 23px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+.covie-dialog-description {
+  margin-top: 3px;
+  max-width: 680px;
+  color: #66747a;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.covie-dialog-close {
+  display: flex;
+  height: 38px;
+  width: 38px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #243139;
+  border-radius: 10px;
+  background: #fff;
+  color: #243139;
+}
+.covie-dialog-close:hover { background: #f7efe5; }
+.covie-dialog-close:disabled { opacity: .45; }
+.covie-dialog-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px;
+}
+.covie-dialog-body-compact {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.covie-dialog-footer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column-reverse;
+  gap: 8px;
+  border-top: 2px solid #243139;
+  background: #fff9f2;
+  padding: 11px 14px calc(11px + env(safe-area-inset-bottom));
+}
+.covie-dialog-primary,
+.covie-dialog-secondary,
+.covie-dialog-danger {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 800;
+}
+.covie-dialog-primary {
+  border: 1px solid #243139;
+  background: #ff6b5f;
+  color: #243139;
+}
+.covie-dialog-primary:hover { background: #f35f54; }
+.covie-dialog-secondary {
+  border: 1px solid #243139;
+  background: #fff;
+  color: #243139;
+}
+.covie-dialog-secondary:hover { background: #f7efe5; }
+.covie-dialog-danger {
+  border: 1px solid #8c332d;
+  background: #fbece8;
+  color: #8c332d;
+}
+.covie-dialog-status {
+  border: 1px solid #e6dbcf;
+  border-radius: 10px;
+  background: #fff9f2;
+  padding: 9px 11px;
+  color: #526168;
+  font-size: 12px;
+}
+.covie-dialog-section {
+  border: 1px solid #e6dbcf;
+  border-radius: 12px;
+  background: #fff;
+  padding: 12px;
+}
+.covie-dialog-section-tint { background: #fffaf4; }
+.covie-dialog-grid-2 {
+  display: grid;
+  gap: 12px;
+}
+@media (min-width: 640px) {
+  .covie-dialog-backdrop {
+    align-items: center;
+    padding: 24px;
+  }
+  .covie-dialog {
+    max-height: calc(100dvh - 48px);
+    border-bottom: 2px solid #243139;
+    border-radius: 16px;
+  }
+  .covie-dialog-header {
+    padding: 16px 18px 14px;
+  }
+  .covie-dialog-title {
+    font-size: 25px;
+  }
+  .covie-dialog-description {
+    font-size: 13px;
+  }
+  .covie-dialog-body {
+    padding: 16px 18px;
+  }
+  .covie-dialog-footer {
+    flex-direction: row;
+    justify-content: flex-end;
+    padding: 12px 18px;
+  }
+  .covie-dialog-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 900px) and (min-height: 720px) {
+  .covie-dialog-fit {
+    max-height: min(860px, calc(100dvh - 56px));
+  }
+  .covie-dialog-fit .covie-dialog-body {
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
 }

@@ -259,3 +259,65 @@ test("Updates navigation shows an actionable approval notification count on desk
   assert.match(nav, /workspace-notification-badge/);
   assert.match(styles, /workspace-notification-badge/);
 });
+
+
+test("calendar tool dialogs use the shared branded responsive shell", async () => {
+  const [styles, range, schedules, events, settings, members, activity, share] =
+    await Promise.all([
+      source("app/globals.css"),
+      source("components/calendar/range-assignment-panel.tsx"),
+      source("components/calendar/recurring-schedule-panel.tsx"),
+      source("components/calendar/event-panel.tsx"),
+      source("components/calendar/settings-panel.tsx"),
+      source("components/calendar/members-panel.tsx"),
+      source("components/calendar/activity-panel.tsx"),
+      source("components/calendar/share-panel.tsx"),
+    ]);
+
+  const dialogs = [range, schedules, events, settings, members, activity, share];
+
+  assert.match(styles, /\.covie-dialog-backdrop/);
+  assert.match(styles, /\.covie-dialog-header/);
+  assert.match(styles, /\.covie-dialog-body/);
+  assert.match(styles, /\.covie-dialog-footer/);
+  assert.match(styles, /max-height: calc\(100dvh - 8px\)/);
+  assert.match(styles, /max-height: calc\(100dvh - 48px\)/);
+
+  for (const dialog of dialogs) {
+    assert.match(dialog, /covie-dialog-backdrop/);
+    assert.match(dialog, /covie-dialog-header/);
+    assert.match(dialog, /covie-dialog-close/);
+    assert.match(dialog, /covie-dialog-body/);
+  }
+
+  assert.match(range, /covie-dialog-footer/);
+  assert.match(events, /covie-dialog-footer/);
+  assert.match(settings, /covie-dialog-footer/);
+  assert.match(schedules, /covie-dialog-footer/);
+  assert.match(members, /covie-dialog-footer/);
+  assert.match(share, /covie-dialog-footer/);
+  assert.match(events, /<details[\s\S]*Upcoming events/);
+  assert.match(schedules, /<details[\s\S]*Preview first four weeks/);
+  assert.match(settings, /<details[\s\S]*Google Calendar/);
+});
+
+test("calendar modal save controls stay outside the scrolling dialog body", async () => {
+  const [range, schedules, events, settings] = await Promise.all([
+    source("components/calendar/range-assignment-panel.tsx"),
+    source("components/calendar/recurring-schedule-panel.tsx"),
+    source("components/calendar/event-panel.tsx"),
+    source("components/calendar/settings-panel.tsx"),
+  ]);
+
+  for (const [text, action] of [
+    [range, "Clear range"],
+    [schedules, "Save schedule"],
+    [events, "Create event"],
+    [settings, "Save settings"],
+  ]) {
+    const bodyEnd = text.lastIndexOf("</div>\n\n            <footer");
+    const footerAction = text.lastIndexOf(action);
+    assert.ok(bodyEnd >= 0);
+    assert.ok(footerAction > bodyEnd);
+  }
+});

@@ -379,24 +379,40 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="repeat-title" aria-describedby="repeat-description" aria-busy={loading || saving} tabIndex={-1} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><CalendarRange className="h-5 w-5" aria-hidden="true" /></div>
-                <h2 id="repeat-title" className="text-xl font-semibold text-slate-900">Repeating schedules</h2>
-                <p id="repeat-description" className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">Keep your current plan and prepare the next one in advance. When both parents are linked, schedule changes stay pending until approved.</p>
+        <div className="covie-dialog-backdrop">
+          <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="repeat-title" aria-describedby="repeat-description" aria-busy={loading || saving} tabIndex={-1} className="covie-dialog covie-dialog-lg">
+            <header className="covie-dialog-header">
+              <div className="covie-dialog-heading">
+                <div className="covie-dialog-icon violet">
+                  <CalendarRange aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <h2 id="repeat-title" className="covie-dialog-title">Repeating schedules</h2>
+                  <p id="repeat-description" className="covie-dialog-description">
+                    Build the fortnight once, then let Covie repeat it until the arrangement changes.
+                  </p>
+                </div>
               </div>
-              <button ref={closeButtonRef} type="button" aria-label="Close repeating schedules" disabled={saving} onClick={() => setOpen(false)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:opacity-50"><X className="h-5 w-5" aria-hidden="true" /></button>
-            </div>
+              <button
+                ref={closeButtonRef}
+                type="button"
+                aria-label="Close repeating schedules"
+                disabled={saving}
+                onClick={() => setOpen(false)}
+                className="covie-dialog-close"
+              >
+                <X aria-hidden="true" />
+              </button>
+            </header>
 
-            {message ? <p role="status" aria-live="polite" className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">{message}</p> : null}
+            <div className="covie-dialog-body">
+              {message ? <p role="status" aria-live="polite" className="covie-dialog-status mb-3">{message}</p> : null}
 
             {loading ? (
               <div role="status" className="mt-8 flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-600"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />Loading schedules…</div>
             ) : !editorOpen ? (
               <>
-                <div className="mt-6 flex items-center justify-between gap-3">
+                <div className="flex items-center justify-between gap-3">
                   <div><p className="text-sm font-semibold text-slate-900">Saved schedules</p><p className="text-xs leading-5 text-slate-500">Schedules cannot overlap. Give the current plan an end date before a new plan begins.</p></div>
                   <button type="button" disabled={saving || participants.length === 0} onClick={startNewSchedule} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"><Plus className="h-4 w-4" aria-hidden="true" />New schedule</button>
                 </div>
@@ -467,7 +483,7 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
               </>
             ) : (
               <>
-                <div className="mt-6 flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-900">{editingScheduleId ? "Edit schedule" : "New schedule"}</p>
                     <p className="mt-1 text-xs leading-5 text-slate-500">Tap each day to cycle: Full day You → Full day Them → You → Them → Them → You → Unassigned. Manual calendar changes still take priority.</p>
@@ -475,7 +491,7 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
                   <button type="button" disabled={saving} onClick={() => setEditorOpen(false)} className="min-h-10 rounded-xl px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50">Back to schedules</button>
                 </div>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <label className="block"><span className="text-xs font-semibold uppercase tracking-wide text-slate-500">First week starts</span><input type="date" value={anchorDate} disabled={saving} onChange={(event) => setAnchorDate(event.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-medium text-slate-800 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200" /><span className="mt-1 block text-xs text-slate-400">The pattern starts on the Monday of this week.</span></label>
                   <label className="block"><span className="text-xs font-semibold uppercase tracking-wide text-slate-500">End date</span><input type="date" value={endDate} min={anchorDate} disabled={saving} onChange={(event) => setEndDate(event.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-medium text-slate-800 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200" /><span className="mt-1 block text-xs text-slate-400">Optional for the final schedule. A later schedule cannot overlap an open-ended one.</span></label>
                 </div>
@@ -498,7 +514,7 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
                   </span>
                 </label>
 
-                <div className="mt-5 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
                   <button type="button" disabled={saving || !me || !otherParent} onClick={applyWeekOnWeekOff} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Week on / week off</button>
                   <button type="button" disabled={saving || !me || !otherParent} onClick={applyAlternatingWeekends} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Alternate weekends</button>
                   <button type="button" disabled={saving} onClick={copyWeekOne} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Copy week 1 to week 2</button>
@@ -525,7 +541,12 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
                   ))}
                 </div>
 
-                <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50">
+                  <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 px-3 text-sm font-semibold text-slate-800">
+                    <span>Preview first four weeks</span>
+                    <span className="text-xs font-medium text-slate-500">Optional</span>
+                  </summary>
+                  <div className="border-t border-slate-200 p-3 sm:p-4">
                   <div className="flex flex-wrap items-end justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Schedule preview</p><p className="mt-1 text-sm font-semibold text-slate-900">First four weeks</p></div><p className="text-xs text-slate-500">{endDate ? `Stops after ${format(parseISO(endDate), "d MMM yyyy")}` : "Repeats until you end or delete it"}</p></div>
                   <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase text-slate-400 sm:text-xs">{weekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
                   <div className="mt-1 space-y-1.5">
@@ -541,14 +562,37 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
                       </div>
                     ))}
                   </div>
-                </div>
-
-                <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                  <button type="button" disabled={saving} onClick={() => setEditorOpen(false)} className="min-h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Cancel</button>
-                  <button type="button" disabled={saving || participants.length === 0} onClick={() => void saveSchedule()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">{saving ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Repeat2 className="h-4 w-4" aria-hidden="true" />}{editingScheduleId ? "Save changes" : "Save schedule"}</button>
-                </div>
+                  </div>
+                </details>
               </>
             )}
+            </div>
+
+            {editorOpen ? (
+              <footer className="covie-dialog-footer">
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => setEditorOpen(false)}
+                  className="covie-dialog-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={saving || participants.length === 0}
+                  onClick={() => void saveSchedule()}
+                  className="covie-dialog-primary"
+                >
+                  {saving ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Repeat2 className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  {editingScheduleId ? "Save changes" : "Save schedule"}
+                </button>
+              </footer>
+            ) : null}
           </section>
         </div>
       ) : null}

@@ -151,10 +151,10 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
         <span className="hidden sm:inline">Settings</span>
       </button>
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 backdrop-blur-sm sm:items-center sm:p-6">
+        <div className="covie-dialog-backdrop">
           <section
             ref={dialogRef}
-            className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6"
+            className="covie-dialog covie-dialog-md covie-dialog-fit"
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-title"
@@ -162,17 +162,19 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
             aria-busy={loading || saving}
             tabIndex={-1}
           >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                  <Settings2 className="h-5 w-5" aria-hidden="true" />
+            <header className="covie-dialog-header">
+              <div className="covie-dialog-heading">
+                <div className="covie-dialog-icon teal">
+                  <Settings2 aria-hidden="true" />
                 </div>
-                <h2 id="settings-title" className="text-xl font-semibold text-slate-900">Calendar settings</h2>
-                <p id="settings-description" className="mt-1 text-sm text-slate-500">
-                  {readOnly
-                    ? "Review shared calendar details and manage your own optional integrations."
-                    : "Keep shared calendar details up to date and manage your own optional integrations."}
-                </p>
+                <div className="min-w-0">
+                  <h2 id="settings-title" className="covie-dialog-title">Calendar settings</h2>
+                  <p id="settings-description" className="covie-dialog-description">
+                    {readOnly
+                      ? "Review shared calendar details and your optional integrations."
+                      : "Update names, colours and shared calendar details."}
+                  </p>
+                </div>
               </div>
               <button
                 ref={closeButtonRef}
@@ -180,12 +182,13 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
                 aria-label="Close settings"
                 disabled={loading || saving}
                 onClick={() => setOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="covie-dialog-close"
               >
-                <X className="h-5 w-5" aria-hidden="true" />
+                <X aria-hidden="true" />
               </button>
-            </div>
+            </header>
 
+            <div className="covie-dialog-body">
             {loading ? (
               <div role="status" aria-live="polite" className="mt-6 flex items-center gap-2 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
                 <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -208,7 +211,7 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
             ) : null}
 
             {!loading && data ? (
-              <div className="mt-6 space-y-5">
+              <div className="space-y-4">
                 <label className="block">
                   <span className="text-sm font-semibold text-slate-800">Calendar name</span>
                   <input
@@ -275,7 +278,7 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
 
                 <div>
                   <p className="text-sm font-semibold text-slate-800">Children</p>
-                  <div className="mt-2 space-y-2">
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
                     {data.children.map((child, index) => (
                       <input
                         key={child.id}
@@ -300,24 +303,37 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
                   Calendar timezone: {data.calendar.timezone}
                 </div>
 
-                <GoogleCalendarSettings />
+                <details className="rounded-xl border border-slate-200 bg-slate-50">
+                  <summary className="flex min-h-11 cursor-pointer items-center justify-between px-3 text-sm font-semibold text-slate-800">
+                    Google Calendar
+                    <span className="text-xs font-medium text-slate-500">Optional sync</span>
+                  </summary>
+                  <div className="border-t border-slate-200 bg-white p-3">
+                    <GoogleCalendarSettings />
+                  </div>
+                </details>
 
-                {!readOnly ? (
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => void save()}
-                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-                  >
-                    {saving ? (
-                      <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                    ) : (
-                      <Settings2 className="h-4 w-4" aria-hidden="true" />
-                    )}
-                    Save settings
-                  </button>
-                ) : null}
+
               </div>
+            ) : null}
+            </div>
+
+            {!readOnly ? (
+              <footer className="covie-dialog-footer">
+                <button
+                  type="button"
+                  disabled={saving || loading || !data}
+                  onClick={() => void save()}
+                  className="covie-dialog-primary"
+                >
+                  {saving ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Settings2 className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  Save settings
+                </button>
+              </footer>
             ) : null}
           </section>
         </div>
