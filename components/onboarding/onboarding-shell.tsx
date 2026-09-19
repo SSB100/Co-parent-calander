@@ -83,10 +83,7 @@ export function OnboardingShell({
       <section className="mx-auto mt-10 max-w-2xl sm:mt-16">
         {mode === "choose" ? (
           <>
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Welcome to Covie
-            </p>
-            <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
+            <h1 className="covie-display text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
               How would you like to get started?
             </h1>
             <p className="mt-4 max-w-xl text-base leading-7 text-slate-600">
@@ -97,7 +94,7 @@ export function OnboardingShell({
               <button
                 type="button"
                 onClick={() => setMode("create")}
-                className="group rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                className="group rounded-xl border-2 border-slate-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
                   <CalendarPlus2 className="h-6 w-6" aria-hidden="true" />
@@ -126,7 +123,7 @@ export function OnboardingShell({
         ) : null}
 
         {mode === "create" ? (
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+          <section className="rounded-xl border-2 border-slate-200 bg-white p-5 shadow-sm sm:p-7">
             <button
               type="button"
               onClick={() => setMode("choose")}
@@ -188,7 +185,7 @@ export function OnboardingShell({
 
               <button
                 disabled={creating}
-                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white transition hover:bg-emerald-900 disabled:opacity-60"
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#FF6B5F] px-5 text-sm font-bold text-[#243139] transition hover:bg-[#F35F54] disabled:opacity-60"
               >
                 {creating ? "Creating your calendar…" : "Create calendar"}
               </button>
@@ -250,7 +247,7 @@ export function OnboardingShell({
 
               <button
                 disabled={joining}
-                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-violet-700 px-5 text-sm font-semibold text-white transition hover:bg-violet-900 disabled:opacity-60"
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#765ED6] px-5 text-sm font-bold text-white transition hover:bg-[#6651B7] disabled:opacity-60"
               >
                 {joining ? "Joining calendar…" : "Join calendar"}
               </button>

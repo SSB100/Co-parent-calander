@@ -79,16 +79,10 @@ export function KidsShell() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
-      <header className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+      <header className="covie-page-header">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              <UsersRound className="h-4 w-4" aria-hidden="true" />
-              Covie kids
-            </div>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
-              Child profiles
-            </h1>
+            <h1 className="covie-page-title text-3xl sm:text-4xl">Children</h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
               Shared practical information for each child, kept in one calm place.
             </p>

@@ -23,7 +23,6 @@ import {
   LoaderCircle,
   RotateCcw,
   StickyNote,
-  UsersRound,
   ChevronDown,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -457,9 +456,6 @@ export function CalendarShell({
       <header className="covie-calendar-header relative mb-3 sm:mb-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="mb-1 hidden items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 sm:flex">
-              <UsersRound className="h-4 w-4" aria-hidden="true" /> Shared family calendar
-            </div>
             <div className="flex flex-wrap items-center gap-2">
               <CalendarSwitcher
                 calendars={calendars}

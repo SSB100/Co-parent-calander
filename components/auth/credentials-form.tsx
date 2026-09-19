@@ -55,13 +55,13 @@ export function CredentialsForm({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
-      <section className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm sm:p-8">
+    <main className="flex min-h-screen items-center justify-center bg-[#FFF9F2] px-4 py-10 sm:px-6">
+      <section className="w-full max-w-md rounded-xl border-2 border-[#243139] bg-white p-6 shadow-[8px_8px_0_#19A897] sm:p-8">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
           <CovieBrand />
         </Link>
 
-        <h1 className="mt-8 text-3xl font-semibold tracking-tight text-slate-950">
+        <h1 className="covie-display mt-8 text-4xl font-semibold tracking-tight text-slate-950">
           {isSignUp ? "Create your account" : "Welcome back"}
         </h1>
         <p className="mt-2 text-base leading-7 text-slate-600">
@@ -158,7 +158,7 @@ export function CredentialsForm({
           <button
             type="submit"
             disabled={pending || googlePending}
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white transition hover:bg-emerald-900 disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#FF6B5F] px-5 text-sm font-bold text-[#243139] transition hover:bg-[#F35F54] disabled:cursor-wait disabled:opacity-60"
           >
             {pending ? (isSignUp ? "Creating account…" : "Logging in…") : isSignUp ? "Create account" : "Log in"}
             {!pending ? <ArrowRight className="h-4 w-4" aria-hidden="true" /> : null}

@@ -9,53 +9,103 @@ async function source(file) {
   return readFile(path.join(root, file), "utf8");
 }
 
-test("public landing explains Covie in three steps and four core areas", async () => {
-  const home = await source("app/page.tsx");
+test("public landing is concise, product-led and uses recognizable Covie previews", async () => {
+  const [home, previews] = await Promise.all([
+    source("app/page.tsx"),
+    source("components/marketing/product-previews.tsx"),
+  ]);
 
-  assert.match(home, /Co-parenting,/);
-  assert.match(home, /organised in one shared place/);
-  assert.match(home, /Less back-and-forth\. More clarity\./);
+  assert.match(home, /Life between two homes, made simpler/);
   assert.match(home, /Create or join/);
-  assert.match(home, /Plan together/);
-  assert.match(home, /Know what’s next/);
+  assert.match(home, /Add the plan/);
+  assert.match(home, /See what matters/);
   assert.match(home, /Schedule/);
+  assert.match(home, /Updates/);
   assert.match(home, /Expenses/);
   assert.match(home, /Responsibilities/);
   assert.match(home, /Agreements/);
   assert.match(home, /Create an account/);
   assert.match(home, /Log in/);
-  assert.match(home, /aria-hidden="true"/);
+  assert.match(previews, /Alex/);
+  assert.match(previews, /Sam/);
+  assert.match(previews, /School show/);
+  assert.match(previews, /Handover/);
 });
 
-test("landing positioning keeps Covie cooperative and organiser-focused", async () => {
-  const [home, manifest] = await Promise.all([
-    source("app/page.tsx"),
-    source("app/manifest.ts"),
-  ]);
+test("landing hero fits the desktop viewport beneath navigation", async () => {
+  const home = await source("app/page.tsx");
 
-  assert.match(home, /shared organiser/);
-  assert.match(home, /not a payment\s+app, legal evidence/);
-  assert.match(home, /works even if/);
-  assert.match(manifest, /shared organiser/);
-  assert.match(manifest, /expenses, responsibilities and agreements/);
+  assert.match(home, /h-20/);
+  assert.match(home, /lg:h-\[calc\(100svh-5rem\)\]/);
+  assert.match(home, /lg:max-h-\[760px\]/);
+  assert.doesNotMatch(home, /lg:min-h-\[720px\]/);
 });
 
-test("public brand uses the approved solid-colour visual system", async () => {
-  const [home, brand, brandGuide] = await Promise.all([
+test("public brand uses solid Covie colours without decorative gradients", async () => {
+  const [home, previews, brand, brandGuide] = await Promise.all([
     source("app/page.tsx"),
+    source("components/marketing/product-previews.tsx"),
     source("components/workspace/covie-brand.tsx"),
     source("docs/COVIE_BRAND.md"),
   ]);
 
+  const combined = home + previews;
   for (const colour of ["#FF6B5F", "#19A897", "#F4C64E", "#765ED6", "#243139", "#FFF9F2"]) {
-    assert.match(home, new RegExp(colour.replace("#", "\\#"), "i"));
+    assert.match(combined, new RegExp(colour.replace("#", "\\#"), "i"));
   }
 
   assert.doesNotMatch(home, /gradient/i);
-  assert.doesNotMatch(home, /blur-/i);
+  assert.doesNotMatch(previews, /gradient/i);
   assert.doesNotMatch(brand, /linearGradient|radialGradient/i);
   assert.match(brandGuide, /solid colours only/i);
   assert.match(brandGuide, /Covie Loop/i);
+});
+
+test("redundant decorative eyebrow labels are removed from core product pages", async () => {
+  const files = await Promise.all([
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/home/home-shell.tsx"),
+    source("components/expenses/expenses-shell.tsx"),
+    source("components/responsibilities/responsibilities-shell.tsx"),
+    source("components/children/kids-shell.tsx"),
+    source("components/children/child-profile-shell.tsx"),
+    source("components/workspace/organiser-shell.tsx"),
+    source("components/onboarding/onboarding-shell.tsx"),
+  ]);
+  const combined = files.join("\n");
+
+  for (const label of [
+    "Shared family calendar",
+    "Covie expenses",
+    "Covie responsibilities",
+    "Covie kids",
+    "Welcome to Covie",
+  ]) {
+    assert.doesNotMatch(combined, new RegExp(label, "i"));
+  }
+});
+
+test("authenticated pages share the public Covie design system", async () => {
+  const [styles, home, expenses, responsibilities, kids, organiser, auth] = await Promise.all([
+    source("app/globals.css"),
+    source("components/home/home-shell.tsx"),
+    source("components/expenses/expenses-shell.tsx"),
+    source("components/responsibilities/responsibilities-shell.tsx"),
+    source("components/children/kids-shell.tsx"),
+    source("components/workspace/organiser-shell.tsx"),
+    source("components/auth/credentials-form.tsx"),
+  ]);
+
+  assert.match(styles, /--background: #fff9f2/i);
+  assert.match(styles, /workspace-destinations a\[aria-current="page"\].*#ff6b5f/i);
+  assert.match(styles, /covie-page-header/);
+  assert.match(styles, /covie-primary-action/);
+  for (const page of [home, expenses, responsibilities, kids, organiser]) {
+    assert.match(page, /covie-page-header/);
+    assert.match(page, /covie-page-title/);
+  }
+  assert.match(auth, /#FFF9F2/);
+  assert.match(auth, /#FF6B5F/);
 });
 
 test("new-account onboarding has a clear escape while invited existing users can return", async () => {

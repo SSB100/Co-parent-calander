@@ -7,7 +7,6 @@ import {
   ChevronRight,
   CircleDollarSign,
   Clock3,
-  Home,
   ListChecks,
   LoaderCircle,
   MapPin,
@@ -262,19 +261,13 @@ export function HomeShell() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
-      <header className="border-b border-slate-200 pb-5">
+      <header className="covie-page-header">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              <Home className="h-4 w-4" aria-hidden="true" />
-              Updates
-            </div>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
-              {data?.calendar.name ?? "Your family"}
-            </h1>
+            <h1 className="covie-page-title text-3xl sm:text-4xl">Updates</h1>
             <p className="mt-1 text-sm text-slate-500">
               {data
-                ? `${weekdayDateLabel(data.today.date)} · Hi, ${data.currentUserName}`
+                ? `${data.calendar.name} · ${weekdayDateLabel(data.today.date)} · Hi, ${data.currentUserName}`
                 : "Your shared updates"}
             </p>
           </div>
@@ -304,14 +297,12 @@ export function HomeShell() {
       <section className="mt-5">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Needs attention
-            </p>
-            <h2 className="mt-1 text-xl font-semibold text-slate-950">
+            <h2 className="text-xl font-semibold text-slate-950">Needs attention</h2>
+            <p className="mt-1 text-sm text-slate-500">
               {attentionCount > 0
                 ? `${attentionCount} ${attentionCount === 1 ? "item" : "items"} to look at`
                 : "You're all caught up."}
-            </h2>
+            </p>
           </div>
         </div>
 
@@ -461,12 +452,8 @@ export function HomeShell() {
       {data ? (
         <section className="mt-8">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Today
-            </p>
-            <h2 className="mt-1 text-xl font-semibold text-slate-950">
-              {weekdayDateLabel(data.today.date)}
-            </h2>
+            <h2 className="text-xl font-semibold text-slate-950">Today</h2>
+            <p className="mt-1 text-sm text-slate-500">{weekdayDateLabel(data.today.date)}</p>
           </div>
 
           <div className="mt-3 grid gap-x-6 md:grid-cols-2">
