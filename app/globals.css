@@ -85,7 +85,6 @@ button:disabled { cursor: not-allowed; }
 @media (min-width: 640px) {
   .workspace-mobile-actions { display: contents; }
   .workspace-mobile-action-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  details.workspace-mobile-actions:not([open]) > .workspace-mobile-action-panel { display: flex; }
 }
 .workspace-nav { position: fixed; z-index: 20; background: #fff9f2; }
 .workspace-brand { display: block; margin: 0 12px 24px; font-size: 28px; font-weight: 700; letter-spacing: -0.04em; color: #243139; }
@@ -647,11 +646,7 @@ main:has(.workspace-nav) { background: #fff9f2; }
     list-style: none;
   }
 
-  .workspace-mobile-actions-trigger::-webkit-details-marker {
-    display: none;
-  }
-
-  .workspace-mobile-actions[open] .workspace-mobile-actions-trigger {
+  .workspace-mobile-actions.is-open .workspace-mobile-actions-trigger {
     background: #f7dc86;
   }
 
@@ -674,7 +669,7 @@ main:has(.workspace-nav) { background: #fff9f2; }
     box-shadow: 5px 5px 0 #f4c64e;
   }
 
-  .workspace-mobile-actions:not([open]) > .workspace-mobile-action-panel {
+  .workspace-mobile-actions:not(.is-open) > .workspace-mobile-action-panel {
     display: none;
   }
 
