@@ -78,6 +78,14 @@ button:disabled { cursor: not-allowed; }
 .covie-menu-item:hover { background: #f7efe5; }
 .covie-tool-menu { display: flex; flex-direction: column; gap: 8px; }
 .covie-tool-menu > button { min-height: 44px; justify-content: flex-start; border-color: #e6dbcf; background: #fff; }
+.workspace-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.workspace-mobile-actions-trigger { display: none; }
+.workspace-mobile-logout,
+.workspace-mobile-signout-error { display: none; }
+@media (min-width: 640px) {
+  .workspace-mobile-actions { display: contents; }
+  .workspace-mobile-action-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+}
 .workspace-nav { position: fixed; z-index: 20; background: #fff9f2; }
 .workspace-brand { display: block; margin: 0 12px 24px; font-size: 28px; font-weight: 700; letter-spacing: -0.04em; color: #243139; }
 .workspace-destinations { display: flex; gap: 8px; }
@@ -105,10 +113,13 @@ button:disabled { cursor: not-allowed; }
 
 @media (max-width: 639px) {
   .covie-calendar-header { padding-top: 4px; }
-  .covie-calendar-header .workspace-account { position: absolute; top: 0; right: 0; }
-  .covie-calendar-header .workspace-actions { gap: 6px; }
-  .covie-calendar-header .workspace-actions > button { padding-inline: 10px; }
-  .covie-calendar-header .covie-menu-trigger { padding-inline: 10px; }
+  .covie-calendar-header .workspace-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: auto;
+    z-index: 40;
+  }
   .covie-calendar-controls { gap: 6px; }
   .covie-calendar-controls > div { margin-right: auto; gap: 6px; }
   .covie-calendar-controls > button { gap: 4px; padding-inline: 8px; font-size: 13px; }
@@ -614,8 +625,89 @@ main:has(.workspace-nav) { background: #fff9f2; }
   }
 
   .workspace-actions {
-    width: 100%;
     gap: 6px;
+  }
+
+  .workspace-mobile-actions {
+    position: relative;
+  }
+
+  .workspace-mobile-actions-trigger {
+    display: flex;
+    height: 42px;
+    width: 42px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 1px solid #243139;
+    border-radius: 10px;
+    background: #fff;
+    color: #243139;
+    list-style: none;
+  }
+
+  .workspace-mobile-actions.is-open .workspace-mobile-actions-trigger {
+    background: #f7dc86;
+  }
+
+  .workspace-mobile-action-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 45;
+    display: flex;
+    width: min(320px, calc(100vw - 16px));
+    max-height: min(70dvh, 560px);
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 2px solid #243139;
+    border-radius: 14px;
+    background: #fff9f2;
+    padding: 8px;
+    box-shadow: 5px 5px 0 #f4c64e;
+  }
+
+  .workspace-mobile-actions:not(.is-open) > .workspace-mobile-action-panel {
+    display: none;
+  }
+
+  .workspace-mobile-action-panel > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .workspace-mobile-action-panel > button,
+  .workspace-mobile-action-panel > a,
+  .workspace-mobile-action-panel .covie-menu-trigger {
+    min-height: 44px;
+    width: 100%;
+  }
+
+  .workspace-mobile-action-panel > button,
+  .workspace-mobile-action-panel > a {
+    justify-content: flex-start;
+  }
+
+  .workspace-mobile-action-panel .workspace-account {
+    display: none;
+  }
+
+  .workspace-mobile-logout {
+    display: flex;
+    border-top: 1px solid #e6dbcf;
+    border-radius: 0 0 8px 8px;
+    padding-top: 12px;
+  }
+
+  .workspace-mobile-signout-error {
+    display: block;
+  }
+
+  .workspace-mobile-action-panel .covie-menu,
+  .workspace-mobile-action-panel .workspace-context-content {
+    z-index: 50;
   }
 
   .covie-calendar-header {
@@ -624,28 +716,6 @@ main:has(.workspace-nav) { background: #fff9f2; }
 
   .covie-calendar-header > div {
     gap: 8px;
-  }
-
-  .covie-calendar-header .workspace-actions {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding: 2px 0 4px;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .covie-calendar-header .workspace-actions::-webkit-scrollbar {
-    display: none;
-  }
-
-  .covie-calendar-header .workspace-actions > * {
-    flex: 0 0 auto;
-  }
-
-  .covie-calendar-header .workspace-actions button,
-  .covie-calendar-header .workspace-actions a,
-  .covie-calendar-header .covie-menu-trigger {
-    min-height: 40px;
   }
 
   .covie-menu {

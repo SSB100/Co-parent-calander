@@ -1,5 +1,5 @@
 "use client";
-import { CalendarDays, Bell, LayoutGrid, LogOut, UsersRound, ListChecks, WalletCards, ChevronDown } from "lucide-react";
+import { CalendarDays, Bell, LayoutGrid, LogOut, UsersRound, ListChecks, WalletCards, ChevronDown, Menu } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -25,7 +25,9 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
   const [signOutError, setSignOutError] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const accountRef = useRef<HTMLDetailsElement>(null);
+  const mobileActionsRef = useRef<HTMLDivElement>(null);
   useDismissibleDetails(accountRef);
   const section = active && ["expenses", "responsibilities", "kids"].includes(active) ? "organiser" : active;
 
@@ -52,6 +54,29 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
       window.removeEventListener("covie-records-updated", refreshNotifications);
     };
   }, []);
+
+  useEffect(() => {
+    if (!mobileActionsOpen) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!(event.target instanceof Node)) return;
+      if (!mobileActionsRef.current?.contains(event.target)) {
+        setMobileActionsOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setMobileActionsOpen(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mobileActionsOpen]);
+
   async function signOut() {
     setSigningOut(true);
     setSignOutError(false);
@@ -59,8 +84,18 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
       const result = await authClient.signOut();
       if (result?.error) throw new Error("Sign out failed");
       router.push("/");
-    } catch { setSignOutError(true); setSigningOut(false); }
+    } catch {
+      setSignOutError(true);
+      setSigningOut(false);
+    }
   }
+
+  function closeMobileActionsAfterAction(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return;
+    if (!target.closest("a, button")) return;
+    setMobileActionsOpen(false);
+  }
+
   return <>
     <nav className="workspace-nav" aria-label="Main navigation">
       <Link href="/calendar" className="workspace-brand"><CovieBrand /></Link>
@@ -82,18 +117,52 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
       </div>
       <div className="desktop-coming-up"><ComingUp /></div>
     </nav>
-    <div className="workspace-actions flex flex-wrap items-center gap-2">
-      {actions}
-      <div className="mobile-coming-up"><ComingUp /></div>
-      <details ref={accountRef} className="workspace-account relative">
-        <summary className="covie-menu-trigger">Account <ChevronDown size={16} aria-hidden="true" /></summary>
-        <div className="covie-menu">
-          <button type="button" onClick={() => void signOut()} disabled={signingOut} className="covie-menu-item">
+
+    <div className="workspace-actions">
+      <div
+        ref={mobileActionsRef}
+        className={`workspace-mobile-actions relative${mobileActionsOpen ? " is-open" : ""}`}
+      >
+        <button
+          type="button"
+          className="workspace-mobile-actions-trigger"
+          aria-label={mobileActionsOpen ? "Close actions menu" : "Open actions menu"}
+          aria-expanded={mobileActionsOpen}
+          onClick={() => setMobileActionsOpen((current) => !current)}
+        >
+          <Menu size={22} aria-hidden="true" />
+          <span className="sr-only">Menu</span>
+        </button>
+        <div
+          className="workspace-mobile-action-panel"
+          onClick={(event) => closeMobileActionsAfterAction(event.target)}
+        >
+          {actions}
+          <div className="mobile-coming-up"><ComingUp /></div>
+          <details ref={accountRef} className="workspace-account relative">
+            <summary className="covie-menu-trigger">Account <ChevronDown size={16} aria-hidden="true" /></summary>
+            <div className="covie-menu">
+              <button type="button" onClick={() => void signOut()} disabled={signingOut} className="covie-menu-item">
+                <LogOut size={16} aria-hidden="true" />{signingOut ? "Signing out…" : "Log out"}
+              </button>
+              {signOutError && <p role="alert" className="px-3 text-sm text-rose-700">Could not log out. Please try again.</p>}
+            </div>
+          </details>
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            disabled={signingOut}
+            className="workspace-mobile-logout covie-menu-item"
+          >
             <LogOut size={16} aria-hidden="true" />{signingOut ? "Signing out…" : "Log out"}
           </button>
-          {signOutError && <p role="alert" className="px-3 text-sm text-rose-700">Could not log out. Please try again.</p>}
+          {signOutError ? (
+            <p role="alert" className="workspace-mobile-signout-error px-3 text-sm text-rose-700">
+              Could not log out. Please try again.
+            </p>
+          ) : null}
         </div>
-      </details>
+      </div>
     </div>
   </>;
 }
