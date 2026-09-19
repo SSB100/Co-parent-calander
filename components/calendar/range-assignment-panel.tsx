@@ -87,7 +87,95 @@ export function RangeAssignmentPanel({ onChanged }: RangeAssignmentPanelProps) {
     }
 
     document.addEventListener("keydown", handleKeyDown);
-    return (
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [open]);
+
+  const rangeCount = useMemo(() => {
+    if (!startDate || !endDate || endDate < startDate) return null;
+    const difference = differenceInCalendarDays(parseISO(endDate), parseISO(startDate));
+    return difference + 1;
+  }, [startDate, endDate]);
+
+  async function openPanel() {
+    setOpen(true);
+    setLoading(true);
+    setMessage(null);
+    setSuccess(false);
+
+    try {
+      const response = await fetch("/api/settings", { cache: "no-store" });
+      const body = (await response.json().catch(() => null)) as
+        | { parents?: Parent[]; error?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(body?.error ?? "The family calendar could not be loaded.");
+      }
+      setParents((body?.parents ?? []).slice(0, 2));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "The family calendar could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function assignRange(parentId: string | null) {
+    if (saving) return;
+
+    if (!startDate || !endDate) {
+      setSuccess(false);
+      setMessage("Choose both a start date and an end date.");
+      return;
+    }
+    if (endDate < startDate) {
+      setSuccess(false);
+      setMessage("The end date must be on or after the start date.");
+      return;
+    }
+
+    const dayDifference = differenceInCalendarDays(parseISO(endDate), parseISO(startDate));
+    if (dayDifference > 61) {
+      setSuccess(false);
+      setMessage("Choose a range of 62 days or fewer.");
+      return;
+    }
+
+    const dates = eachDayOfInterval({ start: parseISO(startDate), end: parseISO(endDate) }).map(
+      (day) => format(day, "yyyy-MM-dd"),
+    );
+
+    setSaving(true);
+    setMessage(null);
+    setSuccess(false);
+
+    try {
+      const response = await fetch("/api/assignments", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ dates, parentId }),
+      });
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) {
+        throw new Error(body?.error ?? "That date range could not be updated.");
+      }
+
+      const action = parentId
+        ? `assigned to ${parents.find((parent) => parent.id === parentId)?.displayName ?? "the selected parent"}`
+        : "cleared";
+      setSuccess(true);
+      setMessage(`${dates.length} ${dates.length === 1 ? "day" : "days"} ${action}.`);
+      onChanged?.();
+    } catch (error) {
+      setSuccess(false);
+      setMessage(error instanceof Error ? error.message : "That date range could not be updated.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
     <>
       <button
         type="button"

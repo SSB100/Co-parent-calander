@@ -142,7 +142,138 @@ export function EventPanel({
     }
 
     document.addEventListener("keydown", handleKeyDown);
-    return (
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [open]);
+
+  async function loadEvents() {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/events", { cache: "no-store" });
+      const body = (await response.json().catch(() => null)) as { events?: CalendarEvent[]; error?: string } | null;
+      if (!response.ok) throw new Error(body?.error ?? "Events could not be loaded.");
+      setEvents(body?.events ?? []);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Events could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function openPanel() {
+    setOpen(true);
+    setEditingId(null);
+    setForm(blankForm(initialDate));
+    setReason("");
+    await loadEvents();
+  }
+
+  function editEvent(event: CalendarEvent) {
+    setEditingId(event.id);
+    setForm({
+      title: event.title,
+      description: event.description ?? "",
+      category: event.category,
+      startDate: event.startDate,
+      endDate: event.endDate ?? "",
+      recurrence: event.recurrence,
+      recurrenceEndDate: event.recurrenceEndDate ?? "",
+    });
+    setReason("");
+    setMessage(null);
+  }
+
+  async function saveEvent() {
+    if (saving) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      const payload = {
+        ...(editingId ? { id: editingId } : {}),
+        title: form.title,
+        description: form.description || null,
+        category: form.category,
+        startDate: form.startDate,
+        endDate: form.endDate || null,
+        recurrence: form.recurrence,
+        recurrenceEndDate:
+          form.recurrence === "none" ? null : form.recurrenceEndDate || null,
+        reason: reason.trim() || null,
+      };
+      const response = await fetch("/api/events", {
+        method: editingId ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; pending?: boolean; approverName?: string | null }
+        | null;
+      if (!response.ok) throw new Error(body?.error ?? "The event could not be saved.");
+
+      const wasEditing = Boolean(editingId);
+      setEditingId(null);
+      setForm(blankForm(initialDate));
+      setReason("");
+      await loadEvents();
+      setMessage(
+        body?.pending
+          ? body.approverName
+            ? `Event change sent to ${body.approverName} for approval.`
+            : "Event change sent for approval."
+          : wasEditing
+            ? "Event updated."
+            : "Event added to the shared calendar.",
+      );
+      onChanged?.();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "The event could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteEvent(id: string) {
+    if (saving) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/events", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id,
+          reason: reason.trim() || null,
+        }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; pending?: boolean; approverName?: string | null }
+        | null;
+      if (!response.ok) throw new Error(body?.error ?? "The event could not be deleted.");
+      if (editingId === id) {
+        setEditingId(null);
+        setForm(blankForm(initialDate));
+        setReason("");
+      }
+      await loadEvents();
+      setMessage(
+        body?.pending
+          ? body.approverName
+            ? `Event cancellation sent to ${body.approverName} for approval.`
+            : "Event cancellation sent for approval."
+          : "Event removed.",
+      );
+      onChanged?.();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "The event could not be deleted.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
     <>
       <button
         type="button"

@@ -118,7 +118,29 @@ export function ActivityPanel() {
     }
 
     document.addEventListener("keydown", handleKeyDown);
-    return (
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [open]);
+
+  async function openPanel() {
+    setOpen(true);
+    setLoading(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/activity", { cache: "no-store" });
+      const body = (await response.json().catch(() => null)) as { activity?: ActivityItem[]; error?: string } | null;
+      if (!response.ok) throw new Error(body?.error ?? "Activity could not be loaded.");
+      setItems(body?.activity ?? []);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Activity could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
     <>
       <button
         type="button"

@@ -76,7 +76,79 @@ export function SharePanel() {
     }
 
     document.addEventListener("keydown", handleKeyDown);
-    return (
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [open]);
+
+  async function openPanel() {
+    setOpen(true);
+    if (status) return;
+
+    setLoading(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/share", { cache: "no-store" });
+      const body = (await response.json().catch(() => null)) as ShareStatus | { error?: string } | null;
+      if (!response.ok || !body || !("enabled" in body)) {
+        throw new Error(body && "error" in body && body.error ? body.error : "Sharing could not be loaded.");
+      }
+      setStatus(body);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Sharing could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function generateLink() {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/share", { method: "POST" });
+      const body = (await response.json().catch(() => null)) as
+        | { enabled: boolean; viewerUrl: string }
+        | { error?: string }
+        | null;
+      if (!response.ok || !body || !("viewerUrl" in body)) {
+        throw new Error(body && "error" in body && body.error ? body.error : "A viewer link could not be created.");
+      }
+      setViewerUrl(body.viewerUrl);
+      setStatus({ enabled: true, tokenCreatedAt: new Date().toISOString(), lastUsedAt: null });
+      setMessage("New viewer link created. Any previous viewer link is now invalid.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "A viewer link could not be created.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function revokeLink() {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/share", { method: "DELETE" });
+      const body = (await response.json().catch(() => null)) as { enabled?: boolean; error?: string } | null;
+      if (!response.ok) throw new Error(body?.error ?? "The viewer link could not be revoked.");
+      setViewerUrl(null);
+      setStatus({ enabled: false, tokenCreatedAt: null, lastUsedAt: null });
+      setMessage("Viewer access has been revoked.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "The viewer link could not be revoked.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function copyViewerLink() {
+    if (!viewerUrl) return;
+    await navigator.clipboard.writeText(viewerUrl);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  }
+
+  return (
     <>
       <button
         type="button"

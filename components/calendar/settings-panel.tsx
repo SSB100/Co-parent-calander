@@ -84,7 +84,62 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
     }
 
     document.addEventListener("keydown", handleKeyDown);
-    return (
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [open]);
+
+  async function openPanel() {
+    setOpen(true);
+    setLoading(true);
+    setMessage(null);
+    setMessageKind("error");
+    try {
+      const response = await fetch("/api/settings", { cache: "no-store" });
+      const body = (await response.json().catch(() => null)) as SettingsPayload | { error?: string } | null;
+      if (!response.ok || !body || !("calendar" in body)) {
+        throw new Error(body && "error" in body ? body.error : "Settings could not be loaded.");
+      }
+      setData(body);
+    } catch (error) {
+      setData(null);
+      setMessageKind("error");
+      setMessage(error instanceof Error ? error.message : "Settings could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function save() {
+    if (!data || saving || readOnly) return;
+    setSaving(true);
+    setMessage(null);
+    setMessageKind("error");
+    try {
+      const response = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          calendarName: data.calendar.name,
+          parents: data.parents,
+          children: data.children,
+        }),
+      });
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(body?.error ?? "Settings could not be saved.");
+      setMessageKind("success");
+      setMessage("Settings saved.");
+      onChanged?.();
+    } catch (error) {
+      setMessageKind("error");
+      setMessage(error instanceof Error ? error.message : "Settings could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
     <>
       <button
         type="button"
@@ -95,12 +150,11 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
         <Settings2 className="h-4 w-4" aria-hidden="true" />
         <span className="hidden sm:inline">Settings</span>
       </button>
-
       {open ? (
-        <div className="covie-dialog-backdrop">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 backdrop-blur-sm sm:items-center sm:p-6">
           <section
             ref={dialogRef}
-            className="covie-dialog covie-dialog-md covie-dialog-fit"
+            className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6"
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-title"
@@ -108,21 +162,17 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
             aria-busy={loading || saving}
             tabIndex={-1}
           >
-            <header className="covie-dialog-header">
-              <div className="covie-dialog-heading">
-                <div className="covie-dialog-icon teal">
-                  <Settings2 aria-hidden="true" />
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                  <Settings2 className="h-5 w-5" aria-hidden="true" />
                 </div>
-                <div className="min-w-0">
-                  <h2 id="settings-title" className="covie-dialog-title">
-                    Calendar settings
-                  </h2>
-                  <p id="settings-description" className="covie-dialog-description">
-                    {readOnly
-                      ? "Review shared calendar details and your optional integrations."
-                      : "Update names, colours and shared calendar details."}
-                  </p>
-                </div>
+                <h2 id="settings-title" className="text-xl font-semibold text-slate-900">Calendar settings</h2>
+                <p id="settings-description" className="mt-1 text-sm text-slate-500">
+                  {readOnly
+                    ? "Review shared calendar details and manage your own optional integrations."
+                    : "Keep shared calendar details up to date and manage your own optional integrations."}
+                </p>
               </div>
               <button
                 ref={closeButtonRef}
@@ -130,97 +180,72 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
                 aria-label="Close settings"
                 disabled={loading || saving}
                 onClick={() => setOpen(false)}
-                className="covie-dialog-close"
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <X aria-hidden="true" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
-            </header>
+            </div>
 
-            <div className="covie-dialog-body">
-              {loading ? (
-                <div
-                  role="status"
-                  aria-live="polite"
-                  className="covie-dialog-status flex items-center gap-2"
-                >
-                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  Loading settings…
-                </div>
-              ) : null}
+            {loading ? (
+              <div role="status" aria-live="polite" className="mt-6 flex items-center gap-2 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+                <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Loading settings…
+              </div>
+            ) : null}
 
-              {message ? (
-                <p
-                  role={messageKind === "error" ? "alert" : "status"}
-                  aria-live={messageKind === "error" ? "assertive" : "polite"}
-                  className={`rounded-xl border px-3 py-2 text-sm ${
-                    messageKind === "error"
-                      ? "border-rose-200 bg-rose-50 text-rose-700"
-                      : "border-[#19A897] bg-[#EAF8F5] text-[#0B665C]"
-                  }`}
-                >
-                  {message}
-                </p>
-              ) : null}
+            {message ? (
+              <p
+                role={messageKind === "error" ? "alert" : "status"}
+                aria-live={messageKind === "error" ? "assertive" : "polite"}
+                className={`mt-4 rounded-xl px-4 py-3 text-sm ${
+                  messageKind === "error"
+                    ? "bg-rose-50 text-rose-700"
+                    : "bg-emerald-50 text-emerald-800"
+                }`}
+              >
+                {message}
+              </p>
+            ) : null}
 
-              {!loading && data ? (
-                <div className="space-y-4">
-                  <label className="block">
-                    <span className="text-sm font-semibold text-slate-800">Calendar name</span>
-                    <input
-                      value={data.calendar.name}
-                      disabled={saving || readOnly}
-                      onChange={(event) =>
-                        setData({
-                          ...data,
-                          calendar: { ...data.calendar, name: event.target.value },
-                        })
-                      }
-                      className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50 disabled:opacity-70"
-                    />
-                  </label>
+            {!loading && data ? (
+              <div className="mt-6 space-y-5">
+                <label className="block">
+                  <span className="text-sm font-semibold text-slate-800">Calendar name</span>
+                  <input
+                    value={data.calendar.name}
+                    disabled={saving || readOnly}
+                    onChange={(event) => setData({ ...data, calendar: { ...data.calendar, name: event.target.value } })}
+                    className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50 disabled:opacity-70"
+                  />
+                </label>
 
-                  <div>
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-slate-800">Parents</p>
-                      <span className="text-xs text-slate-500">Names & calendar colours</span>
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {data.parents.map((parent, index) => (
-                        <div
-                          key={parent.id}
-                          className={`rounded-xl border p-3 ${
-                            index === 0
-                              ? "border-[#19A897] bg-[#EAF8F5]"
-                              : "border-[#765ED6] bg-[#F4F1FF]"
-                          }`}
-                        >
-                          <input
-                            value={parent.displayName}
-                            disabled={saving || readOnly}
-                            aria-label={`Parent ${index + 1} name`}
-                            onChange={(event) =>
-                              setData({
-                                ...data,
-                                parents: data.parents.map((item) =>
-                                  item.id === parent.id
-                                    ? { ...item, displayName: event.target.value }
-                                    : item,
-                                ),
-                              })
-                            }
-                            className="min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50 disabled:opacity-70"
-                          />
-                          <fieldset className="mt-2" disabled={saving || readOnly}>
-                            <legend className="text-[11px] font-semibold text-slate-600">
-                              Calendar colour
-                            </legend>
-                            <div className="mt-1.5 flex flex-wrap gap-2">
-                              {parentColorOptions.map((option) => {
-                                const taken = data.parents.some(
-                                  (item) =>
-                                    item.id !== parent.id && item.colorKey === option.key,
-                                );
-                                return (
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Parents</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {data.parents.map((parent, index) => (
+                      <div key={parent.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                        <input
+                          value={parent.displayName}
+                          disabled={saving || readOnly}
+                          aria-label={`Parent ${index + 1} name`}
+                          onChange={(event) =>
+                            setData({
+                              ...data,
+                              parents: data.parents.map((item) =>
+                                item.id === parent.id ? { ...item, displayName: event.target.value } : item,
+                              ),
+                            })
+                          }
+                          className="min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50 disabled:opacity-70"
+                        />
+                        <fieldset className="mt-3" disabled={saving || readOnly}>
+                          <legend className="text-xs font-semibold text-slate-600">Calendar colour</legend>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {parentColorOptions.map((option) => {
+                              const taken = data.parents.some(
+                                (item) => item.id !== parent.id && item.colorKey === option.key,
+                              );
+                              return (
                                   <button
                                     key={option.key}
                                     type="button"
