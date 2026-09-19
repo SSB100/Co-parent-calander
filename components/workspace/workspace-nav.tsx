@@ -99,8 +99,8 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
     <div className="workspace-actions">
       <details ref={mobileActionsRef} className="workspace-mobile-actions relative">
         <summary className="workspace-mobile-actions-trigger" aria-label="Open actions menu">
-          <Menu size={21} aria-hidden="true" />
-          <span>Menu</span>
+          <Menu size={22} aria-hidden="true" />
+          <span className="sr-only">Menu</span>
         </summary>
         <div
           className="workspace-mobile-action-panel"
@@ -117,6 +117,19 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
               {signOutError && <p role="alert" className="px-3 text-sm text-rose-700">Could not log out. Please try again.</p>}
             </div>
           </details>
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            disabled={signingOut}
+            className="workspace-mobile-logout covie-menu-item"
+          >
+            <LogOut size={16} aria-hidden="true" />{signingOut ? "Signing out…" : "Log out"}
+          </button>
+          {signOutError ? (
+            <p role="alert" className="workspace-mobile-signout-error px-3 text-sm text-rose-700">
+              Could not log out. Please try again.
+            </p>
+          ) : null}
         </div>
       </details>
     </div>
