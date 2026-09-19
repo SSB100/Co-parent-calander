@@ -143,16 +143,16 @@ test("documents are attached to agreed feature records instead of pending propos
   assert.match(dayDetails, /entityType="event"[\s\S]{0,120}entityId=\{event\.id\}/);
   assert.match(panel, /entityId/);
 
-  assert.ok(expense.indexOf("Waiting for agreement") < expense.indexOf("Agreed expenses"));
+  assert.ok(expense.indexOf("Waiting for agreement") < expense.indexOf("Current expenses"));
   assert.ok(
-    expense.indexOf("Agreed expenses") < expense.indexOf('entityType="expense"'),
+    expense.indexOf("Current expenses") < expense.indexOf('entityType="expense"'),
   );
   assert.ok(
     responsibility.indexOf("Waiting for agreement") <
-      responsibility.indexOf("Agreed responsibilities"),
+      responsibility.indexOf("Current responsibilities"),
   );
   assert.ok(
-    responsibility.indexOf("Agreed responsibilities") <
+    responsibility.indexOf("Current responsibilities") <
       responsibility.indexOf('entityType="responsibility"'),
   );
 });
