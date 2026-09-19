@@ -13,7 +13,8 @@ test("Home aggregates approvals urgent expenses responsibilities and daily calen
   const api = await source("app/api/home/route.ts");
 
   assert.match(api, /listApprovalProposals/);
-  assert.match(api, /approverMembershipId === session\.membershipId/);\n  assert.match(api, /proposedByMembershipId === session\.membershipId/);
+  assert.match(api, /approverMembershipId === session\.membershipId/);
+  assert.match(api, /proposedByMembershipId === session\.membershipId/);
   assert.match(api, /attentionCutoff/);
   assert.match(api, /expenseReimbursementContext/);
   assert.match(api, /responsibilityAttention/);

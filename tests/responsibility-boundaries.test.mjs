@@ -124,7 +124,10 @@ test("responsibilities UI uses quick templates as prefills and exposes planned f
   assert.match(shell, /Expense/);
   assert.match(shell, /Reason for change/);
   assert.match(shell, /Waiting for agreement/);
-  assert.match(shell, /Current responsibilities/);\n  assert.match(shell, /Responsibility archive/);\n  assert.match(shell, /item\.status !== "completed"/);\n  assert.match(shell, /item\.status === "completed"/);
+  assert.match(shell, /Current responsibilities/);
+  assert.match(shell, /Responsibility archive/);
+  assert.match(shell, /item\.status !== "completed"/);
+  assert.match(shell, /item\.status === "completed"/);
 });
 
 test("responsibility workflow remains separate from Google Calendar sync", async () => {
