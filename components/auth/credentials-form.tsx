@@ -8,6 +8,7 @@ import {
   signUpWithEmail,
   type AuthActionState,
 } from "@/app/auth/actions";
+import { GoogleGMark, googleActionClassName } from "@/components/google/google-brand";
 import { CovieBrand } from "@/components/workspace/covie-brand";
 import { authClient } from "@/lib/auth/client";
 
@@ -34,18 +35,28 @@ export function CredentialsForm({
   async function continueWithGoogle() {
     setGooglePending(true);
     setGoogleError(null);
-    const callbackURL = inviteCode
+
+    const callbackPath = inviteCode
       ? `/onboarding?invite=${encodeURIComponent(inviteCode)}`
       : "/";
+    const callbackURL = new URL(callbackPath, window.location.origin).toString();
 
     try {
       const result = await authClient.signIn.social({
         provider: "google",
         callbackURL,
+        disableRedirect: true,
       });
       if (result?.error) {
         throw new Error(result.error.message || "Google sign-in could not be started.");
       }
+
+      const data = result?.data as { url?: string } | null | undefined;
+      if (!data?.url) {
+        throw new Error("Google sign-in did not return a redirect URL.");
+      }
+
+      window.location.assign(data.url);
     } catch (error) {
       setGoogleError(
         error instanceof Error ? error.message : "Google sign-in could not be started.",
@@ -77,15 +88,15 @@ export function CredentialsForm({
             type="button"
             onClick={() => void continueWithGoogle()}
             disabled={googlePending || pending}
-            className="inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border-2 border-slate-300 bg-white px-5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+            className={`${googleActionClassName} w-full min-h-12`}
+            style={{ fontFamily: '"Google Sans", Roboto, Arial, sans-serif' }}
           >
-            <span
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-base font-black text-[#4285F4]"
-              aria-hidden="true"
-            >
-              G
-            </span>
-            {googlePending ? "Opening Google…" : `${isSignUp ? "Sign up" : "Continue"} with Google`}
+            <GoogleGMark />
+            {googlePending
+              ? "Opening Google…"
+              : isSignUp
+                ? "Sign up with Google"
+                : "Sign in with Google"}
           </button>
           {googleError ? (
             <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">

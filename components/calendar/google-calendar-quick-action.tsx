@@ -1,7 +1,8 @@
 "use client";
 
-import { CalendarSync, LoaderCircle, RefreshCw } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { GoogleGMark, googleActionClassName } from "@/components/google/google-brand";
 
 type Connection = {
   status: "initial_sync" | "active" | "reconnect_required" | "error";
@@ -31,13 +32,13 @@ export function GoogleCalendarQuickAction() {
     return (
       <a
         href="/api/google-calendar/connect"
-        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+        className={googleActionClassName}
       >
-        <CalendarSync className="h-4 w-4" aria-hidden="true" />
+        <GoogleGMark className="h-4.5 w-4.5" />
         <span className="hidden sm:inline">
-          {payload.connection ? "Reconnect Google" : "Sync to Google Calendar"}
+          {payload.connection ? "Reconnect Google Calendar" : "Connect Google Calendar"}
         </span>
-        <span className="sm:hidden">Google</span>
+        <span className="sm:hidden">Calendar</span>
       </a>
     );
   }
@@ -64,12 +65,12 @@ export function GoogleCalendarQuickAction() {
         type="button"
         onClick={() => void syncNow()}
         disabled={syncing}
-        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+        className={googleActionClassName}
       >
         {syncing ? (
           <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (
-          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          <GoogleGMark className="h-4.5 w-4.5" />
         )}
         <span className="hidden sm:inline">Sync Google Calendar</span>
         <span className="sm:hidden">Google</span>

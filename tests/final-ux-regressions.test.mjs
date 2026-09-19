@@ -176,7 +176,9 @@ test("Google Calendar has a direct action outside Calendar settings", async () =
   ]);
 
   assert.match(shell, /GoogleCalendarQuickAction/);
-  assert.match(action, /Sync to Google Calendar/);
+  assert.match(action, /Connect Google Calendar/);
+  assert.match(action, /Sync Google Calendar/);
+  assert.match(action, /GoogleGMark/);
   assert.match(action, /\/api\/google-calendar\/connect/);
   assert.match(action, /\/api\/google-calendar\/reconcile/);
 });

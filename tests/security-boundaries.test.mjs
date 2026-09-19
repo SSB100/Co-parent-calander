@@ -146,12 +146,27 @@ test("legacy setup is retired while managed calendar creation and joining remain
 });
 
 
-test("sign-in and sign-up expose managed Google OAuth while preserving invite handoff", async () => {
-  const form = await source("components/auth/credentials-form.tsx");
+test("sign-in and sign-up explicitly follow Neon Google OAuth redirects", async () => {
+  const [form, provider, brand] = await Promise.all([
+    source("components/auth/credentials-form.tsx"),
+    source("components/auth/auth-provider.tsx"),
+    source("components/google/google-brand.tsx"),
+  ]);
 
   assert.match(form, /authClient\.signIn\.social/);
   assert.match(form, /provider: "google"/);
+  assert.match(form, /disableRedirect: true/);
+  assert.match(form, /window\.location\.assign\(data\.url\)/);
+  assert.match(form, /new URL\(callbackPath, window\.location\.origin\)/);
   assert.match(form, /\/onboarding\?invite=/);
-  assert.match(form, /Continue.*with Google/);
+  assert.match(form, /Sign in with Google/);
+  assert.match(form, /Sign up with Google/);
+  assert.match(provider, /social=\{\{ providers: \["google"\] \}\}/);
+  assert.match(provider, /onSessionChange=\{\(\) => router\.refresh\(\)\}/);
+  assert.match(brand, /#4285F4/);
+  assert.match(brand, /#34A853/);
+  assert.match(brand, /#FBBC05/);
+  assert.match(brand, /#EA4335/);
+  assert.match(brand, /#747775/);
   assert.doesNotMatch(form, /GOOGLE_CLIENT_SECRET|GOOGLE_CLIENT_ID/);
 });
