@@ -29,6 +29,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { ActivityPanel } from "@/components/calendar/activity-panel";
 import { CalendarSwitcher, type CalendarOption } from "@/components/calendar/calendar-switcher";
+import { GoogleCalendarQuickAction } from "@/components/calendar/google-calendar-quick-action";
 import { DayDetailsPanel } from "@/components/calendar/day-details-panel";
 import { EventPanel } from "@/components/calendar/event-panel";
 import { MembersPanel } from "@/components/calendar/members-panel";
@@ -37,10 +38,11 @@ import { RangeAssignmentPanel } from "@/components/calendar/range-assignment-pan
 import { SettingsPanel } from "@/components/calendar/settings-panel";
 import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
 import { InstallApp } from "@/components/pwa/install-app";
+import { ComingUp } from "@/components/workspace/coming-up";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
 import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
-import { parentProfileSlotIndex, type ParentProfileSlot } from "@/lib/parents/identity";
+import { normalizeParentColorKey, parentColorOptions, parentProfileSlotIndex, type ParentProfileSlot } from "@/lib/parents/identity";
 
 type Participant = { id: string; displayName: string; colorKey: string; profileSlot: ParentProfileSlot | null };
 type Child = { id: string; displayName: string };
@@ -95,24 +97,18 @@ type AccessMode = "checking" | "viewer" | "editor" | "error";
 type SlotOwnership = string | "mixed" | null;
 type DayOwnership = { morning: SlotOwnership; afternoon: SlotOwnership };
 type AssignmentMap = Record<string, DayOwnership>;
-type VisualStyle = { dot: string; slot: string; pill: string; button: string };
+type VisualStyle = { key: string; dot: string; slot: string; pill: string; button: string };
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const visualStyles: VisualStyle[] = [
-  {
-    dot: "covie-parent-green",
-    slot: "covie-parent-green",
-    pill: "bg-emerald-100 text-emerald-800",
-    button: "bg-emerald-100 text-emerald-900 hover:bg-emerald-200",
-  },
-  {
-    dot: "covie-parent-plum",
-    slot: "covie-parent-plum",
-    pill: "bg-violet-100 text-violet-800",
-    button: "bg-violet-100 text-violet-900 hover:bg-violet-200",
-  },
-];
+const visualStyles: VisualStyle[] = parentColorOptions.map((option) => ({
+  key: option.key,
+  dot: option.dotClass,
+  slot: option.slotClass,
+  pill: option.pillClass,
+  button: option.buttonClass,
+}));
 const mixedStyle: VisualStyle = {
+  key: "mixed",
   dot: "bg-slate-500",
   slot: "bg-slate-200",
   pill: "bg-slate-200 text-slate-700",
@@ -127,7 +123,8 @@ function styleForParticipant(participants: Participant[], participantId: string)
   const index = participants.findIndex((participant) => participant.id === participantId);
   const participant = participants[index];
   const visualIndex = parentProfileSlotIndex(participant?.profileSlot, index);
-  return visualStyles[visualIndex % visualStyles.length] ?? visualStyles[0];
+  const colorKey = normalizeParentColorKey(participant?.colorKey, visualIndex);
+  return visualStyles.find((style) => style.key === colorKey) ?? visualStyles[visualIndex % visualStyles.length] ?? visualStyles[0];
 }
 
 function splitChoiceStyle(
@@ -138,13 +135,8 @@ function splitChoiceStyle(
   if (!firstId || !secondId) return mixedStyle.button;
   const first = styleForParticipant(participants, firstId);
   const second = styleForParticipant(participants, secondId);
-  if (first === visualStyles[0] && second === visualStyles[1]) {
-    return "covie-split-forward text-slate-900 hover:ring-2 hover:ring-slate-200";
-  }
-  if (first === visualStyles[1] && second === visualStyles[0]) {
-    return "covie-split-reverse text-slate-900 hover:ring-2 hover:ring-slate-200";
-  }
-  return mixedStyle.button;
+  if (first.key === second.key) return mixedStyle.button;
+  return `${first.button} ring-1 ring-inset ring-slate-300`;
 }
 
 function aggregateSlot(
@@ -317,11 +309,10 @@ export function CalendarShell({
     return participants.find((participant) => participant.id === owner)?.displayName ?? "Assigned";
   }
 
-  function shortOwnerLabel(owner: SlotOwnership | undefined) {
-    const label = ownerLabel(owner);
-    if (label === "Unassigned") return "—";
-    if (label === "Mixed" || label === "You") return label;
-    return label.split(/\s+/)[0] ?? label;
+  function parentTileName(owner: SlotOwnership | undefined) {
+    if (!owner) return "";
+    if (owner === "mixed") return "Mixed";
+    return participants.find((participant) => participant.id === owner)?.displayName ?? "Parent";
   }
 
   function ownerStyle(owner: SlotOwnership | undefined) {
@@ -359,7 +350,7 @@ export function CalendarShell({
   }
 
   function handleDayClick(day: Date) {
-    if (!isSameMonth(day, currentMonth) || saving) return;
+    if (saving) return;
     const key = keyFor(day);
     if (selectionMode) {
       setSelectedDays((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
@@ -462,7 +453,7 @@ export function CalendarShell({
   ];
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
+    <main className="covie-calendar-page mx-auto w-full max-w-7xl px-3 py-3 sm:px-5 sm:py-4 lg:px-7">
       <header className="covie-calendar-header relative mb-3 sm:mb-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -490,6 +481,7 @@ export function CalendarShell({
 
           <WorkspaceNav
               active="calendar"
+              showDesktopEvents={false}
               actions={
                 <>
                   {accessMode === "editor" ? (
@@ -506,6 +498,7 @@ export function CalendarShell({
 
                     </>
                   ) : null}
+                  {accessMode === "editor" || accessMode === "viewer" ? <GoogleCalendarQuickAction /> : null}
                   {accessMode === "editor" || accessMode === "viewer" ? (
                     <details className="relative">
                       <summary className="covie-menu-trigger"><span><span className="hidden sm:inline">Calendar </span>Settings</span><ChevronDown size={16} aria-hidden="true" /></summary>
@@ -530,7 +523,7 @@ export function CalendarShell({
         <div role={accessMode === "error" ? "alert" : "status"} aria-live={accessMode === "error" ? "assertive" : "polite"} className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">{message}</div>
       ) : null}
 
-      <p className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600">
+      <p className="mb-3 hidden shrink-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600 sm:flex">
         <Clock3 size={16} aria-hidden="true" />
         <strong className="font-medium text-slate-900">Next handover:</strong>
         {nextHandover ? <>
@@ -540,8 +533,9 @@ export function CalendarShell({
         </> : <span>No handover scheduled</span>}
       </p>
 
-      <section className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-200 px-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <div className="covie-calendar-content flex min-h-0 flex-1 gap-3">
+      <section className="covie-calendar-board flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+        <div className="shrink-0 flex flex-col gap-2 border-b border-slate-200 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-3">
           <div className="flex items-center justify-between gap-2 sm:justify-start">
             <button type="button" aria-label="Previous month" onClick={() => moveMonth("previous")} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"><ChevronLeft className="h-5 w-5" aria-hidden="true" /></button>
             <div className="min-w-40 text-center sm:min-w-48"><h2 className="text-lg font-semibold text-slate-900 sm:text-xl">{format(currentMonth, "MMMM yyyy")}</h2></div>
@@ -564,8 +558,8 @@ export function CalendarShell({
           </div>
         </div>
 
-        <div className="px-2 pb-2 pt-3 sm:px-4 sm:pb-4">
-          <p className="mb-3 px-1 text-sm text-slate-500">
+        <div className="covie-calendar-board-body flex min-h-0 flex-1 flex-col px-1.5 pb-1.5 pt-2 sm:px-3 sm:pb-3">
+          <p className="mb-1.5 hidden shrink-0 px-1 text-xs text-slate-500 lg:block">
             {selectionMode
               ? "Selection mode: tap dates, then choose the custody state below."
               : accessMode === "editor"
@@ -573,7 +567,12 @@ export function CalendarShell({
                 : "Select a day to view parenting time, handovers and events."}
           </p>
 
-          <div className="grid grid-cols-7 gap-1 sm:gap-2" role="grid" aria-label={format(currentMonth, "MMMM yyyy")}>
+          <div
+            className="covie-calendar-grid grid min-h-0 flex-1 grid-cols-7 gap-1 sm:gap-1.5"
+            style={{ gridTemplateRows: `auto repeat(${Math.ceil(calendarDays.length / 7)}, minmax(0, 1fr))` }}
+            role="grid"
+            aria-label={format(currentMonth, "MMMM yyyy")}
+          >
             {weekdays.map((weekday) => <div key={weekday} role="columnheader" className="pb-1 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs">{weekday}</div>)}
 
             {calendarDays.map((day) => {
@@ -589,60 +588,74 @@ export function CalendarShell({
               const morningStyle = ownerStyle(assignment?.morning);
               const afternoonStyle = ownerStyle(assignment?.afternoon);
               const fullDayOwner = assignment?.morning && assignment.morning === assignment.afternoon ? assignment.morning : null;
-              const fullDayStyle = ownerStyle(fullDayOwner);
+              const splitDay = Boolean(
+                assignment?.morning &&
+                  assignment.afternoon &&
+                  assignment.morning !== "mixed" &&
+                  assignment.afternoon !== "mixed" &&
+                  assignment.morning !== assignment.afternoon,
+              );
+              const tileEvents = [
+                ...(splitDay ? [{ id: `handover-${key}`, title: "Handover", category: "handover" }] : []),
+                ...dayEvents,
+              ];
 
               return (
                 <button
                   key={key}
                   type="button"
                   role="gridcell"
-                  disabled={!inMonth || saving}
+                  disabled={saving}
                   aria-selected={selected}
                   aria-current={isToday ? "date" : undefined}
-                  aria-label={`${format(day, "EEEE d MMMM")}, ${assignmentLabel(assignment)}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}` : ""}${responsibilityMarker?.count ? `, ${responsibilityMarker.count} responsibilit${responsibilityMarker.count === 1 ? "y" : "ies"}` : ""}${responsibilityMarker?.pendingCount ? `, ${responsibilityMarker.pendingCount} pending responsibility change${responsibilityMarker.pendingCount === 1 ? "" : "s"}` : ""}${dayPending.length ? `, ${dayPending.length} pending calendar change${dayPending.length === 1 ? "" : "s"}` : ""}`}
+                  aria-label={`${format(day, "EEEE d MMMM")}, ${assignmentLabel(assignment)}${tileEvents.length ? `, ${tileEvents.length} event${tileEvents.length === 1 ? "" : "s"}` : ""}${responsibilityMarker?.count ? `, ${responsibilityMarker.count} responsibilit${responsibilityMarker.count === 1 ? "y" : "ies"}` : ""}${responsibilityMarker?.pendingCount ? `, ${responsibilityMarker.pendingCount} pending responsibility change${responsibilityMarker.pendingCount === 1 ? "" : "s"}` : ""}${dayPending.length ? `, ${dayPending.length} pending calendar change${dayPending.length === 1 ? "" : "s"}` : ""}`}
                   onClick={() => handleDayClick(day)}
-                  className={`relative min-h-[76px] overflow-hidden rounded-xl border border-slate-200 bg-white p-1 text-left transition sm:min-h-28 sm:rounded-2xl sm:p-2.5 ${inMonth ? "hover:ring-1 hover:ring-slate-300" : "cursor-default opacity-30"} ${selected ? "ring-2 ring-blue-500 ring-offset-1" : ""} ${selectionMode && inMonth ? "cursor-pointer" : ""}`}
+                  className={`relative h-full min-h-0 overflow-hidden rounded-lg border bg-white p-1 text-left transition sm:rounded-xl ${inMonth ? "border-slate-200 hover:ring-1 hover:ring-slate-300" : "border-slate-300"} ${selected ? "ring-2 ring-blue-500 ring-offset-1" : ""} ${selectionMode ? "cursor-pointer" : ""}`}
                 >
-                  {inMonth ? (
-                    <span className="pointer-events-none absolute inset-0" aria-hidden="true">
-                      <span className={`absolute inset-y-0 left-0 w-1/2 ${morningStyle?.slot ?? "bg-white"}`} />
-                      <span className={`absolute inset-y-0 right-0 w-1/2 ${afternoonStyle?.slot ?? "bg-white"}`} />
-                      {assignment?.morning !== assignment?.afternoon ? <span className="absolute inset-y-0 left-1/2 border-l border-white/80" /> : null}
-                    </span>
-                  ) : null}
+                  <span className="pointer-events-none absolute inset-0" aria-hidden="true">
+                    <span className={`absolute inset-y-0 left-0 w-1/2 ${morningStyle?.slot ?? "bg-white"}`} />
+                    <span className={`absolute inset-y-0 right-0 w-1/2 ${afternoonStyle?.slot ?? "bg-white"}`} />
+                    {assignment?.morning !== assignment?.afternoon ? <span className="absolute inset-y-0 left-1/2 border-l border-white/80" /> : null}
+                  </span>
 
-                  <div className="relative z-10 flex items-start justify-between gap-1">
-                    <span className={`flex h-7 min-w-7 items-center justify-center rounded-full bg-white/90 text-sm font-semibold shadow-sm ${isToday ? "ring-2 ring-slate-900 text-slate-900" : "text-slate-700"}`}>{format(day, "d")}</span>
-                    {selected ? <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold text-white" aria-hidden="true">✓</span> : null}
-                  </div>
-
-                  {assignment && inMonth ? (
-                    fullDayOwner && fullDayStyle ? (
-                      <div className={`relative z-10 mt-1 inline-flex max-w-full items-center gap-1 rounded-full px-0 py-0.5 text-xs font-medium sm:px-2 ${fullDayStyle.pill}`}>
-                        <span className={`hidden h-1.5 w-1.5 shrink-0 rounded-full sm:block ${fullDayStyle.dot}`} aria-hidden="true" />
-                        <span className="truncate" title={ownerLabel(fullDayOwner)}><span className="sm:hidden">{shortOwnerLabel(fullDayOwner).slice(0, 3)}</span><span className="hidden sm:inline">{shortOwnerLabel(fullDayOwner)}</span></span>
+                  {assignment ? (
+                    fullDayOwner ? (
+                      <div className="pointer-events-none absolute inset-x-1 top-1 z-10 truncate text-center text-[9px] font-bold text-slate-800 sm:text-[11px]" title={parentTileName(fullDayOwner)}>
+                        {parentTileName(fullDayOwner)}
                       </div>
                     ) : (
-                      <div className="relative z-10 mt-1 inline-flex max-w-full rounded-full bg-white/90 px-0.5 py-0.5 text-xs font-medium text-slate-700 sm:px-1.5">
-                        <span className="truncate"><span className="sm:hidden">{shortOwnerLabel(assignment.morning).slice(0,1)}→{shortOwnerLabel(assignment.afternoon).slice(0,1)}</span><span className="hidden sm:inline">{shortOwnerLabel(assignment.morning)} → {shortOwnerLabel(assignment.afternoon)}</span></span>
-                      </div>
+                      <>
+                        <div className="pointer-events-none absolute left-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[8px] font-bold text-slate-800 sm:text-[10px]" title={parentTileName(assignment.morning)}>
+                          {parentTileName(assignment.morning)}
+                        </div>
+                        <div className="pointer-events-none absolute right-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[8px] font-bold text-slate-800 sm:text-[10px]" title={parentTileName(assignment.afternoon)}>
+                          {parentTileName(assignment.afternoon)}
+                        </div>
+                      </>
                     )
                   ) : null}
 
-                  {dayEvents[0] && inMonth ? (
-                    <div className="relative z-10 mt-1.5 hidden max-w-full truncate rounded-lg border border-sky-200 bg-sky-50/95 px-1.5 py-1 text-[9px] font-bold text-sky-900 shadow-sm sm:block sm:text-xs">
-                      <span className="mr-1" aria-hidden="true">{eventIcon(dayEvents[0].category)}</span>{dayEvents[0].title}
+                  <span
+                    className={`absolute right-1 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white text-xs font-bold shadow-sm sm:right-2 sm:h-7 sm:w-7 sm:text-sm ${isToday ? "ring-2 ring-slate-900 text-slate-950" : inMonth ? "text-slate-700" : "text-slate-500"}`}
+                  >
+                    {format(day, "d")}
+                  </span>
+
+                  {selected ? <span className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold text-white" aria-hidden="true">✓</span> : null}
+
+                  {tileEvents.length > 0 ? (
+                    <div className="absolute inset-x-0 bottom-0 z-20 flex h-5 items-center gap-1 truncate bg-[#F4C64E] px-1.5 text-[8px] font-bold text-[#243139] sm:h-7 sm:px-2 sm:text-[10px]">
+                      {tileEvents[0]?.category !== "handover" ? <span aria-hidden="true">{eventIcon(tileEvents[0]?.category ?? "other")}</span> : <Clock3 className="h-3 w-3 shrink-0" aria-hidden="true" />}
+                      <span className="truncate">{tileEvents[0]?.title}</span>
+                      {tileEvents.length > 1 ? <span className="ml-auto shrink-0">+{tileEvents.length - 1}</span> : null}
                     </div>
                   ) : null}
-                  {dayEvents.length > 0 && inMonth ? <span className="relative z-10 block rounded bg-white/95 px-1 text-xs font-medium text-slate-700 sm:hidden">{dayEvents.length} evt</span> : null}
-                  {dayEvents.length > 1 && inMonth ? <span className="relative z-10 mt-1 hidden rounded bg-white/95 px-1 text-xs sm:block font-semibold text-sky-800">+{dayEvents.length - 1} more event{dayEvents.length === 2 ? "" : "s"}</span> : null}
 
-                  {inMonth &&
-                  (marker ||
+                  {(marker ||
                     dayPending.length > 0 ||
                     responsibilityMarker?.count ||
                     responsibilityMarker?.pendingCount) ? (
-                    <div className="absolute bottom-1.5 right-1.5 z-10 flex items-center gap-1 rounded-full bg-white/85 px-1 text-slate-500 sm:bottom-2 sm:right-2">
+                    <div className={`absolute right-1 z-10 flex items-center gap-1 rounded-full bg-white px-1 text-slate-500 ${tileEvents.length ? "bottom-6 sm:bottom-8" : "bottom-1 sm:bottom-2"}`}>
                       {dayPending.length > 0 ? (
                         <Hourglass
                           className="h-3.5 w-3.5 text-amber-600"
@@ -688,6 +701,10 @@ export function CalendarShell({
           </div>
         </div>
       </section>
+      <aside className="covie-calendar-events-rail hidden w-64 shrink-0 xl:block">
+        <ComingUp variant="rail" />
+      </aside>
+      </div>
 
       {accessMode === "editor" && selectionMode && selectedDays.length > 0 ? (
         <div className="sticky bottom-3 z-20 mx-auto mt-4 flex max-w-4xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur">
@@ -755,7 +772,7 @@ export function CalendarShell({
         />
       ) : null}
 
-      <p className="mx-auto mt-5 max-w-2xl text-center text-xs leading-5 text-slate-400">
+      <p className="mx-auto mt-2 hidden max-w-2xl shrink-0 text-center text-xs leading-5 text-slate-400 sm:block">
         {accessMode === "editor"
           ? "Shared changes become part of the agreed calendar after approval when both parents are linked."
           : "You have view-only access. Ask the calendar owner if you need editing permission."}

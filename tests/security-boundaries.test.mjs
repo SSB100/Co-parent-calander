@@ -144,3 +144,14 @@ test("legacy setup is retired while managed calendar creation and joining remain
   assert.match(calendarActions, /calendar_invites/);
   assert.match(calendarActions, /requireAccount/);
 });
+
+
+test("sign-in and sign-up expose managed Google OAuth while preserving invite handoff", async () => {
+  const form = await source("components/auth/credentials-form.tsx");
+
+  assert.match(form, /authClient\.signIn\.social/);
+  assert.match(form, /provider: "google"/);
+  assert.match(form, /\/onboarding\?invite=/);
+  assert.match(form, /Continue.*with Google/);
+  assert.doesNotMatch(form, /GOOGLE_CLIENT_SECRET|GOOGLE_CLIENT_ID/);
+});

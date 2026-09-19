@@ -49,9 +49,10 @@ test("calendar UI keeps split colours but exposes direct custody states instead 
   assert.match(shell, /inset-y-0 left-1\/2 border-l/);
   assert.doesNotMatch(styles, /width: 50% !important/);
   assert.doesNotMatch(styles, /display: none !important/);
-  assert.match(shell, /shortOwnerLabel\(fullDayOwner\)/);
-  assert.match(shell, /shortOwnerLabel\(assignment\.morning\)/);
-  assert.match(shell, /shortOwnerLabel\(assignment\.afternoon\)/);
+  assert.match(shell, /parentTileName\(fullDayOwner\)/);
+  assert.match(shell, /parentTileName\(assignment\.morning\)/);
+  assert.match(shell, /parentTileName\(assignment\.afternoon\)/);
+  assert.match(shell, /title: "Handover"/);
 
   assert.match(panel, /Full day you/);
   assert.match(panel, /them_full/);

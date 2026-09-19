@@ -88,7 +88,46 @@ test("PWA install affordance stays inside the authenticated Calendar workspace",
   assert.match(shell, /import \{ InstallApp \}/);
   assert.match(shell, /<InstallApp \/>/);
   assert.match(install, /Add Covie to your phone/);
-  assert.match(install, /shared organiser/);
+  assert.match(install, /sm:hidden/);
+  assert.match(install, /fixed bottom-/);
+});
+
+test("Calendar fills the viewport and adjacent month days remain interactive", async () => {
+  const [shell, styles] = await Promise.all([
+    source("components/calendar/calendar-shell.tsx"),
+    source("app/globals.css"),
+  ]);
+
+  assert.match(shell, /covie-calendar-page/);
+  assert.match(shell, /covie-calendar-board/);
+  assert.match(shell, /gridTemplateRows/);
+  assert.doesNotMatch(shell, /disabled=\{!inMonth \|\| saving\}/);
+  assert.match(styles, /height: 100dvh/);
+  assert.match(styles, /overflow: hidden/);
+});
+
+test("Calendar day tiles use parent names and a full-width bright event strip", async () => {
+  const shell = await source("components/calendar/calendar-shell.tsx");
+
+  assert.match(shell, /parentTileName/);
+  assert.match(shell, /inset-x-1 top-1/);
+  assert.match(shell, /right-1 top-1\/2/);
+  assert.match(shell, /inset-x-0 bottom-0/);
+  assert.match(shell, /#F4C64E/);
+  assert.match(shell, /title: "Handover"/);
+  assert.doesNotMatch(shell, /shortOwnerLabel\(assignment\.morning\).*→.*shortOwnerLabel\(assignment\.afternoon\)/);
+});
+
+test("Google Calendar has a direct action outside Calendar settings", async () => {
+  const [shell, action] = await Promise.all([
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/calendar/google-calendar-quick-action.tsx"),
+  ]);
+
+  assert.match(shell, /GoogleCalendarQuickAction/);
+  assert.match(action, /Sync to Google Calendar/);
+  assert.match(action, /\/api\/google-calendar\/connect/);
+  assert.match(action, /\/api\/google-calendar\/reconcile/);
 });
 
 test("Calendar recovery copy no longer points users to the retired selector page", async () => {
@@ -105,4 +144,36 @@ test("first invite panel remains usable on narrow screens", async () => {
   assert.match(welcome, /break-all/);
   assert.match(welcome, /Copy invite link/);
   assert.match(welcome, /Maybe later/);
+});
+
+
+test("Your Events is a chronological event and handover feed with a desktop calendar rail", async () => {
+  const [route, coming, shell, nav] = await Promise.all([
+    source("app/api/coming-up/route.ts"),
+    source("components/workspace/coming-up.tsx"),
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/workspace/workspace-nav.tsx"),
+  ]);
+
+  assert.match(coming, /Your Events/);
+  assert.match(coming, /Next events and handovers in date order/);
+  assert.match(route, /loadEffectiveAssignmentMap/);
+  assert.match(route, /morningParentId === assignment\.afternoonParentId/);
+  assert.match(route, /Handover/);
+  assert.match(shell, /covie-calendar-events-rail/);
+  assert.match(shell, /ComingUp variant="rail"/);
+  assert.match(nav, /showDesktopEvents/);
+});
+
+test("Updates navigation shows an actionable approval notification count on desktop and mobile", async () => {
+  const [route, nav, styles] = await Promise.all([
+    source("app/api/notifications/route.ts"),
+    source("components/workspace/workspace-nav.tsx"),
+    source("app/globals.css"),
+  ]);
+
+  assert.match(route, /approverMembershipId === session\.membershipId/);
+  assert.match(nav, /notificationCount/);
+  assert.match(nav, /workspace-notification-badge/);
+  assert.match(styles, /workspace-notification-badge/);
 });

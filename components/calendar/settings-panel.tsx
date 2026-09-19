@@ -3,11 +3,13 @@
 import { LoaderCircle, Settings2, X } from "lucide-react";
 import { GoogleCalendarSettings } from "@/components/calendar/google-calendar-settings";
 import { useEffect, useRef, useState } from "react";
+import { parentColorOptions, type ParentColorKey } from "@/lib/parents/identity";
 
 type NamedItem = { id: string; displayName: string };
+type ParentItem = NamedItem & { colorKey: ParentColorKey };
 type SettingsPayload = {
   calendar: { id: string; name: string; timezone: string };
-  parents: NamedItem[];
+  parents: ParentItem[];
   children: NamedItem[];
 };
 type MessageKind = "success" | "error";
@@ -221,21 +223,52 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
                   <p className="text-sm font-semibold text-slate-800">Parents</p>
                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
                     {data.parents.map((parent, index) => (
-                      <input
-                        key={parent.id}
-                        value={parent.displayName}
-                        disabled={saving || readOnly}
-                        aria-label={`Parent ${index + 1} name`}
-                        onChange={(event) =>
-                          setData({
-                            ...data,
-                            parents: data.parents.map((item) =>
-                              item.id === parent.id ? { ...item, displayName: event.target.value } : item,
-                            ),
-                          })
-                        }
-                        className="min-h-11 rounded-xl border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50 disabled:opacity-70"
-                      />
+                      <div key={parent.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                        <input
+                          value={parent.displayName}
+                          disabled={saving || readOnly}
+                          aria-label={`Parent ${index + 1} name`}
+                          onChange={(event) =>
+                            setData({
+                              ...data,
+                              parents: data.parents.map((item) =>
+                                item.id === parent.id ? { ...item, displayName: event.target.value } : item,
+                              ),
+                            })
+                          }
+                          className="min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50 disabled:opacity-70"
+                        />
+                        <fieldset className="mt-3" disabled={saving || readOnly}>
+                          <legend className="text-xs font-semibold text-slate-600">Calendar colour</legend>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {parentColorOptions.map((option) => {
+                              const taken = data.parents.some(
+                                (item) => item.id !== parent.id && item.colorKey === option.key,
+                              );
+                              return (
+                                <button
+                                  key={option.key}
+                                  type="button"
+                                  aria-label={`${option.label} for ${parent.displayName}`}
+                                  aria-pressed={parent.colorKey === option.key}
+                                  disabled={saving || readOnly || taken}
+                                  title={taken ? `${option.label} is already used by the other parent` : option.label}
+                                  onClick={() =>
+                                    setData({
+                                      ...data,
+                                      parents: data.parents.map((item) =>
+                                        item.id === parent.id ? { ...item, colorKey: option.key } : item,
+                                      ),
+                                    })
+                                  }
+                                  className={`h-8 w-8 rounded-full border-2 transition ${parent.colorKey === option.key ? "border-slate-950 ring-2 ring-slate-300 ring-offset-1" : "border-white"} disabled:cursor-not-allowed disabled:opacity-25`}
+                                  style={{ backgroundColor: option.hex }}
+                                />
+                              );
+                            })}
+                          </div>
+                        </fieldset>
+                      </div>
                     ))}
                   </div>
                 </div>

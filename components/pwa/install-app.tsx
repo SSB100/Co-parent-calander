@@ -40,11 +40,11 @@ export function InstallApp() {
   if (installed) return null;
 
   return (
-    <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <section className="covie-install-mobile fixed bottom-[calc(78px+env(safe-area-inset-bottom))] left-3 right-3 z-30 rounded-xl border border-slate-200 bg-white p-3 shadow-xl sm:hidden">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-blue-700"><Smartphone className="h-5 w-5" aria-hidden="true" /></span>
-          <div><h2 className="font-semibold text-slate-950">Add Covie to your phone</h2><p className="mt-1 text-sm leading-6 text-slate-600">Install Covie like an app on iPhone, iPad or Android. Your shared organiser stays one tap away.</p></div>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700"><Smartphone className="h-4 w-4" aria-hidden="true" /></span>
+          <div><h2 className="text-sm font-semibold text-slate-950">Add Covie to your phone</h2><p className="mt-0.5 text-xs leading-4 text-slate-600">Keep your shared organiser one tap away.</p></div>
         </div>
         {prompt ? (
           <button type="button" onClick={() => void prompt.prompt()} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"><Download className="h-4 w-4" />Install app</button>

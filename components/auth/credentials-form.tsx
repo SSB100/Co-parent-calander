@@ -2,13 +2,14 @@
 
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   signInWithEmail,
   signUpWithEmail,
   type AuthActionState,
 } from "@/app/auth/actions";
 import { CovieBrand } from "@/components/workspace/covie-brand";
+import { authClient } from "@/lib/auth/client";
 
 const initialState: AuthActionState = { error: null };
 
@@ -24,9 +25,34 @@ export function CredentialsForm({
     isSignUp ? signUpWithEmail : signInWithEmail,
     initialState,
   );
+  const [googlePending, setGooglePending] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const alternateHref = `${isSignUp ? "/auth/sign-in" : "/auth/sign-up"}${
     inviteCode ? `?invite=${encodeURIComponent(inviteCode)}` : ""
   }`;
+
+  async function continueWithGoogle() {
+    setGooglePending(true);
+    setGoogleError(null);
+    const callbackURL = inviteCode
+      ? `/onboarding?invite=${encodeURIComponent(inviteCode)}`
+      : "/";
+
+    try {
+      const result = await authClient.signIn.social({
+        provider: "google",
+        callbackURL,
+      });
+      if (result?.error) {
+        throw new Error(result.error.message || "Google sign-in could not be started.");
+      }
+    } catch (error) {
+      setGoogleError(
+        error instanceof Error ? error.message : "Google sign-in could not be started.",
+      );
+      setGooglePending(false);
+    }
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
@@ -46,7 +72,34 @@ export function CredentialsForm({
               : "Log in to open your Covie calendar."}
         </p>
 
-        <form action={action} className="mt-7 space-y-5">
+        <div className="mt-7">
+          <button
+            type="button"
+            onClick={() => void continueWithGoogle()}
+            disabled={googlePending || pending}
+            className="inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border-2 border-slate-300 bg-white px-5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+          >
+            <span
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-base font-black text-[#4285F4]"
+              aria-hidden="true"
+            >
+              G
+            </span>
+            {googlePending ? "Opening Google…" : `${isSignUp ? "Sign up" : "Continue"} with Google`}
+          </button>
+          {googleError ? (
+            <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+              {googleError}
+            </p>
+          ) : null}
+          <div className="my-5 flex items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">or use email</span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+        </div>
+
+        <form action={action} className="space-y-5">
           {inviteCode ? <input type="hidden" name="invite" value={inviteCode} /> : null}
 
           {isSignUp ? (
@@ -104,7 +157,7 @@ export function CredentialsForm({
 
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || googlePending}
             className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white transition hover:bg-emerald-900 disabled:cursor-wait disabled:opacity-60"
           >
             {pending ? (isSignUp ? "Creating account…" : "Logging in…") : isSignUp ? "Create account" : "Log in"}
