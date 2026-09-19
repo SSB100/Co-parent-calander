@@ -1,5 +1,5 @@
 "use client";
-import { CalendarDays, Bell, LayoutGrid, LogOut, UsersRound, ListChecks, WalletCards, ChevronDown } from "lucide-react";
+import { CalendarDays, Bell, LayoutGrid, LogOut, UsersRound, ListChecks, WalletCards, ChevronDown, Menu } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -26,7 +26,9 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
   const [signingOut, setSigningOut] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const accountRef = useRef<HTMLDetailsElement>(null);
+  const mobileActionsRef = useRef<HTMLDetailsElement>(null);
   useDismissibleDetails(accountRef);
+  useDismissibleDetails(mobileActionsRef);
   const section = active && ["expenses", "responsibilities", "kids"].includes(active) ? "organiser" : active;
 
   useEffect(() => {
@@ -52,6 +54,7 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
       window.removeEventListener("covie-records-updated", refreshNotifications);
     };
   }, []);
+
   async function signOut() {
     setSigningOut(true);
     setSignOutError(false);
@@ -59,8 +62,18 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
       const result = await authClient.signOut();
       if (result?.error) throw new Error("Sign out failed");
       router.push("/");
-    } catch { setSignOutError(true); setSigningOut(false); }
+    } catch {
+      setSignOutError(true);
+      setSigningOut(false);
+    }
   }
+
+  function closeMobileActionsAfterAction(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return;
+    if (!target.closest("a, button")) return;
+    mobileActionsRef.current?.removeAttribute("open");
+  }
+
   return <>
     <nav className="workspace-nav" aria-label="Main navigation">
       <Link href="/calendar" className="workspace-brand"><CovieBrand /></Link>
@@ -82,16 +95,28 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
       </div>
       <div className="desktop-coming-up"><ComingUp /></div>
     </nav>
-    <div className="workspace-actions flex flex-wrap items-center gap-2">
-      {actions}
-      <div className="mobile-coming-up"><ComingUp /></div>
-      <details ref={accountRef} className="workspace-account relative">
-        <summary className="covie-menu-trigger">Account <ChevronDown size={16} aria-hidden="true" /></summary>
-        <div className="covie-menu">
-          <button type="button" onClick={() => void signOut()} disabled={signingOut} className="covie-menu-item">
-            <LogOut size={16} aria-hidden="true" />{signingOut ? "Signing out…" : "Log out"}
-          </button>
-          {signOutError && <p role="alert" className="px-3 text-sm text-rose-700">Could not log out. Please try again.</p>}
+
+    <div className="workspace-actions">
+      <details ref={mobileActionsRef} className="workspace-mobile-actions relative">
+        <summary className="workspace-mobile-actions-trigger" aria-label="Open actions menu">
+          <Menu size={21} aria-hidden="true" />
+          <span>Menu</span>
+        </summary>
+        <div
+          className="workspace-mobile-action-panel"
+          onClick={(event) => closeMobileActionsAfterAction(event.target)}
+        >
+          {actions}
+          <div className="mobile-coming-up"><ComingUp /></div>
+          <details ref={accountRef} className="workspace-account relative">
+            <summary className="covie-menu-trigger">Account <ChevronDown size={16} aria-hidden="true" /></summary>
+            <div className="covie-menu">
+              <button type="button" onClick={() => void signOut()} disabled={signingOut} className="covie-menu-item">
+                <LogOut size={16} aria-hidden="true" />{signingOut ? "Signing out…" : "Log out"}
+              </button>
+              {signOutError && <p role="alert" className="px-3 text-sm text-rose-700">Could not log out. Please try again.</p>}
+            </div>
+          </details>
         </div>
       </details>
     </div>
