@@ -151,10 +151,10 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
         <span className="hidden sm:inline">Settings</span>
       </button>
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 backdrop-blur-sm sm:items-center sm:p-6">
+        <div className="covie-dialog-backdrop">
           <section
             ref={dialogRef}
-            className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6"
+            className="covie-dialog covie-dialog-md covie-dialog-fit"
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-title"
@@ -162,17 +162,19 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
             aria-busy={loading || saving}
             tabIndex={-1}
           >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                  <Settings2 className="h-5 w-5" aria-hidden="true" />
+            <header className="covie-dialog-header">
+              <div className="covie-dialog-heading">
+                <div className="covie-dialog-icon teal">
+                  <Settings2 aria-hidden="true" />
                 </div>
-                <h2 id="settings-title" className="text-xl font-semibold text-slate-900">Calendar settings</h2>
-                <p id="settings-description" className="mt-1 text-sm text-slate-500">
-                  {readOnly
-                    ? "Review shared calendar details and manage your own optional integrations."
-                    : "Keep shared calendar details up to date and manage your own optional integrations."}
-                </p>
+                <div className="min-w-0">
+                  <h2 id="settings-title" className="covie-dialog-title">Calendar settings</h2>
+                  <p id="settings-description" className="covie-dialog-description">
+                    {readOnly
+                      ? "Review shared calendar details and your optional integrations."
+                      : "Update names, colours and shared calendar details."}
+                  </p>
+                </div>
               </div>
               <button
                 ref={closeButtonRef}
@@ -180,12 +182,13 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
                 aria-label="Close settings"
                 disabled={loading || saving}
                 onClick={() => setOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="covie-dialog-close"
               >
-                <X className="h-5 w-5" aria-hidden="true" />
+                <X aria-hidden="true" />
               </button>
-            </div>
+            </header>
 
+            <div className="covie-dialog-body">
             {loading ? (
               <div role="status" aria-live="polite" className="mt-6 flex items-center gap-2 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
                 <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -208,7 +211,7 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
             ) : null}
 
             {!loading && data ? (
-              <div className="mt-6 space-y-5">
+              <div className="space-y-4">
                 <label className="block">
                   <span className="text-sm font-semibold text-slate-800">Calendar name</span>
                   <input
@@ -246,83 +249,73 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
                                 (item) => item.id !== parent.id && item.colorKey === option.key,
                               );
                               return (
-                                  <button
-                                    key={option.key}
-                                    type="button"
-                                    aria-label={`${option.label} for ${parent.displayName}`}
-                                    aria-pressed={parent.colorKey === option.key}
-                                    disabled={saving || readOnly || taken}
-                                    title={
-                                      taken
-                                        ? `${option.label} is already used by the other parent`
-                                        : option.label
-                                    }
-                                    onClick={() =>
-                                      setData({
-                                        ...data,
-                                        parents: data.parents.map((item) =>
-                                          item.id === parent.id
-                                            ? { ...item, colorKey: option.key }
-                                            : item,
-                                        ),
-                                      })
-                                    }
-                                    className={`h-7 w-7 rounded-full border-2 transition ${
-                                      parent.colorKey === option.key
-                                        ? "border-slate-950 ring-2 ring-slate-300 ring-offset-1"
-                                        : "border-white"
-                                    } disabled:cursor-not-allowed disabled:opacity-25`}
-                                    style={{ backgroundColor: option.hex }}
-                                  />
-                                );
-                              })}
-                            </div>
-                          </fieldset>
-                        </div>
-                      ))}
-                    </div>
+                                <button
+                                  key={option.key}
+                                  type="button"
+                                  aria-label={`${option.label} for ${parent.displayName}`}
+                                  aria-pressed={parent.colorKey === option.key}
+                                  disabled={saving || readOnly || taken}
+                                  title={taken ? `${option.label} is already used by the other parent` : option.label}
+                                  onClick={() =>
+                                    setData({
+                                      ...data,
+                                      parents: data.parents.map((item) =>
+                                        item.id === parent.id ? { ...item, colorKey: option.key } : item,
+                                      ),
+                                    })
+                                  }
+                                  className={`h-8 w-8 rounded-full border-2 transition ${parent.colorKey === option.key ? "border-slate-950 ring-2 ring-slate-300 ring-offset-1" : "border-white"} disabled:cursor-not-allowed disabled:opacity-25`}
+                                  style={{ backgroundColor: option.hex }}
+                                />
+                              );
+                            })}
+                          </div>
+                        </fieldset>
+                      </div>
+                    ))}
                   </div>
-
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Children</p>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      {data.children.map((child, index) => (
-                        <input
-                          key={child.id}
-                          value={child.displayName}
-                          disabled={saving || readOnly}
-                          aria-label={`Child ${index + 1} name`}
-                          onChange={(event) =>
-                            setData({
-                              ...data,
-                              children: data.children.map((item) =>
-                                item.id === child.id
-                                  ? { ...item, displayName: event.target.value }
-                                  : item,
-                              ),
-                            })
-                          }
-                          className="min-h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50 disabled:opacity-70"
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="covie-dialog-status">
-                    Calendar timezone: {data.calendar.timezone}
-                  </div>
-
-                  <details className="rounded-xl border border-slate-200 bg-slate-50">
-                    <summary className="flex min-h-11 cursor-pointer items-center justify-between px-3 text-sm font-semibold text-slate-800">
-                      Google Calendar
-                      <span className="text-xs font-medium text-slate-500">Optional sync</span>
-                    </summary>
-                    <div className="border-t border-slate-200 bg-white p-3">
-                      <GoogleCalendarSettings />
-                    </div>
-                  </details>
                 </div>
-              ) : null}
+
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Children</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {data.children.map((child, index) => (
+                      <input
+                        key={child.id}
+                        value={child.displayName}
+                        disabled={saving || readOnly}
+                        aria-label={`Child ${index + 1} name`}
+                        onChange={(event) =>
+                          setData({
+                            ...data,
+                            children: data.children.map((item) =>
+                              item.id === child.id ? { ...item, displayName: event.target.value } : item,
+                            ),
+                          })
+                        }
+                        className="min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50 disabled:opacity-70"
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
+                  Calendar timezone: {data.calendar.timezone}
+                </div>
+
+                <details className="rounded-xl border border-slate-200 bg-slate-50">
+                  <summary className="flex min-h-11 cursor-pointer items-center justify-between px-3 text-sm font-semibold text-slate-800">
+                    Google Calendar
+                    <span className="text-xs font-medium text-slate-500">Optional sync</span>
+                  </summary>
+                  <div className="border-t border-slate-200 bg-white p-3">
+                    <GoogleCalendarSettings />
+                  </div>
+                </details>
+
+
+              </div>
+            ) : null}
             </div>
 
             {!readOnly ? (
