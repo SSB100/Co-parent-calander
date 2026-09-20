@@ -698,8 +698,8 @@ export async function withdrawApprovalProposal(input: {
         UPDATE approval_proposals
         SET
           status = 'withdrawn',
-          withdrawn_at = ${transitionedAt},
-          updated_at = ${transitionedAt}
+          withdrawn_at = ${transitionedAt}::timestamptz,
+          updated_at = ${transitionedAt}::timestamptz
         WHERE id = ${proposal.id}
           AND calendar_id = ${input.calendarId}
           AND (
@@ -725,8 +725,8 @@ export async function withdrawApprovalProposal(input: {
         SELECT
           id,
           calendar_id,
-          ${input.actor.membershipId},
-          ${actorParticipantId},
+          ${input.actor.membershipId}::uuid,
+          ${actorParticipantId}::uuid,
           'proposal.withdrawn',
           ${fromStatus}::proposal_status,
           'withdrawn',
@@ -735,7 +735,7 @@ export async function withdrawApprovalProposal(input: {
         WHERE id = ${proposal.id}
           AND calendar_id = ${input.calendarId}
           AND status = 'withdrawn'
-          AND withdrawn_at = ${transitionedAt}
+          AND withdrawn_at = ${transitionedAt}::timestamptz
       `,
       sql`
         INSERT INTO audit_log (
@@ -749,7 +749,7 @@ export async function withdrawApprovalProposal(input: {
         )
         SELECT
           calendar_id,
-          ${actorParticipantId},
+          ${actorParticipantId}::uuid,
           'proposal.withdraw',
           'proposal',
           id,
@@ -763,7 +763,7 @@ export async function withdrawApprovalProposal(input: {
         WHERE id = ${proposal.id}
           AND calendar_id = ${input.calendarId}
           AND status = 'withdrawn'
-          AND withdrawn_at = ${transitionedAt}
+          AND withdrawn_at = ${transitionedAt}::timestamptz
       `,
     ]);
   } catch (error) {
