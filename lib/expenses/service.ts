@@ -13,6 +13,7 @@ import type { CalendarApprovalPermission } from "@/lib/approvals/types";
 import { getDb, getSql } from "@/lib/db";
 import {
   children,
+  expenseSharePayments,
   expenseShares,
   expenses,
   participants,
@@ -506,72 +507,56 @@ export async function deleteExpense(input: {
 export async function updateExpenseSettlement(input: {
   session: ExpenseWriteSession;
   id: string;
-  paidCents: number;
+  paymentCents: number;
 }) {
-  const { session, id, paidCents } = input;
+  const { session, id, paymentCents } = input;
   const db = getDb();
-  const [expenseRows, shareRows] = await Promise.all([
-    db
-      .select({
-        id: expenses.id,
-        settlementStatus: expenses.settlementStatus,
-      })
-      .from(expenses)
-      .where(
-        and(
-          eq(expenses.id, id),
-          eq(expenses.calendarId, session.calendarId),
-        ),
-      )
-      .limit(1),
-    db
-      .select({
-        participantId: expenseShares.participantId,
-        shareCents: expenseShares.shareCents,
-        paidCents: expenseShares.paidCents,
-      })
-      .from(expenseShares)
-      .where(
-        and(
-          eq(expenseShares.expenseId, id),
-          eq(expenseShares.participantId, session.participantId),
-        ),
-      )
-      .limit(1),
-  ]);
 
-  const expense = expenseRows[0];
-  if (!expense) throw new ExpenseServiceError(404, "Shared cost not found.");
+  const shareRows = await db
+    .select({
+      id: expenseShares.id,
+      shareCents: expenseShares.shareCents,
+      paidCents: expenseShares.paidCents,
+    })
+    .from(expenseShares)
+    .innerJoin(expenses, eq(expenses.id, expenseShares.expenseId))
+    .where(
+      and(
+        eq(expenses.id, id),
+        eq(expenses.calendarId, session.calendarId),
+        eq(expenseShares.participantId, session.participantId),
+      ),
+    )
+    .limit(1);
 
   const share = shareRows[0];
   if (!share) {
     throw new ExpenseServiceError(
       403,
-      "You can only update your own share of this shared cost.",
+      "You can only add payments to your own share of this shared cost.",
     );
   }
   if (share.shareCents <= 0) {
     throw new ExpenseServiceError(
       409,
-      "Your share is zero, so there is no payment amount to record.",
+      "Your share is zero, so there is no payment to record.",
     );
-  }
-  if (paidCents > share.shareCents) {
-    throw new ExpenseServiceError(
-      400,
-      "The amount paid cannot be more than your share.",
-    );
-  }
-  if (paidCents === share.paidCents) {
-    return {
-      ok: true as const,
-      settlementStatus: expense.settlementStatus,
-      paidCents,
-      shareCents: share.shareCents,
-    };
   }
 
-  const completedAt = paidCents >= share.shareCents ? new Date() : null;
+  const remainingCents = Math.max(0, share.shareCents - share.paidCents);
+  if (remainingCents === 0) {
+    throw new ExpenseServiceError(409, "Your share is already paid in full.");
+  }
+  if (paymentCents > remainingCents) {
+    throw new ExpenseServiceError(
+      400,
+      `You only have ${(remainingCents / 100).toFixed(2)} left to pay on your share.`,
+    );
+  }
+
+  const nextPaidCents = share.paidCents + paymentCents;
+  const completedAt = nextPaidCents === share.shareCents ? new Date() : null;
+  const paymentId = randomUUID();
   const sql = getSql();
 
   try {
@@ -584,13 +569,35 @@ export async function updateExpenseSettlement(input: {
         FOR UPDATE
       `,
       sql`
+        INSERT INTO expense_share_payments (
+          id, expense_share_id, participant_id, amount_cents, created_at
+        )
+        SELECT
+          ${paymentId}::uuid,
+          share.id,
+          ${session.participantId}::uuid,
+          ${paymentCents}::integer,
+          now()
+        FROM expense_shares share
+        WHERE share.id = ${share.id}::uuid
+          AND share.expense_id = ${id}::uuid
+          AND share.participant_id = ${session.participantId}::uuid
+          AND share.paid_cents + ${paymentCents}::integer <= share.share_cents
+      `,
+      sql`
         UPDATE expense_shares
         SET
-          paid_cents = ${paidCents}::integer,
-          paid_at = ${completedAt}::timestamptz,
+          paid_cents = paid_cents + ${paymentCents}::integer,
+          paid_at = CASE
+            WHEN paid_cents + ${paymentCents}::integer = share_cents
+              THEN ${completedAt}::timestamptz
+            ELSE NULL
+          END,
           updated_at = now()
-        WHERE expense_id = ${id}::uuid
+        WHERE id = ${share.id}::uuid
+          AND expense_id = ${id}::uuid
           AND participant_id = ${session.participantId}::uuid
+          AND paid_cents + ${paymentCents}::integer <= share_cents
       `,
       sql`
         UPDATE expenses
@@ -626,18 +633,18 @@ export async function updateExpenseSettlement(input: {
         SELECT
           calendar_id,
           ${session.participantId}::uuid,
-          'expense.share_payment.update',
+          'expense.share_payment.add',
           'expense',
           id,
           jsonb_build_object(
             'participantId', ${session.participantId}::text,
             'paidCents', ${share.paidCents}::integer,
-            'shareCents', ${share.shareCents}::integer,
-            'settlementStatus', ${expense.settlementStatus}::text
+            'shareCents', ${share.shareCents}::integer
           ),
           jsonb_build_object(
             'participantId', ${session.participantId}::text,
-            'paidCents', ${paidCents}::integer,
+            'paymentCents', ${paymentCents}::integer,
+            'paidCents', ${nextPaidCents}::integer,
             'shareCents', ${share.shareCents}::integer,
             'settlementStatus', settlement_status::text
           )
@@ -647,32 +654,42 @@ export async function updateExpenseSettlement(input: {
       `,
     ]);
   } catch (error) {
-    console.error("Shared cost payment update failed", {
+    console.error("Shared cost payment add failed", {
       expenseId: id,
       participantId: session.participantId,
       message: error instanceof Error ? error.message : "unknown database error",
     });
-    throw new ExpenseServiceError(
-      409,
-      "Your payment amount could not be updated.",
-    );
+    throw new ExpenseServiceError(409, "Your payment could not be added.");
   }
 
-  const updatedRows = await db
-    .select({ settlementStatus: expenses.settlementStatus })
-    .from(expenses)
-    .where(
-      and(
-        eq(expenses.id, id),
-        eq(expenses.calendarId, session.calendarId),
-      ),
-    )
-    .limit(1);
+  const [updatedShareRows, updatedExpenseRows] = await Promise.all([
+    db
+      .select({
+        paidCents: expenseShares.paidCents,
+        shareCents: expenseShares.shareCents,
+      })
+      .from(expenseShares)
+      .where(eq(expenseShares.id, share.id))
+      .limit(1),
+    db
+      .select({ settlementStatus: expenses.settlementStatus })
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.id, id),
+          eq(expenses.calendarId, session.calendarId),
+        ),
+      )
+      .limit(1),
+  ]);
 
   return {
     ok: true as const,
-    settlementStatus: updatedRows[0]?.settlementStatus ?? "outstanding",
-    paidCents,
-    shareCents: share.shareCents,
+    paymentId,
+    paymentCents,
+    paidCents: updatedShareRows[0]?.paidCents ?? nextPaidCents,
+    shareCents: updatedShareRows[0]?.shareCents ?? share.shareCents,
+    settlementStatus:
+      updatedExpenseRows[0]?.settlementStatus ?? "outstanding",
   };
 }
