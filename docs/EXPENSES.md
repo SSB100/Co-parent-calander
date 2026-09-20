@@ -1,121 +1,97 @@
-# Expenses
+# Shared costs
 
-> **Current release status — 18 September 2026:** This feature is live in Covie Production and its required migration(s) are already applied through production schema version `0011`. Any older “do not apply”, “GitHub-only”, or “not yet deployed” wording below is retained only as historical phase context and is not the current operating state.
+Covie records shared child-related costs without moving money or connecting to bank accounts.
 
-Phase 3 adds shared expense tracking to Covie without turning the product into a payment service.
+## Core model
 
-## Product boundary
+Each agreed shared cost stores:
 
-Covie records what was spent, who paid, how the cost is shared, whether reimbursement is still outstanding, and whether the parents have agreed to changes.
-
-Covie does not transfer money, connect bank accounts, collect payments, or treat expense history as a legal evidence system.
-
-## Expense fields
-
-Each agreed expense stores:
-
-- short title
+- a short title
 - amount in integer cents
-- category
-- expense date
+- category and expense date
 - optional child
-- parent who paid
-- explicit share amount for each parent
-- optional reimbursement due date
-- optional practical note
-- settlement status
-- settlement timestamp and actor when applicable
+- the parent who originally paid the bill
+- an explicit share amount for each parent
+- optional due date and note
+- a separate paid confirmation for each parent share
 
-Categories are intentionally practical rather than exhaustive:
-
-- School
-- Childcare
-- Medical
-- Sport
-- Clothing
-- Activities
-- Travel
-- Essentials
-- Other
-
-## Splits
-
-The UI offers three simple split patterns:
+The split options remain intentionally simple:
 
 - 50 / 50
 - paid by payer only
 - custom split
 
-The API always receives explicit per-parent share amounts and validates that the shares add up to the full expense. Odd cents in an equal split remain with the parent who paid so the accounting stays exact.
+All shares must add up to the full cost.
 
 ## Agreement rules
 
-When two active co-parents both have linked edit-capable accounts:
+When two active co-parents have linked edit-capable accounts:
 
-- creating an expense creates a Waiting proposal
-- changing an agreed expense creates a Waiting proposal
-- removing an agreed expense creates a Waiting proposal
-- the current agreed expense stays active until the proposal is accepted
+- creating a shared cost requires agreement
+- editing an agreed shared cost requires agreement
+- removing an agreed shared cost requires agreement
+- the currently agreed record stays authoritative until the proposal is accepted
 
-When there is no other linked edit-capable parent, those same operations remain immediately usable so a solo Covie user is not blocked.
+A solo Covie user is not blocked when there is no other linked edit-capable parent.
 
-Viewer memberships can read expenses and proposals but cannot mutate them.
+Payment confirmation is deliberately different from editing. It is an operational action and does not create an approval proposal.
 
-Expense proposals use:
+## Per-parent payment confirmation
 
-- entity type: `expense`
-- entity id: the future/current expense UUID
-- reusable proposal history and audit log from the approval engine
+Each parent can update only the paid state of their own `expense_shares` row.
 
-Acceptance is applied transactionally in `lib/approvals/expense-apply.ts`.
+The settlement endpoint does not accept another participant id, so one parent cannot mark the other parent's share paid.
 
-## Settlement status
+For positive shares:
 
-Settlement is deliberately separate from agreement.
+- an unpaid share has `paid_at = NULL`
+- choosing **Mark my share paid** records that parent's `paid_at`
+- the same parent can undo their own confirmation with **Mark my share unpaid**
+- zero-value shares require no confirmation
 
-- `not_needed`: the parent who paid owns the full share
-- `outstanding`: another parent has a reimbursement share
-- `settled`: reimbursement has been recorded as complete
+The expense remains `outstanding` while any positive share is unpaid.
 
-Marking an expense settled or reopening it is an operational status update, not a second approval proposal. The change is still written to the audit log.
+Once every positive share has a `paid_at` timestamp, the expense becomes `settled` and moves into the Shared Cost archive automatically.
 
-If an approved edit changes the amount, payer, or share amounts, settlement resets to the appropriate fresh state. Non-financial edits preserve the current settlement state.
+If a parent later marks their own share unpaid, the item becomes outstanding again.
 
-## Calendar connection
+Covie records these confirmations but does not transfer money.
 
-Expenses are date-linked.
+## Editing and payment state
 
-Day Details loads expenses recorded or due on that date and provides a direct link into the Expenses screen with the date filter already selected. Parenting colours and Google Calendar syncing remain independent from expenses.
+Accepted edits that change the amount, payer or split are financial changes. They reset all share payment confirmations because the amounts being confirmed have changed.
 
-Expense proposals and settlement records are never sent to Google Calendar.
+Non-financial edits, such as changing a title, note or due date, preserve the existing per-parent payment confirmations.
 
-## Database migration
+Payment confirmation itself is never copied into an edit proposal, so one parent cannot alter the other parent's paid acknowledgement through the approval flow.
 
-Phase 3 introduces, but does not apply:
+## Existing data migration
 
-- `drizzle/0007_expenses.sql`
-- `expense_category`
-- `expense_settlement_status`
-- `expenses`
-- `expense_shares`
+Migration `0018_expense_share_payment_confirmation.sql` adds `expense_shares.paid_at`.
 
-Do not apply this migration until the full staged build is approved for deployment.
+To preserve existing state:
 
-## Deployment verification later
+- previously settled or `not_needed` costs have their positive shares backfilled as paid
+- previously outstanding costs remain unpaid
+- legacy `not_needed` rows are normalized to archived `settled` records
 
-After all stages are complete and deployment is explicitly approved, verify:
+## Calendar and Home
 
-1. Solo-parent expense create/edit/delete works immediately.
-2. Two linked editors create Waiting proposals instead of mutating agreed expenses.
-3. Accept applies create/edit/delete exactly once.
-4. Decline and withdraw leave the agreed expense unchanged.
-5. Viewer access is read-only.
-6. Equal split handles odd cents exactly.
-7. Custom split rejects totals that do not equal the expense.
-8. Payer-only expense shows no reimbursement needed.
-9. Outstanding reimbursement can be marked settled and reopened.
-10. Financial edits reset settlement appropriately.
-11. Non-financial edits preserve settlement.
-12. Day Details shows expenses recorded or due on that date.
-13. Pending expense changes never appear as agreed expense rows.
-14. Expense activity never creates Google Calendar jobs.
+Shared costs remain linked to their expense/due dates but are not synced into Google Calendar.
+
+Home and workspace summaries use the new paid state when calculating outstanding amounts.
+
+The left **At a glance** / mobile Quick View surface shows actual active tasks and shared costs only. It does not duplicate Tasks or Shared Costs navigation cards; those feature entry points remain in Organiser.
+
+## Verification checklist
+
+1. A parent can mark only their own positive share paid.
+2. One parent's confirmation cannot mutate the other parent's share.
+3. A 50 / 50 cost remains active after only one parent confirms payment.
+4. The cost archives automatically after both positive shares are confirmed.
+5. Undoing one parent's own confirmation reopens the cost.
+6. Financial edits require approval and reset confirmations after acceptance.
+7. Non-financial approved edits preserve confirmations.
+8. Create/edit/delete approval behaviour remains unchanged.
+9. Day Details and Home show the updated payment state.
+10. Shared cost activity creates no Google Calendar jobs.
