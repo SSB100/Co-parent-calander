@@ -63,6 +63,20 @@ test("only the proposer can send or withdraw their open proposal", () => {
   assert.equal(canSubmitProposal(editor, draft), false);
   assert.equal(canWithdrawProposal(owner, waiting), true);
   assert.equal(canWithdrawProposal(editor, waiting), false);
+  assert.equal(
+    canWithdrawProposal(
+      { membershipId: owner.membershipId, participantId: null, permission: "viewer" },
+      waiting,
+    ),
+    true,
+  );
+  assert.equal(
+    canWithdrawProposal(
+      { membershipId: "replacement-membership", participantId: owner.participantId, permission: "viewer" },
+      { ...waiting, proposedByParticipantId: owner.participantId },
+    ),
+    true,
+  );
 });
 
 test("proposal lifecycle only allows the intended transitions", () => {
