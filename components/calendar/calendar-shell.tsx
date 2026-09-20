@@ -111,7 +111,7 @@ const mixedStyle: VisualStyle = {
   dot: "bg-slate-500",
   slot: "bg-slate-200",
   pill: "bg-slate-200 text-slate-700",
-  button: "bg-slate-100 text-slate-700 hover:bg-slate-200",
+  button: "bg-[#F7DC86] text-[#243139] hover:bg-[#F2D16B]",
 };
 
 function keyFor(day: Date) {
@@ -532,7 +532,7 @@ export function CalendarShell({
                 <CheckSquare2 className="h-4 w-4" aria-hidden="true" />{selectionMode ? "Cancel select" : "Select days"}
               </button>
             ) : null}
-            <button type="button" onClick={goToday} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800"><RotateCcw className="h-4 w-4" aria-hidden="true" />Today</button>
+            <button type="button" onClick={goToday} className="covie-action-teal inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm"><RotateCcw className="h-4 w-4" aria-hidden="true" />Today</button>
           </div>
         </div>
 
