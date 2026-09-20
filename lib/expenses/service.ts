@@ -13,10 +13,12 @@ import type { CalendarApprovalPermission } from "@/lib/approvals/types";
 import { getDb, getSql } from "@/lib/db";
 import {
   children,
+  expenseRecurringSeries,
   expenseShares,
   expenses,
   participants,
 } from "@/lib/db/schema";
+import { createRecurringExpenseSeries } from "@/lib/expenses/recurrence";
 import {
   assertExpenseRelations,
   defaultSettlementStatus,
@@ -24,6 +26,7 @@ import {
   financialSignature,
   loadExpenseSnapshot,
   type ExpenseDetails,
+  type ExpenseRecurrence,
 } from "@/lib/expenses/model";
 
 export type ExpenseReadSession = {
@@ -67,10 +70,15 @@ function serviceFailure(
   throw new ExpenseServiceError(statusCode, message);
 }
 
-function proposalExpenseState(id: string, details: ExpenseDetails) {
+function proposalExpenseState(
+  id: string,
+  details: ExpenseDetails,
+  recurrence: ExpenseRecurrence | null = null,
+) {
   return {
     kind: "expense" as const,
     expense: { id, ...details },
+    recurrence,
   };
 }
 
@@ -134,6 +142,9 @@ export async function listExpenses(input: {
         paidByParticipantId: expenses.paidByParticipantId,
         dueDate: expenses.dueDate,
         note: expenses.note,
+        seriesId: expenses.seriesId,
+        seriesOccurrenceDate: expenses.seriesOccurrenceDate,
+        recurrenceFrequency: expenseRecurringSeries.frequency,
         settlementStatus: expenses.settlementStatus,
         settledAt: expenses.settledAt,
         settledByParticipantId: expenses.settledByParticipantId,
@@ -141,6 +152,10 @@ export async function listExpenses(input: {
         updatedAt: expenses.updatedAt,
       })
       .from(expenses)
+      .leftJoin(
+        expenseRecurringSeries,
+        eq(expenses.seriesId, expenseRecurringSeries.id),
+      )
       .where(and(...conditions))
       .orderBy(desc(expenses.expenseDate), desc(expenses.createdAt))
       .limit(date ? 100 : 200),
@@ -242,8 +257,9 @@ export async function createExpense(input: {
   session: ExpenseWriteSession;
   details: ExpenseDetails;
   reason: string | null;
+  recurrence: ExpenseRecurrence | null;
 }) {
-  const { session, details, reason } = input;
+  const { session, details, reason, recurrence } = input;
 
   try {
     await assertExpenseRelations(session.calendarId, details);
@@ -265,7 +281,7 @@ export async function createExpense(input: {
         entityId: id,
         action: "create",
         previousState: null,
-        proposedState: proposalExpenseState(id, details),
+        proposedState: proposalExpenseState(id, details, recurrence),
         reason,
         approverMembershipId: target.approverMembershipId,
       });
@@ -279,6 +295,26 @@ export async function createExpense(input: {
     }
   } catch (error) {
     serviceFailure(error, "The expense proposal could not be saved.");
+  }
+
+  if (recurrence) {
+    try {
+      const recurring = await createRecurringExpenseSeries({
+        calendarId: session.calendarId,
+        createdByParticipantId: session.participantId,
+        firstExpenseId: id,
+        details,
+        recurrence,
+      });
+      return {
+        ok: true as const,
+        pending: false as const,
+        id,
+        seriesId: recurring.seriesId,
+      };
+    } catch (error) {
+      serviceFailure(error, "The recurring shared cost could not be saved.");
+    }
   }
 
   const settlementStatus = defaultSettlementStatus(details);
