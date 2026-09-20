@@ -38,7 +38,7 @@ test("event service exposes simple whole-series recurrence controls through appr
 
 test("calendar and Google expand only stored approved event series", async () => {
   const [calendar, sync, mapping] = await Promise.all([
-    source("app/api/calendar/route.ts"),
+    source("lib/calendar/load-calendar.ts"),
     source("lib/google-calendar/sync.ts"),
     source("lib/google-calendar/mapping.ts"),
   ]);

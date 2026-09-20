@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CalendarShell } from "@/components/calendar/calendar-shell";
 import { NewCalendarWelcome } from "@/components/onboarding/new-calendar-welcome";
+import { calendarRangeForDate, loadCalendarData } from "@/lib/calendar/load-calendar";
+import { localDateInTimeZone } from "@/lib/calendar/time";
 import { getSql } from "@/lib/db";
 import {
   NEW_CALENDAR_INVITE_COOKIE_NAME,
@@ -22,8 +24,11 @@ export default async function CalendarPage({
   if (!session) redirect("/onboarding");
 
   const params = await searchParams;
+  const initialToday = localDateInTimeZone(session.calendarTimezone);
+  const initialRange = calendarRangeForDate(initialToday);
   const sql = getSql();
-  const calendars = (await sql`
+
+  const calendarRowsPromise = sql`
     SELECT
       calendar.id,
       calendar.name,
@@ -34,7 +39,15 @@ export default async function CalendarPage({
     LEFT JOIN participants participant ON participant.id = membership.participant_id
     WHERE membership.user_id = ${session.userId}
     ORDER BY membership.created_at ASC
-  `) as Array<{
+  `;
+
+  const [calendarRows, initialData, cookieStore] = await Promise.all([
+    calendarRowsPromise,
+    loadCalendarData(session, initialRange),
+    cookies(),
+  ]);
+
+  const calendars = calendarRows as Array<{
     id: string;
     name: string;
     permission: "owner" | "editor" | "viewer";
@@ -47,19 +60,25 @@ export default async function CalendarPage({
     displayName: calendar.display_name,
   }));
 
-  const cookieStore = await cookies();
   const inviteCode =
     params.welcome === "created"
-      ? normalizeInviteCode(cookieStore.get(NEW_CALENDAR_INVITE_COOKIE_NAME)?.value ?? "")
+      ? normalizeInviteCode(
+          cookieStore.get(NEW_CALENDAR_INVITE_COOKIE_NAME)?.value ?? "",
+        )
       : "";
 
   return (
     <>
       {inviteCode ? <NewCalendarWelcome inviteCode={inviteCode} /> : null}
       <CalendarShell
+        key={session.calendarId}
         calendars={calendarOptions}
         currentCalendarId={session.calendarId}
         defaultName={session.userName}
+        initialMonth={initialRange.month}
+        initialRange={{ from: initialRange.from, to: initialRange.to }}
+        initialToday={initialToday}
+        initialData={initialData}
       />
     </>
   );

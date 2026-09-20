@@ -72,7 +72,7 @@ type HandoverSummary = {
   handoverLocation: string | null;
   note: string | null;
 };
-type CalendarPayload = {
+export type CalendarPayload = {
   calendar: { id: string; name: string; timezone: string; shareEnabled: boolean };
   currentParticipantId: string | null;
   currentMembershipId: string;
@@ -176,17 +176,30 @@ export function CalendarShell({
   calendars,
   currentCalendarId,
   defaultName,
+  initialMonth,
+  initialRange,
+  initialToday,
+  initialData,
 }: {
   calendars: CalendarOption[];
   currentCalendarId: string;
   defaultName: string;
+  initialMonth: string;
+  initialRange: { from: string; to: string };
+  initialToday: string;
+  initialData: CalendarPayload;
 }) {
-  const [currentMonth, setCurrentMonth] = useState<Date>(() => startOfMonth(new Date()));
+  const [currentMonth, setCurrentMonth] = useState<Date>(() =>
+    startOfMonth(parseISO(initialMonth)),
+  );
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [bulkEditorOpen, setBulkEditorOpen] = useState(false);
-  const [calendarData, setCalendarData] = useState<CalendarPayload | null>(null);
-  const [accessMode, setAccessMode] = useState<AccessMode>("checking");
+  const [calendarData, setCalendarData] =
+    useState<CalendarPayload | null>(initialData);
+  const [accessMode, setAccessMode] = useState<AccessMode>(
+    initialData.permission === "viewer" ? "viewer" : "editor",
+  );
   const [saving, setSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
@@ -194,6 +207,10 @@ export function CalendarShell({
   const [bulkReason, setBulkReason] = useState("");
   const toolsMenuRef = useRef<HTMLDetailsElement>(null);
   const settingsMenuRef = useRef<HTMLDetailsElement>(null);
+  const loadedRequestRef = useRef({
+    range: `${initialRange.from}:${initialRange.to}`,
+    refreshKey: 0,
+  });
   useDismissibleDetails(toolsMenuRef);
   useDismissibleDetails(settingsMenuRef);
 
@@ -209,8 +226,19 @@ export function CalendarShell({
   );
 
   useEffect(() => {
+    const requestRange = `${calendarRange.from}:${calendarRange.to}`;
+    if (
+      loadedRequestRef.current.range === requestRange &&
+      loadedRequestRef.current.refreshKey === refreshKey
+    ) {
+      return;
+    }
+
     let cancelled = false;
-    const params = new URLSearchParams({ from: calendarRange.from, to: calendarRange.to });
+    const params = new URLSearchParams({
+      from: calendarRange.from,
+      to: calendarRange.to,
+    });
 
     fetch(`/api/calendar?${params.toString()}`, { cache: "no-store" })
       .then(async (response) => ({
@@ -232,6 +260,10 @@ export function CalendarShell({
           return;
         }
         setCalendarData(body);
+        loadedRequestRef.current = {
+          range: requestRange,
+          refreshKey,
+        };
         setAccessMode(body.permission === "viewer" ? "viewer" : "editor");
         setMessage(null);
       })
@@ -302,7 +334,7 @@ export function CalendarShell({
     return map;
   }, [calendarData]);
 
-  const today = new Date();
+  const today = parseISO(initialToday);
   const currentEditor = calendarData?.participants.find((participant) => participant.id === calendarData.currentParticipantId);
 
   function ownerLabel(owner: SlotOwnership | undefined) {
@@ -417,7 +449,7 @@ export function CalendarShell({
   }
 
   function goToday() {
-    setCurrentMonth(startOfMonth(new Date()));
+    setCurrentMonth(startOfMonth(parseISO(initialToday)));
     setDetailsDate(null);
   }
 

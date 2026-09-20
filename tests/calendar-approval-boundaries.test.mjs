@@ -43,13 +43,13 @@ test("solo-parent calendars remain usable until another edit-capable parent is l
 });
 
 test("month data keeps agreed records authoritative and exposes pending changes separately", async () => {
-  const route = await source("app/api/calendar/route.ts");
+  const loader = await source("lib/calendar/load-calendar.ts");
   const pending = await source("lib/approvals/calendar-pending.ts");
 
-  assert.match(route, /loadEffectiveAssignmentMap/);
-  assert.match(route, /events: eventRows/);
-  assert.match(route, /pendingProposals/);
-  assert.match(route, /status: "waiting"/);
+  assert.match(loader, /loadEffectiveAssignmentMap/);
+  assert.match(loader, /events: eventRows/);
+  assert.match(loader, /pendingProposals/);
+  assert.match(loader, /status: "waiting"/);
   assert.match(pending, /affectedDates/);
   assert.match(pending, /kind: "parenting" \| "event" \| "recurring_schedule"/);
 });
