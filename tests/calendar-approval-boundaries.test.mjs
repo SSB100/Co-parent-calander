@@ -100,3 +100,11 @@ test("calendar UI shows pending status without replacing parenting colours", asy
   assert.match(actions, /Withdraw request/);
   assert.match(actions, /Decline reason \(optional\)/);
 });
+
+
+test("calendar settings action keeps a visible mobile label", async () => {
+  const settings = await source("components/calendar/settings-panel.tsx");
+
+  assert.match(settings, />Calendar settings<\/span>/);
+  assert.doesNotMatch(settings, /hidden sm:inline">Settings/);
+});

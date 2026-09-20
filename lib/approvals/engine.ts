@@ -753,7 +753,7 @@ export async function withdrawApprovalProposal(input: {
           'proposal.withdraw',
           'proposal',
           id,
-          jsonb_build_object('status', ${fromStatus}),
+          jsonb_build_object('status', ${fromStatus}::text),
           jsonb_build_object(
             'status', 'withdrawn',
             'targetEntityType', entity_type,

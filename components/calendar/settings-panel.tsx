@@ -148,7 +148,7 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
         className="covie-action-teal inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm"
       >
         <Settings2 className="h-4 w-4" aria-hidden="true" />
-        <span className="hidden sm:inline">Settings</span>
+        <span>Calendar settings</span>
       </button>
       {open ? (
         <div className="covie-dialog-backdrop">
