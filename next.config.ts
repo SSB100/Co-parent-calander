@@ -36,6 +36,24 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      ...[
+        "/dashboard/:path*",
+        "/calendar/:path*",
+        "/home/:path*",
+        "/organiser/:path*",
+        "/expenses/:path*",
+        "/responsibilities/:path*",
+        "/kids/:path*",
+        "/onboarding/:path*",
+      ].map((source) => ({
+        source,
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, max-age=0",
+          },
+        ],
+      })),
     ];
   },
   turbopack: {
