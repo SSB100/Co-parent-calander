@@ -56,7 +56,7 @@ export function DayExpenses({ date, readOnly = false }: { date: string; readOnly
             Shared costs on this day
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Costs recorded or reimbursement due on this date.
+            Costs recorded or payment confirmation due on this date.
           </p>
         </div>
         <Link
@@ -83,10 +83,8 @@ export function DayExpenses({ date, readOnly = false }: { date: string; readOnly
                 <p className="truncate text-sm font-semibold text-slate-900">{expense.title}</p>
                 <p className="mt-0.5 text-xs text-slate-500">
                   {expense.settlementStatus === "settled"
-                    ? "Settled"
-                    : expense.settlementStatus === "outstanding"
-                      ? "Reimbursement outstanding"
-                      : "No reimbursement needed"}
+                    ? "All shares confirmed paid"
+                    : "Waiting for payment confirmation"}
                 </p>
               </div>
               <p className="shrink-0 text-sm font-semibold text-slate-900">
