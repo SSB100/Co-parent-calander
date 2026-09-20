@@ -125,12 +125,16 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
     function handlePointerDown(event: PointerEvent) {
       if (!(event.target instanceof Node)) return;
       if (!mobileActionsRef.current?.contains(event.target)) {
+        mobileActionsOpenRef.current = false;
         setMobileActionsOpen(false);
       }
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setMobileActionsOpen(false);
+      if (event.key === "Escape") {
+        mobileActionsOpenRef.current = false;
+        setMobileActionsOpen(false);
+      }
     }
 
     document.addEventListener("pointerdown", handlePointerDown);
@@ -156,7 +160,17 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
 
   function openInstallPrompt() {
     window.dispatchEvent(new Event("covie-open-install"));
+    mobileActionsOpenRef.current = false;
     setMobileActionsOpen(false);
+  }
+
+  function toggleMobileActions() {
+    const next = !mobileActionsOpenRef.current;
+    mobileActionsOpenRef.current = next;
+    setMobileActionsOpen(next);
+    if (next) {
+      void refreshWorkspace(true);
+    }
   }
 
   return <>
@@ -200,16 +214,7 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
           aria-label={mobileActionsOpen ? "Close quick view" : "Open quick view"}
           title="Quick view"
           aria-expanded={mobileActionsOpen}
-          onClick={() => {
-            setMobileActionsOpen((current) => {
-              const next = !current;
-              mobileActionsOpenRef.current = next;
-              if (next) {
-                void refreshWorkspace(true);
-              }
-              return next;
-            });
-          }}
+          onClick={toggleMobileActions}
         >
           <Eye size={21} aria-hidden="true" />
           <span className="sr-only">Quick view</span>
