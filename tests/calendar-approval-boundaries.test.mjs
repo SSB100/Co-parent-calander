@@ -97,6 +97,6 @@ test("calendar UI shows pending status without replacing parenting colours", asy
   assert.match(day, /Reason for change/);
   assert.match(actions, /Accept/);
   assert.match(actions, /Decline/);
-  assert.match(actions, /Withdraw proposal/);
+  assert.match(actions, /Withdraw request/);
   assert.match(actions, /Decline reason \(optional\)/);
 });
