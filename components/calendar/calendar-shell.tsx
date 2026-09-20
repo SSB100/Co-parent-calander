@@ -28,15 +28,45 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ActivityPanel } from "@/components/calendar/activity-panel";
+import dynamic from "next/dynamic";
 import { CalendarSwitcher, type CalendarOption } from "@/components/calendar/calendar-switcher";
 import { GoogleCalendarQuickAction } from "@/components/calendar/google-calendar-quick-action";
-import { DayDetailsPanel } from "@/components/calendar/day-details-panel";
 import { EventPanel } from "@/components/calendar/event-panel";
 import { MembersPanel } from "@/components/calendar/members-panel";
-import { RecurringSchedulePanel } from "@/components/calendar/recurring-schedule-panel";
-import { RangeAssignmentPanel } from "@/components/calendar/range-assignment-panel";
 import { SettingsPanel } from "@/components/calendar/settings-panel";
+
+const DayDetailsPanel = dynamic(
+  () =>
+    import("@/components/calendar/day-details-panel").then(
+      (module) => module.DayDetailsPanel,
+    ),
+  {
+    loading: () => (
+      <div className="covie-dialog-backdrop">
+        <div
+          role="status"
+          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 shadow-sm"
+        >
+          Opening day…
+        </div>
+      </div>
+    ),
+  },
+);
+
+const CalendarToolsMenu = dynamic(
+  () =>
+    import("@/components/calendar/calendar-tools-menu").then(
+      (module) => module.CalendarToolsMenu,
+    ),
+  {
+    loading: () => (
+      <p role="status" className="px-3 py-2 text-xs font-semibold text-slate-500">
+        Loading tools…
+      </p>
+    ),
+  },
+);
 import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
@@ -205,6 +235,7 @@ export function CalendarShell({
   const [message, setMessage] = useState<string | null>(null);
   const [detailsDate, setDetailsDate] = useState<string | null>(null);
   const [bulkReason, setBulkReason] = useState("");
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const toolsMenuRef = useRef<HTMLDetailsElement>(null);
   const settingsMenuRef = useRef<HTMLDetailsElement>(null);
   const loadedRequestRef = useRef({
@@ -509,16 +540,26 @@ export function CalendarShell({
                   {accessMode === "editor" ? (
                     <>
                       <EventPanel includeRangeTools={false} onChanged={() => setRefreshKey((value) => value + 1)} />
-                      <details ref={toolsMenuRef} className="relative">
+                      <details
+                        ref={toolsMenuRef}
+                        className="relative"
+                        onToggle={(event) =>
+                          setToolsMenuOpen(event.currentTarget.open)
+                        }
+                      >
                       <summary className="covie-menu-trigger covie-action-violet"><span><span className="hidden sm:inline">Calendar </span>Tools</span><ChevronDown size={16} aria-hidden="true" /></summary>
                         <div className="covie-menu covie-tool-menu">
                           <Link href="/responsibilities" className="covie-action-teal inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm">
                             <CheckSquare2 className="h-4 w-4" aria-hidden="true" />
                             Tasks
                           </Link>
-                          <RangeAssignmentPanel onChanged={() => setRefreshKey((value) => value + 1)} />
-                          <RecurringSchedulePanel onChanged={() => setRefreshKey((value) => value + 1)} />
-                          <ActivityPanel />
+                          {toolsMenuOpen ? (
+                            <CalendarToolsMenu
+                              onChanged={() =>
+                                setRefreshKey((value) => value + 1)
+                              }
+                            />
+                          ) : null}
                         </div>
                       </details>
 
