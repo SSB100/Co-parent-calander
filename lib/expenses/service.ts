@@ -13,7 +13,6 @@ import type { CalendarApprovalPermission } from "@/lib/approvals/types";
 import { getDb, getSql } from "@/lib/db";
 import {
   children,
-  expenseSharePayments,
   expenseShares,
   expenses,
   participants,
@@ -554,8 +553,6 @@ export async function updateExpenseSettlement(input: {
     );
   }
 
-  const nextPaidCents = share.paidCents + paymentCents;
-  const completedAt = nextPaidCents === share.shareCents ? new Date() : null;
   const paymentId = randomUUID();
   const sql = getSql();
 
@@ -590,14 +587,18 @@ export async function updateExpenseSettlement(input: {
           paid_cents = paid_cents + ${paymentCents}::integer,
           paid_at = CASE
             WHEN paid_cents + ${paymentCents}::integer = share_cents
-              THEN ${completedAt}::timestamptz
+              THEN now()
             ELSE NULL
           END,
           updated_at = now()
         WHERE id = ${share.id}::uuid
           AND expense_id = ${id}::uuid
           AND participant_id = ${session.participantId}::uuid
-          AND paid_cents + ${paymentCents}::integer <= share_cents
+          AND EXISTS (
+            SELECT 1
+            FROM expense_share_payments payment
+            WHERE payment.id = ${paymentId}::uuid
+          )
       `,
       sql`
         UPDATE expenses
@@ -624,6 +625,11 @@ export async function updateExpenseSettlement(input: {
           updated_at = now()
         WHERE id = ${id}::uuid
           AND calendar_id = ${session.calendarId}::uuid
+          AND EXISTS (
+            SELECT 1
+            FROM expense_share_payments payment
+            WHERE payment.id = ${paymentId}::uuid
+          )
       `,
       sql`
         INSERT INTO audit_log (
@@ -631,26 +637,34 @@ export async function updateExpenseSettlement(input: {
           before_state, after_state
         )
         SELECT
-          calendar_id,
+          expense.calendar_id,
           ${session.participantId}::uuid,
           'expense.share_payment.add',
           'expense',
-          id,
+          expense.id,
           jsonb_build_object(
             'participantId', ${session.participantId}::text,
-            'paidCents', ${share.paidCents}::integer,
-            'shareCents', ${share.shareCents}::integer
+            'paidCents', share.paid_cents - ${paymentCents}::integer,
+            'shareCents', share.share_cents
           ),
           jsonb_build_object(
             'participantId', ${session.participantId}::text,
             'paymentCents', ${paymentCents}::integer,
-            'paidCents', ${nextPaidCents}::integer,
-            'shareCents', ${share.shareCents}::integer,
-            'settlementStatus', settlement_status::text
+            'paidCents', share.paid_cents,
+            'shareCents', share.share_cents,
+            'settlementStatus', expense.settlement_status::text
           )
-        FROM expenses
-        WHERE id = ${id}::uuid
-          AND calendar_id = ${session.calendarId}::uuid
+        FROM expenses expense
+        JOIN expense_shares share
+          ON share.expense_id = expense.id
+         AND share.id = ${share.id}::uuid
+        WHERE expense.id = ${id}::uuid
+          AND expense.calendar_id = ${session.calendarId}::uuid
+          AND EXISTS (
+            SELECT 1
+            FROM expense_share_payments payment
+            WHERE payment.id = ${paymentId}::uuid
+          )
       `,
     ]);
   } catch (error) {
@@ -660,6 +674,19 @@ export async function updateExpenseSettlement(input: {
       message: error instanceof Error ? error.message : "unknown database error",
     });
     throw new ExpenseServiceError(409, "Your payment could not be added.");
+  }
+
+  const paymentRows = await sql`
+    SELECT id
+    FROM expense_share_payments
+    WHERE id = ${paymentId}::uuid
+    LIMIT 1
+  `;
+  if (paymentRows.length === 0) {
+    throw new ExpenseServiceError(
+      409,
+      "Your remaining balance changed before this payment was saved. Refresh and try again.",
+    );
   }
 
   const [updatedShareRows, updatedExpenseRows] = await Promise.all([
@@ -687,7 +714,7 @@ export async function updateExpenseSettlement(input: {
     ok: true as const,
     paymentId,
     paymentCents,
-    paidCents: updatedShareRows[0]?.paidCents ?? nextPaidCents,
+    paidCents: updatedShareRows[0]?.paidCents ?? share.paidCents + paymentCents,
     shareCents: updatedShareRows[0]?.shareCents ?? share.shareCents,
     settlementStatus:
       updatedExpenseRows[0]?.settlementStatus ?? "outstanding",
