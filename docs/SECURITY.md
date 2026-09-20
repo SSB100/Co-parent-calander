@@ -24,6 +24,8 @@ Normal runtime queries should use APP_DATABASE_URL with the restricted covie_app
 
 DATABASE_URL is reserved for migrations/owner operations. Drizzle intentionally continues to use DATABASE_URL.
 
+Until APP_DATABASE_URL is configured in the deployment environment, the application deliberately falls back to DATABASE_URL so credential rotation can be completed without downtime. Treat that fallback as a temporary operational state, not the desired steady state.
+
 The restricted role is intended to:
 - read/write Covie application tables;
 - read the non-secret neon_auth.user profile table only where the application needs account names/emails;
