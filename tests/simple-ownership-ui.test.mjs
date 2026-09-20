@@ -53,3 +53,26 @@ test("mobile month grid supports deliberate left and right swipe navigation", as
   assert.match(gesture, /button\[aria-pressed="true"\]/);
   assert.match(styles, /touch-action: pan-y/);
 });
+
+
+test("mobile multi-day selection keeps the calendar usable until assignment is requested", async () => {
+  const shell = await readFile(path.join(root, "components/calendar/calendar-shell.tsx"), "utf8");
+
+  assert.match(shell, /Cancel select/);
+  assert.match(shell, /covie-mobile-selection-bar/);
+  assert.match(shell, /Assign days/);
+  assert.match(shell, /bulkEditorOpen/);
+  assert.match(shell, /Assign selected days/);
+  assert.match(shell, /You can move between months without losing your selection/);
+
+  const moveMonth = shell.slice(
+    shell.indexOf("function moveMonth"),
+    shell.indexOf("function goToday"),
+  );
+  const goToday = shell.slice(
+    shell.indexOf("function goToday"),
+    shell.indexOf("const bulkChoices"),
+  );
+  assert.doesNotMatch(moveMonth, /setSelectedDays|setSelectionMode|setBulkReason/);
+  assert.doesNotMatch(goToday, /setSelectedDays|setSelectionMode|setBulkReason/);
+});
