@@ -70,7 +70,7 @@ ALTER TABLE "expenses"
 ALTER TABLE "expenses"
   ADD CONSTRAINT "expenses_series_id_fkey"
   FOREIGN KEY ("series_id") REFERENCES "public"."expense_recurring_series"("id")
-  ON DELETE SET NULL;
+  ON DELETE RESTRICT;
 
 ALTER TABLE "expenses"
   ADD CONSTRAINT "expenses_series_occurrence_valid"
