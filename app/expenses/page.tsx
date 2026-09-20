@@ -4,7 +4,7 @@ import { ExpensesShell } from "@/components/expenses/expenses-shell";
 import { getCalendarSession } from "@/lib/security/session";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Expenses" };
+export const metadata: Metadata = { title: "Shared costs" };
 
 type ExpensesPageProps = {
   searchParams: Promise<{ date?: string | string[] }>;
