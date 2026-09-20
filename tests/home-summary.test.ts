@@ -47,6 +47,34 @@ test("expense context says whether money is owed to or by the current parent", (
   );
 });
 
+test("paid shared-cost shares stop appearing as money still owed by that parent", () => {
+  const shares = [
+    { participantId: me, shareCents: 3000, paidAt: new Date() },
+    { participantId: them, shareCents: 3000, paidAt: null },
+  ];
+
+  assert.deepEqual(
+    expenseReimbursementContext({
+      amountCents: 6000,
+      paidByParticipantId: me,
+      shares,
+      currentParticipantId: them,
+    }),
+    { direction: "you_owe", amountCents: 3000 },
+  );
+
+  assert.deepEqual(
+    expenseReimbursementContext({
+      amountCents: 6000,
+      paidByParticipantId: them,
+      shares,
+      currentParticipantId: me,
+    }),
+    { direction: "you_owe", amountCents: 0 },
+  );
+});
+
+
 test("proposal display provides calm Home summaries across shared features", () => {
   assert.deepEqual(
     proposalDisplay({
