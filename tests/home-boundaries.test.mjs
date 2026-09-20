@@ -124,14 +124,16 @@ test("Home does not create a new Google Calendar sync surface", async () => {
 
 
 test("calendar settings and parent changes refetch without hard page reloads", async () => {
-  const [calendar, members, settings] = await Promise.all([
+  const [calendar, settingsMenu, members, settings] = await Promise.all([
     source("components/calendar/calendar-shell.tsx"),
+    source("components/calendar/calendar-settings-menu.tsx"),
     source("components/calendar/members-panel.tsx"),
     source("components/calendar/settings-panel.tsx"),
   ]);
 
-  assert.match(calendar, /MembersPanel onChanged/);
-  assert.match(calendar, /SettingsPanel[\s\S]*onChanged/);
+  assert.match(calendar, /CalendarSettingsMenu[\s\S]*onChanged/);
+  assert.match(settingsMenu, /MembersPanel onChanged=\{onChanged\}/);
+  assert.match(settingsMenu, /SettingsPanel readOnly=\{readOnly\} onChanged=\{onChanged\}/);
   assert.match(members, /onChanged\?\.\(\)/);
   assert.match(settings, /onChanged\?\.\(\)/);
   assert.doesNotMatch(members, /location\.reload/);

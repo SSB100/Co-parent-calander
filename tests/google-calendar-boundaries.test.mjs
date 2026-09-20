@@ -28,12 +28,14 @@ test("calendar settings are readable by viewers but still writable only by edito
 });
 
 test("viewer UI exposes only read-only family settings plus the viewer's own Google integration", async () => {
-  const [shell, settings] = await Promise.all([
+  const [shell, settingsMenu, settings] = await Promise.all([
     readFile(path.join(root, "components/calendar/calendar-shell.tsx"), "utf8"),
+    readFile(path.join(root, "components/calendar/calendar-settings-menu.tsx"), "utf8"),
     readFile(path.join(root, "components/calendar/settings-panel.tsx"), "utf8"),
   ]);
 
-  assert.match(shell, /SettingsPanel[\s\S]{0,180}readOnly=\{accessMode === "viewer"\}/);
+  assert.match(shell, /CalendarSettingsMenu[\s\S]{0,260}readOnly=\{accessMode === "viewer"\}/);
+  assert.match(settingsMenu, /SettingsPanel readOnly=\{readOnly\}/);
   assert.match(settings, /GoogleCalendarSettings/);
   assert.match(settings, /disabled=\{saving \|\| readOnly\}/);
   assert.match(settings, /!readOnly \? \(/);

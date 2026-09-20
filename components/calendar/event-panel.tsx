@@ -2,8 +2,14 @@
 
 import { format, parseISO } from "date-fns";
 import { CalendarPlus2, LoaderCircle, Pencil, Trash2, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import { RangeAssignmentPanel } from "@/components/calendar/range-assignment-panel";
+
+const RangeAssignmentPanel = dynamic(() =>
+  import("@/components/calendar/range-assignment-panel").then(
+    (module) => module.RangeAssignmentPanel,
+  ),
+);
 
 type EventCategory =
   | "school"
