@@ -19,8 +19,30 @@ const securityHeaders = [
   { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
 ];
 
+const productionDeploymentRedirects =
+  process.env.VERCEL_ENV === "production" &&
+  process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? [
+        {
+          source: "/:path*",
+          has: [
+            {
+              type: "host" as const,
+              value:
+                "co-parent-calander-[a-z0-9]{9}-haakers-projects\\.vercel\\.app",
+            },
+          ],
+          destination: `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/:path*`,
+          permanent: false,
+        },
+      ]
+    : [];
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  async redirects() {
+    return productionDeploymentRedirects;
+  },
   async headers() {
     return [
       {
