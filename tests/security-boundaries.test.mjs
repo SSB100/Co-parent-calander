@@ -131,6 +131,11 @@ test("global browser headers reduce common web attack surface and APIs are never
   assert.match(config, /Permissions-Policy/);
   assert.match(config, /source: "\/api\/\:path\*"/);
   assert.match(config, /private, no-store, max-age=0/);
+  assert.match(config, /"\/calendar\/\:path\*"/);
+  assert.match(config, /"\/home\/\:path\*"/);
+  assert.match(config, /"\/expenses\/\:path\*"/);
+  assert.match(config, /"\/responsibilities\/\:path\*"/);
+  assert.match(config, /"\/kids\/\:path\*"/);
   assert.doesNotMatch(config, /poweredByHeader:\s*true/);
 });
 
