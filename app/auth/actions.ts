@@ -8,7 +8,8 @@ import { normalizeInviteCode } from "@/lib/security/invites";
 export type AuthActionState = { error: string | null };
 
 const email = z.string().trim().email("Enter a valid email address.").max(256);
-const signInPassword = z.string().min(1, "Enter your password.").max(128);\nconst newPassword = z.string().min(12, "Use at least 12 characters.").max(128);
+const signInPassword = z.string().min(1, "Enter your password.").max(128);
+const newPassword = z.string().min(12, "Use at least 12 characters.").max(128);
 
 function onboardingDestination(formData: FormData) {
   const invite = normalizeInviteCode(String(formData.get("invite") ?? ""));
@@ -42,7 +43,7 @@ export async function signUpWithEmail(
     .object({
       name: z.string().trim().min(1, "Enter your name.").max(60),
       email,
-      password,
+      password: newPassword,
     })
     .safeParse({
       name: formData.get("name"),
