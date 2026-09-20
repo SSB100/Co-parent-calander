@@ -26,7 +26,7 @@ import {
   ChevronDown,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { CalendarSwitcher, type CalendarOption } from "@/components/calendar/calendar-switcher";
@@ -214,6 +214,215 @@ function aggregateAssignments(data: CalendarPayload): AssignmentMap {
 
 function eventIcon(category: string) { return <EventCategoryIcon category={category} />; }
 
+type SwipeDirection = "previous" | "next";
+type SwipePreview = {
+  direction: SwipeDirection;
+  month: Date;
+  data: CalendarPayload | null;
+  requestKey: string;
+};
+type SwipeGesture = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  startTime: number;
+  horizontal: boolean;
+  lastOffset: number;
+};
+
+const SWIPE_SETTLE_MS = 190;
+
+function monthGridRange(month: Date) {
+  const start = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
+  const end = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
+  return { start, end, from: keyFor(start), to: keyFor(end) };
+}
+
+function previewOwnerStyle(
+  participants: Participant[],
+  owner: SlotOwnership | undefined,
+) {
+  if (!owner) return null;
+  if (owner === "mixed") return mixedStyle;
+  return styleForParticipant(participants, owner);
+}
+
+function previewOwnerName(
+  participants: Participant[],
+  owner: SlotOwnership | undefined,
+) {
+  if (!owner) return "";
+  if (owner === "mixed") return "Mixed";
+  return participants.find((participant) => participant.id === owner)?.displayName ?? "Parent";
+}
+
+function SwipeMonthPreview({
+  month,
+  data,
+  fallbackParticipants,
+  today,
+  direction,
+  dragOffset,
+  settling,
+}: {
+  month: Date;
+  data: CalendarPayload | null;
+  fallbackParticipants: Participant[];
+  today: Date;
+  direction: SwipeDirection;
+  dragOffset: number;
+  settling: boolean;
+}) {
+  const range = monthGridRange(month);
+  const days = eachDayOfInterval({ start: range.start, end: range.end });
+  const participants = data?.participants ?? fallbackParticipants;
+  const assignments = data ? aggregateAssignments(data) : {};
+  const eventsByDate: Record<string, CalendarEvent[]> = {};
+
+  for (const event of data?.events ?? []) {
+    const end = event.endDate ?? event.startDate;
+    for (const day of eachDayOfInterval({
+      start: parseISO(event.startDate),
+      end: parseISO(end),
+    })) {
+      const dateKey = keyFor(day);
+      (eventsByDate[dateKey] ??= []).push(event);
+    }
+  }
+
+  const startingPosition = direction === "next" ? "100%" : "-100%";
+  const transition = settling
+    ? "transform " + SWIPE_SETTLE_MS + "ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "none";
+
+  return (
+    <div
+      className="covie-calendar-grid pointer-events-none absolute inset-0 grid min-h-0 grid-cols-7 gap-1 sm:gap-1.5"
+      style={{
+        gridTemplateRows:
+          "auto repeat(" + Math.ceil(days.length / 7) + ", minmax(0, 1fr))",
+        transform:
+          "translate3d(calc(" +
+          startingPosition +
+          " + " +
+          dragOffset +
+          "px), 0, 0)",
+        transition,
+      }}
+      aria-hidden="true"
+    >
+      {weekdays.map((weekday) => (
+        <div
+          key={weekday}
+          className="pb-1 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs"
+        >
+          {weekday}
+        </div>
+      ))}
+
+      {days.map((day) => {
+        const dateKey = keyFor(day);
+        const assignment = assignments[dateKey];
+        const inMonth = isSameMonth(day, month);
+        const dayIsToday = isSameDay(day, today);
+        const morningStyle = previewOwnerStyle(participants, assignment?.morning);
+        const afternoonStyle = previewOwnerStyle(participants, assignment?.afternoon);
+        const fullDayOwner =
+          assignment?.morning && assignment.morning === assignment.afternoon
+            ? assignment.morning
+            : null;
+        const splitDay = Boolean(
+          assignment?.morning &&
+            assignment.afternoon &&
+            assignment.morning !== "mixed" &&
+            assignment.afternoon !== "mixed" &&
+            assignment.morning !== assignment.afternoon,
+        );
+        const tileEvents = [
+          ...(splitDay
+            ? [{ title: "Handover", category: "handover" }]
+            : []),
+          ...(eventsByDate[dateKey] ?? []),
+        ];
+
+        return (
+          <div
+            key={dateKey}
+            className={
+              "relative h-full min-h-0 overflow-hidden rounded-lg border bg-white p-1 text-left sm:rounded-xl " +
+              (inMonth ? "border-slate-200" : "border-slate-300")
+            }
+          >
+            <span className="absolute inset-0" aria-hidden="true">
+              <span
+                className={
+                  "absolute inset-y-0 left-0 w-1/2 " +
+                  (morningStyle?.slot ?? "bg-white")
+                }
+              />
+              <span
+                className={
+                  "absolute inset-y-0 right-0 w-1/2 " +
+                  (afternoonStyle?.slot ?? "bg-white")
+                }
+              />
+              {assignment?.morning !== assignment?.afternoon ? (
+                <span className="absolute inset-y-0 left-1/2 border-l border-white/80" />
+              ) : null}
+            </span>
+
+            {assignment ? (
+              fullDayOwner ? (
+                <div className="absolute inset-x-1 top-1 z-10 truncate text-center text-[9px] font-bold text-slate-800 sm:text-[11px]">
+                  {previewOwnerName(participants, fullDayOwner)}
+                </div>
+              ) : (
+                <>
+                  <div className="absolute left-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[8px] font-bold text-slate-800 sm:text-[10px]">
+                    {previewOwnerName(participants, assignment.morning)}
+                  </div>
+                  <div className="absolute right-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[8px] font-bold text-slate-800 sm:text-[10px]">
+                    {previewOwnerName(participants, assignment.afternoon)}
+                  </div>
+                </>
+              )
+            ) : null}
+
+            <span
+              className={
+                "absolute right-1 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white text-xs font-bold shadow-sm sm:right-2 sm:h-7 sm:w-7 sm:text-sm " +
+                (dayIsToday
+                  ? "ring-2 ring-slate-900 text-slate-950"
+                  : inMonth
+                    ? "text-slate-700"
+                    : "text-slate-500")
+              }
+            >
+              {format(day, "d")}
+            </span>
+
+            {tileEvents.length > 0 ? (
+              <div className="absolute inset-x-0 bottom-0 z-20 flex h-5 items-center gap-1 truncate bg-[#F4C64E] px-1.5 text-[8px] font-bold text-[#243139] sm:h-7 sm:px-2 sm:text-[10px]">
+                {tileEvents[0]?.category !== "handover" ? (
+                  <span aria-hidden="true">
+                    {eventIcon(tileEvents[0]?.category ?? "other")}
+                  </span>
+                ) : (
+                  <Clock3 className="h-3 w-3 shrink-0" aria-hidden="true" />
+                )}
+                <span className="truncate">{tileEvents[0]?.title}</span>
+                {tileEvents.length > 1 ? (
+                  <span className="ml-auto shrink-0">+{tileEvents.length - 1}</span>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function CalendarShell({
   calendars,
   currentCalendarId,
@@ -249,8 +458,17 @@ export function CalendarShell({
   const [bulkReason, setBulkReason] = useState("");
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [swipePreview, setSwipePreview] = useState<SwipePreview | null>(null);
+  const [swipeSettling, setSwipeSettling] = useState(false);
   const toolsMenuRef = useRef<HTMLDetailsElement>(null);
   const settingsMenuRef = useRef<HTMLDetailsElement>(null);
+  const swipeViewportRef = useRef<HTMLDivElement>(null);
+  const swipePreviewRef = useRef<SwipePreview | null>(null);
+  const swipeGestureRef = useRef<SwipeGesture | null>(null);
+  const previewRequestRef = useRef(0);
+  const settleTimerRef = useRef<number | null>(null);
+  const suppressSwipeClickRef = useRef(false);
   const loadedRequestRef = useRef({
     range: `${initialRange.from}:${initialRange.to}`,
     refreshKey: 0,
@@ -258,11 +476,16 @@ export function CalendarShell({
   useDismissibleDetails(toolsMenuRef);
   useDismissibleDetails(settingsMenuRef);
 
-  const calendarRange = useMemo(() => {
-    const start = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 });
-    const end = endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 });
-    return { start, end, from: keyFor(start), to: keyFor(end) };
-  }, [currentMonth]);
+  useEffect(
+    () => () => {
+      if (settleTimerRef.current !== null) {
+        window.clearTimeout(settleTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const calendarRange = useMemo(() => monthGridRange(currentMonth), [currentMonth]);
 
   const calendarDays = useMemo(
     () => eachDayOfInterval({ start: calendarRange.start, end: calendarRange.end }),
@@ -322,6 +545,211 @@ export function CalendarShell({
       cancelled = true;
     };
   }, [calendarRange.from, calendarRange.to, refreshKey]);
+
+  function setSwipePreviewValue(value: SwipePreview | null) {
+    swipePreviewRef.current = value;
+    setSwipePreview(value);
+  }
+
+  async function prepareSwipePreview(direction: SwipeDirection) {
+    if (swipeSettling) return;
+
+    const month =
+      direction === "next"
+        ? addMonths(currentMonth, 1)
+        : subMonths(currentMonth, 1);
+    const range = monthGridRange(month);
+    const requestKey =
+      format(month, "yyyy-MM") + ":" + refreshKey + ":" + range.from + ":" + range.to;
+    const existing = swipePreviewRef.current;
+
+    if (existing?.requestKey === requestKey) {
+      if (existing.direction !== direction) {
+        setSwipePreviewValue({ ...existing, direction });
+      }
+      return;
+    }
+
+    const preview: SwipePreview = {
+      direction,
+      month,
+      data: null,
+      requestKey,
+    };
+    setSwipePreviewValue(preview);
+
+    const requestId = previewRequestRef.current + 1;
+    previewRequestRef.current = requestId;
+    const params = new URLSearchParams({ from: range.from, to: range.to });
+
+    try {
+      const response = await fetch("/api/calendar?" + params.toString(), {
+        cache: "no-store",
+      });
+      const body = (await response.json().catch(() => null)) as
+        | CalendarPayload
+        | { error?: string }
+        | null;
+
+      if (
+        previewRequestRef.current !== requestId ||
+        !response.ok ||
+        !body ||
+        !("calendar" in body)
+      ) {
+        return;
+      }
+
+      const activePreview = swipePreviewRef.current;
+      if (activePreview?.requestKey !== requestKey) return;
+
+      setSwipePreviewValue({
+        ...activePreview,
+        data: body,
+      });
+    } catch {
+      // The structural preview remains usable even when the adjacent month
+      // has not finished loading yet. The normal month load will retry after
+      // the gesture commits.
+    }
+  }
+
+  function resetSwipeState() {
+    previewRequestRef.current += 1;
+    swipeGestureRef.current = null;
+    setDragOffset(0);
+    setSwipeSettling(false);
+    setSwipePreviewValue(null);
+  }
+
+  function handleSwipePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse" || swipeSettling || saving) return;
+
+    swipeGestureRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startTime: performance.now(),
+      horizontal: false,
+      lastOffset: 0,
+    };
+  }
+
+  function handleSwipePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const gesture = swipeGestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId || swipeSettling) return;
+
+    const deltaX = event.clientX - gesture.startX;
+    const deltaY = event.clientY - gesture.startY;
+
+    if (!gesture.horizontal) {
+      if (Math.abs(deltaX) < 8 && Math.abs(deltaY) < 8) return;
+      if (Math.abs(deltaY) >= Math.abs(deltaX)) {
+        swipeGestureRef.current = null;
+        return;
+      }
+
+      gesture.horizontal = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+
+    event.preventDefault();
+    const width = swipeViewportRef.current?.clientWidth ?? 1;
+    const offset = Math.max(-width, Math.min(width, deltaX));
+    gesture.lastOffset = offset;
+    const direction: SwipeDirection = offset < 0 ? "next" : "previous";
+
+    if (swipePreviewRef.current?.direction !== direction) {
+      void prepareSwipePreview(direction);
+    }
+
+    setDragOffset(offset);
+  }
+
+  function finishSwipe(
+    event: ReactPointerEvent<HTMLDivElement>,
+    cancelled = false,
+  ) {
+    const gesture = swipeGestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+
+    swipeGestureRef.current = null;
+    if (!gesture.horizontal) return;
+
+    suppressSwipeClickRef.current = true;
+    const width = Math.max(swipeViewportRef.current?.clientWidth ?? 1, 1);
+    const elapsed = Math.max(performance.now() - gesture.startTime, 1);
+    const velocity = gesture.lastOffset / elapsed;
+    const distanceThreshold = Math.max(64, width * 0.18);
+    const shouldCommit =
+      !cancelled &&
+      (Math.abs(gesture.lastOffset) >= distanceThreshold ||
+        (Math.abs(velocity) >= 0.45 && Math.abs(gesture.lastOffset) >= 28));
+
+    if (!shouldCommit) {
+      setSwipeSettling(true);
+      setDragOffset(0);
+
+      if (settleTimerRef.current !== null) {
+        window.clearTimeout(settleTimerRef.current);
+      }
+      settleTimerRef.current = window.setTimeout(() => {
+        previewRequestRef.current += 1;
+        setSwipePreviewValue(null);
+        setSwipeSettling(false);
+        suppressSwipeClickRef.current = false;
+        settleTimerRef.current = null;
+      }, SWIPE_SETTLE_MS);
+      return;
+    }
+
+    const direction: SwipeDirection =
+      gesture.lastOffset < 0 ? "next" : "previous";
+    const fallbackMonth =
+      direction === "next"
+        ? addMonths(currentMonth, 1)
+        : subMonths(currentMonth, 1);
+    const preview = swipePreviewRef.current;
+    const targetMonth =
+      preview?.direction === direction ? preview.month : fallbackMonth;
+
+    if (preview?.direction !== direction) {
+      void prepareSwipePreview(direction);
+    }
+
+    setSwipeSettling(true);
+    setDragOffset(direction === "next" ? -width : width);
+
+    if (settleTimerRef.current !== null) {
+      window.clearTimeout(settleTimerRef.current);
+    }
+    settleTimerRef.current = window.setTimeout(() => {
+      const latestPreview = swipePreviewRef.current;
+      const previewData =
+        latestPreview?.direction === direction &&
+        format(latestPreview.month, "yyyy-MM") === format(targetMonth, "yyyy-MM")
+          ? latestPreview.data
+          : null;
+      const targetRange = monthGridRange(targetMonth);
+
+      setCurrentMonth(targetMonth);
+      if (previewData) {
+        setCalendarData(previewData);
+        loadedRequestRef.current = {
+          range: targetRange.from + ":" + targetRange.to,
+          refreshKey,
+        };
+        setAccessMode(previewData.permission === "viewer" ? "viewer" : "editor");
+      }
+      setDetailsDate(null);
+      previewRequestRef.current += 1;
+      setDragOffset(0);
+      setSwipePreviewValue(null);
+      setSwipeSettling(false);
+      suppressSwipeClickRef.current = false;
+      settleTimerRef.current = null;
+    }, SWIPE_SETTLE_MS);
+  }
 
   const participants = calendarData?.participants ?? [];
   const assignments = useMemo(() => (calendarData ? aggregateAssignments(calendarData) : {}), [calendarData]);
@@ -488,11 +916,17 @@ export function CalendarShell({
   }
 
   function moveMonth(direction: "previous" | "next") {
-    setCurrentMonth((month) => direction === "previous" ? subMonths(month, 1) : addMonths(month, 1));
+    if (swipeSettling) return;
+    resetSwipeState();
+    setCurrentMonth((month) =>
+      direction === "previous" ? subMonths(month, 1) : addMonths(month, 1),
+    );
     setDetailsDate(null);
   }
 
   function goToday() {
+    if (swipeSettling) return;
+    resetSwipeState();
     setCurrentMonth(startOfMonth(parseISO(initialToday)));
     setDetailsDate(null);
   }
@@ -682,11 +1116,44 @@ export function CalendarShell({
           </p>
 
           <div
-            className="covie-calendar-grid grid min-h-0 flex-1 grid-cols-7 gap-1 sm:gap-1.5"
-            style={{ gridTemplateRows: `auto repeat(${Math.ceil(calendarDays.length / 7)}, minmax(0, 1fr))` }}
-            role="grid"
-            aria-label={format(currentMonth, "MMMM yyyy")}
+            ref={swipeViewportRef}
+            className="relative min-h-0 flex-1 overflow-hidden"
+            style={{ touchAction: "pan-y" }}
+            onPointerDown={handleSwipePointerDown}
+            onPointerMove={handleSwipePointerMove}
+            onPointerUp={(event) => finishSwipe(event)}
+            onPointerCancel={(event) => finishSwipe(event, true)}
+            onClickCapture={(event) => {
+              if (!suppressSwipeClickRef.current) return;
+              suppressSwipeClickRef.current = false;
+              event.preventDefault();
+              event.stopPropagation();
+            }}
           >
+            {swipePreview ? (
+              <SwipeMonthPreview
+                month={swipePreview.month}
+                data={swipePreview.data}
+                fallbackParticipants={participants}
+                today={today}
+                direction={swipePreview.direction}
+                dragOffset={dragOffset}
+                settling={swipeSettling}
+              />
+            ) : null}
+
+            <div
+              className="covie-calendar-grid absolute inset-0 grid min-h-0 grid-cols-7 gap-1 sm:gap-1.5"
+              style={{
+                gridTemplateRows: `auto repeat(${Math.ceil(calendarDays.length / 7)}, minmax(0, 1fr))`,
+                transform: `translate3d(${dragOffset}px, 0, 0)`,
+                transition: swipeSettling
+                  ? `transform ${SWIPE_SETTLE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
+                  : "none",
+              }}
+              role="grid"
+              aria-label={format(currentMonth, "MMMM yyyy")}
+            >
             {weekdays.map((weekday) => <div key={weekday} role="columnheader" className="pb-1 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs">{weekday}</div>)}
 
             {calendarDays.map((day) => {
@@ -812,6 +1279,7 @@ export function CalendarShell({
                 </button>
               );
             })}
+            </div>
           </div>
         </div>
       </section>
