@@ -74,12 +74,10 @@ function eventDate(item: EventItem) {
 export function ComingUp({
   variant = "default",
   data,
-  loading = false,
   error = false,
 }: {
   variant?: "default" | "menu";
   data: ComingUpPayload | null;
-  loading?: boolean;
   error?: boolean;
 }) {
   const idPrefix = variant === "menu" ? "workspace-menu" : "workspace";
@@ -91,9 +89,7 @@ export function ComingUp({
           Unable to load your organiser right now.
         </p>
       ) : !data ? (
-        <p className="workspace-context-empty">
-          {loading ? "Loading…" : "Open Quick view to load upcoming items."}
-        </p>
+        <p className="workspace-context-empty">Loading…</p>
       ) : (
         <>
           {variant === "menu" ? (
