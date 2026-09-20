@@ -155,7 +155,7 @@ function proposalExpense(value: unknown): (Expense & { shares: ExpenseShare[] })
 }
 
 function proposalSummary(expense: ReturnType<typeof proposalExpense>, participants: Participant[]) {
-  if (!expense) return "No expense";
+  if (!expense) return "No shared cost";
   const payer = participants.find((participant) => participant.id === expense.paidByParticipantId);
   const split = expense.shares
     .map((share) => {
@@ -206,7 +206,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
       const response = await fetch(`/api/expenses${query}`, { cache: "no-store" });
       const body = (await response.json().catch(() => null)) as ExpensePayload | { error?: string } | null;
       if (!response.ok || !body || !("expenses" in body)) {
-        throw new Error(body && "error" in body && body.error ? body.error : "Expenses could not be loaded.");
+        throw new Error(body && "error" in body && body.error ? body.error : "Shared costs could not be loaded.");
       }
       setData(body);
       window.dispatchEvent(new Event("covie-records-updated"));
@@ -217,7 +217,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
           current.paidByParticipantId || body.currentParticipantId || body.participants[0]?.id || "",
       }));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Expenses could not be loaded.");
+      setError(caught instanceof Error ? caught.message : "Shared costs could not be loaded.");
     } finally {
       setLoading(false);
     }
@@ -241,7 +241,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
           setError(
             body && "error" in body && body.error
               ? body.error
-              : "Expenses could not be loaded.",
+              : "Shared costs could not be loaded.",
           );
           return;
         }
@@ -258,7 +258,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
         }));
       })
       .catch(() => {
-        if (!cancelled) setError("Expenses could not be loaded.");
+        if (!cancelled) setError("Shared costs could not be loaded.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -333,7 +333,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
   function buildShares(amountCents: number) {
     const active = participants.slice(0, 2);
     if (active.length === 0 || !form.paidByParticipantId) {
-      throw new Error("Add a parent before recording expenses.");
+      throw new Error("Add a parent before recording shared costs.");
     }
 
     if (active.length === 1) {
@@ -368,7 +368,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
       };
     });
     if (shares.reduce((sum, share) => sum + share.shareCents, 0) !== amountCents) {
-      throw new Error("Custom parent shares must add up to the full expense.");
+      throw new Error("Custom parent shares must add up to the full shared cost.");
     }
     return shares;
   }
@@ -377,11 +377,11 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
     if (!editable || busy) return;
     const amountCents = amountToCents(form.amount);
     if (!amountCents) {
-      setError("Enter a valid expense amount.");
+      setError("Enter a valid shared cost amount.");
       return;
     }
     if (!form.title.trim()) {
-      setError("Add a short expense title.");
+      setError("Add a short shared cost title.");
       return;
     }
 
@@ -417,21 +417,21 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
       const body = (await response.json().catch(() => null)) as
         | { error?: string; pending?: boolean; approverName?: string | null }
         | null;
-      if (!response.ok) throw new Error(body?.error ?? "The expense could not be saved.");
+      if (!response.ok) throw new Error(body?.error ?? "The shared cost could not be saved.");
 
       setFormOpen(false);
       setMessage(
         body?.pending
           ? body.approverName
-            ? `Expense sent to ${body.approverName} for approval.`
-            : "Expense sent for approval."
+            ? `Shared cost sent to ${body.approverName} for approval.`
+            : "Shared cost sent for approval."
           : form.id
-            ? "Expense updated."
-            : "Expense added.",
+            ? "Shared cost updated."
+            : "Shared cost added.",
       );
       await load();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The expense could not be saved.");
+      setError(caught instanceof Error ? caught.message : "The shared cost could not be saved.");
     } finally {
       setBusy(false);
     }
@@ -439,7 +439,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
 
   async function deleteExpense(expense: Expense) {
     if (!editable || busy) return;
-    if (!window.confirm(`Remove “${expense.title}” from shared expenses?`)) return;
+    if (!window.confirm(`Remove “${expense.title}” from shared costs?`)) return;
 
     setBusy(true);
     setError(null);
@@ -453,17 +453,17 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
       const body = (await response.json().catch(() => null)) as
         | { error?: string; pending?: boolean; approverName?: string | null }
         | null;
-      if (!response.ok) throw new Error(body?.error ?? "The expense could not be removed.");
+      if (!response.ok) throw new Error(body?.error ?? "The shared cost could not be removed.");
       setMessage(
         body?.pending
           ? body.approverName
             ? `Removal sent to ${body.approverName} for approval.`
             : "Removal sent for approval."
-          : "Expense removed.",
+          : "Shared cost removed.",
       );
       await load();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The expense could not be removed.");
+      setError(caught instanceof Error ? caught.message : "The shared cost could not be removed.");
     } finally {
       setBusy(false);
     }
@@ -484,7 +484,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
       });
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) throw new Error(body?.error ?? "The settlement status could not be updated.");
-      setMessage(operation === "settle" ? "Expense marked settled." : "Expense reopened.");
+      setMessage(operation === "settle" ? "Shared cost marked settled." : "Shared cost reopened.");
       await load();
     } catch (caught) {
       setError(
@@ -503,7 +503,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="mb-2 h-2 w-16 rounded-full bg-[#F4C64E]" aria-hidden="true" />
-            <h1 className="covie-page-title text-3xl sm:text-4xl">Expenses</h1>
+            <h1 className="covie-page-title text-3xl sm:text-4xl">Shared costs</h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
               Keep the amount, who paid, each parent&apos;s share and reimbursement status clear.
               Covie records payments but does not move money.
@@ -518,7 +518,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
                   onClick={openCreate}
                   className="covie-primary-action inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm"
                 >
-                  <Plus className="h-4 w-4" aria-hidden="true" /> Add expense
+                  <Plus className="h-4 w-4" aria-hidden="true" /> Add shared cost
                 </button>
               ) : null
             }
@@ -530,14 +530,14 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
         <div className="mt-4 flex flex-col gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 sm:flex-row sm:items-center sm:justify-between">
           <span className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" aria-hidden="true" />
-            Showing expenses recorded or due on {dateLabel(dateFilter)}.
+            Showing shared costs recorded or due on {dateLabel(dateFilter)}.
           </span>
           <button
             type="button"
             onClick={() => setDateFilter(null)}
             className="self-start font-semibold hover:underline sm:self-auto"
           >
-            Show all expenses
+            Show all shared costs
           </button>
         </div>
       ) : null}
@@ -562,7 +562,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
         <div className="rounded-2xl border border-[#243139] bg-[#DDD3FA] p-3 sm:p-4">
           <p className="text-xs font-bold text-[#544394]">Recorded</p>
           <p className="mt-2 text-3xl font-semibold text-[#243139]">{money(summary.recorded)}</p>
-          <p className="mt-1 text-xs text-[#544394]">Total shared expense value</p>
+          <p className="mt-1 text-xs text-[#544394]">Total shared cost value</p>
         </div>
         <div className="col-span-2 rounded-2xl border border-[#243139] bg-[#BFEDE6] p-3 sm:col-span-1 sm:p-4">
           <p className="text-xs font-bold text-[#0B665C]">Archived</p>
@@ -576,7 +576,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
           <div>
             <h2 className="text-lg font-semibold text-slate-950">Waiting for agreement</h2>
             <p className="mt-1 text-sm text-slate-500">
-              The agreed expense record stays unchanged until the proposal is accepted.
+              The agreed shared cost stays unchanged until the proposal is accepted.
             </p>
           </div>
           <div className="mt-3 grid gap-3 lg:grid-cols-2">
@@ -585,10 +585,10 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
               const proposed = proposalExpense(proposal.proposedState);
               const title =
                 proposal.action === "create"
-                  ? "New expense"
+                  ? "New shared cost"
                   : proposal.action === "delete"
-                    ? "Remove expense"
-                    : "Expense change";
+                    ? "Remove shared cost"
+                    : "Shared cost change";
               return (
                 <ProposalCard
                   key={proposal.id}
@@ -599,12 +599,12 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
                   reason={proposal.reason}
                   agreedSummary={
                     proposal.action === "create"
-                      ? "No agreed expense yet."
+                      ? "No agreed shared cost yet."
                       : proposalSummary(previous, participants)
                   }
                   proposedSummary={
                     proposal.action === "delete"
-                      ? "Remove this expense."
+                      ? "Remove this shared cost."
                       : proposalSummary(proposed, participants)
                   }
                   actions={
@@ -614,7 +614,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
                       proposedByMembershipId={proposal.proposedByMembershipId}
                       approverMembershipId={proposal.approverMembershipId}
                       onChanged={() => {
-                        setMessage("Expense proposal updated.");
+                        setMessage("Shared cost proposal updated.");
                         void load();
                       }}
                     />
@@ -630,12 +630,12 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-950">
-              {statusFilter === "current" ? "Current expenses" : "Expense archive"}
+              {statusFilter === "current" ? "Current shared costs" : "Shared cost archive"}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               {statusFilter === "current"
-                ? "Only expenses that still need attention stay here."
-                : "Settled expenses remain available as history without cluttering the active view."}
+                ? "Only shared costs that still need attention stay here."
+                : "Settled shared costs remain available as history without cluttering the active view."}
             </p>
           </div>
           <div className="flex rounded-xl border border-slate-200 bg-white p-1">
@@ -660,15 +660,15 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
 
         {loading ? (
           <div className="mt-4 flex min-h-40 items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm text-slate-500">
-            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> Loading expenses…
+            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> Loading shared costs…
           </div>
         ) : filteredExpenses.length === 0 ? (
           <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center">
             <ReceiptText className="mx-auto h-7 w-7 text-slate-400" aria-hidden="true" />
-            <p className="mt-2 font-semibold text-slate-800">No expenses here yet</p>
+            <p className="mt-2 font-semibold text-slate-800">No shared costs here yet</p>
             <p className="mt-1 text-sm text-slate-500">
               {dateFilter
-                ? "No agreed expenses are recorded or due on this date."
+                ? "No agreed shared costs are recorded or due on this date."
                 : "Add a shared cost when there is something worth keeping clear."}
             </p>
           </div>
@@ -796,16 +796,16 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
           <section role="dialog" aria-modal="true" aria-labelledby="expense-form-title" className="max-h-[94vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border-2 border-[#243139] bg-white p-5 shadow-[7px_7px_0_#F4C64E] sm:rounded-3xl sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Shared expense</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Shared cost</p>
                 <h2 id="expense-form-title" className="mt-1 text-2xl font-semibold text-slate-950">
-                  {form.id ? "Edit expense" : "Add expense"}
+                  {form.id ? "Edit shared cost" : "Add shared cost"}
                 </h2>
               </div>
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => setFormOpen(false)}
-                aria-label="Close expense form"
+                aria-label="Close shared cost form"
                 className="covie-icon-button flex h-10 w-10 items-center justify-center rounded-xl disabled:opacity-50"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
@@ -853,7 +853,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
               </label>
 
               <label>
-                <span className="text-sm font-semibold text-slate-800">Expense date</span>
+                <span className="text-sm font-semibold text-slate-800">Cost date</span>
                 <input
                   type="date"
                   value={form.expenseDate}
@@ -1000,7 +1000,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
                 className="covie-primary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm disabled:opacity-50"
               >
                 {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-                {form.id ? "Save change" : "Add expense"}
+                {form.id ? "Save change" : "Add shared cost"}
               </button>
             </div>
           </section>
@@ -1009,7 +1009,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
 
       {!editable && data ? (
         <p className="mx-auto mt-5 max-w-2xl text-center text-xs leading-5 text-slate-400">
-          You have view-only access to shared expenses.
+          You have view-only access to shared costs.
         </p>
       ) : null}
     </main>
