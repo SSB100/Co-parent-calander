@@ -38,6 +38,7 @@ const sameOriginMutationRoutes = [
   { file: "app/api/google-calendar/reconcile/route.ts", methods: ["POST"] },
   { file: "app/api/session/logout/route.ts", methods: ["POST"] },
   { file: "app/api/setup/route.ts", methods: ["POST"] },
+  { file: "app/api/contact/route.ts", methods: ["POST"] },
 ];
 
 test("every calendar mutation requires an editor session", async () => {
@@ -148,12 +149,23 @@ test("email password flow uses stronger new passwords without breaking existing 
   assert.match(actions, /signInPassword[\s\S]*min\(1/);
   assert.match(actions, /newPassword[\s\S]*min\(12/);
   assert.match(actions, /password:\s*newPassword/);
+  assert.match(actions, /confirmPassword:\s*newPassword/);
+  assert.match(actions, /termsAccepted:\s*z\.literal\("yes"/);
+  assert.match(actions, /The passwords do not match/);
+  assert.match(actions, /Terms & Conditions before creating your account/);
   assert.match(actions, /The email or password is incorrect/);
   assert.match(actions, /Verify your email using the message we sent you/);
+  assert.match(actions, /message\.includes\("verif"\)/);
+  assert.doesNotMatch(actions, /status === 403/);
   assert.match(actions, /verificationDestination/);
   assert.match(actions, /\/auth\/sign-in\?/);
   assert.doesNotMatch(actions, /signUpError\.message/);
   assert.doesNotMatch(actions, /alreadyExists/);
+  assert.match(form, /name="confirmPassword"/);
+  assert.match(form, /name="termsAccepted"/);
+  assert.match(form, /termsAccepted \? "yes" : ""/);
+  assert.match(form, /href="\/terms"/);
+  assert.match(form, /href="\/privacy"/);
   assert.match(form, /minLength=\{isSignUp \? 12 : 1\}/);
   assert.match(form, /At least 12 characters/);
   assert.match(form, /verification email/);
@@ -244,6 +256,29 @@ test("sign-in and sign-up explicitly follow Neon Google OAuth redirects", async 
   assert.match(brand, /#EA4335/);
   assert.match(brand, /#747775/);
   assert.doesNotMatch(form, /GOOGLE_CLIENT_SECRET|GOOGLE_CLIENT_ID/);
+});
+
+
+test("public contact form is same-origin, validated and delivered without database persistence", async () => {
+  const [route, form, env] = await Promise.all([
+    source("app/api/contact/route.ts"),
+    source("components/marketing/contact-form.tsx"),
+    source(".env.example"),
+  ]);
+
+  assert.match(route, /isSameOriginMutation/);
+  assert.match(route, /CONTACT_EMAIL/);
+  assert.match(route, /RESEND_API_KEY/);
+  assert.match(route, /EMAIL_FROM/);
+  assert.match(route, /request_feature: "Request a Feature"/);
+  assert.match(route, /website/);
+  assert.doesNotMatch(route, /getDb|getSql|INSERT INTO|contact_requests/);
+  assert.match(form, /Request a Feature/);
+  assert.match(form, /name="name"/);
+  assert.match(form, /name="email"/);
+  assert.match(form, /name="comments"/);
+  assert.match(form, /selected \?/);
+  assert.match(env, /CONTACT_EMAIL=/);
 });
 
 
