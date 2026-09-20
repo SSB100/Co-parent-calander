@@ -139,48 +139,51 @@ test("calendar settings and parent changes refetch without hard page reloads", a
 });
 
 
-test("phone workspace actions stay useful without hiding the result of an action", async () => {
-  const [styles, nav, comingUp, install, organiser, expenses, responsibilities] = await Promise.all([
+test("mobile Quick view stays consistent while page actions remain visible", async () => {
+  const [styles, nav, comingUp, install, calendar, organiser, expenses, responsibilities] = await Promise.all([
     source("app/globals.css"),
     source("components/workspace/workspace-nav.tsx"),
     source("components/workspace/coming-up.tsx"),
     source("components/pwa/install-app.tsx"),
+    source("components/calendar/calendar-shell.tsx"),
     source("components/workspace/organiser-shell.tsx"),
     source("components/expenses/expenses-shell.tsx"),
     source("components/responsibilities/responsibilities-shell.tsx"),
   ]);
 
   assert.match(styles, /@media \(max-width: 639px\)/);
+  assert.match(styles, /workspace-page-actions/);
   assert.match(styles, /workspace-mobile-actions-trigger/);
   assert.match(styles, /workspace-mobile-action-panel[\s\S]*position: absolute/);
-  assert.match(styles, /top: calc\(100% \+ 8px\)/);
+  assert.match(styles, /right: 0;[\s\S]*left: auto;/);
   assert.match(styles, /workspace-mobile-actions:not\(\.is-open\)/);
   assert.match(styles, /workspace-coming-up-menu/);
-  assert.match(styles, /google-calendar-quick-action > button/);
   assert.match(styles, /covie-calendar-page\.is-selecting-days \.covie-install-mobile/);
-  assert.match(styles, /div\.fixed\.inset-0\.z-50 > section\[role="dialog"\]/);
-  assert.match(styles, /box-shadow: 0 -6px 0 #765ed6/);
 
-  assert.match(nav, /aria-label=\{mobileActionsOpen \? "Close actions menu" : "Open actions menu"\}/);
+  assert.match(nav, /aria-label=\{mobileActionsOpen \? "Close quick view" : "Open quick view"\}/);
+  assert.match(nav, /<Eye size=\{21\}/);
   assert.match(nav, /<ComingUp variant="menu" \/>/);
-  assert.match(nav, /covie-open-install/);
-  assert.match(nav, /Install Covie/);
-  assert.doesNotMatch(nav, /closeMobileActionsAfterAction/);
-  assert.match(comingUp, /variant === "menu"/);
-  assert.match(comingUp, /At a glance/);
+  assert.match(nav, /workspace-page-actions/);
+  const quickViewStart = nav.indexOf('<div className="workspace-mobile-action-panel">');
+  const quickViewEnd = nav.indexOf('<details ref={accountRef}');
+  assert.ok(quickViewStart >= 0);
+  assert.ok(quickViewEnd > quickViewStart);
+  assert.doesNotMatch(nav.slice(quickViewStart, quickViewEnd), /\{actions\}/);
+  assert.match(comingUp, />Quick view</);
+  assert.match(comingUp, /Upcoming & outstanding/);
+  assert.match(comingUp, /responsibilities\.slice\(0, 1\)/);
+  assert.match(comingUp, /expenses\.slice\(0, 1\)/);
+
+  assert.match(expenses, /Add expense/);
+  assert.match(responsibilities, /Add responsibility/);
+  assert.match(calendar, /Sync to Google|GoogleCalendarQuickAction/);
 
   assert.match(install, /Close install Covie prompt/);
-  assert.match(install, /DISMISSED_UNTIL_KEY/);
-  assert.match(install, /covie-open-install/);
-  assert.match(install, />\s*Install Covie\s*</);
-  assert.match(install, /Add to Home Screen/);
   assert.match(organiser, /p-4 sm:p-6/);
-  assert.match(expenses, /grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-3/);
-  assert.match(responsibilities, /grid grid-cols-2 gap-2 sm:mt-5/);
 });
 
 
-test("every workspace page keeps the phone hamburger on the right and opens inward", async () => {
+test("every workspace page keeps Quick view on the right and opens inward", async () => {
   const [styles, calendar, home, organiser, expenses, responsibilities, kids] = await Promise.all([
     source("app/globals.css"),
     source("components/calendar/calendar-shell.tsx"),
@@ -191,8 +194,9 @@ test("every workspace page keeps the phone hamburger on the right and opens inwa
     source("components/children/kids-shell.tsx"),
   ]);
 
-  assert.match(styles, /\.workspace-actions \{[\s\S]*?align-self: flex-end;[\s\S]*?justify-content: flex-end;[\s\S]*?margin-left: auto;/);
-  assert.match(styles, /\.workspace-mobile-actions \{[\s\S]*?margin-left: auto;/);
+  assert.match(styles, /\.workspace-actions \{[\s\S]*?width: 100%;[\s\S]*?justify-content: flex-end;/);
+  assert.match(styles, /\.workspace-mobile-actions \{[\s\S]*?order: 1;[\s\S]*?margin-left: auto;/);
+  assert.match(styles, /\.workspace-page-actions \{[\s\S]*?order: 2;[\s\S]*?width: 100%;/);
   assert.match(styles, /\.workspace-mobile-action-panel \{[\s\S]*?right: 0;[\s\S]*?left: auto;/);
   assert.match(styles, /max-width: calc\(100vw - 16px\)/);
 

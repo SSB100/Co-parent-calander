@@ -12,5 +12,6 @@ export type ApprovalActor = {
 export type ProposalPolicyRecord = {
   status: ProposalStatus;
   proposedByMembershipId: string;
+  proposedByParticipantId?: string | null;
   approverMembershipId: string | null;
 };

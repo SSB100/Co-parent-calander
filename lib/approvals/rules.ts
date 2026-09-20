@@ -27,10 +27,17 @@ export function canRespondToProposal(actor: ApprovalActor, proposal: ProposalPol
 }
 
 export function canWithdrawProposal(actor: ApprovalActor, proposal: ProposalPolicyRecord) {
+  const ownsProposal =
+    proposal.proposedByMembershipId === actor.membershipId ||
+    Boolean(
+      actor.participantId &&
+        proposal.proposedByParticipantId &&
+        proposal.proposedByParticipantId === actor.participantId,
+    );
+
   return (
-    canCreateProposal(actor) &&
     (proposal.status === "draft" || proposal.status === "waiting") &&
-    proposal.proposedByMembershipId === actor.membershipId
+    ownsProposal
   );
 }
 

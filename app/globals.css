@@ -79,16 +79,14 @@ button:disabled { cursor: not-allowed; }
 .covie-tool-menu { display: flex; flex-direction: column; gap: 8px; }
 .covie-tool-menu > button { min-height: 44px; justify-content: flex-start; border-color: #e6dbcf; background: #fff9f2; }
 .workspace-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.workspace-page-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.workspace-mobile-actions { display: none; }
 .workspace-mobile-actions-trigger { display: none; }
 .workspace-coming-up-menu,
 .workspace-mobile-action-divider,
 .workspace-mobile-install,
 .workspace-mobile-logout,
 .workspace-mobile-signout-error { display: none; }
-@media (min-width: 640px) {
-  .workspace-mobile-actions { display: contents; }
-  .workspace-mobile-action-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-}
 .workspace-nav { position: fixed; z-index: 20; background: #fff9f2; }
 .workspace-brand { display: block; margin: 0 12px 24px; font-size: 28px; font-weight: 700; letter-spacing: -0.04em; color: #243139; }
 .workspace-destinations { display: flex; gap: 8px; }
@@ -116,13 +114,6 @@ button:disabled { cursor: not-allowed; }
 
 @media (max-width: 639px) {
   .covie-calendar-header { padding-top: 4px; }
-  .covie-calendar-header .workspace-actions {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: auto;
-    z-index: 40;
-  }
   .covie-calendar-controls { gap: 6px; }
   .covie-calendar-controls > div { margin-right: auto; gap: 6px; }
   .covie-calendar-controls > button { gap: 4px; padding-inline: 8px; font-size: 13px; }
@@ -683,16 +674,46 @@ main:has(.workspace-nav) { background: #fff9f2; }
   }
 
   .workspace-actions {
-    width: fit-content;
-    align-self: flex-end;
+    width: 100%;
+    align-self: stretch;
     justify-content: flex-end;
+    gap: 8px;
+    margin-left: 0;
+  }
+
+  .workspace-page-actions {
+    order: 2;
+    width: 100%;
     gap: 6px;
-    margin-left: auto;
+  }
+
+  .workspace-page-actions > button,
+  .workspace-page-actions > a,
+  .workspace-page-actions > details,
+  .workspace-page-actions > div {
+    flex: 1 1 calc(50% - 3px);
+    min-width: 0;
+  }
+
+  .workspace-page-actions > :only-child {
+    flex-basis: 100%;
+  }
+
+  .workspace-page-actions .covie-menu-trigger,
+  .workspace-page-actions .google-calendar-quick-action > button,
+  .workspace-page-actions .google-calendar-quick-action > a {
+    width: 100%;
   }
 
   .workspace-mobile-actions {
     position: relative;
+    order: 1;
+    display: block;
     margin-left: auto;
+  }
+
+  .workspace-actions > .workspace-account {
+    display: none;
   }
 
   .workspace-mobile-actions-trigger {
@@ -736,11 +757,6 @@ main:has(.workspace-nav) { background: #fff9f2; }
 
   .workspace-mobile-actions:not(.is-open) > .workspace-mobile-action-panel {
     display: none;
-  }
-
-  .workspace-mobile-action-panel:has(.covie-dialog-backdrop),
-  .workspace-mobile-action-panel:has(details[open] > .covie-menu) {
-    overflow: visible;
   }
 
   .workspace-mobile-action-panel > * {
@@ -794,22 +810,17 @@ main:has(.workspace-nav) { background: #fff9f2; }
     display: flex;
   }
 
-  .workspace-mobile-action-panel .google-calendar-quick-action > button,
-  .workspace-mobile-action-panel .google-calendar-quick-action > a {
-    width: 100%;
+  .workspace-page-actions .google-calendar-quick-action > button,
+  .workspace-page-actions .google-calendar-quick-action > a {
     justify-content: flex-start;
     border-radius: 10px;
   }
 
-  .workspace-mobile-action-panel .google-calendar-quick-action > [role="status"] {
+  .workspace-page-actions .google-calendar-quick-action > [role="status"] {
     position: static;
     width: 100%;
     margin-top: 6px;
     box-shadow: none;
-  }
-
-  .workspace-mobile-action-panel .workspace-account {
-    display: none;
   }
 
   .workspace-mobile-logout {
