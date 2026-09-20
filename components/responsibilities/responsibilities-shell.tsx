@@ -16,7 +16,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { localDateInTimeZone } from "@/lib/calendar/time";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
@@ -107,7 +107,7 @@ type PendingProposal = {
   proposedState: unknown;
 };
 
-type ResponsibilityPayload = {
+export type ResponsibilityPayload = {
   currentParticipantId: string | null;
   currentMembershipId: string;
   permission: "owner" | "editor" | "viewer";
@@ -247,13 +247,27 @@ function statusClass(status: ResponsibilityStatus) {
   return "bg-slate-100 text-slate-600";
 }
 
-export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initialDate: string | null; calendarTimezone: string }) {
-  const [data, setData] = useState<ResponsibilityPayload | null>(null);
-  const [loading, setLoading] = useState(true);
+export function ResponsibilitiesShell({
+  initialDate,
+  calendarTimezone,
+  initialData,
+}: {
+  initialDate: string | null;
+  calendarTimezone: string;
+  initialData: ResponsibilityPayload;
+}) {
+  const [data, setData] = useState<ResponsibilityPayload>(initialData);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(() => blankForm(initialDate, null, calendarTimezone));
+  const [form, setForm] = useState<FormState>(() =>
+    blankForm(
+      initialDate,
+      initialData.currentParticipantId ?? initialData.participants[0]?.id ?? null,
+      calendarTimezone,
+    ),
+  );
   const [dateFilter, setDateFilter] = useState<string | null>(initialDate);
+  const initialDateLoadRef = useRef(true);
   const [statusFilter, setStatusFilter] = useState<"current" | "archive" | "upcoming" | "due_soon" | "due_today" | "overdue">("current");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -286,6 +300,11 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
   }, [dateFilter]);
 
   useEffect(() => {
+    if (initialDateLoadRef.current) {
+      initialDateLoadRef.current = false;
+      return;
+    }
+
     let cancelled = false;
     const query = dateFilter ? `?date=${encodeURIComponent(dateFilter)}` : "";
 
@@ -308,7 +327,6 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
           return;
         }
         setData(body);
-      window.dispatchEvent(new Event("covie-records-updated"));
         setError(null);
         setForm((current) => ({
           ...current,
@@ -322,10 +340,6 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
       .catch(() => {
         if (!cancelled) setError("Tasks could not be loaded.");
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
     return () => {
       cancelled = true;
     };
@@ -737,12 +751,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
           </div>
         </div>
 
-        {loading ? (
-          <div className="mt-4 flex min-h-40 items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm text-slate-500">
-            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-            Loading tasks…
-          </div>
-        ) : filtered.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center">
             <CheckSquare2 className="mx-auto h-7 w-7 text-slate-400" aria-hidden="true" />
             <p className="mt-2 font-semibold text-slate-800">Nothing here</p>
