@@ -21,6 +21,7 @@ import {
   calendars,
   children,
   events,
+  expenses,
   parentingAssignments,
   participants,
   parentingSchedules,
@@ -86,7 +87,16 @@ export async function loadCalendarData(
   const now = localDateTimePartsInTimeZone(calendar.timezone);
   const inferredSplitHandoverTime = sql<string>`coalesce(${parentingAssignments.handoverTime}, '12:00:00'::time)`;
 
-  const [parentRows, childRows, eventRows, responsibilityRows, nextHandoverRows, nextEventRows, scheduleRows] = await db.batch([
+  const [
+    parentRows,
+    childRows,
+    eventRows,
+    responsibilityRows,
+    expenseMarkerRows,
+    nextHandoverRows,
+    nextEventRows,
+    scheduleRows,
+  ] = await db.batch([
     db.select({
       id: participants.id,
       displayName: participants.displayName,
@@ -140,6 +150,31 @@ export async function loadCalendarData(
         lte(responsibilities.dueDate, to),
       ))
       .orderBy(asc(responsibilities.dueDate)),
+    db
+      .select({
+        expenseDate: expenses.expenseDate,
+        dueDate: expenses.dueDate,
+        settlementStatus: expenses.settlementStatus,
+      })
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.calendarId, session.calendarId),
+          or(
+            and(
+              isNotNull(expenses.dueDate),
+              gte(expenses.dueDate, from),
+              lte(expenses.dueDate, to),
+            ),
+            and(
+              isNull(expenses.dueDate),
+              gte(expenses.expenseDate, from),
+              lte(expenses.expenseDate, to),
+            ),
+          ),
+        ),
+      )
+      .orderBy(asc(expenses.dueDate), asc(expenses.expenseDate)),
     db.select({
       date: parentingAssignments.assignmentDate,
       morningParentId: parentingAssignments.parentId,
@@ -289,6 +324,25 @@ export async function loadCalendarData(
 
   const responsibilityMarkers = [...responsibilityMarkerMap.values()];
 
+  const expenseMarkerMap = new Map<
+    string,
+    { date: string; count: number; outstandingCount: number }
+  >();
+  for (const item of expenseMarkerRows) {
+    const date = item.dueDate ?? item.expenseDate;
+    const marker = expenseMarkerMap.get(date) ?? {
+      date,
+      count: 0,
+      outstandingCount: 0,
+    };
+    marker.count += 1;
+    if (item.settlementStatus === "outstanding") {
+      marker.outstandingCount += 1;
+    }
+    expenseMarkerMap.set(date, marker);
+  }
+  const expenseMarkers = [...expenseMarkerMap.values()];
+
   return {
     calendar,
     currentParticipantId: session.participantId,
@@ -301,6 +355,7 @@ export async function loadCalendarData(
     events: visibleEvents,
     pendingProposals,
     responsibilityMarkers,
+    expenseMarkers,
     recurringScheduleActive: scheduleRows.length > 0,
     nextHandover: nextHandoverRows[0] ?? null,
     nextEvent,
