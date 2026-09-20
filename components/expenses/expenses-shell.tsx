@@ -36,6 +36,7 @@ type Child = {
 type ExpenseShare = {
   participantId: string;
   shareCents: number;
+  paidAt: string | null;
 };
 
 type Expense = {
@@ -166,10 +167,10 @@ function proposalSummary(expense: ReturnType<typeof proposalExpense>, participan
   return `${expense.title} · ${money(expense.amountCents)} · paid by ${payer?.displayName ?? "Parent"} · ${split}`;
 }
 
-function owedAmount(expense: Expense) {
-  const payerShare =
-    expense.shares.find((share) => share.participantId === expense.paidByParticipantId)?.shareCents ?? 0;
-  return Math.max(0, expense.amountCents - payerShare);
+function unpaidAmount(expense: Expense) {
+  return expense.shares
+    .filter((share) => share.shareCents > 0 && !share.paidAt)
+    .reduce((sum, share) => sum + share.shareCents, 0);
 }
 
 function blankForm(initialDate: string | null, participantId: string | null, timeZone: string): ExpenseFormState {
@@ -296,7 +297,7 @@ export function ExpensesShell({
       recorded: rows.reduce((sum, expense) => sum + expense.amountCents, 0),
       outstanding: rows
         .filter((expense) => expense.settlementStatus === "outstanding")
-        .reduce((sum, expense) => sum + owedAmount(expense), 0),
+        .reduce((sum, expense) => sum + unpaidAmount(expense), 0),
       archived: rows.filter((expense) => expense.settlementStatus !== "outstanding").length,
     };
   }, [data?.expenses]);
@@ -480,8 +481,13 @@ export function ExpensesShell({
   }
 
   async function updateSettlement(expense: Expense) {
-    if (!editable || busy || expense.settlementStatus === "not_needed") return;
-    const operation = expense.settlementStatus === "settled" ? "reopen" : "settle";
+    if (!editable || busy || !data.currentParticipantId) return;
+    const share = expense.shares.find(
+      (item) => item.participantId === data.currentParticipantId,
+    );
+    if (!share || share.shareCents <= 0) return;
+
+    const operation = share.paidAt ? "mark_unpaid" : "mark_paid";
 
     setBusy(true);
     setError(null);
@@ -493,12 +499,20 @@ export function ExpensesShell({
         body: JSON.stringify({ operation }),
       });
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (!response.ok) throw new Error(body?.error ?? "The settlement status could not be updated.");
-      setMessage(operation === "settle" ? "Shared cost marked settled." : "Shared cost reopened.");
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Your payment confirmation could not be updated.");
+      }
+      setMessage(
+        operation === "mark_paid"
+          ? "Your share is marked paid."
+          : "Your share is marked unpaid again.",
+      );
       await load();
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : "The settlement status could not be updated.",
+        caught instanceof Error
+          ? caught.message
+          : "Your payment confirmation could not be updated.",
       );
     } finally {
       setBusy(false);
@@ -515,8 +529,8 @@ export function ExpensesShell({
             <div className="mb-2 h-2 w-16 rounded-full bg-[#F4C64E]" aria-hidden="true" />
             <h1 className="covie-page-title text-3xl sm:text-4xl">Shared costs</h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
-              Keep the amount, who paid, each parent&apos;s share and reimbursement status clear.
-              Covie records payments but does not move money.
+              Keep the amount, who paid and each parent&apos;s share clear. Each parent confirms
+              only their own share as paid. Covie records payments but does not move money.
             </p>
           </div>
           <RecordFocus ready={Boolean(data)} /><WorkspaceNav
@@ -567,7 +581,7 @@ export function ExpensesShell({
         <div className="rounded-2xl border border-[#243139] bg-[#F7DC86] p-3 sm:p-4">
           <p className="text-xs font-bold text-[#5F4709]">Outstanding</p>
           <p className="mt-2 text-3xl font-semibold text-[#243139]">{money(summary.outstanding)}</p>
-          <p className="mt-1 text-xs text-[#5F4709]">Still waiting to be settled</p>
+          <p className="mt-1 text-xs text-[#5F4709]">Shares not yet confirmed paid</p>
         </div>
         <div className="rounded-2xl border border-[#243139] bg-[#DDD3FA] p-3 sm:p-4">
           <p className="text-xs font-bold text-[#544394]">Recorded</p>
@@ -577,7 +591,7 @@ export function ExpensesShell({
         <div className="col-span-2 rounded-2xl border border-[#243139] bg-[#BFEDE6] p-3 sm:col-span-1 sm:p-4">
           <p className="text-xs font-bold text-[#0B665C]">Archived</p>
           <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.archived}</p>
-          <p className="mt-1 text-xs text-[#0B665C]">Settled or no reimbursement needed</p>
+          <p className="mt-1 text-xs text-[#0B665C]">All required shares confirmed paid</p>
         </div>
       </section>
 
@@ -710,26 +724,31 @@ export function ExpensesShell({
                   <div className="mt-4 flex flex-wrap gap-2">
                     {expense.shares.map((share) => {
                       const parent = participants.find((item) => item.id === share.participantId);
+                      const status =
+                        share.shareCents <= 0
+                          ? "No amount due"
+                          : share.paidAt
+                            ? "Paid"
+                            : "Unpaid";
                       return (
-                        <span key={share.participantId} className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
-                          {parent?.displayName ?? "Parent"} {money(share.shareCents)}
+                        <span
+                          key={share.participantId}
+                          className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700"
+                        >
+                          {parent?.displayName ?? "Parent"} {money(share.shareCents)} · {status}
                         </span>
                       );
                     })}
                   </div>
 
                   <div className="mt-4 rounded-xl bg-slate-50 px-3 py-3 text-sm">
-                    {expense.settlementStatus === "not_needed" ? (
-                      <p className="flex items-center gap-2 font-semibold text-slate-700">
-                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> No reimbursement needed
-                      </p>
-                    ) : expense.settlementStatus === "settled" ? (
+                    {expense.settlementStatus === "settled" ? (
                       <p className="flex items-center gap-2 font-semibold text-emerald-700">
-                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Settled
+                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> All shares confirmed paid
                       </p>
                     ) : (
                       <p className="flex items-center gap-2 font-semibold text-amber-700">
-                        <Clock3 className="h-4 w-4" aria-hidden="true" /> {money(owedAmount(expense))} reimbursement outstanding
+                        <Clock3 className="h-4 w-4" aria-hidden="true" /> {money(unpaidAmount(expense))} still unconfirmed
                       </p>
                     )}
                     {expense.dueDate ? (
@@ -765,21 +784,27 @@ export function ExpensesShell({
                       >
                         <Pencil className="h-3.5 w-3.5" aria-hidden="true" /> Edit
                       </button>
-                      {expense.settlementStatus !== "not_needed" ? (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void updateSettlement(expense)}
-                          className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                        >
-                          {expense.settlementStatus === "settled" ? (
-                            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                          ) : (
-                            <CircleDollarSign className="h-3.5 w-3.5" aria-hidden="true" />
-                          )}
-                          {expense.settlementStatus === "settled" ? "Reopen" : "Mark settled"}
-                        </button>
-                      ) : null}
+                      {(() => {
+                        const myShare = expense.shares.find(
+                          (share) => share.participantId === data.currentParticipantId,
+                        );
+                        if (!myShare || myShare.shareCents <= 0) return null;
+                        return (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void updateSettlement(expense)}
+                            className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                          >
+                            {myShare.paidAt ? (
+                              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                            ) : (
+                              <CircleDollarSign className="h-3.5 w-3.5" aria-hidden="true" />
+                            )}
+                            {myShare.paidAt ? "Mark my share unpaid" : "Mark my share paid"}
+                          </button>
+                        );
+                      })()}
                       <button
                         type="button"
                         disabled={busy}
