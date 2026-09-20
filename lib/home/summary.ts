@@ -25,19 +25,20 @@ export function expenseReimbursementContext(input: {
   shares: Array<{
     participantId: string;
     shareCents: number;
-    paidAt?: string | Date | null;
+    paidCents?: number;
   }>;
   currentParticipantId: string | null;
 }) {
-  const unpaidShares = input.shares.filter(
-    (share) => share.shareCents > 0 && !share.paidAt,
-  );
+  const remainingShares = input.shares.map((share) => ({
+    ...share,
+    remainingCents: Math.max(0, share.shareCents - (share.paidCents ?? 0)),
+  }));
 
   if (!input.currentParticipantId) {
     return {
       direction: "shared" as const,
-      amountCents: unpaidShares.reduce(
-        (sum, share) => sum + share.shareCents,
+      amountCents: remainingShares.reduce(
+        (sum, share) => sum + share.remainingCents,
         0,
       ),
     };
@@ -46,20 +47,20 @@ export function expenseReimbursementContext(input: {
   if (input.currentParticipantId === input.paidByParticipantId) {
     return {
       direction: "owed_to_you" as const,
-      amountCents: unpaidShares
+      amountCents: remainingShares
         .filter(
           (share) => share.participantId !== input.currentParticipantId,
         )
-        .reduce((sum, share) => sum + share.shareCents, 0),
+        .reduce((sum, share) => sum + share.remainingCents, 0),
     };
   }
 
-  const currentShare = unpaidShares.find(
+  const currentShare = remainingShares.find(
     (share) => share.participantId === input.currentParticipantId,
   );
   return {
     direction: "you_owe" as const,
-    amountCents: currentShare?.shareCents ?? 0,
+    amountCents: currentShare?.remainingCents ?? 0,
   };
 }
 
