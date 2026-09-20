@@ -232,8 +232,6 @@ export function ExpensesShell({
       }));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Shared costs could not be loaded.");
-    } finally {
-      setLoading(false);
     }
   }, [dateFilter]);
 
