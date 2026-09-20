@@ -140,25 +140,53 @@ for (const file of files) {
   extractChunkRefs(text, calendarRefs);
 }
 
+const loadableManifestPath = files.find(
+  (file) =>
+    rel(file) === "server/app/calendar/page/react-loadable-manifest.json",
+);
+const lazyRefs = new Set();
+let loadableManifest = {};
+if (loadableManifestPath) {
+  loadableManifest = JSON.parse(await readFile(loadableManifestPath, "utf8"));
+  extractChunkRefs(loadableManifest, lazyRefs);
+}
+
 const resolvedCalendarChunks = [...calendarRefs]
+  .map((ref) => chunkStats.get(ref) ?? null)
+  .filter(Boolean)
+  .sort((a, b) => b.rawBytes - a.rawBytes);
+const lazyCalendarChunks = [...lazyRefs]
+  .map((ref) => chunkStats.get(ref) ?? null)
+  .filter(Boolean)
+  .sort((a, b) => b.rawBytes - a.rawBytes);
+const initialCalendarChunks = [...calendarRefs]
+  .filter((ref) => !lazyRefs.has(ref))
   .map((ref) => chunkStats.get(ref) ?? null)
   .filter(Boolean)
   .sort((a, b) => b.rawBytes - a.rawBytes);
 
 const sum = (rows, field) => rows.reduce((total, row) => total + row[field], 0);
-const totals = {
-  chunkCount: resolvedCalendarChunks.length,
-  rawBytes: sum(resolvedCalendarChunks, "rawBytes"),
-  gzipBytes: sum(resolvedCalendarChunks, "gzipBytes"),
-  brotliBytes: sum(resolvedCalendarChunks, "brotliBytes"),
-};
+const totalsFor = (rows) => ({
+  chunkCount: rows.length,
+  rawBytes: sum(rows, "rawBytes"),
+  gzipBytes: sum(rows, "gzipBytes"),
+  brotliBytes: sum(rows, "brotliBytes"),
+});
+const totals = totalsFor(initialCalendarChunks);
+const allReferencedTotals = totalsFor(resolvedCalendarChunks);
+const lazyTotals = totalsFor(lazyCalendarChunks);
 
 console.log("CALENDAR_BUNDLE_REPORT_START");
 console.log(
   JSON.stringify(
     {
       totals,
+      initialCalendarChunks,
+      lazyTotals,
+      lazyCalendarChunks,
+      allReferencedTotals,
       calendarChunks: resolvedCalendarChunks,
+      loadableManifest,
       panelChunks,
       manifestCandidates,
       allClientChunkCount: jsChunks.length,
