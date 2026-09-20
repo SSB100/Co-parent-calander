@@ -49,6 +49,23 @@ export const allowedProfilePhotoContentTypes = [
   "image/heif",
 ] as const;
 
+const extensionsByContentType: Record<string, readonly string[]> = {
+  "application/pdf": [".pdf"],
+  "image/jpeg": [".jpg", ".jpeg"],
+  "image/png": [".png"],
+  "image/webp": [".webp"],
+  "image/heic": [".heic"],
+  "image/heif": [".heif"],
+  "application/msword": [".doc"],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+};
+
+function extensionFor(fileName: string) {
+  const normalized = fileName.trim().toLocaleLowerCase("en-NZ");
+  const index = normalized.lastIndexOf(".");
+  return index >= 0 ? normalized.slice(index) : "";
+}
+
 const entityIdSchema = z.string().uuid();
 
 export const attachmentTargetSchema = z.object({
@@ -63,7 +80,11 @@ export const attachmentBeginSchema = attachmentTargetSchema
       .string()
       .trim()
       .min(1, "Choose a file.")
-      .max(240, "Keep the file name under 240 characters."),
+      .max(240, "Keep the file name under 240 characters.")
+      .refine(
+        (value) => !/[\u0000-\u001F\u007F]/.test(value),
+        "Choose a file with a valid name.",
+      ),
     contentType: z.string().trim().min(1).max(160),
     sizeBytes: z.number().int().positive(),
     category: z.enum(attachmentCategories),
@@ -102,6 +123,14 @@ export const attachmentBeginSchema = attachmentTargetSchema
           ? "Choose a JPEG, PNG, WebP, HEIC or HEIF image."
           : "Choose a PDF, image, Word or DOCX file.",
       });
+    } else {
+      const validExtensions = extensionsByContentType[value.contentType] ?? [];
+      if (!validExtensions.includes(extensionFor(value.originalFileName))) {
+        context.addIssue({
+          code: "custom",
+          message: "The file extension does not match the selected file type.",
+        });
+      }
     }
 
     const limit = isPhoto
