@@ -57,11 +57,13 @@ function jsonValue(value: unknown | null) {
 function asPolicyRecord(proposal: {
   status: ProposalStatus;
   proposedByMembershipId: string;
+  proposedByParticipantId: string | null;
   approverMembershipId: string | null;
 }) {
   return {
     status: proposal.status,
     proposedByMembershipId: proposal.proposedByMembershipId,
+    proposedByParticipantId: proposal.proposedByParticipantId,
     approverMembershipId: proposal.approverMembershipId,
   };
 }
@@ -686,6 +688,7 @@ export async function withdrawApprovalProposal(input: {
   }
 
   const fromStatus = proposal.status;
+  const actorParticipantId = input.actor.participantId ?? proposal.proposedByParticipantId;
   const sql = getSql();
   const rows = (await sql`
     WITH transitioned AS (
@@ -693,7 +696,13 @@ export async function withdrawApprovalProposal(input: {
       SET status = 'withdrawn', withdrawn_at = now(), updated_at = now()
       WHERE id = ${proposal.id}
         AND calendar_id = ${input.calendarId}
-        AND proposed_by_membership_id = ${input.actor.membershipId}
+        AND (
+          proposed_by_membership_id = ${input.actor.membershipId}
+          OR (
+            ${input.actor.participantId}::uuid IS NOT NULL
+            AND proposed_by_participant_id = ${input.actor.participantId}
+          )
+        )
         AND status IN ('draft', 'waiting')
       RETURNING *
     ),
@@ -712,7 +721,7 @@ export async function withdrawApprovalProposal(input: {
         id,
         calendar_id,
         ${input.actor.membershipId},
-        ${input.actor.participantId},
+        ${actorParticipantId},
         'proposal.withdrawn',
         ${fromStatus}::proposal_status,
         'withdrawn',
@@ -732,7 +741,7 @@ export async function withdrawApprovalProposal(input: {
       )
       SELECT
         calendar_id,
-        ${input.actor.participantId},
+        ${actorParticipantId},
         'proposal.withdraw',
         'proposal',
         id,
