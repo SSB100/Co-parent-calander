@@ -3,7 +3,6 @@
 import {
   ChevronRight,
   CircleDollarSign,
-  ListChecks,
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
@@ -11,17 +10,8 @@ import { WorkspaceNav } from "./workspace-nav";
 
 const sections = [
   {
-    href: "/responsibilities",
-    label: "Responsibilities",
-    description:
-      "Keep practical jobs clearly owned, due and out of the message thread.",
-    icon: ListChecks,
-    className: "bg-[#BFEDE6]",
-    accent: "bg-[#19A897]",
-  },
-  {
     href: "/expenses",
-    label: "Expenses",
+    label: "Shared costs",
     description:
       "Track shared costs and reimbursements, then archive them once settled.",
     icon: CircleDollarSign,
@@ -46,7 +36,7 @@ export function OrganiserShell() {
         <div>
           <h1 className="covie-page-title text-4xl sm:text-5xl">Organiser</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            The practical things around the calendar, kept visible until they are done.
+            Shared costs and child information, without duplicating the dated things already handled by Calendar.
           </p>
         </div>
         <WorkspaceNav active="organiser" />
@@ -54,11 +44,11 @@ export function OrganiserShell() {
 
       <section className="rounded-2xl border-2 border-[#243139] bg-[#FF6B5F] p-4 sm:p-6">
         <p className="max-w-3xl text-base font-bold leading-6 text-[#243139] sm:text-lg sm:leading-7">
-          Open items stay front and centre. Settled expenses and completed responsibilities move into Archive automatically, so this space stays useful instead of becoming a history dump.
+          Shared costs stay visible until they are settled. Tasks now live with Calendar, where events, due dates and who is responsible can be understood together.
         </p>
       </section>
 
-      <section className="mt-4 grid gap-3 sm:mt-6 sm:gap-4 lg:grid-cols-3">
+      <section className="mt-4 grid gap-3 sm:mt-6 sm:gap-4 lg:grid-cols-2">
         {sections.map(({ href, label, description, icon: Icon, className, accent }) => (
           <Link
             key={href}
