@@ -90,9 +90,9 @@ export function proposalDisplay(input: {
     const state =
       firstRecord(input.proposedState, "expense") ??
       firstRecord(input.previousState, "expense");
-    const title = text(state?.title) ?? "expense";
+    const title = text(state?.title) ?? "shared cost";
     return {
-      title: `${actionLabel} expense`,
+      title: `${actionLabel} shared cost`,
       summary: title,
     };
   }
@@ -101,10 +101,10 @@ export function proposalDisplay(input: {
     const state =
       firstRecord(input.proposedState, "responsibility") ??
       firstRecord(input.previousState, "responsibility");
-    const title = text(state?.title) ?? "responsibility";
+    const title = text(state?.title) ?? "task";
     const dueDate = dateSummary(state?.dueDate);
     return {
-      title: `${actionLabel} responsibility`,
+      title: `${actionLabel} task`,
       summary: dueDate ? `${title} · due ${dueDate}` : title,
     };
   }

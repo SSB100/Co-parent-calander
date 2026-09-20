@@ -231,7 +231,7 @@ function proposalSummary(
   item: ReturnType<typeof proposalResponsibility>,
   participants: Participant[],
 ) {
-  if (!item) return "No responsibility";
+  if (!item) return "No task";
   const parent = participants.find(
     (participant) => participant.id === item.responsibleParticipantId,
   );
@@ -269,7 +269,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
       throw new Error(
         body && "error" in body && body.error
           ? body.error
-          : "Responsibilities could not be loaded.",
+          : "Tasks could not be loaded.",
       );
     }
     setData(body);
@@ -303,7 +303,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
           setError(
             body && "error" in body && body.error
               ? body.error
-              : "Responsibilities could not be loaded.",
+              : "Tasks could not be loaded.",
           );
           return;
         }
@@ -320,7 +320,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
         }));
       })
       .catch(() => {
-        if (!cancelled) setError("Responsibilities could not be loaded.");
+        if (!cancelled) setError("Tasks could not be loaded.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -408,7 +408,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
   async function save() {
     if (!editable || busyId) return;
     if (!form.title.trim()) {
-      setError("Add a responsibility title.");
+      setError("Add a task title.");
       return;
     }
     if (!form.responsibleParticipantId) {
@@ -449,25 +449,25 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
         | { error?: string; pending?: boolean; approverName?: string | null }
         | null;
       if (!response.ok) {
-        throw new Error(body?.error ?? "The responsibility could not be saved.");
+        throw new Error(body?.error ?? "The task could not be saved.");
       }
 
       setFormOpen(false);
       setMessage(
         body?.pending
           ? body.approverName
-            ? `Responsibility sent to ${body.approverName} for approval.`
-            : "Responsibility sent for approval."
+            ? `Task sent to ${body.approverName} for approval.`
+            : "Task sent for approval."
           : form.id
-            ? "Responsibility updated."
-            : "Responsibility added.",
+            ? "Task updated."
+            : "Task added.",
       );
       await refresh();
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : "The responsibility could not be saved.",
+          : "The task could not be saved.",
       );
     } finally {
       setBusyId(null);
@@ -499,22 +499,22 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) {
         throw new Error(
-          body?.error ?? "The responsibility completion could not be updated.",
+          body?.error ?? "The task completion could not be updated.",
         );
       }
       setMessage(
         operation === "complete"
           ? item.recurrence === "none"
-            ? "Responsibility completed."
-            : "Responsibility completed. The next occurrence was created when applicable."
-          : "Responsibility reopened.",
+            ? "Task completed."
+            : "Task completed. The next occurrence was created when applicable."
+          : "Task reopened.",
       );
       await refresh();
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : "The responsibility completion could not be updated.",
+          : "The task completion could not be updated.",
       );
     } finally {
       setBusyId(null);
@@ -523,7 +523,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
 
   async function remove(item: Responsibility) {
     if (!editable || busyId || item.status === "completed") return;
-    if (!window.confirm(`Remove “${item.title}” from responsibilities?`)) return;
+    if (!window.confirm(`Remove “${item.title}” from tasks?`)) return;
 
     setBusyId(item.id);
     setError(null);
@@ -538,21 +538,21 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
         | { error?: string; pending?: boolean; approverName?: string | null }
         | null;
       if (!response.ok) {
-        throw new Error(body?.error ?? "The responsibility could not be removed.");
+        throw new Error(body?.error ?? "The task could not be removed.");
       }
       setMessage(
         body?.pending
           ? body.approverName
             ? `Removal sent to ${body.approverName} for approval.`
             : "Removal sent for approval."
-          : "Responsibility removed.",
+          : "Task removed.",
       );
       await refresh();
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : "The responsibility could not be removed.",
+          : "The task could not be removed.",
       );
     } finally {
       setBusyId(null);
@@ -565,7 +565,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="mb-2 h-2 w-16 rounded-full bg-[#19A897]" aria-hidden="true" />
-            <h1 className="covie-page-title text-3xl sm:text-4xl">Responsibilities</h1>
+            <h1 className="covie-page-title text-3xl sm:text-4xl">Tasks</h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
               Keep practical tasks clear: what needs doing, who owns it and when it is due.
             </p>
@@ -580,7 +580,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
                   className="covie-primary-action inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm"
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
-                  Add responsibility
+                  Add task
                 </button>
               ) : null
             }
@@ -592,14 +592,14 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
         <div className="mt-4 flex flex-col gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 sm:flex-row sm:items-center sm:justify-between">
           <span className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" aria-hidden="true" />
-            Showing responsibilities due on {dateLabel(dateFilter)}.
+            Showing tasks due on {dateLabel(dateFilter)}.
           </span>
           <button
             type="button"
             onClick={() => setDateFilter(null)}
             className="self-start font-semibold hover:underline sm:self-auto"
           >
-            Show all responsibilities
+            Show all tasks
           </button>
         </div>
       ) : null}
@@ -644,7 +644,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
         <section className="mt-6">
           <h2 className="text-lg font-semibold text-slate-950">Waiting for agreement</h2>
           <p className="mt-1 text-sm text-slate-500">
-            The agreed responsibility stays unchanged until the proposal is accepted.
+            The agreed task stays unchanged until the proposal is accepted.
           </p>
           <div className="mt-3 grid gap-3 lg:grid-cols-2">
             {data?.pendingProposals.map((proposal) => {
@@ -656,22 +656,22 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
                   status={proposal.status}
                   title={
                     proposal.action === "create"
-                      ? "New responsibility"
+                      ? "New task"
                       : proposal.action === "delete"
-                        ? "Remove responsibility"
-                        : "Responsibility change"
+                        ? "Remove task"
+                        : "Task change"
                   }
                   proposedByName={proposal.proposedByName}
                   approverName={proposal.approverName}
                   reason={proposal.reason}
                   agreedSummary={
                     proposal.action === "create"
-                      ? "No agreed responsibility yet."
+                      ? "No agreed task yet."
                       : proposalSummary(previous, participants)
                   }
                   proposedSummary={
                     proposal.action === "delete"
-                      ? "Remove this responsibility."
+                      ? "Remove this task."
                       : proposalSummary(proposed, participants)
                   }
                   actions={
@@ -681,12 +681,12 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
                       proposedByMembershipId={proposal.proposedByMembershipId}
                       approverMembershipId={proposal.approverMembershipId}
                       onChanged={() => {
-                        setMessage("Responsibility proposal updated.");
+                        setMessage("Task proposal updated.");
                         void refresh().catch((caught) =>
                           setError(
                             caught instanceof Error
                               ? caught.message
-                              : "Responsibilities could not be refreshed.",
+                              : "Tasks could not be refreshed.",
                           ),
                         );
                       }}
@@ -703,11 +703,11 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-950">
-              {statusFilter === "archive" ? "Responsibility archive" : "Current responsibilities"}
+              {statusFilter === "archive" ? "Task archive" : "Current tasks"}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               {statusFilter === "archive"
-                ? "Completed responsibilities stay available here as history."
+                ? "Completed tasks stay available here as history."
                 : "Completed items disappear from this active view automatically."}
             </p>
           </div>
@@ -740,7 +740,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
         {loading ? (
           <div className="mt-4 flex min-h-40 items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm text-slate-500">
             <LoaderCircle className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-            Loading responsibilities…
+            Loading tasks…
           </div>
         ) : filtered.length === 0 ? (
           <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center">
@@ -748,7 +748,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
             <p className="mt-2 font-semibold text-slate-800">Nothing here</p>
             <p className="mt-1 text-sm text-slate-500">
               {dateFilter
-                ? "No agreed responsibilities are due on this date."
+                ? "No agreed tasks are due on this date."
                 : "Add a task when there is something useful to make clearly owned."}
             </p>
           </div>
@@ -886,7 +886,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
                       {linkedExpense ? (
                         <p className="flex items-center gap-2">
                           <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
-                          Expense: {linkedExpense.title}
+                          Shared cost: {linkedExpense.title}
                         </p>
                       ) : null}
                     </div>
@@ -953,20 +953,20 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  Shared responsibility
+                  Shared task
                 </p>
                 <h2
                   id="responsibility-form-title"
                   className="mt-1 text-2xl font-semibold text-slate-950"
                 >
-                  {form.id ? "Edit responsibility" : "Add responsibility"}
+                  {form.id ? "Edit task" : "Add task"}
                 </h2>
               </div>
               <button
                 type="button"
                 disabled={Boolean(busyId)}
                 onClick={() => setFormOpen(false)}
-                aria-label="Close responsibility form"
+                aria-label="Close task form"
                 className="covie-icon-button flex h-10 w-10 items-center justify-center rounded-xl disabled:opacity-50"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
@@ -1201,7 +1201,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
                   </select>
                 </label>
                 <label>
-                  <span className="text-xs font-semibold text-slate-600">Expense</span>
+                  <span className="text-xs font-semibold text-slate-600">Shared cost</span>
                   <select
                     value={form.linkedExpenseId}
                     onChange={(event) =>
@@ -1212,7 +1212,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
                     }
                     className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   >
-                    <option value="">No linked expense</option>
+                    <option value="">No linked shared cost</option>
                     {data?.expenses.map((expense) => (
                       <option key={expense.id} value={expense.id}>
                         {expense.title} · {dateLabel(expense.expenseDate)}
@@ -1261,7 +1261,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
                 {busyId ? (
                   <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
                 ) : null}
-                {form.id ? "Save change" : "Add responsibility"}
+                {form.id ? "Save change" : "Add task"}
               </button>
             </div>
           </section>
@@ -1270,7 +1270,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
 
       {!editable && data ? (
         <p className="mx-auto mt-5 max-w-2xl text-center text-xs leading-5 text-slate-400">
-          You have view-only access to responsibilities.
+          You have view-only access to tasks.
         </p>
       ) : null}
     </main>

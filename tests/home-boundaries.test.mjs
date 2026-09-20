@@ -60,8 +60,8 @@ test("Home keeps detail workflows in their existing feature areas", async () => 
 
   assert.match(shell, /WorkspaceNav/);
   assert.match(nav, /href: "\/calendar"/);
-  assert.match(nav, /href: "\/expenses"/);
-  assert.match(nav, /href: "\/responsibilities"/);
+  assert.match(nav, /label: "Shared costs"/);
+  assert.doesNotMatch(nav, /label: "Responsibilities"/);
   assert.match(shell, /\/expenses\?date=/);
   assert.match(shell, /\/responsibilities\?date=/);
   assert.match(shell, /ProposalActions/);
@@ -182,8 +182,8 @@ test("mobile Quick view stays consistent while page actions remain visible", asy
   assert.doesNotMatch(mobileOrganiser, /workspace-priority-card/);
   assert.doesNotMatch(mobileOrganiser, />Responsibilities<|>Expenses</);
 
-  assert.match(expenses, /Add expense/);
-  assert.match(responsibilities, /Add responsibility/);
+  assert.match(expenses, /Add shared cost/);
+  assert.match(responsibilities, /Add task/);
   assert.match(calendar, /Sync to Google|GoogleCalendarQuickAction/);
 
   assert.match(install, /Close install Covie prompt/);
@@ -277,4 +277,24 @@ test("Covie interactive surfaces use the branded action hierarchy instead of gen
 
   assert.match(onboarding, /bg-\[#BFEDE6\]/);
   assert.match(onboarding, /bg-\[#DDD3FA\]/);
+});
+
+
+test("Tasks belong to Calendar while Organiser exposes Shared costs and Children", async () => {
+  const [calendar, organiser, nav, taskPage, costPage] = await Promise.all([
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/workspace/organiser-shell.tsx"),
+    source("components/workspace/workspace-nav.tsx"),
+    source("app/responsibilities/page.tsx"),
+    source("app/expenses/page.tsx"),
+  ]);
+
+  assert.match(calendar, />\s*Tasks\s*</);
+  assert.match(calendar, /href="\/responsibilities"/);
+  assert.doesNotMatch(organiser, /href="\/responsibilities"/);
+  assert.match(organiser, /Shared costs/);
+  assert.match(organiser, /Children/);
+  assert.match(nav, /active === "responsibilities"[\s\S]*?\? "calendar"/);
+  assert.match(taskPage, /title: "Tasks"/);
+  assert.match(costPage, /title: "Shared costs"/);
 });

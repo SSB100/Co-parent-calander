@@ -27,6 +27,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { ActivityPanel } from "@/components/calendar/activity-panel";
 import { CalendarSwitcher, type CalendarOption } from "@/components/calendar/calendar-switcher";
 import { GoogleCalendarQuickAction } from "@/components/calendar/google-calendar-quick-action";
@@ -479,6 +480,10 @@ export function CalendarShell({
                       <details ref={toolsMenuRef} className="relative">
                       <summary className="covie-menu-trigger covie-action-violet"><span><span className="hidden sm:inline">Calendar </span>Tools</span><ChevronDown size={16} aria-hidden="true" /></summary>
                         <div className="covie-menu covie-tool-menu">
+                          <Link href="/responsibilities" className="covie-action-teal inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm">
+                            <CheckSquare2 className="h-4 w-4" aria-hidden="true" />
+                            Tasks
+                          </Link>
                           <RangeAssignmentPanel onChanged={() => setRefreshKey((value) => value + 1)} />
                           <RecurringSchedulePanel onChanged={() => setRefreshKey((value) => value + 1)} />
                           <ActivityPanel />

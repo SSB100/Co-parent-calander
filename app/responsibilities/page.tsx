@@ -4,7 +4,7 @@ import { ResponsibilitiesShell } from "@/components/responsibilities/responsibil
 import { getCalendarSession } from "@/lib/security/session";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Responsibilities" };
+export const metadata: Metadata = { title: "Tasks" };
 
 type ResponsibilitiesPageProps = {
   searchParams: Promise<{ date?: string | string[] }>;

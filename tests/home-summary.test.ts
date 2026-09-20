@@ -58,7 +58,7 @@ test("proposal display provides calm Home summaries across shared features", () 
         expense: { title: "School shoes" },
       },
     }),
-    { title: "New expense", summary: "School shoes" },
+    { title: "New shared cost", summary: "School shoes" },
   );
 
   assert.deepEqual(
@@ -75,7 +75,7 @@ test("proposal display provides calm Home summaries across shared features", () 
       },
     }),
     {
-      title: "Change responsibility",
+      title: "Change task",
       summary: "Return school form · due 2026-09-21",
     },
   );

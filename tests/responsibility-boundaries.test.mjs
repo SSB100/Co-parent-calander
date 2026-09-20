@@ -103,10 +103,11 @@ test("calendar and day details integrate responsibilities without replacing pare
   assert.match(calendarRoute, /responsibilityMarkers/);
   assert.match(shell, /responsibilityByDate/);
   assert.match(shell, /WorkspaceNav/);
-  assert.match(nav, /href: "\/responsibilities"/);
+  assert.match(shell, /href="\/responsibilities"/);
+  assert.match(nav, /active === "responsibilities"[\s\S]*?\? "calendar"/);
   assert.match(shell, /One more detail/);
   assert.match(day, /DayResponsibilities/);
-  assert.match(dayResponsibilities, /Responsibilities/);
+  assert.match(dayResponsibilities, />\s*Tasks\s*</);
   assert.match(dayResponsibilities, /Mark .* complete/);
 });
 
@@ -121,11 +122,11 @@ test("responsibilities UI uses quick templates as prefills and exposes planned f
   assert.match(shell, /Responsible parent/);
   assert.match(shell, /Repeat until/);
   assert.match(shell, /Calendar event/);
-  assert.match(shell, /Expense/);
+  assert.match(shell, /Shared cost/);
   assert.match(shell, /Reason for change/);
   assert.match(shell, /Waiting for agreement/);
-  assert.match(shell, /Current responsibilities/);
-  assert.match(shell, /Responsibility archive/);
+  assert.match(shell, /Current tasks/);
+  assert.match(shell, /Task archive/);
   assert.match(shell, /item\.status !== "completed"/);
   assert.match(shell, /item\.status === "completed"/);
 });

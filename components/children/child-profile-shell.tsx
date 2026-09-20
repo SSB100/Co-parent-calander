@@ -501,7 +501,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
             </span>
             <strong className="text-lg text-[#243139] sm:text-2xl">{openResponsibilities.length}</strong>
           </div>
-          <h2 className="mt-3 font-bold text-[#243139]">Open responsibilities</h2>
+          <h2 className="mt-3 font-bold text-[#243139]">Open tasks</h2>
           <p className="mt-1 text-xs text-[#526168]">
             {openResponsibilities[0]?.title ?? "Nothing waiting right now."}
           </p>
@@ -517,9 +517,9 @@ export function ChildProfileShell({ childId }: { childId: string }) {
             </span>
             <strong className="text-lg text-[#243139] sm:text-2xl">{recentExpenses.length}</strong>
           </div>
-          <h2 className="mt-3 font-bold text-[#243139]">Recent expenses</h2>
+          <h2 className="mt-3 font-bold text-[#243139]">Recent shared costs</h2>
           <p className="mt-1 text-xs text-[#526168]">
-            {recentExpenses[0]?.title ?? "No linked expenses yet."}
+            {recentExpenses[0]?.title ?? "No linked shared costs yet."}
           </p>
         </Link>
 
