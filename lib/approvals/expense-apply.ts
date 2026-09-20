@@ -275,17 +275,19 @@ export async function acceptExpenseApprovalProposal(input: {
         AND calendar_id = ${input.calendarId}
         AND ${markerExists(sql, marker)}
     `);
-    statements.push(sql`
-      DELETE FROM expense_shares
-      WHERE expense_id = ${proposal.entityId}
-        AND ${markerExists(sql, marker)}
-    `);
-    for (const share of proposedExpense.shares) {
+    if (financialChanged) {
       statements.push(sql`
-        INSERT INTO expense_shares (expense_id, participant_id, share_cents)
-        SELECT ${proposal.entityId}, ${share.participantId}, ${share.shareCents}
-        WHERE ${markerExists(sql, marker)}
+        DELETE FROM expense_shares
+        WHERE expense_id = ${proposal.entityId}
+          AND ${markerExists(sql, marker)}
       `);
+      for (const share of proposedExpense.shares) {
+        statements.push(sql`
+          INSERT INTO expense_shares (expense_id, participant_id, share_cents)
+          SELECT ${proposal.entityId}, ${share.participantId}, ${share.shareCents}
+          WHERE ${markerExists(sql, marker)}
+        `);
+      }
     }
   } else {
     statements.push(sql`
