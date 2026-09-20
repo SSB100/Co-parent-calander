@@ -521,7 +521,6 @@ export async function acceptApprovalProposal(input: {
     throw new ApprovalEngineError(403, "Only the parent this was sent to can approve it.");
   }
 
-  const declineReason = input.declineReason ?? null;
   const sql = getSql();
   const rows = (await sql`
     WITH transitioned AS (
@@ -603,6 +602,7 @@ export async function declineApprovalProposal(input: {
     throw new ApprovalEngineError(403, "Only the parent this was sent to can decline it.");
   }
 
+  const declineReason = input.declineReason ?? null;
   const sql = getSql();
   const rows = (await sql`
     WITH transitioned AS (
