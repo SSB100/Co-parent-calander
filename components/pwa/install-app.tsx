@@ -78,12 +78,17 @@ export function InstallApp() {
 
   async function install() {
     if (prompt) {
-      await prompt.prompt();
-      const choice = await prompt.userChoice.catch(() => null);
-      setPrompt(null);
-      if (choice?.outcome === "accepted") {
-        setVisible(false);
-        return;
+      try {
+        await prompt.prompt();
+        const choice = await prompt.userChoice.catch(() => null);
+        if (choice?.outcome === "accepted") {
+          setVisible(false);
+          return;
+        }
+      } catch {
+        // Fall through to the browser-specific instructions below.
+      } finally {
+        setPrompt(null);
       }
     }
     setShowInstructions(true);
