@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0019", async () => {
+test("schema migrations are sequential through 0020", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 20 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 21 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -162,6 +162,21 @@ test("0019 adds partial paid amounts to each shared-cost share", async () => {
   assert.match(migration, /'0019', 'Partial per-parent shared-cost payments'/);
   assert.match(expenseSchema, /paidCents: integer\("paid_cents"\)/);
   assert.match(expenseSchema, /expense_shares_paid_amount_valid/);
+});
+
+
+test("0020 records individual Shared Costs payments and backfills existing balances", async () => {
+  const [migration, expenseSchema] = await Promise.all([
+    source("drizzle/0020_expense_share_payment_history.sql"),
+    source("lib/db/schema/expenses.ts"),
+  ]);
+
+  assert.match(migration, /CREATE TABLE "expense_share_payments"/);
+  assert.match(migration, /share\."paid_cents"/);
+  assert.match(migration, /expense_share_payments_amount_positive/);
+  assert.match(migration, /'0020', 'Shared-cost payment history'/);
+  assert.match(expenseSchema, /export const expenseSharePayments = pgTable/);
+  assert.match(expenseSchema, /amountCents: integer\("amount_cents"\)/);
 });
 
 

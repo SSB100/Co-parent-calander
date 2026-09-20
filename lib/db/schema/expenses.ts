@@ -103,3 +103,30 @@ export const expenseShares = pgTable(
     index("expense_shares_participant_idx").on(table.participantId, table.expenseId),
   ],
 );
+
+export const expenseSharePayments = pgTable(
+  "expense_share_payments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    expenseShareId: uuid("expense_share_id")
+      .notNull()
+      .references(() => expenseShares.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "restrict" }),
+    amountCents: integer("amount_cents").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    check("expense_share_payments_amount_positive", sql`${table.amountCents} > 0`),
+    index("expense_share_payments_share_idx").on(
+      table.expenseShareId,
+      table.createdAt,
+    ),
+    index("expense_share_payments_participant_idx").on(
+      table.participantId,
+      table.createdAt,
+    ),
+  ],
+);
+
