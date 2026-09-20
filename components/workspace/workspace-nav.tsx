@@ -1,5 +1,5 @@
 "use client";
-import { CalendarDays, Bell, LayoutGrid, LogOut, UsersRound, ListChecks, WalletCards, ChevronDown, Menu } from "lucide-react";
+import { CalendarDays, Bell, LayoutGrid, LogOut, UsersRound, ListChecks, WalletCards, ChevronDown, Download, Menu } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -96,6 +96,11 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
     setMobileActionsOpen(false);
   }
 
+  function openInstallPrompt() {
+    window.dispatchEvent(new Event("covie-open-install"));
+    setMobileActionsOpen(false);
+  }
+
   return <>
     <nav className="workspace-nav" aria-label="Main navigation">
       <Link href="/calendar" className="workspace-brand"><CovieBrand /></Link>
@@ -137,8 +142,17 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
           className="workspace-mobile-action-panel"
           onClick={(event) => closeMobileActionsAfterAction(event.target)}
         >
+          <ComingUp variant="menu" />
+          <div className="workspace-mobile-action-divider" />
           {actions}
-          <div className="mobile-coming-up"><ComingUp /></div>
+          <button
+            type="button"
+            onClick={openInstallPrompt}
+            className="workspace-mobile-install covie-menu-item"
+          >
+            <Download size={16} aria-hidden="true" />
+            Install Covie
+          </button>
           <details ref={accountRef} className="workspace-account relative">
             <summary className="covie-menu-trigger">Account <ChevronDown size={16} aria-hidden="true" /></summary>
             <div className="covie-menu">
