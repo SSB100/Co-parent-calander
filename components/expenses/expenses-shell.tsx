@@ -9,7 +9,6 @@ import {
   Pencil,
   Plus,
   ReceiptText,
-  RotateCcw,
   Trash2,
   X,
 } from "lucide-react";
@@ -36,6 +35,7 @@ type Child = {
 type ExpenseShare = {
   participantId: string;
   shareCents: number;
+  paidCents: number;
   paidAt: string | null;
 };
 
@@ -142,6 +142,14 @@ function amountToCents(value: string) {
   return Math.round(amount * 100);
 }
 
+function paymentAmountToCents(value: string) {
+  const cleaned = value.replace(/[^0-9.]/g, "");
+  if (!cleaned || !/^\d+(\.\d{0,2})?$/.test(cleaned)) return null;
+  const amount = Number(cleaned);
+  if (!Number.isFinite(amount) || amount < 0) return null;
+  return Math.round(amount * 100);
+}
+
 function centsInput(cents: number) {
   return (cents / 100).toFixed(2);
 }
@@ -168,9 +176,10 @@ function proposalSummary(expense: ReturnType<typeof proposalExpense>, participan
 }
 
 function unpaidAmount(expense: Expense) {
-  return expense.shares
-    .filter((share) => share.shareCents > 0 && !share.paidAt)
-    .reduce((sum, share) => sum + share.shareCents, 0);
+  return expense.shares.reduce(
+    (sum, share) => sum + Math.max(0, share.shareCents - share.paidCents),
+    0,
+  );
 }
 
 function blankForm(initialDate: string | null, participantId: string | null, timeZone: string): ExpenseFormState {
@@ -214,6 +223,7 @@ export function ExpensesShell({
   const [statusFilter, setStatusFilter] = useState<"current" | "archive">("current");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [paymentAmounts, setPaymentAmounts] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     try {
@@ -487,7 +497,17 @@ export function ExpensesShell({
     );
     if (!share || share.shareCents <= 0) return;
 
-    const operation = share.paidAt ? "mark_unpaid" : "mark_paid";
+    const inputValue =
+      paymentAmounts[expense.id] ?? centsInput(share.paidCents);
+    const paidCents = paymentAmountToCents(inputValue);
+    if (paidCents === null) {
+      setError("Enter a valid amount you have paid.");
+      return;
+    }
+    if (paidCents > share.shareCents) {
+      setError("The amount paid cannot be more than your share.");
+      return;
+    }
 
     setBusy(true);
     setError(null);
@@ -496,23 +516,30 @@ export function ExpensesShell({
       const response = await fetch(`/api/expenses/${expense.id}/settlement`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ operation }),
+        body: JSON.stringify({ paidCents }),
       });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; settlementStatus?: string }
+        | null;
       if (!response.ok) {
-        throw new Error(body?.error ?? "Your payment confirmation could not be updated.");
+        throw new Error(body?.error ?? "Your payment amount could not be updated.");
       }
+      setPaymentAmounts((current) => {
+        const next = { ...current };
+        delete next[expense.id];
+        return next;
+      });
       setMessage(
-        operation === "mark_paid"
-          ? "Your share is marked paid."
-          : "Your share is marked unpaid again.",
+        paidCents >= share.shareCents
+          ? "Your share is fully paid."
+          : `${money(paidCents)} recorded toward your ${money(share.shareCents)} share.`,
       );
       await load();
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : "Your payment confirmation could not be updated.",
+          : "Your payment amount could not be updated.",
       );
     } finally {
       setBusy(false);
@@ -529,8 +556,8 @@ export function ExpensesShell({
             <div className="mb-2 h-2 w-16 rounded-full bg-[#F4C64E]" aria-hidden="true" />
             <h1 className="covie-page-title text-3xl sm:text-4xl">Shared costs</h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
-              Keep the amount, who paid and each parent&apos;s share clear. Each parent confirms
-              only their own share as paid. Covie records payments but does not move money.
+              Keep the amount, who paid and each parent&apos;s share clear. Each parent records
+              only what they have paid toward their own share. Covie records payments but does not move money.
             </p>
           </div>
           <RecordFocus ready={Boolean(data)} /><WorkspaceNav
@@ -581,7 +608,7 @@ export function ExpensesShell({
         <div className="rounded-2xl border border-[#243139] bg-[#F7DC86] p-3 sm:p-4">
           <p className="text-xs font-bold text-[#5F4709]">Outstanding</p>
           <p className="mt-2 text-3xl font-semibold text-[#243139]">{money(summary.outstanding)}</p>
-          <p className="mt-1 text-xs text-[#5F4709]">Shares not yet confirmed paid</p>
+          <p className="mt-1 text-xs text-[#5F4709]">Still unpaid across active shares</p>
         </div>
         <div className="rounded-2xl border border-[#243139] bg-[#DDD3FA] p-3 sm:p-4">
           <p className="text-xs font-bold text-[#544394]">Recorded</p>
@@ -727,15 +754,15 @@ export function ExpensesShell({
                       const status =
                         share.shareCents <= 0
                           ? "No amount due"
-                          : share.paidAt
-                            ? "Paid"
-                            : "Unpaid";
+                          : share.paidCents >= share.shareCents
+                            ? "Paid in full"
+                            : `Paid ${money(share.paidCents)} of ${money(share.shareCents)}`;
                       return (
                         <span
                           key={share.participantId}
                           className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700"
                         >
-                          {parent?.displayName ?? "Parent"} {money(share.shareCents)} · {status}
+                          {parent?.displayName ?? "Parent"} · {status}
                         </span>
                       );
                     })}
@@ -744,11 +771,11 @@ export function ExpensesShell({
                   <div className="mt-4 rounded-xl bg-slate-50 px-3 py-3 text-sm">
                     {expense.settlementStatus === "settled" ? (
                       <p className="flex items-center gap-2 font-semibold text-emerald-700">
-                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> All shares confirmed paid
+                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> All shares paid in full
                       </p>
                     ) : (
                       <p className="flex items-center gap-2 font-semibold text-amber-700">
-                        <Clock3 className="h-4 w-4" aria-hidden="true" /> {money(unpaidAmount(expense))} still unconfirmed
+                        <Clock3 className="h-4 w-4" aria-hidden="true" /> {money(unpaidAmount(expense))} still unpaid
                       </p>
                     )}
                     {expense.dueDate ? (
@@ -789,20 +816,43 @@ export function ExpensesShell({
                           (share) => share.participantId === data.currentParticipantId,
                         );
                         if (!myShare || myShare.shareCents <= 0) return null;
+                        const value =
+                          paymentAmounts[expense.id] ?? centsInput(myShare.paidCents);
                         return (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void updateSettlement(expense)}
-                            className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                          >
-                            {myShare.paidAt ? (
-                              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                            ) : (
-                              <CircleDollarSign className="h-3.5 w-3.5" aria-hidden="true" />
-                            )}
-                            {myShare.paidAt ? "Mark my share unpaid" : "Mark my share paid"}
-                          </button>
+                          <div className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 sm:max-w-sm">
+                            <label className="block text-xs font-semibold text-slate-700">
+                              Amount you&apos;ve paid
+                            </label>
+                            <div className="mt-2 flex items-center gap-2">
+                              <div className="flex min-h-10 min-w-0 flex-1 items-center rounded-xl border border-slate-300 bg-white px-3">
+                                <span className="mr-2 text-xs text-slate-500">NZ$</span>
+                                <input
+                                  inputMode="decimal"
+                                  value={value}
+                                  onChange={(event) =>
+                                    setPaymentAmounts((current) => ({
+                                      ...current,
+                                      [expense.id]: event.target.value,
+                                    }))
+                                  }
+                                  aria-label="Amount you have paid toward your share"
+                                  className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void updateSettlement(expense)}
+                                className="covie-action-teal inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs disabled:opacity-50"
+                              >
+                                <CircleDollarSign className="h-3.5 w-3.5" aria-hidden="true" />
+                                Save
+                              </button>
+                            </div>
+                            <p className="mt-2 text-[11px] text-slate-500">
+                              Your share is {money(myShare.shareCents)}. Enter the total you have paid so far.
+                            </p>
+                          </div>
                         );
                       })()}
                       <button
