@@ -242,6 +242,17 @@ test("mobile Quick view stays consistent while page actions remain visible", asy
 });
 
 
+test("At a glance shows active organiser records without duplicate feature shortcut cards", async () => {
+  const comingUp = await source("components/workspace/coming-up.tsx");
+
+  assert.match(comingUp, /data\.organiser\.responsibilities\.map/);
+  assert.match(comingUp, /data\.organiser\.expenses\.map/);
+  assert.doesNotMatch(comingUp, /workspace-priority-card workspace-priority-responsibility/);
+  assert.doesNotMatch(comingUp, /workspace-priority-card workspace-priority-expense/);
+  assert.doesNotMatch(comingUp, />Tasks<|>Shared costs</);
+});
+
+
 test("every workspace page pins Quick view to the top-right corner and opens inward", async () => {
   const [styles, calendar, home, organiser, expenses, responsibilities, kids] = await Promise.all([
     source("app/globals.css"),

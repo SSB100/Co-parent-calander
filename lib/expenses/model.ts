@@ -101,10 +101,10 @@ export function equalShares(
   });
 }
 
-export function defaultSettlementStatus(input: Pick<ExpenseDetails, "amountCents" | "paidByParticipantId" | "shares">): ExpenseSettlementStatus {
-  const payerShare =
-    input.shares.find((share) => share.participantId === input.paidByParticipantId)?.shareCents ?? 0;
-  return payerShare >= input.amountCents ? "not_needed" : "outstanding";
+export function defaultSettlementStatus(
+  _input: Pick<ExpenseDetails, "amountCents" | "paidByParticipantId" | "shares">,
+): ExpenseSettlementStatus {
+  return "outstanding";
 }
 
 export function financialSignature(
@@ -183,6 +183,7 @@ export async function loadExpenseSnapshot(calendarId: string, expenseId: string)
     .select({
       participantId: expenseShares.participantId,
       shareCents: expenseShares.shareCents,
+      paidAt: expenseShares.paidAt,
     })
     .from(expenseShares)
     .where(eq(expenseShares.expenseId, expenseId))
@@ -190,6 +191,9 @@ export async function loadExpenseSnapshot(calendarId: string, expenseId: string)
 
   return {
     ...expense,
-    shares,
+    shares: shares.map((share) => ({
+      ...share,
+      paidAt: share.paidAt?.toISOString() ?? null,
+    })),
   };
 }

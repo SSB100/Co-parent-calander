@@ -55,19 +55,26 @@ test("expense approval applies target mutation and proposal transition together"
   assert.match(proposalRoute, /acceptAndApplyApprovalProposal/);
 });
 
-test("settlement is an audited operational status rather than a second approval proposal", async () => {
-  const [contracts, settlementRoute, service] = await Promise.all([
+test("each parent can only confirm their own payment share", async () => {
+  const [contracts, settlementRoute, service, schema] = await Promise.all([
     source("lib/expenses/contracts.ts"),
     source("app/api/expenses/[id]/settlement/route.ts"),
     source("lib/expenses/service.ts"),
+    source("lib/db/schema/expenses.ts"),
   ]);
 
-  assert.match(contracts, /operation: z\.enum\(\["settle", "reopen"\]\)/);
-  const settlementService = service.slice(service.indexOf("export async function updateExpenseSettlement"));
-  assert.match(settlementService, /expense\.settlement\.update/);
+  assert.match(contracts, /operation: z\.enum\(\["mark_paid", "mark_unpaid"\]\)/);
+  const settlementService = service.slice(
+    service.indexOf("export async function updateExpenseSettlement"),
+  );
+  assert.match(settlementService, /eq\(expenseShares\.participantId, session\.participantId\)/);
+  assert.match(settlementService, /expense\.share_payment\.update/);
+  assert.match(settlementService, /share\.share_cents > 0/);
+  assert.match(settlementService, /share\.paid_at IS NULL/);
+  assert.match(settlementService, /settled_by_participant_id = NULL/);
   assert.doesNotMatch(settlementService, /createApprovalProposal/);
-  assert.match(settlementService, /settled_by_participant_id/);
   assert.match(settlementRoute, /updateExpenseSettlement/);
+  assert.match(schema, /paidAt: timestamp\("paid_at"/);
 });
 
 test("expense workflow remains separate from Google Calendar sync", async () => {
@@ -95,7 +102,9 @@ test("expense UI keeps pending agreement separate and links calendar days into e
   assert.match(shell, /50 \/ 50/);
   assert.match(shell, /Paid by payer only/);
   assert.match(shell, /Custom split/);
-  assert.match(shell, /Mark settled/);
+  assert.match(shell, /Mark my share paid/);
+  assert.match(shell, /Mark my share unpaid/);
+  assert.doesNotMatch(shell, /Mark settled/);
   assert.match(shell, /statusFilter === "current"/);
   assert.match(shell, /settlementStatus !== "outstanding"/);
   assert.match(shell, /Covie records payments but does not move money/);
@@ -105,10 +114,11 @@ test("expense UI keeps pending agreement separate and links calendar days into e
   assert.match(nav, /label: "Shared costs"/);
 });
 
-test("Phase 3 documentation keeps migration and deployment deferred", async () => {
+test("Shared Costs documentation reflects the live per-parent payment model", async () => {
   const docs = await source("docs/EXPENSES.md");
 
   assert.match(docs, /does not transfer money/);
-  assert.match(docs, /Do not apply this migration until the full staged build is approved for deployment/);
-  assert.match(docs, /Expense proposals and settlement records are never sent to Google Calendar/);
+  assert.match(docs, /Each parent can update only the paid state of their own/);
+  assert.match(docs, /0018_expense_share_payment_confirmation\.sql/);
+  assert.match(docs, /are not synced into Google Calendar/);
 });

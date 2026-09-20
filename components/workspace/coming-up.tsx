@@ -1,11 +1,8 @@
 "use client";
 
 import {
-  ArrowRight,
   CalendarClock,
-  CircleDollarSign,
   Clock3,
-  ListChecks,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -145,7 +142,8 @@ export function ComingUp({
                 ))}
               </section>
             ) : null
-          ) : (
+          ) : data.organiser.responsibilities.length > 0 ||
+            data.organiser.expenses.length > 0 ? (
             <section
               className="workspace-context-section"
               aria-labelledby={`${idPrefix}-priorities-title`}
@@ -154,24 +152,6 @@ export function ComingUp({
                 <h2 id={`${idPrefix}-priorities-title`}>Organiser</h2>
                 <Link href="/organiser">Open</Link>
               </div>
-
-              <Link
-                href="/responsibilities"
-                className="workspace-priority-card workspace-priority-responsibility"
-              >
-                <span className="workspace-priority-icon">
-                  <ListChecks aria-hidden="true" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <strong>Tasks</strong>
-                  <span>
-                    {data.organiser.responsibilityTotal === 0
-                      ? "Nothing open"
-                      : `${data.organiser.responsibilityTotal} open`}
-                  </span>
-                </span>
-                <ArrowRight aria-hidden="true" />
-              </Link>
 
               {data.organiser.responsibilities.map((item) => (
                 <Link
@@ -191,24 +171,6 @@ export function ComingUp({
                   <span className="min-w-0 flex-1 truncate">{item.title}</span>
                 </Link>
               ))}
-
-              <Link
-                href="/expenses"
-                className="workspace-priority-card workspace-priority-expense"
-              >
-                <span className="workspace-priority-icon">
-                  <CircleDollarSign aria-hidden="true" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <strong>Shared costs</strong>
-                  <span>
-                    {data.organiser.expenseTotal === 0
-                      ? "Nothing outstanding"
-                      : `${data.organiser.expenseTotal} outstanding`}
-                  </span>
-                </span>
-                <ArrowRight aria-hidden="true" />
-              </Link>
 
               {data.organiser.expenses.map((item) => (
                 <Link
@@ -232,7 +194,7 @@ export function ComingUp({
                 </Link>
               ))}
             </section>
-          )}
+          ) : null}
 
           <section
             className="workspace-context-section"

@@ -90,7 +90,10 @@ function previousProposalState(
       paidByParticipantId: snapshot.paidByParticipantId,
       dueDate: snapshot.dueDate,
       note: snapshot.note,
-      shares: snapshot.shares,
+      shares: snapshot.shares.map((share) => ({
+        participantId: share.participantId,
+        shareCents: share.shareCents,
+      })),
     },
   };
 }
@@ -181,6 +184,7 @@ export async function listExpenses(input: {
           expenseId: expenseShares.expenseId,
           participantId: expenseShares.participantId,
           shareCents: expenseShares.shareCents,
+          paidAt: expenseShares.paidAt,
         })
         .from(expenseShares)
         .where(inArray(expenseShares.expenseId, ids))
@@ -189,13 +193,14 @@ export async function listExpenses(input: {
 
   const sharesByExpense = new Map<
     string,
-    Array<{ participantId: string; shareCents: number }>
+    Array<{ participantId: string; shareCents: number; paidAt: string | null }>
   >();
   for (const share of shareRows) {
     const current = sharesByExpense.get(share.expenseId) ?? [];
     current.push({
       participantId: share.participantId,
       shareCents: share.shareCents,
+      paidAt: share.paidAt?.toISOString() ?? null,
     });
     sharesByExpense.set(share.expenseId, current);
   }
@@ -362,7 +367,7 @@ export async function updateExpense(input: {
   const sql = getSql();
 
   try {
-    await sql.transaction([
+    const statements = [
       sql`
         UPDATE expenses
         SET
@@ -387,32 +392,40 @@ export async function updateExpense(input: {
         WHERE id = ${id}
           AND calendar_id = ${session.calendarId}
       `,
-      sql`DELETE FROM expense_shares WHERE expense_id = ${id}`,
-      ...details.shares.map((share) => sql`
-        INSERT INTO expense_shares (expense_id, participant_id, share_cents)
-        VALUES (${id}, ${share.participantId}, ${share.shareCents})
-      `),
-      sql`
-        INSERT INTO audit_log (
-          calendar_id, actor_participant_id, action, entity_type, entity_id,
-          before_state, after_state
-        )
-        VALUES (
-          ${session.calendarId},
-          ${session.participantId},
-          'expense.update',
-          'expense',
-          ${id},
-          ${JSON.stringify(existing)}::jsonb,
-          ${JSON.stringify({
-            ...details,
-            settlementStatus: financialChanged
-              ? nextSettlementStatus
-              : existing.settlementStatus,
-          })}::jsonb
-        )
-      `,
-    ]);
+    ];
+
+    if (financialChanged) {
+      statements.push(sql`DELETE FROM expense_shares WHERE expense_id = ${id}`);
+      for (const share of details.shares) {
+        statements.push(sql`
+          INSERT INTO expense_shares (expense_id, participant_id, share_cents)
+          VALUES (${id}, ${share.participantId}, ${share.shareCents})
+        `);
+      }
+    }
+
+    statements.push(sql`
+      INSERT INTO audit_log (
+        calendar_id, actor_participant_id, action, entity_type, entity_id,
+        before_state, after_state
+      )
+      VALUES (
+        ${session.calendarId},
+        ${session.participantId},
+        'expense.update',
+        'expense',
+        ${id},
+        ${JSON.stringify(existing)}::jsonb,
+        ${JSON.stringify({
+          ...details,
+          settlementStatus: financialChanged
+            ? nextSettlementStatus
+            : existing.settlementStatus,
+        })}::jsonb
+      )
+    `);
+
+    await sql.transaction(statements);
   } catch {
     throw new ExpenseServiceError(409, "The expense could not be updated.");
   }
@@ -491,13 +504,136 @@ export async function updateExpenseSettlement(input: {
 }) {
   const { session, id, operation } = input;
   const db = getDb();
-  const rows = await db
-    .select({
-      id: expenses.id,
-      settlementStatus: expenses.settlementStatus,
-      amountCents: expenses.amountCents,
-      paidByParticipantId: expenses.paidByParticipantId,
-    })
+  const [expenseRows, shareRows] = await Promise.all([
+    db
+      .select({
+        id: expenses.id,
+        settlementStatus: expenses.settlementStatus,
+      })
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.id, id),
+          eq(expenses.calendarId, session.calendarId),
+        ),
+      )
+      .limit(1),
+    db
+      .select({
+        participantId: expenseShares.participantId,
+        shareCents: expenseShares.shareCents,
+        paidAt: expenseShares.paidAt,
+      })
+      .from(expenseShares)
+      .where(
+        and(
+          eq(expenseShares.expenseId, id),
+          eq(expenseShares.participantId, session.participantId),
+        ),
+      )
+      .limit(1),
+  ]);
+
+  const expense = expenseRows[0];
+  if (!expense) throw new ExpenseServiceError(404, "Shared cost not found.");
+
+  const share = shareRows[0];
+  if (!share) {
+    throw new ExpenseServiceError(
+      403,
+      "You can only update your own share of this shared cost.",
+    );
+  }
+  if (share.shareCents <= 0) {
+    throw new ExpenseServiceError(
+      409,
+      "Your share is zero, so there is no payment to confirm.",
+    );
+  }
+
+  const nextPaid = operation === "mark_paid";
+  if (Boolean(share.paidAt) === nextPaid) {
+    return {
+      ok: true as const,
+      settlementStatus: expense.settlementStatus,
+      paid: nextPaid,
+    };
+  }
+
+  const paidAt = nextPaid ? new Date() : null;
+  const sql = getSql();
+
+  try {
+    await sql.transaction([
+      sql`
+        UPDATE expense_shares
+        SET paid_at = ${paidAt}, updated_at = now()
+        WHERE expense_id = ${id}
+          AND participant_id = ${session.participantId}
+      `,
+      sql`
+        UPDATE expenses
+        SET
+          settlement_status = CASE
+            WHEN NOT EXISTS (
+              SELECT 1
+              FROM expense_shares share
+              WHERE share.expense_id = ${id}
+                AND share.share_cents > 0
+                AND share.paid_at IS NULL
+            ) THEN 'settled'::expense_settlement_status
+            ELSE 'outstanding'::expense_settlement_status
+          END,
+          settled_at = CASE
+            WHEN NOT EXISTS (
+              SELECT 1
+              FROM expense_shares share
+              WHERE share.expense_id = ${id}
+                AND share.share_cents > 0
+                AND share.paid_at IS NULL
+            ) THEN COALESCE(settled_at, now())
+            ELSE NULL
+          END,
+          settled_by_participant_id = NULL,
+          updated_at = now()
+        WHERE id = ${id}
+          AND calendar_id = ${session.calendarId}
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action, entity_type, entity_id,
+          before_state, after_state
+        )
+        SELECT
+          calendar_id,
+          ${session.participantId},
+          'expense.share_payment.update',
+          'expense',
+          id,
+          ${JSON.stringify({
+            participantId: session.participantId,
+            paid: Boolean(share.paidAt),
+            settlementStatus: expense.settlementStatus,
+          })}::jsonb,
+          jsonb_build_object(
+            'participantId', ${session.participantId}::text,
+            'paid', ${nextPaid},
+            'settlementStatus', settlement_status::text
+          )
+        FROM expenses
+        WHERE id = ${id}
+          AND calendar_id = ${session.calendarId}
+      `,
+    ]);
+  } catch {
+    throw new ExpenseServiceError(
+      409,
+      "Your payment confirmation could not be updated.",
+    );
+  }
+
+  const updatedRows = await db
+    .select({ settlementStatus: expenses.settlementStatus })
     .from(expenses)
     .where(
       and(
@@ -507,57 +643,9 @@ export async function updateExpenseSettlement(input: {
     )
     .limit(1);
 
-  const expense = rows[0];
-  if (!expense) throw new ExpenseServiceError(404, "Expense not found.");
-
-  if (expense.settlementStatus === "not_needed") {
-    throw new ExpenseServiceError(
-      409,
-      "This expense does not have a reimbursement to settle.",
-    );
-  }
-
-  const nextStatus = operation === "settle" ? "settled" : "outstanding";
-  if (expense.settlementStatus === nextStatus) {
-    return { ok: true as const, settlementStatus: nextStatus };
-  }
-
-  const sql = getSql();
-  try {
-    await sql.transaction([
-      sql`
-        UPDATE expenses
-        SET
-          settlement_status = ${nextStatus}::expense_settlement_status,
-          settled_at = ${nextStatus === "settled" ? new Date() : null},
-          settled_by_participant_id = ${nextStatus === "settled" ? session.participantId : null},
-          updated_at = now()
-        WHERE id = ${id}
-          AND calendar_id = ${session.calendarId}
-          AND settlement_status <> 'not_needed'
-      `,
-      sql`
-        INSERT INTO audit_log (
-          calendar_id, actor_participant_id, action, entity_type, entity_id,
-          before_state, after_state
-        )
-        VALUES (
-          ${session.calendarId},
-          ${session.participantId},
-          'expense.settlement.update',
-          'expense',
-          ${id},
-          ${JSON.stringify({ settlementStatus: expense.settlementStatus })}::jsonb,
-          ${JSON.stringify({ settlementStatus: nextStatus })}::jsonb
-        )
-      `,
-    ]);
-  } catch {
-    throw new ExpenseServiceError(
-      409,
-      "The settlement status could not be updated.",
-    );
-  }
-
-  return { ok: true as const, settlementStatus: nextStatus };
+  return {
+    ok: true as const,
+    settlementStatus: updatedRows[0]?.settlementStatus ?? "outstanding",
+    paid: nextPaid,
+  };
 }
