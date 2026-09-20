@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0020", async () => {
+test("schema migrations are sequential through 0021", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 21 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 22 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -177,6 +177,30 @@ test("0020 records individual Shared Costs payments and backfills existing balan
   assert.match(migration, /'0020', 'Shared-cost payment history'/);
   assert.match(expenseSchema, /export const expenseSharePayments = pgTable/);
   assert.match(expenseSchema, /amountCents: integer\("amount_cents"\)/);
+});
+
+
+test("0021 adds recurring Shared Costs series and occurrence identity", async () => {
+  const [migration, expenseSchema] = await Promise.all([
+    source("drizzle/0021_recurring_shared_costs.sql"),
+    source("lib/db/schema/expenses.ts"),
+  ]);
+
+  for (const token of [
+    "expense_recurrence_frequency",
+    "expense_recurring_series",
+    "expense_recurring_series_shares",
+    "series_occurrence_date",
+    "expenses_series_occurrence_unique",
+  ]) {
+    assert.match(migration, new RegExp(token));
+  }
+  assert.match(migration, /'0021', 'Recurring shared costs'/);
+  assert.match(expenseSchema, /expenseRecurrenceFrequency/);
+  assert.match(expenseSchema, /expenseRecurringSeries/);
+  assert.match(expenseSchema, /expenseRecurringSeriesShares/);
+  assert.match(expenseSchema, /seriesOccurrenceDate/);
+  assert.match(expenseSchema, /expenses_series_occurrence_unique/);
 });
 
 
