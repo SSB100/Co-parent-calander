@@ -697,6 +697,11 @@ main:has(.workspace-nav) { background: #fff9f2; }
     display: none;
   }
 
+  .workspace-mobile-action-panel:has(.covie-dialog-backdrop),
+  .workspace-mobile-action-panel:has(details[open] > .covie-menu) {
+    overflow: visible;
+  }
+
   .workspace-mobile-action-panel > * {
     width: 100%;
     min-width: 0;
