@@ -943,12 +943,12 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
       </section>
 
       {formOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 sm:items-center sm:p-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#243139]/35 sm:items-center sm:p-4">
           <section
             role="dialog"
             aria-modal="true"
             aria-labelledby="responsibility-form-title"
-            className="max-h-[94vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6"
+            className="max-h-[94vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border-2 border-[#243139] bg-white p-5 shadow-[7px_7px_0_#19A897] sm:rounded-3xl sm:p-6"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -967,7 +967,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
                 disabled={Boolean(busyId)}
                 onClick={() => setFormOpen(false)}
                 aria-label="Close responsibility form"
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50"
+                className="covie-icon-button flex h-10 w-10 items-center justify-center rounded-xl disabled:opacity-50"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
@@ -985,7 +985,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
                       key={template.key}
                       type="button"
                       onClick={() => applyTemplate(template)}
-                      className="min-h-10 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                      className="covie-action-sunshine min-h-10 shrink-0 rounded-xl px-3 text-xs"
                     >
                       {template.label}
                     </button>
@@ -1096,8 +1096,8 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
                         onClick={() => toggleChild(child.id)}
                         className={`min-h-10 rounded-xl border px-3 text-sm font-semibold ${
                           selected
-                            ? "border-blue-600 bg-blue-600 text-white"
-                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                            ? "border-[#243139] bg-[#DDD3FA] text-[#243139] ring-2 ring-[#765ED6]"
+                            : "border-[#E6DBCF] bg-[#FFF9F2] text-[#243139] hover:bg-[#F7EFE5]"
                         }`}
                       >
                         {child.displayName}
@@ -1174,7 +1174,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
               />
             </label>
 
-            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="mt-5 rounded-2xl border border-[#F4C64E] bg-[#FFF9DF] p-4">
               <p className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                 <Link2 className="h-4 w-4" aria-hidden="true" />
                 Related items <span className="font-normal text-slate-400">(optional)</span>
@@ -1248,7 +1248,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
                 type="button"
                 disabled={Boolean(busyId)}
                 onClick={() => setFormOpen(false)}
-                className="min-h-12 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="covie-action-secondary min-h-12 rounded-xl px-4 text-sm disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1256,7 +1256,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
                 type="button"
                 disabled={Boolean(busyId)}
                 onClick={() => void save()}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                className="covie-primary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm disabled:opacity-50"
               >
                 {busyId ? (
                   <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
