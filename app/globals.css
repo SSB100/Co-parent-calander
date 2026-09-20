@@ -119,6 +119,7 @@ button:disabled { cursor: not-allowed; }
   .covie-calendar-controls > button { gap: 4px; padding-inline: 8px; font-size: 13px; }
   .covie-calendar-controls > button svg { display: none; }
 }
+.covie-calendar-mobile-brand { display: none; }
 .covie-parent-green { background: #527761; }
 .covie-parent-plum { background: #796286; }
 main:has(.workspace-nav) { background: #fff9f2; }
@@ -655,6 +656,24 @@ main:has(.workspace-nav) { background: #fff9f2; }
 
 /* Mobile-only workspace review: keep desktop layout untouched. */
 @media (max-width: 639px) {
+  .covie-calendar-mobile-brand {
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    z-index: 42;
+    display: flex;
+    height: 34px;
+    width: 34px;
+    transform: translateX(-50%);
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .covie-calendar-header > div:first-child {
+    min-height: 44px;
+  }
+
   body {
     overflow-x: hidden;
   }
