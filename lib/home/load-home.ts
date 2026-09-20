@@ -390,6 +390,7 @@ export async function loadHomeData(session: HomeLoadSession) {
     )
     .map((item) => ({
       ...item,
+      completedAt: item.completedAt?.toISOString() ?? null,
       dueTime: item.dueTime ? item.dueTime.slice(0, 5) : null,
       urgency: urgencyForDate(item.dueDate, now.date),
     }));
@@ -398,6 +399,7 @@ export async function loadHomeData(session: HomeLoadSession) {
     .filter((item) => item.dueDate === now.date)
     .map((item) => ({
       ...item,
+      completedAt: item.completedAt?.toISOString() ?? null,
       dueTime: item.dueTime ? item.dueTime.slice(0, 5) : null,
       urgency: urgencyForDate(item.dueDate, now.date),
     }));
@@ -409,6 +411,7 @@ export async function loadHomeData(session: HomeLoadSession) {
   const nextResponsibility = nextResponsibilityRow
     ? {
         ...nextResponsibilityRow,
+        completedAt: nextResponsibilityRow.completedAt?.toISOString() ?? null,
         dueTime: nextResponsibilityRow.dueTime
           ? nextResponsibilityRow.dueTime.slice(0, 5)
           : null,
