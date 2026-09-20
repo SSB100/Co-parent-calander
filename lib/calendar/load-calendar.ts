@@ -151,7 +151,6 @@ export async function loadCalendarData(
       .from(parentingAssignments)
       .where(and(
         eq(parentingAssignments.calendarId, session.calendarId),
-        eq(parentingAssignments.source, "manual"),
         or(
           isNotNull(parentingAssignments.parentId),
           isNotNull(parentingAssignments.afternoonParentId),
