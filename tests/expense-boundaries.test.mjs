@@ -114,10 +114,11 @@ test("expense UI keeps pending agreement separate and links calendar days into e
   assert.match(nav, /label: "Shared costs"/);
 });
 
-test("Phase 3 documentation keeps migration and deployment deferred", async () => {
+test("Shared Costs documentation reflects the live per-parent payment model", async () => {
   const docs = await source("docs/EXPENSES.md");
 
   assert.match(docs, /does not transfer money/);
-  assert.match(docs, /Do not apply this migration until the full staged build is approved for deployment/);
-  assert.match(docs, /Expense proposals and settlement records are never sent to Google Calendar/);
+  assert.match(docs, /Each parent can update only the paid state of their own/);
+  assert.match(docs, /0018_expense_share_payment_confirmation\.sql/);
+  assert.match(docs, /are not synced into Google Calendar/);
 });
