@@ -208,11 +208,21 @@ export async function listExpenses(input: {
     children: childRows,
     expenses: expenseRows.map((expense) => ({
       ...expense,
+      settledAt: expense.settledAt?.toISOString() ?? null,
+      createdAt: expense.createdAt.toISOString(),
+      updatedAt: expense.updatedAt.toISOString(),
       shares: sharesByExpense.get(expense.id) ?? [],
     })),
-    pendingProposals: date
+    pendingProposals: (date
       ? pending.filter((proposal) => proposalTouchesDate(proposal, date))
-      : pending,
+      : pending).map((proposal) => ({
+        ...proposal,
+        submittedAt: proposal.submittedAt?.toISOString() ?? null,
+        respondedAt: proposal.respondedAt?.toISOString() ?? null,
+        withdrawnAt: proposal.withdrawnAt?.toISOString() ?? null,
+        createdAt: proposal.createdAt.toISOString(),
+        updatedAt: proposal.updatedAt.toISOString(),
+      })),
   };
 }
 
