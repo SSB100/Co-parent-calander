@@ -477,7 +477,7 @@ export function CalendarShell({
                     <>
                       <EventPanel includeRangeTools={false} onChanged={() => setRefreshKey((value) => value + 1)} />
                       <details ref={toolsMenuRef} className="relative">
-                      <summary className="covie-menu-trigger"><span><span className="hidden sm:inline">Calendar </span>Tools</span><ChevronDown size={16} aria-hidden="true" /></summary>
+                      <summary className="covie-menu-trigger covie-action-violet"><span><span className="hidden sm:inline">Calendar </span>Tools</span><ChevronDown size={16} aria-hidden="true" /></summary>
                         <div className="covie-menu covie-tool-menu">
                           <RangeAssignmentPanel onChanged={() => setRefreshKey((value) => value + 1)} />
                           <RecurringSchedulePanel onChanged={() => setRefreshKey((value) => value + 1)} />
@@ -489,7 +489,7 @@ export function CalendarShell({
                   ) : null}
                   {accessMode === "editor" || accessMode === "viewer" ? (
                     <details ref={settingsMenuRef} className="relative">
-                      <summary className="covie-menu-trigger"><span><span className="hidden sm:inline">Calendar </span>Settings</span><ChevronDown size={16} aria-hidden="true" /></summary>
+                      <summary className="covie-menu-trigger covie-action-sunshine"><span><span className="hidden sm:inline">Calendar </span>Settings</span><ChevronDown size={16} aria-hidden="true" /></summary>
                       <div className="covie-menu covie-tool-menu">
                         {calendarData?.permission === "owner" ? (
                           <MembersPanel onChanged={() => setRefreshKey((value) => value + 1)} />
