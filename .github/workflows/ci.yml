@@ -40,3 +40,6 @@ jobs:
         env:
           NEON_AUTH_BASE_URL: https://build-only.invalid/auth
           NEON_AUTH_COOKIE_SECRET: build-only-cookie-secret-not-for-runtime
+
+      - name: Calendar bundle report
+        run: node scripts/report-calendar-bundle.mjs
