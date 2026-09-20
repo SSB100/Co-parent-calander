@@ -190,6 +190,29 @@ export async function createRecurringExpenseSeries(input: {
         ${share.shareCents}
       )
     `),
+    sql`
+      INSERT INTO audit_log (
+        calendar_id,
+        actor_participant_id,
+        action,
+        entity_type,
+        entity_id,
+        after_state
+      )
+      VALUES (
+        ${input.calendarId},
+        ${input.createdByParticipantId},
+        'expense.create',
+        'expense',
+        ${input.firstExpenseId},
+        ${JSON.stringify({
+          ...input.details,
+          recurrence: input.recurrence,
+          seriesId,
+          settlementStatus: "outstanding",
+        })}::jsonb
+      )
+    `,
   ]);
 
   await materializeRecurringExpenseSeries({
