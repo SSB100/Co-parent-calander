@@ -121,7 +121,7 @@ export const expenses = pgTable(
     dueDate: date("due_date", { mode: "string" }),
     note: text("note"),
     seriesId: uuid("series_id").references(() => expenseRecurringSeries.id, {
-      onDelete: "set null",
+      onDelete: "restrict",
     }),
     seriesOccurrenceDate: date("series_occurrence_date", { mode: "string" }),
     settlementStatus: expenseSettlementStatus("settlement_status")
