@@ -109,6 +109,7 @@ test("proposal withdrawal stays proposer-owned and safely records enum history",
   assert.match(engine, /\$\{input\.actor\.membershipId\}::uuid/);
   assert.match(engine, /\$\{actorParticipantId\}::uuid/);
   assert.match(engine, /\$\{fromStatus\}::proposal_status/);
+  assert.match(engine, /jsonb_build_object\('status', \$\{fromStatus\}::text\)/);
   assert.match(engine, /status IN \('draft', 'waiting'\)/);
   assert.match(engine, /proposed_by_membership_id = \$\{input\.actor\.membershipId\}/);
   assert.match(engine, /proposed_by_participant_id = \$\{input\.actor\.participantId\}/);
