@@ -162,7 +162,8 @@ test("mobile Quick view stays consistent while page actions remain visible", asy
 
   assert.match(nav, /aria-label=\{mobileActionsOpen \? "Close quick view" : "Open quick view"\}/);
   assert.match(nav, /<Eye size=\{21\}/);
-  assert.match(nav, /<ComingUp variant="menu" \/>/);
+  assert.match(nav, /variant="menu"/);
+  assert.match(nav, /data=\{workspaceContext\}/);
   assert.match(nav, /workspace-page-actions/);
   const quickViewStart = nav.indexOf('<div className="workspace-mobile-action-panel">');
   const quickViewEnd = nav.indexOf('<details ref={accountRef}');
@@ -172,7 +173,7 @@ test("mobile Quick view stays consistent while page actions remain visible", asy
   assert.match(comingUp, />Quick view</);
   assert.match(comingUp, /Upcoming & outstanding/);
   assert.match(comingUp, />Needs attention</);
-  assert.match(comingUp, /data\.organiser\.responsibilities\.length > 0 \|\| data\.organiser\.expenses\.length > 0/);
+  assert.match(comingUp, /data\.organiser\.responsibilities\.length > 0\s+\|\|\s+data\.organiser\.expenses\.length > 0/);
   assert.doesNotMatch(comingUp, /responsibilities\.slice\(0, 1\)|expenses\.slice\(0, 1\)/);
   const mobileOrganiserStart = comingUp.indexOf('variant === "menu" ? (');
   const desktopOrganiserStart = comingUp.indexOf(') : (', mobileOrganiserStart);

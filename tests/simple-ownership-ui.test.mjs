@@ -76,3 +76,27 @@ test("mobile multi-day selection keeps the calendar usable until assignment is r
   assert.doesNotMatch(moveMonth, /setSelectedDays|setSelectionMode|setBulkReason/);
   assert.doesNotMatch(goToday, /setSelectedDays|setSelectionMode|setBulkReason/);
 });
+
+test("performance stage 1 consolidates workspace chrome and lazy-loads mobile context", async () => {
+  const [nav, comingUp, summaryRoute, loader, vercelConfig] = await Promise.all([
+    readFile(path.join(root, "components/workspace/workspace-nav.tsx"), "utf8"),
+    readFile(path.join(root, "components/workspace/coming-up.tsx"), "utf8"),
+    readFile(path.join(root, "app/api/workspace-summary/route.ts"), "utf8"),
+    readFile(path.join(root, "lib/workspace/load-summary.ts"), "utf8"),
+    readFile(path.join(root, "vercel.json"), "utf8"),
+  ]);
+
+  assert.match(nav, /\/api\/workspace-summary\?context=/);
+  assert.doesNotMatch(nav, /\/api\/notifications|\/api\/coming-up/);
+  assert.doesNotMatch(comingUp, /fetch\(/);
+  assert.match(nav, /matchMedia\("\(min-width: 1024px\)"\)/);
+  assert.match(nav, /if \(next\)[\s\S]*refreshWorkspace\(true\)/);
+
+  assert.equal((summaryRoute.match(/getCalendarSession\(\)/g) ?? []).length, 1);
+  assert.match(loader, /Promise\.all\([\s\S]*loadNotificationCount\(session\)[\s\S]*loadComingUpContext\(session\)/);
+  assert.match(loader, /approvalProposals\.approverMembershipId/);
+
+  const config = JSON.parse(vercelConfig);
+  assert.deepEqual(config.regions, ["syd1"]);
+});
+

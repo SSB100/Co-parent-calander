@@ -1,13 +1,13 @@
 "use client";
 import { CalendarDays, Bell, LayoutGrid, LogOut, UsersRound, WalletCards, ChevronDown, Download, Eye } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
 import { useDismissibleDetails } from "@/lib/client/use-details-dismiss";
 import { InstallApp } from "@/components/pwa/install-app";
-import { ComingUp } from "./coming-up";
+import { ComingUp, type ComingUpPayload } from "./coming-up";
 import { CovieBrand } from "./covie-brand";
 
 export type WorkspaceSection = "home" | "calendar" | "expenses" | "responsibilities" | "kids" | "organiser";
@@ -20,14 +20,24 @@ const items = [
   { key: "home", href: "/home", label: "Updates", icon: Bell },
   { key: "organiser", href: "/organiser", label: "Organiser", icon: LayoutGrid },
 ];
+
+type WorkspaceSummaryResponse = {
+  notificationCount?: number;
+  context?: ComingUpPayload;
+  error?: string;
+};
 export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; actions?: ReactNode }) {
   const router = useRouter();
   const [signOutError, setSignOutError] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [workspaceContext, setWorkspaceContext] = useState<ComingUpPayload | null>(null);
+  const [contextError, setContextError] = useState(false);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const accountRef = useRef<HTMLDetailsElement>(null);
   const mobileActionsRef = useRef<HTMLDivElement>(null);
+  const mobileActionsOpenRef = useRef(false);
+  const summaryControllerRef = useRef<AbortController | null>(null);
   useDismissibleDetails(accountRef);
   const section =
     active === "responsibilities"
@@ -36,29 +46,76 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
         ? "organiser"
         : active;
 
-  useEffect(() => {
+  const refreshWorkspace = useCallback(async (includeContext: boolean) => {
+    summaryControllerRef.current?.abort();
     const controller = new AbortController();
-    async function refreshNotifications() {
-      try {
-        const response = await fetch("/api/notifications", {
+    summaryControllerRef.current = controller;
+
+    if (includeContext) {
+      setContextError(false);
+    }
+
+    try {
+      const response = await fetch(
+        `/api/workspace-summary?context=${includeContext ? "1" : "0"}`,
+        {
           signal: controller.signal,
           cache: "no-store",
-        });
-        const body = (await response.json().catch(() => null)) as { count?: number } | null;
-        if (response.ok && body && typeof body.count === "number" && !controller.signal.aborted) {
-          setNotificationCount(body.count);
+        },
+      );
+      const body = (await response.json().catch(() => null)) as
+        | WorkspaceSummaryResponse
+        | null;
+
+      if (!response.ok || !body) {
+        throw new Error(body?.error ?? "Workspace summary could not be loaded.");
+      }
+      if (controller.signal.aborted) return;
+
+      if (typeof body.notificationCount === "number") {
+        setNotificationCount(body.notificationCount);
+      }
+      if (includeContext) {
+        if (!body.context) {
+          throw new Error("Workspace context was not returned.");
         }
-      } catch {}
+        setWorkspaceContext(body.context);
+        setContextError(false);
+      }
+    } catch {
+      if (!controller.signal.aborted && includeContext) {
+        setContextError(true);
+      }
+    } finally {
+      if (summaryControllerRef.current === controller) {
+        summaryControllerRef.current = null;
+      }
     }
-    void refreshNotifications();
-    window.addEventListener("focus", refreshNotifications);
-    window.addEventListener("covie-records-updated", refreshNotifications);
-    return () => {
-      controller.abort();
-      window.removeEventListener("focus", refreshNotifications);
-      window.removeEventListener("covie-records-updated", refreshNotifications);
-    };
   }, []);
+
+  useEffect(() => {
+    const desktopQuery = window.matchMedia("(min-width: 1024px)");
+
+    function refresh() {
+      void refreshWorkspace(desktopQuery.matches || mobileActionsOpenRef.current);
+    }
+
+    function handleDesktopChange() {
+      refresh();
+    }
+
+    refresh();
+    desktopQuery.addEventListener("change", handleDesktopChange);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("covie-records-updated", refresh);
+
+    return () => {
+      summaryControllerRef.current?.abort();
+      desktopQuery.removeEventListener("change", handleDesktopChange);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("covie-records-updated", refresh);
+    };
+  }, [refreshWorkspace]);
 
   useEffect(() => {
     if (!mobileActionsOpen) return;
@@ -66,12 +123,16 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
     function handlePointerDown(event: PointerEvent) {
       if (!(event.target instanceof Node)) return;
       if (!mobileActionsRef.current?.contains(event.target)) {
+        mobileActionsOpenRef.current = false;
         setMobileActionsOpen(false);
       }
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setMobileActionsOpen(false);
+      if (event.key === "Escape") {
+        mobileActionsOpenRef.current = false;
+        setMobileActionsOpen(false);
+      }
     }
 
     document.addEventListener("pointerdown", handlePointerDown);
@@ -97,7 +158,17 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
 
   function openInstallPrompt() {
     window.dispatchEvent(new Event("covie-open-install"));
+    mobileActionsOpenRef.current = false;
     setMobileActionsOpen(false);
+  }
+
+  function toggleMobileActions() {
+    const next = !mobileActionsOpenRef.current;
+    mobileActionsOpenRef.current = next;
+    setMobileActionsOpen(next);
+    if (next) {
+      void refreshWorkspace(true);
+    }
   }
 
   return <>
@@ -119,7 +190,12 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
           </Link>
         ))}
       </div>
-      <div className="desktop-coming-up"><ComingUp /></div>
+      <div className="desktop-coming-up">
+        <ComingUp
+          data={workspaceContext}
+          error={contextError}
+        />
+      </div>
     </nav>
 
     <div className="workspace-actions">
@@ -135,13 +211,17 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
           aria-label={mobileActionsOpen ? "Close quick view" : "Open quick view"}
           title="Quick view"
           aria-expanded={mobileActionsOpen}
-          onClick={() => setMobileActionsOpen((current) => !current)}
+          onClick={toggleMobileActions}
         >
           <Eye size={21} aria-hidden="true" />
           <span className="sr-only">Quick view</span>
         </button>
         <div className="workspace-mobile-action-panel">
-          <ComingUp variant="menu" />
+          <ComingUp
+            variant="menu"
+            data={workspaceContext}
+            error={contextError}
+          />
           <div className="workspace-mobile-action-divider" />
           <button
             type="button"

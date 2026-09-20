@@ -13,5 +13,8 @@
       "**": false,
       "main": true
     }
-  }
+  },
+  "regions": [
+    "syd1"
+  ]
 }
