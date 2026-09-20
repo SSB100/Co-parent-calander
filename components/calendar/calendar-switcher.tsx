@@ -52,7 +52,7 @@ export function CalendarSwitcher({
   useDismissibleDetails(detailsRef);
 
   return (
-    <details ref={detailsRef} className="relative z-40 max-w-[calc(100vw-9rem)] sm:max-w-none">
+    <details ref={detailsRef} className="calendar-switcher relative z-40 max-w-[calc(50vw-2.75rem)] sm:max-w-none">
       <summary className="group inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl px-1 text-left text-2xl font-semibold tracking-tight text-slate-900 outline-none transition hover:text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-200 sm:text-3xl [&::-webkit-details-marker]:hidden">
         <span className="truncate">{current?.name ?? "Covie calendar"}</span>
         <ChevronDown
