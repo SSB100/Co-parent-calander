@@ -528,7 +528,7 @@ export function CalendarShell({
               })}
             </div>
             {accessMode === "editor" ? (
-              <button type="button" onClick={toggleSelectionMode} aria-pressed={selectionMode} className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition ${selectionMode ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
+              <button type="button" onClick={toggleSelectionMode} aria-pressed={selectionMode} className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition ${selectionMode ? "border-[#243139] bg-[#FFD0CB] text-[#243139] ring-2 ring-[#FF6B5F]" : "border-[#E6DBCF] bg-[#FFF9F2] text-[#243139] hover:bg-[#F7EFE5]"}`}>
                 <CheckSquare2 className="h-4 w-4" aria-hidden="true" />{selectionMode ? "Cancel select" : "Select days"}
               </button>
             ) : null}
@@ -656,7 +656,7 @@ export function CalendarShell({
                     {format(day, "d")}
                   </span>
 
-                  {selected ? <span className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold text-white" aria-hidden="true">✓</span> : null}
+                  {selected ? <span className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full border border-[#243139] bg-[#FF6B5F] px-1.5 py-0.5 text-[9px] font-bold text-[#243139]" aria-hidden="true">✓</span> : null}
 
                   {tileEvents.length > 0 ? (
                     <div className="absolute inset-x-0 bottom-0 z-20 flex h-5 items-center gap-1 truncate bg-[#F4C64E] px-1.5 text-[8px] font-bold text-[#243139] sm:h-7 sm:px-2 sm:text-[10px]">
