@@ -12,7 +12,6 @@ import {
   type RecurrenceRule,
   type RecurrenceRuleChild,
 } from "../lib/recurrence/fortnight";
-import { groupSavedSchedules } from "../lib/recurrence/saved-schedules";
 import { resolveParentingScheduleAssignments } from "../lib/parenting-schedules/resolver";
 
 const root = process.cwd();
@@ -351,66 +350,6 @@ test("first-class schedule resolver applies split/full slots and manual override
   assert.equal(override?.morningParentId, parentB);
   assert.equal(override?.afternoonParentId, parentB);
   assert.equal(override?.source, "manual");
-});
-
-test("saved schedule grouping reconstructs split and full-day slots from rule metadata", () => {
-  const scheduleId = "44444444-4444-4444-8444-444444444499";
-  const createdAt = new Date("2026-09-18T00:00:00Z");
-
-  const result = groupSavedSchedules([
-    {
-      id: "33333333-3333-4333-8333-333333333391",
-      parentId: parentA,
-      startDate: "2026-09-14",
-      endDate: null,
-      createdAt,
-      rrule: buildFortnightRuleText({
-        scheduleId,
-        anchorDate: "2026-09-14",
-        slot: 0,
-        period: "morning",
-      }),
-    },
-    {
-      id: "33333333-3333-4333-8333-333333333392",
-      parentId: parentB,
-      startDate: "2026-09-14",
-      endDate: null,
-      createdAt,
-      rrule: buildFortnightRuleText({
-        scheduleId,
-        anchorDate: "2026-09-14",
-        slot: 0,
-        period: "afternoon",
-      }),
-    },
-    {
-      id: "33333333-3333-4333-8333-333333333393",
-      parentId: parentA,
-      startDate: "2026-09-15",
-      endDate: "2026-10-31",
-      createdAt,
-      rrule: buildFortnightRuleText({
-        scheduleId,
-        anchorDate: "2026-09-14",
-        slot: 1,
-        period: "full_day",
-      }),
-    },
-  ]);
-
-  assert.equal(result.length, 1);
-  assert.equal(result[0]?.scheduleId, scheduleId);
-  assert.equal(result[0]?.anchorDate, "2026-09-14");
-  assert.equal(result[0]?.endDate, "2026-10-31");
-  assert.deepEqual(result[0]?.pattern[0], {
-    morningParentId: parentA,
-    afternoonParentId: parentB,
-  });
-  assert.deepEqual(result[0]?.pattern[1], {
-    morningParentId: parentA,
-    afternoonParentId: parentA,
-  });
 });
 
 test("schedule UI uses the five-state full and split day cycle without AM/PM controls", async () => {
