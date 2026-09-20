@@ -212,7 +212,8 @@ test("children can be added after onboarding from the Children workspace", async
 test("child profile overview is phone-compact while desktop detail layout remains available", async () => {
   const shell = await source("components/children/child-profile-shell.tsx");
 
-  assert.match(shell, /grid grid-cols-3 gap-2 sm:mt-5 sm:gap-3/);
+  assert.match(shell, /grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3/);
+  assert.match(shell, /col-span-2[\s\S]*sm:col-span-1/);
   assert.match(shell, /p-2\.5[\s\S]*sm:p-4/);
   assert.match(shell, /sm:rounded-2xl/);
   assert.match(shell, /School & care/);
