@@ -80,6 +80,9 @@ button:disabled { cursor: not-allowed; }
 .covie-tool-menu > button { min-height: 44px; justify-content: flex-start; border-color: #e6dbcf; background: #fff; }
 .workspace-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .workspace-mobile-actions-trigger { display: none; }
+.workspace-coming-up-menu,
+.workspace-mobile-action-divider,
+.workspace-mobile-install,
 .workspace-mobile-logout,
 .workspace-mobile-signout-error { display: none; }
 @media (min-width: 640px) {
@@ -147,6 +150,23 @@ main:has(.workspace-nav) { background: #fff9f2; }
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+.workspace-menu-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.workspace-menu-section-heading h2 {
+  color: #243139;
+  font-size: 13px;
+  font-weight: 850;
+}
+.workspace-menu-section-heading span {
+  color: #66747a;
+  font-size: 10px;
+  font-weight: 650;
 }
 .workspace-context-section {
   display: flex;
@@ -614,6 +634,10 @@ main:has(.workspace-nav) { background: #fff9f2; }
     overflow-x: hidden;
   }
 
+  .covie-calendar-page.is-selecting-days .covie-install-mobile {
+    display: none;
+  }
+
   main:has(.workspace-nav):not(.covie-calendar-page) {
     padding-left: 10px;
     padding-right: 10px;
@@ -673,6 +697,11 @@ main:has(.workspace-nav) { background: #fff9f2; }
     display: none;
   }
 
+  .workspace-mobile-action-panel:has(.covie-dialog-backdrop),
+  .workspace-mobile-action-panel:has(details[open] > .covie-menu) {
+    overflow: visible;
+  }
+
   .workspace-mobile-action-panel > * {
     width: 100%;
     min-width: 0;
@@ -688,6 +717,54 @@ main:has(.workspace-nav) { background: #fff9f2; }
   .workspace-mobile-action-panel > button,
   .workspace-mobile-action-panel > a {
     justify-content: flex-start;
+  }
+
+  .workspace-coming-up-menu {
+    display: block;
+    margin: 0;
+    border: 0;
+    padding: 2px 2px 4px;
+  }
+
+  .workspace-coming-up-menu .workspace-context-content {
+    gap: 10px;
+  }
+
+  .workspace-coming-up-menu .workspace-context-section {
+    gap: 5px;
+  }
+
+  .workspace-coming-up-menu .workspace-priority-card {
+    min-height: 46px;
+  }
+
+  .workspace-coming-up-menu .workspace-event-card {
+    min-height: 44px;
+  }
+
+  .workspace-mobile-action-divider {
+    display: block;
+    height: 1px;
+    width: 100%;
+    background: #e6dbcf;
+  }
+
+  .workspace-mobile-install {
+    display: flex;
+  }
+
+  .workspace-mobile-action-panel .google-calendar-quick-action > button,
+  .workspace-mobile-action-panel .google-calendar-quick-action > a {
+    width: 100%;
+    justify-content: flex-start;
+    border-radius: 10px;
+  }
+
+  .workspace-mobile-action-panel .google-calendar-quick-action > [role="status"] {
+    position: static;
+    width: 100%;
+    margin-top: 6px;
+    box-shadow: none;
   }
 
   .workspace-mobile-action-panel .workspace-account {

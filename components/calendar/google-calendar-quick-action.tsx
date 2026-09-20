@@ -30,16 +30,20 @@ export function GoogleCalendarQuickAction() {
 
   if (!payload.connection || payload.connection.status === "reconnect_required") {
     return (
-      <a
-        href="/api/google-calendar/connect"
-        className={googleActionClassName}
-      >
-        <GoogleGMark className="h-4.5 w-4.5" />
-        <span className="hidden sm:inline">
-          {payload.connection ? "Reconnect Google Calendar" : "Connect Google Calendar"}
-        </span>
-        <span className="sm:hidden">Sync</span>
-      </a>
+      <div className="google-calendar-quick-action relative">
+        <a
+          href="/api/google-calendar/connect"
+          className={googleActionClassName}
+        >
+          <GoogleGMark className="h-4.5 w-4.5" />
+          <span className="hidden sm:inline">
+            {payload.connection ? "Reconnect Google Calendar" : "Connect Google Calendar"}
+          </span>
+          <span className="sm:hidden">
+            {payload.connection ? "Reconnect Google" : "Connect to Google"}
+          </span>
+        </a>
+      </div>
     );
   }
 
@@ -60,7 +64,7 @@ export function GoogleCalendarQuickAction() {
   }
 
   return (
-    <div className="relative">
+    <div className="google-calendar-quick-action relative">
       <button
         type="button"
         onClick={() => void syncNow()}
@@ -73,7 +77,7 @@ export function GoogleCalendarQuickAction() {
           <GoogleGMark className="h-4.5 w-4.5" />
         )}
         <span className="hidden sm:inline">Sync Google Calendar</span>
-        <span className="sm:hidden">Sync</span>
+        <span className="sm:hidden">Sync to Google</span>
         {payload.connection.pendingOrFailedCount > 0 ? (
           <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
             {payload.connection.pendingOrFailedCount}
