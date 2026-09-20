@@ -60,8 +60,8 @@ test("Home keeps detail workflows in their existing feature areas", async () => 
 
   assert.match(shell, /WorkspaceNav/);
   assert.match(nav, /href: "\/calendar"/);
-  assert.match(nav, /href: "\/expenses"/);
-  assert.match(nav, /href: "\/responsibilities"/);
+  assert.match(nav, /label: "Shared costs"/);
+  assert.doesNotMatch(nav, /label: "Responsibilities"/);
   assert.match(shell, /\/expenses\?date=/);
   assert.match(shell, /\/responsibilities\?date=/);
   assert.match(shell, /ProposalActions/);
@@ -182,8 +182,8 @@ test("mobile Quick view stays consistent while page actions remain visible", asy
   assert.doesNotMatch(mobileOrganiser, /workspace-priority-card/);
   assert.doesNotMatch(mobileOrganiser, />Responsibilities<|>Expenses</);
 
-  assert.match(expenses, /Add expense/);
-  assert.match(responsibilities, /Add responsibility/);
+  assert.match(expenses, /Add shared cost/);
+  assert.match(responsibilities, /Add task/);
   assert.match(calendar, /Sync to Google|GoogleCalendarQuickAction/);
 
   assert.match(install, /Close install Covie prompt/);
