@@ -105,7 +105,9 @@ test("proposal withdrawal stays proposer-owned and safely records enum history",
   ]);
 
   assert.match(engine, /await sql\.transaction\(\[/);
-  assert.match(engine, /withdrawn_at = \$\{transitionedAt\}/);
+  assert.match(engine, /withdrawn_at = \$\{transitionedAt\}::timestamptz/);
+  assert.match(engine, /\$\{input\.actor\.membershipId\}::uuid/);
+  assert.match(engine, /\$\{actorParticipantId\}::uuid/);
   assert.match(engine, /\$\{fromStatus\}::proposal_status/);
   assert.match(engine, /status IN \('draft', 'waiting'\)/);
   assert.match(engine, /proposed_by_membership_id = \$\{input\.actor\.membershipId\}/);
