@@ -414,7 +414,7 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
               <>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div><p className="text-sm font-semibold text-slate-900">Saved schedules</p><p className="text-xs leading-5 text-slate-500">Schedules cannot overlap. Give the current plan an end date before a new plan begins.</p></div>
-                  <button type="button" disabled={saving || participants.length === 0} onClick={startNewSchedule} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 sm:w-auto"><Plus className="h-4 w-4" aria-hidden="true" />New schedule</button>
+                  <button type="button" disabled={saving || participants.length === 0} onClick={startNewSchedule} className="covie-primary-action inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm disabled:opacity-50 sm:w-auto"><Plus className="h-4 w-4" aria-hidden="true" />New schedule</button>
                 </div>
 
                 <div className="mt-4 space-y-3">
@@ -432,7 +432,7 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
                             <p className="mt-1 text-xs text-slate-500">{assignedDays} of 14 fortnight days assigned</p>
                           </div>
                           <div className="flex gap-2">
-                            <button type="button" disabled={saving} onClick={() => editSchedule(schedule)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"><Pencil className="h-4 w-4" aria-hidden="true" />Edit</button>
+                            <button type="button" disabled={saving} onClick={() => editSchedule(schedule)} className="covie-action-violet inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm disabled:opacity-50"><Pencil className="h-4 w-4" aria-hidden="true" />Edit</button>
                             <button type="button" disabled={saving} onClick={() => startDeleteSchedule(schedule)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"><Trash2 className="h-4 w-4" aria-hidden="true" />Delete</button>
                           </div>
                         </div>
@@ -460,7 +460,7 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
                                   setPendingDeleteScheduleId(null);
                                   setDeleteReason("");
                                 }}
-                                className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                                className="covie-action-secondary min-h-11 rounded-xl px-4 text-sm disabled:opacity-50"
                               >
                                 Keep schedule
                               </button>
@@ -515,10 +515,10 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
                 </label>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <button type="button" disabled={saving || !me || !otherParent} onClick={applyWeekOnWeekOff} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Week on / week off</button>
-                  <button type="button" disabled={saving || !me || !otherParent} onClick={applyAlternatingWeekends} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Alternate weekends</button>
-                  <button type="button" disabled={saving} onClick={copyWeekOne} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40">Copy week 1 to week 2</button>
-                  <button type="button" disabled={saving} onClick={() => setPattern(emptyPattern())} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 disabled:opacity-40">Clear pattern</button>
+                  <button type="button" disabled={saving || !me || !otherParent} onClick={applyWeekOnWeekOff} className="covie-action-teal rounded-xl px-3 py-2 text-xs disabled:opacity-40">Week on / week off</button>
+                  <button type="button" disabled={saving || !me || !otherParent} onClick={applyAlternatingWeekends} className="covie-action-violet rounded-xl px-3 py-2 text-xs disabled:opacity-40">Alternate weekends</button>
+                  <button type="button" disabled={saving} onClick={copyWeekOne} className="covie-action-sunshine rounded-xl px-3 py-2 text-xs disabled:opacity-40">Copy week 1 to week 2</button>
+                  <button type="button" disabled={saving} onClick={() => setPattern(emptyPattern())} className="covie-action-secondary rounded-xl px-3 py-2 text-xs disabled:opacity-40">Clear pattern</button>
                 </div>
 
                 <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
