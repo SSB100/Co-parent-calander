@@ -148,14 +148,14 @@ export function UndoBulkButton({ onChanged }: { onChanged?: () => void }) {
       <button
         type="button"
         onClick={() => void checkUndo()}
-        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+        className="covie-action-sunshine inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm transition"
       >
         <Undo2 className="h-4 w-4" aria-hidden="true" />
         Undo bulk
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 p-0 backdrop-blur-sm sm:items-center sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#243139]/35 p-0 backdrop-blur-sm sm:items-center sm:p-6">
           <section
             ref={dialogRef}
             role="dialog"
@@ -164,7 +164,7 @@ export function UndoBulkButton({ onChanged }: { onChanged?: () => void }) {
             aria-describedby="undo-description"
             aria-busy={loading || undoing}
             tabIndex={-1}
-            className="w-full max-w-md rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6"
+            className="w-full max-w-md rounded-t-3xl border-2 border-[#243139] bg-white p-5 shadow-[7px_7px_0_#F4C64E] sm:rounded-3xl sm:p-6"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -237,7 +237,7 @@ export function UndoBulkButton({ onChanged }: { onChanged?: () => void }) {
                 type="button"
                 disabled={undoing}
                 onClick={() => void undoLatest()}
-                className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                className="covie-action-sunshine mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm disabled:opacity-50"
               >
                 {undoing ? (
                   <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
