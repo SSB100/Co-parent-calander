@@ -50,7 +50,7 @@ test("expense validation requires the payer to be represented in the split", () 
   assert.equal(result.success, false);
 });
 
-test("no reimbursement is needed when payer owns the full share", () => {
+test("new shared costs stay outstanding until required shares are confirmed paid", () => {
   assert.equal(
     defaultSettlementStatus({
       amountCents: 5000,
@@ -60,7 +60,7 @@ test("no reimbursement is needed when payer owns the full share", () => {
         { participantId: them, shareCents: 0 },
       ],
     }),
-    "not_needed",
+    "outstanding",
   );
 });
 
