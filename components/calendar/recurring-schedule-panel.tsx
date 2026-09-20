@@ -412,9 +412,9 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
               <div role="status" className="mt-8 flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-600"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />Loading schedules…</div>
             ) : !editorOpen ? (
               <>
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div><p className="text-sm font-semibold text-slate-900">Saved schedules</p><p className="text-xs leading-5 text-slate-500">Schedules cannot overlap. Give the current plan an end date before a new plan begins.</p></div>
-                  <button type="button" disabled={saving || participants.length === 0} onClick={startNewSchedule} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"><Plus className="h-4 w-4" aria-hidden="true" />New schedule</button>
+                  <button type="button" disabled={saving || participants.length === 0} onClick={startNewSchedule} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 sm:w-auto"><Plus className="h-4 w-4" aria-hidden="true" />New schedule</button>
                 </div>
 
                 <div className="mt-4 space-y-3">
@@ -483,12 +483,12 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
               </>
             ) : (
               <>
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-sm font-semibold text-slate-900">{editingScheduleId ? "Edit schedule" : "New schedule"}</p>
                     <p className="mt-1 text-xs leading-5 text-slate-500">Tap each day to cycle: Full day You → Full day Them → You → Them → Them → You → Unassigned. Manual calendar changes still take priority.</p>
                   </div>
-                  <button type="button" disabled={saving} onClick={() => setEditorOpen(false)} className="min-h-10 rounded-xl px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50">Back to schedules</button>
+                  <button type="button" disabled={saving} onClick={() => setEditorOpen(false)} className="min-h-10 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 sm:w-auto sm:border-0">Back to schedules</button>
                 </div>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
