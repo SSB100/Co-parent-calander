@@ -131,6 +131,10 @@ test("global browser headers reduce common web attack surface and APIs are never
   assert.match(config, /X-Frame-Options/);
   assert.match(config, /Permissions-Policy/);
   assert.match(config, /source: "\/api\/\:path\*"/);
+  assert.match(config, /productionDeploymentRedirects/);
+  assert.match(config, /VERCEL_PROJECT_PRODUCTION_URL/);
+  assert.match(config, /co-parent-calander-\[a-z0-9\]\{9\}-haakers-projects/);
+  assert.match(config, /destination: `https:\/\/\$\{process\.env\.VERCEL_PROJECT_PRODUCTION_URL\}\/\:path\*`/);
   assert.match(config, /private, no-store, max-age=0/);
   assert.match(config, /"\/calendar\/\:path\*"/);
   assert.match(config, /"\/home\/\:path\*"/);
@@ -169,6 +173,17 @@ test("email password flow uses stronger new passwords without breaking existing 
   assert.match(form, /minLength=\{isSignUp \? 12 : 1\}/);
   assert.match(form, /At least 12 characters/);
   assert.match(form, /verification email/);
+});
+
+
+test("deferred operational and production auth work stays visible in the repository backlog", async () => {
+  const backlog = await source("docs/BACKLOG.md");
+
+  assert.match(backlog, /CONTACT_EMAIL/);
+  assert.match(backlog, /APP_DATABASE_URL/);
+  assert.match(backlog, /orphan\/test calendar data/);
+  assert.match(backlog, /Covie-owned Google OAuth client/);
+  assert.match(backlog, /Covie-controlled SMTP\/email provider/);
 });
 
 
