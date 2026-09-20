@@ -91,12 +91,6 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
     }
   }
 
-  function closeMobileActionsAfterAction(target: EventTarget | null) {
-    if (!(target instanceof HTMLElement)) return;
-    if (!target.closest("a, button")) return;
-    setMobileActionsOpen(false);
-  }
-
   function openInstallPrompt() {
     window.dispatchEvent(new Event("covie-open-install"));
     setMobileActionsOpen(false);
@@ -139,10 +133,7 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
           <Menu size={22} aria-hidden="true" />
           <span className="sr-only">Menu</span>
         </button>
-        <div
-          className="workspace-mobile-action-panel"
-          onClick={(event) => closeMobileActionsAfterAction(event.target)}
-        >
+        <div className="workspace-mobile-action-panel">
           <ComingUp variant="menu" />
           <div className="workspace-mobile-action-divider" />
           {actions}
