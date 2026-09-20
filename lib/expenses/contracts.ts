@@ -1,14 +1,31 @@
 import { z } from "zod";
 import { proposalReasonSchema } from "@/lib/approvals/http";
-import { expenseDetailsSchema } from "@/lib/expenses/model";
+import {
+  expenseDetailsSchema,
+  expenseRecurrenceSchema,
+} from "@/lib/expenses/model";
 
 export const expenseDateQuerySchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/);
 
-export const createExpenseSchema = expenseDetailsSchema.safeExtend({
-  reason: proposalReasonSchema,
-});
+export const createExpenseSchema = expenseDetailsSchema
+  .safeExtend({
+    reason: proposalReasonSchema,
+    recurrence: expenseRecurrenceSchema.nullable().default(null),
+  })
+  .superRefine((value, context) => {
+    if (
+      value.recurrence?.endDate &&
+      value.recurrence.endDate < value.expenseDate
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["recurrence", "endDate"],
+        message: "The recurrence end date cannot be before the first cost.",
+      });
+    }
+  });
 
 export const editExpenseSchema = expenseDetailsSchema.safeExtend({
   id: z.string().uuid(),
