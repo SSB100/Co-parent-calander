@@ -8,12 +8,11 @@ import {
   CircleDollarSign,
   Clock3,
   ListChecks,
-  LoaderCircle,
   ReceiptText,
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
@@ -50,6 +49,8 @@ type HomeExpense = {
   };
 };
 
+type HomeUpcomingExpense = Omit<HomeExpense, "urgency">;
+
 type HomeResponsibility = {
   id: string;
   title: string;
@@ -78,7 +79,7 @@ type Handover = {
   note: string | null;
 };
 
-type HomePayload = {
+export type HomePayload = {
   calendar: {
     id: string;
     name: string;
@@ -105,7 +106,7 @@ type HomePayload = {
   comingUp: {
     handover: Handover | null;
     event: HomeEvent | null;
-    expense: HomeExpense | null;
+    expense: HomeUpcomingExpense | null;
     responsibility: HomeResponsibility | null;
   };
 };
@@ -155,9 +156,8 @@ function urgencyClass(value: HomeExpense["urgency"] | HomeResponsibility["urgenc
 }
 
 
-export function HomeShell() {
-  const [data, setData] = useState<HomePayload | null>(null);
-  const [loading, setLoading] = useState(true);
+export function HomeShell({ initialData }: { initialData: HomePayload }) {
+  const [data, setData] = useState<HomePayload>(initialData);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -180,42 +180,6 @@ export function HomeShell() {
     setError(null);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    fetch("/api/home", { cache: "no-store" })
-      .then(async (response) => ({
-        response,
-        body: (await response.json().catch(() => null)) as
-          | HomePayload
-          | { error?: string }
-          | null,
-      }))
-      .then(({ response, body }) => {
-        if (cancelled) return;
-        if (!response.ok || !body || !("calendar" in body)) {
-          setError(
-            body && "error" in body && body.error
-              ? body.error
-              : "Updates could not be loaded.",
-          );
-          return;
-        }
-        setData(body);
-        setError(null);
-      })
-      .catch(() => {
-        if (!cancelled) setError("Updates could not be loaded.");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const participantName = useCallback(
     (participantId: string | null) => {
       if (!participantId) return "Parent";
@@ -236,17 +200,6 @@ export function HomeShell() {
       data.needsAttention.responsibilities.length
     );
   }, [data]);
-
-  if (loading && !data) {
-    return (
-      <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center px-4">
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />
-          Loading Updates…
-        </div>
-      </main>
-    );
-  }
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-7xl px-3 py-3 sm:px-5 sm:py-4 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden lg:px-6">
