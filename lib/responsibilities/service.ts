@@ -269,6 +269,7 @@ export async function listResponsibilities(input: {
         )
       : pendingProposals).map((proposal) => ({
         ...proposal,
+        status: "waiting" as const,
         submittedAt: proposal.submittedAt?.toISOString() ?? null,
         respondedAt: proposal.respondedAt?.toISOString() ?? null,
         withdrawnAt: proposal.withdrawnAt?.toISOString() ?? null,
