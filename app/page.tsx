@@ -15,7 +15,10 @@ import {
   ResponsibilityProductPreview,
   UpdatesProductPreview,
 } from "@/components/marketing/product-previews";
-import { CovieBrand } from "@/components/workspace/covie-brand";
+import {
+  PublicFooter,
+  PublicHeader,
+} from "@/components/marketing/public-chrome";
 import { auth } from "@/lib/auth/server";
 import { getCalendarSession } from "@/lib/security/session";
 
@@ -53,28 +56,8 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-[#FFF9F2] text-[#243139]">
-      <nav className="border-b-2 border-[#243139] bg-[#FFF9F2]" aria-label="Main navigation">
-        <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-          <CovieBrand />
-          <div className="hidden items-center gap-7 md:flex">
-            <a href="#how-it-works" className="text-sm font-semibold hover:text-[#D94D43]">How it works</a>
-            <a href="#features" className="text-sm font-semibold hover:text-[#D94D43]">What Covie does</a>
-            <Link href="/auth/sign-in" className="text-sm font-semibold hover:text-[#D94D43]">Log in</Link>
-            <Link
-              href="/auth/sign-up"
-              className="inline-flex min-h-11 items-center justify-center rounded-[10px] bg-[#243139] px-5 text-sm font-semibold text-white transition hover:bg-[#35474F]"
-            >
-              Create an account
-            </Link>
-          </div>
-          <Link
-            href="/auth/sign-in"
-            className="inline-flex min-h-11 items-center justify-center rounded-[10px] border-2 border-[#243139] px-4 text-sm font-semibold md:hidden"
-          >
-            Log in
-          </Link>
-        </div>
-      </nav>
+      <PublicHeader />
+
 
       <section className="border-b-2 border-[#243139] lg:h-[calc(100svh-5rem)] lg:min-h-[480px] lg:max-h-[760px]">
         <div className="mx-auto grid h-full w-full max-w-[1500px] lg:grid-cols-[0.9fr_1.1fr]">
@@ -266,12 +249,8 @@ export default async function Home() {
         </div>
       </section>
 
-      <footer className="bg-[#FFF9F2]">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <CovieBrand />
-          <p className="text-sm font-medium text-[#617077]">A bright, simple shared organiser for co-parenting.</p>
-        </div>
-      </footer>
+      <PublicFooter />
+
     </main>
   );
 }
