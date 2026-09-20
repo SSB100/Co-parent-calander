@@ -90,8 +90,8 @@ test("expense UI keeps pending agreement separate and links calendar days into e
   ]);
 
   assert.match(shell, /Waiting for agreement/);
-  assert.match(shell, /Current expenses/);
-  assert.match(shell, /Expense archive/);
+  assert.match(shell, /Current shared costs/);
+  assert.match(shell, /Shared cost archive/);
   assert.match(shell, /50 \/ 50/);
   assert.match(shell, /Paid by payer only/);
   assert.match(shell, /Custom split/);
@@ -100,9 +100,9 @@ test("expense UI keeps pending agreement separate and links calendar days into e
   assert.match(shell, /settlementStatus !== "outstanding"/);
   assert.match(shell, /Covie records payments but does not move money/);
   assert.match(day, /\/expenses\?date=/);
-  assert.match(day, /Expenses on this day/);
+  assert.match(day, /Shared costs on this day/);
   assert.match(calendar, /WorkspaceNav/);
-  assert.match(nav, /href: "\/expenses"/);
+  assert.match(nav, /label: "Shared costs"/);
 });
 
 test("Phase 3 documentation keeps migration and deployment deferred", async () => {
