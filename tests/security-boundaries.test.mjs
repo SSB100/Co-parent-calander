@@ -264,6 +264,7 @@ test("sign-in and sign-up explicitly follow Neon Google OAuth redirects", async 
   assert.match(form, /window\.location\.assign\(data\.url\)/);
   assert.match(form, /new URL\(callbackPath, window\.location\.origin\)/);
   assert.match(form, /\/onboarding\?invite=/);
+  assert.match(form, /isSignUp[\s\S]*?\? "\/onboarding"[\s\S]*?: "\/"/);
   assert.match(form, /Sign in with Google/);
   assert.match(form, /Sign up with Google/);
   assert.match(provider, /social=\{\{ providers: \["google"\] \}\}/);
