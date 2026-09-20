@@ -689,77 +689,96 @@ export async function withdrawApprovalProposal(input: {
 
   const fromStatus = proposal.status;
   const actorParticipantId = input.actor.participantId ?? proposal.proposedByParticipantId;
+  const transitionedAt = new Date();
   const sql = getSql();
-  const rows = (await sql`
-    WITH transitioned AS (
-      UPDATE approval_proposals
-      SET status = 'withdrawn', withdrawn_at = now(), updated_at = now()
-      WHERE id = ${proposal.id}
-        AND calendar_id = ${input.calendarId}
-        AND (
-          proposed_by_membership_id = ${input.actor.membershipId}
-          OR (
-            ${input.actor.participantId}::uuid IS NOT NULL
-            AND proposed_by_participant_id = ${input.actor.participantId}
-          )
-        )
-        AND status IN ('draft', 'waiting')
-      RETURNING *
-    ),
-    history_insert AS (
-      INSERT INTO approval_proposal_history (
-        proposal_id,
-        calendar_id,
-        actor_membership_id,
-        actor_participant_id,
-        event_type,
-        from_status,
-        to_status,
-        details
-      )
-      SELECT
-        id,
-        calendar_id,
-        ${input.actor.membershipId},
-        ${actorParticipantId},
-        'proposal.withdrawn',
-        ${fromStatus}::proposal_status,
-        'withdrawn',
-        NULL
-      FROM transitioned
-      RETURNING id
-    ),
-    audit_insert AS (
-      INSERT INTO audit_log (
-        calendar_id,
-        actor_participant_id,
-        action,
-        entity_type,
-        entity_id,
-        before_state,
-        after_state
-      )
-      SELECT
-        calendar_id,
-        ${actorParticipantId},
-        'proposal.withdraw',
-        'proposal',
-        id,
-        jsonb_build_object('status', ${fromStatus}),
-        jsonb_build_object(
-          'status', 'withdrawn',
-          'targetEntityType', entity_type,
-          'targetEntityId', entity_id
-        )
-      FROM transitioned
-      RETURNING id
-    )
-    SELECT id FROM transitioned
-  `) as Array<{ id: string }>;
 
-  if (rows.length === 0) {
+  try {
+    await sql.transaction([
+      sql`
+        UPDATE approval_proposals
+        SET
+          status = 'withdrawn',
+          withdrawn_at = ${transitionedAt},
+          updated_at = ${transitionedAt}
+        WHERE id = ${proposal.id}
+          AND calendar_id = ${input.calendarId}
+          AND (
+            proposed_by_membership_id = ${input.actor.membershipId}
+            OR (
+              ${input.actor.participantId}::uuid IS NOT NULL
+              AND proposed_by_participant_id = ${input.actor.participantId}
+            )
+          )
+          AND status IN ('draft', 'waiting')
+      `,
+      sql`
+        INSERT INTO approval_proposal_history (
+          proposal_id,
+          calendar_id,
+          actor_membership_id,
+          actor_participant_id,
+          event_type,
+          from_status,
+          to_status,
+          details
+        )
+        SELECT
+          id,
+          calendar_id,
+          ${input.actor.membershipId},
+          ${actorParticipantId},
+          'proposal.withdrawn',
+          ${fromStatus}::proposal_status,
+          'withdrawn',
+          NULL
+        FROM approval_proposals
+        WHERE id = ${proposal.id}
+          AND calendar_id = ${input.calendarId}
+          AND status = 'withdrawn'
+          AND withdrawn_at = ${transitionedAt}
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id,
+          actor_participant_id,
+          action,
+          entity_type,
+          entity_id,
+          before_state,
+          after_state
+        )
+        SELECT
+          calendar_id,
+          ${actorParticipantId},
+          'proposal.withdraw',
+          'proposal',
+          id,
+          jsonb_build_object('status', ${fromStatus}),
+          jsonb_build_object(
+            'status', 'withdrawn',
+            'targetEntityType', entity_type,
+            'targetEntityId', entity_id
+          )
+        FROM approval_proposals
+        WHERE id = ${proposal.id}
+          AND calendar_id = ${input.calendarId}
+          AND status = 'withdrawn'
+          AND withdrawn_at = ${transitionedAt}
+      `,
+    ]);
+  } catch (error) {
+    if (error instanceof ApprovalEngineError) throw error;
+    console.error("Proposal withdrawal failed", {
+      proposalId: input.proposalId,
+      message: error instanceof Error ? error.message : "unknown database error",
+    });
+    throw new ApprovalEngineError(500, "That request could not be withdrawn. Please try again.");
+  }
+
+  const result = await getApprovalProposalDetails(input.calendarId, input.proposalId);
+  if (!result || result.proposal.status !== "withdrawn") {
     throw new ApprovalEngineError(409, "This proposal can no longer be withdrawn.");
   }
 
-  return getApprovalProposalDetails(input.calendarId, input.proposalId);
+  return result;
 }
