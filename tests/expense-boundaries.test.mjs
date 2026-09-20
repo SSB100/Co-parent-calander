@@ -55,7 +55,7 @@ test("expense approval applies target mutation and proposal transition together"
   assert.match(proposalRoute, /acceptAndApplyApprovalProposal/);
 });
 
-test("each parent can record only their own partial payment amount", async () => {
+test("each parent can append and total only their own Shared Costs payments", async () => {
   const [contracts, settlementRoute, service, schema] = await Promise.all([
     source("lib/expenses/contracts.ts"),
     source("app/api/expenses/[id]/settlement/route.ts"),
@@ -63,21 +63,23 @@ test("each parent can record only their own partial payment amount", async () =>
     source("lib/db/schema/expenses.ts"),
   ]);
 
-  assert.match(contracts, /paidCents: z\.number\(\)\.int\(\)\.min\(0\)/);
+  assert.match(contracts, /paymentCents: z\.number\(\)\.int\(\)\.min\(1\)/);
   const settlementService = service.slice(
     service.indexOf("export async function updateExpenseSettlement"),
   );
   assert.match(settlementService, /eq\(expenseShares\.participantId, session\.participantId\)/);
-  assert.match(settlementService, /paidCents > share\.shareCents/);
-  assert.match(settlementService, /paid_cents = \$\{paidCents\}::integer/);
+  assert.match(settlementService, /paymentCents > remainingCents/);
+  assert.match(settlementService, /INSERT INTO expense_share_payments/);
+  assert.match(settlementService, /paid_cents = paid_cents \+ \$\{paymentCents\}::integer/);
   assert.match(settlementService, /share\.paid_cents < share\.share_cents/);
   assert.match(settlementService, /FOR UPDATE/);
-  assert.match(settlementService, /expense\.share_payment\.update/);
+  assert.match(settlementService, /expense\.share_payment\.add/);
   assert.doesNotMatch(settlementService, /createApprovalProposal/);
   assert.doesNotMatch(settlementService, /participantId:\s*input/);
-  assert.match(settlementRoute, /paidCents: parsed\.data\.paidCents/);
+  assert.match(settlementRoute, /paymentCents: parsed\.data\.paymentCents/);
   assert.match(schema, /paidCents: integer\("paid_cents"\)/);
-  assert.match(schema, /expense_shares_paid_amount_valid/);
+  assert.match(schema, /export const expenseSharePayments = pgTable/);
+  assert.match(schema, /expense_share_payments_amount_positive/);
 });
 
 test("expense workflow remains separate from Google Calendar sync", async () => {
@@ -105,8 +107,9 @@ test("expense UI keeps pending agreement separate and links calendar days into e
   assert.match(shell, /50 \/ 50/);
   assert.match(shell, /Paid by payer only/);
   assert.match(shell, /Custom split/);
-  assert.match(shell, /Amount you&apos;ve paid/);
-  assert.match(shell, /Enter the total you have paid so far/);
+  assert.match(shell, /Add payment/);
+  assert.match(shell, /Add another payment of up to/);
+  assert.doesNotMatch(shell, /Enter the total you have paid so far/);
   assert.match(shell, /Paid \$\{money\(share\.paidCents\)\} of \$\{money\(share\.shareCents\)\}/);
   assert.doesNotMatch(shell, /Mark my share paid|Mark my share unpaid|Mark settled/);
   assert.match(shell, /statusFilter === "current"/);
@@ -122,7 +125,7 @@ test("Shared Costs documentation reflects the live per-parent payment model", as
   const docs = await source("docs/EXPENSES.md");
 
   assert.match(docs, /does not transfer money/);
-  assert.match(docs, /Each parent can update only the amount paid on their own/);
-  assert.match(docs, /0019_expense_share_partial_payments\.sql/);
+  assert.match(docs, /Each payment entry is additive/);
+  assert.match(docs, /0020_expense_share_payment_history\.sql/);
   assert.match(docs, /are not synced into Google Calendar/);
 });
