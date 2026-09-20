@@ -675,12 +675,11 @@ main:has(.workspace-nav) { background: #fff9f2; }
   }
 
   .covie-page-header {
-    padding-right: 50px;
     padding-bottom: 10px;
   }
 
-  .covie-calendar-header {
-    padding-right: 50px;
+  .covie-page-title {
+    max-width: calc(100% - 50px);
   }
 
   .workspace-actions {
