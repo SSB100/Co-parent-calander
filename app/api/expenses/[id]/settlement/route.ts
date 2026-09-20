@@ -48,7 +48,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   );
   if (!parsedId.success || !parsed.success) {
     return NextResponse.json(
-      { error: "Choose a valid settlement update." },
+      { error: "Enter a valid amount paid." },
       { status: 400 },
     );
   }
@@ -58,7 +58,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       await updateExpenseSettlement({
         session,
         id: parsedId.data,
-        operation: parsed.data.operation,
+        paidCents: parsed.data.paidCents,
       }),
     );
   } catch (error) {
