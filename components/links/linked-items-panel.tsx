@@ -45,8 +45,8 @@ type Payload = {
 
 const typeLabels: Record<RelatedTargetType, string> = {
   event: "Event",
-  expense: "Expense",
-  responsibility: "Responsibility",
+  expense: "Shared cost",
+  responsibility: "Task",
   child: "Child",
   attachment: "Document",
 };
