@@ -49,6 +49,21 @@ test("proposal API is calendar-scoped and mutation-protected", async () => {
   assert.match(itemRoute, /declineReason/);
 });
 
+test("declining without a reason keeps nullable SQL values explicitly typed", async () => {
+  const engine = await source("lib/approvals/engine.ts");
+
+  const start = engine.indexOf("export async function declineApprovalProposal");
+  const end = engine.indexOf("export async function withdrawApprovalProposal", start);
+  assert.ok(start >= 0);
+  assert.ok(end > start);
+  const decline = engine.slice(start, end);
+
+  assert.match(decline, /const declineReason = input\.declineReason \?\? null/);
+  assert.match(decline, /decline_reason = \$\{declineReason\}::text/);
+  assert.match(decline, /'declineReason', \$\{declineReason\}::text/);
+});
+
+
 test("approval engine never queues Google Calendar sync for pending proposals", async () => {
   const engine = await source("lib/approvals/engine.ts");
 

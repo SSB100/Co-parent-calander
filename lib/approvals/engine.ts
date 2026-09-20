@@ -602,13 +602,14 @@ export async function declineApprovalProposal(input: {
     throw new ApprovalEngineError(403, "Only the parent this was sent to can decline it.");
   }
 
+  const declineReason = input.declineReason ?? null;
   const sql = getSql();
   const rows = (await sql`
     WITH transitioned AS (
       UPDATE approval_proposals
       SET
         status = 'declined',
-        decline_reason = ${input.declineReason ?? null},
+        decline_reason = ${declineReason}::text,
         responded_at = now(),
         updated_at = now()
       WHERE id = ${proposal.id}
@@ -636,7 +637,7 @@ export async function declineApprovalProposal(input: {
         'proposal.declined',
         'waiting',
         'declined',
-        jsonb_build_object('declineReason', ${input.declineReason ?? null})
+        jsonb_build_object('declineReason', ${declineReason}::text)
       FROM transitioned
       RETURNING id
     ),
@@ -661,7 +662,7 @@ export async function declineApprovalProposal(input: {
           'status', 'declined',
           'targetEntityType', entity_type,
           'targetEntityId', entity_id,
-          'declineReason', ${input.declineReason ?? null}
+          'declineReason', ${declineReason}::text
         )
       FROM transitioned
       RETURNING id

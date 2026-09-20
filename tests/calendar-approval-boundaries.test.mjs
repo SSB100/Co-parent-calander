@@ -63,6 +63,9 @@ test("calendar acceptance applies the target and proposal transition transaction
 
   assert.match(apply, /SET status = 'approved'/);
   assert.match(apply, /status = 'waiting'/);
+  assert.match(apply, /INSERT INTO parenting_assignments/);
+  assert.doesNotMatch(apply, /recurring_rule_id/);
+  assert.doesNotMatch(apply, /source = 'manual'/);
   assert.match(apply, /approval_marker\.status = 'approved'/);
   assert.match(apply, /await sql\.transaction\(statements\)/);
   assert.match(apply, /proposal\.approved/);
