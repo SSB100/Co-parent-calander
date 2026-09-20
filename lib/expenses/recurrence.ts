@@ -215,10 +215,17 @@ export async function createRecurringExpenseSeries(input: {
     `,
   ]);
 
-  await materializeRecurringExpenseSeries({
-    seriesId,
-    throughDate: initialRecurringExpenseHorizon(input.details.expenseDate),
-  });
+  try {
+    await materializeRecurringExpenseSeries({
+      seriesId,
+      throughDate: initialRecurringExpenseHorizon(input.details.expenseDate),
+    });
+  } catch (error) {
+    console.error("Recurring Shared Costs initial materialization failed", {
+      seriesId,
+      message: error instanceof Error ? error.message : "unknown error",
+    });
+  }
 
   return { seriesId, firstExpenseId: input.firstExpenseId };
 }
