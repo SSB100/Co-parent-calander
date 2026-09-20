@@ -1110,7 +1110,7 @@ export function ExpensesShell({
                     Starts {dateLabel(form.expenseDate)} · {recurrenceLabels[form.recurrenceFrequency]}
                     {form.recurrenceEndDate
                       ? ` · ends ${dateLabel(form.recurrenceEndDate)}`
-                      : " · continues until stopped"}
+                      : " · no end date set"}
                   </p>
                 ) : null}
               </section>
