@@ -9,7 +9,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 
 const reasons = [
   {
@@ -55,7 +55,7 @@ export function ContactForm() {
 
   const selected = reasons.find((item) => item.value === reason) ?? null;
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!reason) return;
 
