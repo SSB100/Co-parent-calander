@@ -10,6 +10,8 @@ This file contains deliberately deferred work. These are not blockers for day-to
 
 ## Auth production readiness
 
+- [ ] After the current login repair is confirmed in Production, run a real password-reset and Google sign-in smoke test from the stable production URL.
+
 - [ ] Replace Neon's shared Google OAuth development credentials with a Covie-owned Google OAuth client before broad public launch. Register the production Managed Neon Auth callback URL and publish/verify the Google consent configuration as required.
 - [ ] Replace Neon's shared auth email sender with a Covie-controlled SMTP/email provider for production password-reset and verification reliability.
 
