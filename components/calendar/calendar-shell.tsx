@@ -32,8 +32,6 @@ import dynamic from "next/dynamic";
 import { CalendarSwitcher, type CalendarOption } from "@/components/calendar/calendar-switcher";
 import { GoogleCalendarQuickAction } from "@/components/calendar/google-calendar-quick-action";
 import { EventPanel } from "@/components/calendar/event-panel";
-import { MembersPanel } from "@/components/calendar/members-panel";
-import { SettingsPanel } from "@/components/calendar/settings-panel";
 
 const DayDetailsPanel = dynamic(
   () =>
@@ -63,6 +61,20 @@ const CalendarToolsMenu = dynamic(
     loading: () => (
       <p role="status" className="px-3 py-2 text-xs font-semibold text-slate-500">
         Loading tools…
+      </p>
+    ),
+  },
+);
+
+const CalendarSettingsMenu = dynamic(
+  () =>
+    import("@/components/calendar/calendar-settings-menu").then(
+      (module) => module.CalendarSettingsMenu,
+    ),
+  {
+    loading: () => (
+      <p role="status" className="px-3 py-2 text-xs font-semibold text-slate-500">
+        Loading settings…
       </p>
     ),
   },
@@ -236,6 +248,7 @@ export function CalendarShell({
   const [detailsDate, setDetailsDate] = useState<string | null>(null);
   const [bulkReason, setBulkReason] = useState("");
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
+  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const toolsMenuRef = useRef<HTMLDetailsElement>(null);
   const settingsMenuRef = useRef<HTMLDetailsElement>(null);
   const loadedRequestRef = useRef({
@@ -566,16 +579,24 @@ export function CalendarShell({
                     </>
                   ) : null}
                   {accessMode === "editor" || accessMode === "viewer" ? (
-                    <details ref={settingsMenuRef} className="relative">
+                    <details
+                      ref={settingsMenuRef}
+                      className="relative"
+                      onToggle={(event) =>
+                        setSettingsMenuOpen(event.currentTarget.open)
+                      }
+                    >
                       <summary className="covie-menu-trigger covie-action-sunshine"><span><span className="hidden sm:inline">Calendar </span>Settings</span><ChevronDown size={16} aria-hidden="true" /></summary>
                       <div className="covie-menu covie-tool-menu">
-                        {calendarData?.permission === "owner" ? (
-                          <MembersPanel onChanged={() => setRefreshKey((value) => value + 1)} />
+                        {settingsMenuOpen ? (
+                          <CalendarSettingsMenu
+                            showMembers={calendarData?.permission === "owner"}
+                            readOnly={accessMode === "viewer"}
+                            onChanged={() =>
+                              setRefreshKey((value) => value + 1)
+                            }
+                          />
                         ) : null}
-                    <SettingsPanel
-                      readOnly={accessMode === "viewer"}
-                      onChanged={() => setRefreshKey((value) => value + 1)}
-                    />
                       </div>
                     </details>
                   ) : null}
