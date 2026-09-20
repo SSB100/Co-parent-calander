@@ -13,7 +13,7 @@ Each agreed shared cost stores:
 - the parent who originally paid the bill
 - an explicit share amount for each parent
 - optional due date and note
-- a separate paid confirmation for each parent share
+- the cumulative amount each parent has recorded as paid toward their own share
 
 The split options remain intentionally simple:
 
@@ -34,64 +34,69 @@ When two active co-parents have linked edit-capable accounts:
 
 A solo Covie user is not blocked when there is no other linked edit-capable parent.
 
-Payment confirmation is deliberately different from editing. It is an operational action and does not create an approval proposal.
+Payment recording is deliberately different from editing. It is an operational action and does not create an approval proposal.
 
-## Per-parent payment confirmation
+## Per-parent partial payments
 
-Each parent can update only the paid state of their own `expense_shares` row.
+Each parent can update only the amount paid on their own `expense_shares` row.
 
-The settlement endpoint does not accept another participant id, so one parent cannot mark the other parent's share paid.
+The settlement endpoint does not accept another participant id. The participant is always derived from the signed-in calendar session, so one parent cannot record a payment against the other parent's share.
 
-For positive shares:
+For each share:
 
-- an unpaid share has `paid_at = NULL`
-- choosing **Mark my share paid** records that parent's `paid_at`
-- the same parent can undo their own confirmation with **Mark my share unpaid**
-- zero-value shares require no confirmation
+- `share_cents` is the agreed amount that parent is responsible for
+- `paid_cents` is the cumulative amount that parent says they have paid so far
+- `paid_cents` must stay between zero and `share_cents`
+- `paid_at` is set only when `paid_cents` reaches the full share amount
+- zero-value shares require no payment
 
-The expense remains `outstanding` while any positive share is unpaid.
+The UI shows the signed-in parent an **Amount you've paid** field. It is the total paid so far, not an additional payment amount. For example, if the share is NZ$100 and the parent has paid NZ$50, they enter `50.00`. If they later finish paying, they change it to `100.00`.
 
-Once every positive share has a `paid_at` timestamp, the expense becomes `settled` and moves into the Shared Cost archive automatically.
+The shared cost remains `outstanding` while any share has `paid_cents < share_cents`.
 
-If a parent later marks their own share unpaid, the item becomes outstanding again.
+Once every share is paid in full, the expense becomes `settled` and moves into the Shared Cost archive automatically. Reducing a parent's own recorded amount below their full share reopens the cost.
 
-Covie records these confirmations but does not transfer money.
+Covie records these amounts but does not transfer money.
 
 ## Editing and payment state
 
-Accepted edits that change the amount, payer or split are financial changes. They reset all share payment confirmations because the amounts being confirmed have changed.
+Accepted edits that change the amount, payer or split are financial changes. They reset per-parent payment progress because the agreed amounts have changed.
 
-Non-financial edits, such as changing a title, note or due date, preserve the existing per-parent payment confirmations.
+Non-financial edits, such as changing a title, note or due date, preserve existing per-parent payment progress.
 
-Payment confirmation itself is never copied into an edit proposal, so one parent cannot alter the other parent's paid acknowledgement through the approval flow.
+Payment amounts are never copied into an edit proposal, so one parent cannot alter the other parent's payment record through the approval flow.
 
-## Existing data migration
+## Existing data migrations
 
-Migration `0018_expense_share_payment_confirmation.sql` adds `expense_shares.paid_at`.
+Migration `0018_expense_share_payment_confirmation.sql` introduced per-parent completion timestamps.
+
+Migration `0019_expense_share_partial_payments.sql` adds `expense_shares.paid_cents` and makes partial progress first-class.
 
 To preserve existing state:
 
-- previously settled or `not_needed` costs have their positive shares backfilled as paid
-- previously outstanding costs remain unpaid
-- legacy `not_needed` rows are normalized to archived `settled` records
+- shares already marked fully paid are backfilled with `paid_cents = share_cents`
+- outstanding unpaid shares start at zero
+- existing expense archive state is recalculated from the per-share balances
 
 ## Calendar and Home
 
 Shared costs remain linked to their expense/due dates but are not synced into Google Calendar.
 
-Home and workspace summaries use the new paid state when calculating outstanding amounts.
+Home and workspace summaries calculate outstanding amounts from `share_cents - paid_cents`.
 
 The left **At a glance** / mobile Quick View surface shows actual active tasks and shared costs only. It does not duplicate Tasks or Shared Costs navigation cards; those feature entry points remain in Organiser.
 
 ## Verification checklist
 
-1. A parent can mark only their own positive share paid.
-2. One parent's confirmation cannot mutate the other parent's share.
-3. A 50 / 50 cost remains active after only one parent confirms payment.
-4. The cost archives automatically after both positive shares are confirmed.
-5. Undoing one parent's own confirmation reopens the cost.
-6. Financial edits require approval and reset confirmations after acceptance.
-7. Non-financial approved edits preserve confirmations.
-8. Create/edit/delete approval behaviour remains unchanged.
-9. Day Details and Home show the updated payment state.
-10. Shared cost activity creates no Google Calendar jobs.
+1. A parent can edit only the paid amount for their own share.
+2. One parent's request cannot include or mutate another participant id.
+3. A NZ$100 share can record NZ$50 paid and remain active.
+4. The remaining balance becomes NZ$50 for that parent.
+5. A payment amount cannot exceed that parent's agreed share.
+6. The shared cost archives only when every share reaches its full amount.
+7. Reducing one parent's own amount below the full share reopens the cost.
+8. Financial edits require approval and reset payment progress after acceptance.
+9. Non-financial approved edits preserve payment progress.
+10. Create/edit/delete approval behaviour remains unchanged.
+11. Day Details and Home show remaining payment state.
+12. Shared cost activity creates no Google Calendar jobs.

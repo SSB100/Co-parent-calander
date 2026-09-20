@@ -88,12 +88,17 @@ export const expenseShares = pgTable(
       .notNull()
       .references(() => participants.id, { onDelete: "restrict" }),
     shareCents: integer("share_cents").notNull(),
+    paidCents: integer("paid_cents").notNull().default(0),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     check("expense_shares_non_negative", sql`${table.shareCents} >= 0`),
+    check(
+      "expense_shares_paid_amount_valid",
+      sql`${table.paidCents} >= 0 AND ${table.paidCents} <= ${table.shareCents}`,
+    ),
     uniqueIndex("expense_share_participant_unique").on(table.expenseId, table.participantId),
     index("expense_shares_participant_idx").on(table.participantId, table.expenseId),
   ],

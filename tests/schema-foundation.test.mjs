@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0018", async () => {
+test("schema migrations are sequential through 0019", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 19 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 20 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -147,6 +147,21 @@ test("0018 adds per-parent shared-cost payment confirmation", async () => {
   assert.match(migration, /expense\."settlement_status" IN \('settled', 'not_needed'\)/);
   assert.match(migration, /'0018', 'Per-parent shared-cost payment confirmation'/);
   assert.match(expenseSchema, /paidAt: timestamp\("paid_at"/);
+});
+
+
+test("0019 adds partial paid amounts to each shared-cost share", async () => {
+  const [migration, expenseSchema] = await Promise.all([
+    source("drizzle/0019_expense_share_partial_payments.sql"),
+    source("lib/db/schema/expenses.ts"),
+  ]);
+
+  assert.match(migration, /ADD COLUMN "paid_cents"/);
+  assert.match(migration, /SET "paid_cents" = "share_cents"/);
+  assert.match(migration, /expense_shares_paid_amount_valid/);
+  assert.match(migration, /'0019', 'Partial per-parent shared-cost payments'/);
+  assert.match(expenseSchema, /paidCents: integer\("paid_cents"\)/);
+  assert.match(expenseSchema, /expense_shares_paid_amount_valid/);
 });
 
 

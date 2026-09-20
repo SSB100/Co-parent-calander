@@ -183,6 +183,7 @@ export async function loadExpenseSnapshot(calendarId: string, expenseId: string)
     .select({
       participantId: expenseShares.participantId,
       shareCents: expenseShares.shareCents,
+      paidCents: expenseShares.paidCents,
       paidAt: expenseShares.paidAt,
     })
     .from(expenseShares)
