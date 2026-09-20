@@ -100,3 +100,41 @@ test("performance stage 1 consolidates workspace chrome and lazy-loads mobile co
   assert.deepEqual(config.regions, ["syd1"]);
 });
 
+
+
+test("performance stage 2 server-loads the initial calendar range without an API waterfall", async () => {
+  const [page, shell, route, loader, session] = await Promise.all([
+    readFile(path.join(root, "app/calendar/page.tsx"), "utf8"),
+    readFile(path.join(root, "components/calendar/calendar-shell.tsx"), "utf8"),
+    readFile(path.join(root, "app/api/calendar/route.ts"), "utf8"),
+    readFile(path.join(root, "lib/calendar/load-calendar.ts"), "utf8"),
+    readFile(path.join(root, "lib/security/session.ts"), "utf8"),
+  ]);
+
+  assert.match(page, /localDateInTimeZone\(session\.calendarTimezone\)/);
+  assert.match(page, /calendarRangeForDate\(initialToday\)/);
+  assert.match(page, /loadCalendarData\(session, initialRange\)/);
+  assert.match(page, /initialData=\{initialData\}/);
+  assert.match(page, /initialMonth=\{initialRange\.month\}/);
+  assert.doesNotMatch(page, /fetch\s*\(\s*[`"']\/api\/calendar/);
+
+  assert.match(shell, /useState<CalendarPayload \| null>\(initialData\)/);
+  assert.match(shell, /loadedRequestRef/);
+  assert.match(shell, /loadedRequestRef\.current\.range === requestRange/);
+  assert.match(shell, /loadedRequestRef\.current\.refreshKey === refreshKey/);
+  assert.match(shell, /fetch\(`\/api\/calendar\?\$\{params\.toString\(\)\}`/);
+  assert.match(shell, /setRefreshKey\(\(value\) => value \+ 1\)/);
+
+  assert.match(route, /getCalendarSession\(\)/);
+  assert.match(route, /calendarRangeSchema\.safeParse/);
+  assert.match(route, /loadCalendarData\(session, parsed\.data\)/);
+  assert.doesNotMatch(route, /loadEffectiveAssignmentMap|getDb\(\)|db\.batch/);
+
+  assert.match(loader, /calendarRangeSchema\.parse\(input\)/);
+  assert.match(loader, /differenceInCalendarDays/);
+  assert.match(loader, /loadEffectiveAssignmentMap/);
+  assert.match(loader, /projectCalendarPendingProposals/);
+  assert.match(loader, /expandEventOccurrences/);
+  assert.match(session, /auth\.getSession\(\)/);
+  assert.match(session, /membershipForUser/);
+});
