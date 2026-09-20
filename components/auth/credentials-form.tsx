@@ -17,9 +17,11 @@ const initialState: AuthActionState = { error: null };
 export function CredentialsForm({
   mode,
   inviteCode = "",
+  verificationNotice = false,
 }: {
   mode: "sign-in" | "sign-up";
   inviteCode?: string;
+  verificationNotice?: boolean;
 }) {
   const isSignUp = mode === "sign-up";
   const [state, action, pending] = useActionState(
@@ -79,9 +81,19 @@ export function CredentialsForm({
           {inviteCode
             ? "You have been invited to a Covie calendar. Continue with your account to join."
             : isSignUp
-              ? "Create your account, then choose whether to start or join a Covie calendar."
+              ? "Create your account and verify your email, then choose whether to start or join a Covie calendar."
               : "Log in to open your Covie calendar."}
         </p>
+
+        {verificationNotice ? (
+          <div
+            role="status"
+            className="mt-5 rounded-xl border border-[#9FD7CE] bg-[#E8F8F4] px-4 py-3 text-sm leading-6 text-[#243139]"
+          >
+            Check your email and complete verification, then sign in. If you
+            already verified the address, you can continue below.
+          </div>
+        ) : null}
 
         <div className="mt-7">
           <button
@@ -157,7 +169,12 @@ export function CredentialsForm({
               required
               className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
             />
-            {isSignUp ? <span className="mt-2 block text-xs text-slate-500">At least 12 characters.</span> : null}
+            {isSignUp ? (
+              <span className="mt-2 block text-xs text-slate-500">
+                At least 12 characters. We’ll send a verification email before
+                the account can be used.
+              </span>
+            ) : null}
           </label>
 
           {state.error ? (
