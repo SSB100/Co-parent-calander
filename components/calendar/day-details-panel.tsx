@@ -18,10 +18,18 @@ import {
   sharedEventProposalStateSchema,
 } from "@/lib/approvals/calendar-state";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
+import {
+  normalizeParentColorKey,
+  parentColorOptions,
+  parentProfileSlotIndex,
+  type ParentProfileSlot,
+} from "@/lib/parents/identity";
 
 type Participant = {
   id: string;
   displayName: string;
+  colorKey?: string;
+  profileSlot?: ParentProfileSlot | null;
 };
 
 type AssignmentRow = {
@@ -85,6 +93,17 @@ function choiceLabel(choice: OwnershipChoice, themName: string) {
   if (choice === "me_then_them") return `You → ${themName}`;
   if (choice === "them_then_me") return `${themName} → You`;
   return "Unassigned";
+}
+
+function participantChoiceClass(participants: Participant[], participant: Participant | null) {
+  if (!participant) return "bg-[#BFEDE6] text-[#243139] hover:bg-[#A9E4DB]";
+  const index = participants.findIndex((item) => item.id === participant.id);
+  const slotIndex = parentProfileSlotIndex(participant.profileSlot, Math.max(index, 0));
+  const key = normalizeParentColorKey(participant.colorKey, slotIndex);
+  return (
+    parentColorOptions.find((option) => option.key === key)?.buttonClass ??
+    "bg-[#BFEDE6] text-[#243139] hover:bg-[#A9E4DB]"
+  );
 }
 
 function participantLabel(
@@ -491,31 +510,31 @@ export function DayDetailsPanel({
     }
   }
 
-  const choices: Array<{ value: OwnershipChoice; label: string }> = me
+  const choices: Array<{ value: OwnershipChoice; label: string; className: string }> = me
     ? them
       ? [
-          { value: "me_full", label: "Full day you" },
-          { value: "them_full", label: `Full day ${them.displayName}` },
-          { value: "me_then_them", label: `You → ${them.displayName}` },
-          { value: "them_then_me", label: `${them.displayName} → You` },
-          { value: "unassigned", label: "Unassigned" },
+          { value: "me_full", label: "Full day you", className: participantChoiceClass(participants, me) },
+          { value: "them_full", label: `Full day ${them.displayName}`, className: participantChoiceClass(participants, them) },
+          { value: "me_then_them", label: `You → ${them.displayName}`, className: "bg-[#FFD0CB] text-[#243139] hover:bg-[#FFC0B9]" },
+          { value: "them_then_me", label: `${them.displayName} → You`, className: "bg-[#DDD3FA] text-[#243139] hover:bg-[#CEC1F6]" },
+          { value: "unassigned", label: "Unassigned", className: "bg-[#F7DC86] text-[#243139] hover:bg-[#F2D16B]" },
         ]
       : [
-          { value: "me_full", label: "Full day you" },
-          { value: "unassigned", label: "Unassigned" },
+          { value: "me_full", label: "Full day you", className: participantChoiceClass(participants, me) },
+          { value: "unassigned", label: "Unassigned", className: "bg-[#F7DC86] text-[#243139] hover:bg-[#F2D16B]" },
         ]
-    : [{ value: "unassigned", label: "Unassigned" }];
+    : [{ value: "unassigned", label: "Unassigned", className: "bg-[#F7DC86] text-[#243139] hover:bg-[#F2D16B]" }];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 sm:items-center sm:p-4">
-      <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="day-details-title" aria-describedby={error ? "day-details-error" : undefined} aria-busy={submitting || Boolean(deletingEventId)} tabIndex={-1} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#243139]/35 sm:items-center sm:p-4">
+      <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="day-details-title" aria-describedby={error ? "day-details-error" : undefined} aria-busy={submitting || Boolean(deletingEventId)} tabIndex={-1} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl border-2 border-[#243139] bg-white p-5 shadow-[7px_7px_0_#765ED6] sm:rounded-3xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 id="day-details-title" className="text-2xl font-semibold text-slate-900">
               {new Intl.DateTimeFormat("en-NZ", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`))}
             </h2>
           </div>
-          <button ref={closeButtonRef} type="button" aria-label="Close day details" disabled={submitting || Boolean(deletingEventId)} onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50"><X className="h-5 w-5" aria-hidden="true" /></button>
+          <button ref={closeButtonRef} type="button" aria-label="Close day details" disabled={submitting || Boolean(deletingEventId)} onClick={onClose} className="covie-icon-button flex h-10 w-10 shrink-0 items-center justify-center rounded-xl disabled:opacity-50"><X className="h-5 w-5" aria-hidden="true" /></button>
         </div>
 
         <div className="mt-5 border-b border-slate-200 pb-5">
@@ -667,7 +686,7 @@ export function DayDetailsPanel({
             <p className="mt-1 text-xs text-slate-500">Choose the complete day state in one tap.</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2" role="group" aria-label="Custody state">
               {choices.map((item) => (
-                <button key={item.value} type="button" aria-pressed={choice === item.value} onClick={() => { setChoice(item.value); setError(null); }} disabled={submitting} className={`min-h-12 rounded-xl border px-3 text-sm font-semibold transition ${choice === item.value ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>{item.label}</button>
+                <button key={item.value} type="button" aria-pressed={choice === item.value} onClick={() => { setChoice(item.value); setError(null); }} disabled={submitting} className={`min-h-12 rounded-xl border px-3 text-sm font-semibold transition ${item.className} ${choice === item.value ? "border-[#243139] ring-2 ring-[#243139] ring-offset-2" : "border-transparent"}`}>{item.label}</button>
               ))}
             </div>
           </div>
@@ -704,8 +723,8 @@ export function DayDetailsPanel({
         <DayExpenses date={date} readOnly={readOnly} />
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" disabled={submitting} onClick={onClose} className="min-h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Close</button>
-          {!readOnly ? <button type="button" disabled={submitting || Boolean(deletingEventId) || choice === "mixed" || !selectedOwnership} onClick={() => void save()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">{submitting ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}Save day</button> : null}
+          <button type="button" disabled={submitting} onClick={onClose} className="covie-action-secondary min-h-12 rounded-xl px-4 text-sm disabled:opacity-50">Close</button>
+          {!readOnly ? <button type="button" disabled={submitting || Boolean(deletingEventId) || choice === "mixed" || !selectedOwnership} onClick={() => void save()} className="covie-primary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm disabled:opacity-50">{submitting ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}Save day</button> : null}
         </div>
       </section>
     </div>
