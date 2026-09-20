@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import {
   ApprovalEngineError,
   createApprovalProposal,
@@ -10,6 +10,7 @@ import {
   sharedApprovalTargetForSession,
 } from "@/lib/approvals/http";
 import type { CalendarApprovalPermission } from "@/lib/approvals/types";
+import { localDateInTimeZone } from "@/lib/calendar/time";
 import { getDb, getSql } from "@/lib/db";
 import {
   children,
@@ -31,6 +32,7 @@ import {
 
 export type ExpenseReadSession = {
   calendarId: string;
+  calendarTimezone: string;
   membershipId: string;
   participantId: string | null;
   permission: CalendarApprovalPermission;
@@ -128,6 +130,14 @@ export async function listExpenses(input: {
   const conditions = [eq(expenses.calendarId, session.calendarId)];
   if (date) {
     conditions.push(or(eq(expenses.expenseDate, date), eq(expenses.dueDate, date))!);
+  } else {
+    const today = localDateInTimeZone(session.calendarTimezone);
+    conditions.push(
+      or(
+        isNull(expenses.seriesOccurrenceDate),
+        lte(expenses.seriesOccurrenceDate, today),
+      )!,
+    );
   }
 
   const [expenseRows, parentRows, childRows, pending] = await Promise.all([
