@@ -694,6 +694,8 @@ export function ExpensesShell({
             {data?.pendingProposals.map((proposal) => {
               const previous = proposalExpense(proposal.previousState);
               const proposed = proposalExpense(proposal.proposedState);
+              const previousRecurrence = proposalRecurrence(proposal.previousState);
+              const proposedRecurrence = proposalRecurrence(proposal.proposedState);
               const title =
                 proposal.action === "create"
                   ? "New shared cost"
@@ -711,12 +713,12 @@ export function ExpensesShell({
                   agreedSummary={
                     proposal.action === "create"
                       ? "No agreed shared cost yet."
-                      : proposalSummary(previous, participants)
+                      : proposalSummary(previous, participants, previousRecurrence)
                   }
                   proposedSummary={
                     proposal.action === "delete"
                       ? "Remove this shared cost."
-                      : proposalSummary(proposed, participants)
+                      : proposalSummary(proposed, participants, proposedRecurrence)
                   }
                   actions={
                     <ProposalActions
