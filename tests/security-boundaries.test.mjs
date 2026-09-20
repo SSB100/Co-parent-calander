@@ -187,10 +187,13 @@ test("runtime database access prefers a restricted credential while migrations k
 });
 
 test("the public root explains Covie and keeps authenticated workspace data private", async () => {
-  const home = await source("app/page.tsx");
+  const [home, chrome] = await Promise.all([
+    source("app/page.tsx"),
+    source("components/marketing/public-chrome.tsx"),
+  ]);
 
-  assert.match(home, /\/auth\/sign-in/);
-  assert.match(home, /\/auth\/sign-up/);
+  assert.match(chrome, /\/auth\/sign-in/);
+  assert.match(home + chrome, /\/auth\/sign-up/);
   assert.match(home, /Life between two homes, made simpler/);
   assert.match(home, /Create or join/);
   assert.match(home, /The same screens you will actually use/);
