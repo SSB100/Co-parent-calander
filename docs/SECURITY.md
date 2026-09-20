@@ -9,7 +9,7 @@ This document records the security controls Covie relies on in production. It is
 - Email verification is required for new email/password accounts.
 - Accounts that already had active Covie calendar access when verification was enabled were grandfathered to avoid an accidental lockout.
 - Authentication cookies are signed with a server-only secret and use SameSite protection.
-- Auth redirect origins should remain limited to stable production/main domains. Remove one-off deployment URLs after production deployments if the integration adds them automatically.
+- Auth redirect origins stay limited to Covie-controlled production/main hosts. The active Vercel production deployment hostname may also be temporarily trusted; production requests to generated deployment hosts are redirected to the stable production URL before auth runs. Do not remove the currently active deployment origin until the canonical redirect is live.
 
 ## Authorization
 
