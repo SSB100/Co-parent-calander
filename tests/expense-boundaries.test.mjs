@@ -82,6 +82,48 @@ test("each parent can append and total only their own Shared Costs payments", as
   assert.match(schema, /expense_share_payments_amount_positive/);
 });
 
+test("recurring Shared Costs create approved series and idempotent normal occurrences", async () => {
+  const [contracts, service, recurrence, apply, worker] = await Promise.all([
+    source("lib/expenses/contracts.ts"),
+    source("lib/expenses/service.ts"),
+    source("lib/expenses/recurrence.ts"),
+    source("lib/approvals/expense-apply.ts"),
+    source("app/api/google-calendar/worker/route.ts"),
+  ]);
+
+  assert.match(contracts, /expenseRecurrenceSchema/);
+  assert.match(contracts, /recurrenceEndDate|recurrence/);
+  assert.match(service, /createRecurringExpenseSeries/);
+  assert.match(service, /proposalExpenseState\(id, details, recurrence\)/);
+  assert.match(recurrence, /weekly/);
+  assert.match(recurrence, /fortnightly/);
+  assert.match(recurrence, /monthly/);
+  assert.match(recurrence, /yearly/);
+  assert.match(recurrence, /ON CONFLICT \("series_id", "series_occurrence_date"\)/);
+  assert.match(recurrence, /initialRecurringExpenseHorizon/);
+  assert.match(apply, /expense_recurring_series/);
+  assert.match(apply, /proposedRecurrence/);
+  assert.match(worker, /materializeActiveRecurringExpenses/);
+});
+
+test("Shared Costs UI exposes simple recurrence and branded payment progress", async () => {
+  const shell = await source("components/expenses/expenses-shell.tsx");
+
+  assert.match(shell, />One-off</);
+  assert.match(shell, />Weekly</);
+  assert.match(shell, />Every 2 weeks</);
+  assert.match(shell, />Monthly</);
+  assert.match(shell, />Yearly</);
+  assert.match(shell, /no end date set/);
+  assert.match(shell, /This edit changes this occurrence only/);
+  assert.match(shell, /Your payment/);
+  assert.match(shell, /bg-\[#E8F8F4\]/);
+  assert.match(shell, /bg-\[#DDD3FA\]/);
+  assert.match(shell, /bg-\[#F7DC86\]/);
+  assert.match(shell, /shadow-\[3px_3px_0_#BFEDE6\]/);
+});
+
+
 test("expense workflow remains separate from Google Calendar sync", async () => {
   const [service, apply] = await Promise.all([
     source("lib/expenses/service.ts"),
