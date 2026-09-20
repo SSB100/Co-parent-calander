@@ -217,6 +217,7 @@ export async function listExpenses(input: {
       ? pending.filter((proposal) => proposalTouchesDate(proposal, date))
       : pending).map((proposal) => ({
         ...proposal,
+        status: "waiting" as const,
         submittedAt: proposal.submittedAt?.toISOString() ?? null,
         respondedAt: proposal.respondedAt?.toISOString() ?? null,
         withdrawnAt: proposal.withdrawnAt?.toISOString() ?? null,
