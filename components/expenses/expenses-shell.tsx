@@ -176,7 +176,28 @@ function proposalExpense(value: unknown): (Expense & { shares: ExpenseShare[] })
   return record.expense as Expense & { shares: ExpenseShare[] };
 }
 
-function proposalSummary(expense: ReturnType<typeof proposalExpense>, participants: Participant[]) {
+function proposalRecurrence(value: unknown) {
+  if (!value || typeof value !== "object") return null;
+  const record = value as {
+    recurrence?: {
+      frequency?: keyof typeof recurrenceLabels;
+      endDate?: string | null;
+    } | null;
+  };
+  const frequency = record.recurrence?.frequency;
+  return frequency && frequency in recurrenceLabels
+    ? {
+        frequency,
+        endDate: record.recurrence?.endDate ?? null,
+      }
+    : null;
+}
+
+function proposalSummary(
+  expense: ReturnType<typeof proposalExpense>,
+  participants: Participant[],
+  recurrence?: ReturnType<typeof proposalRecurrence>,
+) {
   if (!expense) return "No shared cost";
   const payer = participants.find((participant) => participant.id === expense.paidByParticipantId);
   const split = expense.shares
@@ -185,7 +206,10 @@ function proposalSummary(expense: ReturnType<typeof proposalExpense>, participan
       return `${parent?.displayName ?? "Parent"} ${money(share.shareCents)}`;
     })
     .join(" · ");
-  return `${expense.title} · ${money(expense.amountCents)} · paid by ${payer?.displayName ?? "Parent"} · ${split}`;
+  const cadence = recurrence
+    ? ` · ${recurrenceLabels[recurrence.frequency]}${recurrence.endDate ? ` until ${dateLabel(recurrence.endDate)}` : ""}`
+    : "";
+  return `${expense.title} · ${money(expense.amountCents)} · paid by ${payer?.displayName ?? "Parent"} · ${split}${cadence}`;
 }
 
 function unpaidAmount(expense: Expense) {
