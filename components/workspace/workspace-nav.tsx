@@ -32,7 +32,6 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
   const [signingOut, setSigningOut] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [workspaceContext, setWorkspaceContext] = useState<ComingUpPayload | null>(null);
-  const [contextLoading, setContextLoading] = useState(false);
   const [contextError, setContextError] = useState(false);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const accountRef = useRef<HTMLDetailsElement>(null);
@@ -53,7 +52,6 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
     summaryControllerRef.current = controller;
 
     if (includeContext) {
-      setContextLoading(true);
       setContextError(false);
     }
 
@@ -89,8 +87,8 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
         setContextError(true);
       }
     } finally {
-      if (!controller.signal.aborted && includeContext) {
-        setContextLoading(false);
+      if (summaryControllerRef.current === controller) {
+        summaryControllerRef.current = null;
       }
     }
   }, []);
@@ -195,7 +193,6 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
       <div className="desktop-coming-up">
         <ComingUp
           data={workspaceContext}
-          loading={contextLoading}
           error={contextError}
         />
       </div>
@@ -223,7 +220,6 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
           <ComingUp
             variant="menu"
             data={workspaceContext}
-            loading={contextLoading}
             error={contextError}
           />
           <div className="workspace-mobile-action-divider" />
