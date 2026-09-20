@@ -419,6 +419,40 @@ main:has(.workspace-nav) { background: #fff9f2; }
 .covie-primary-action:hover {
   background: #f35f54;
 }
+.covie-action-secondary {
+  border: 1px solid #243139;
+  background: #fff9f2;
+  color: #243139;
+  font-weight: 750;
+}
+.covie-action-secondary:hover { background: #f7efe5; }
+.covie-action-teal {
+  border: 1px solid #243139;
+  background: #bfeDE6;
+  color: #243139;
+  font-weight: 800;
+}
+.covie-action-teal:hover { background: #a9e4db; }
+.covie-action-violet {
+  border: 1px solid #243139;
+  background: #ddd3fa;
+  color: #243139;
+  font-weight: 800;
+}
+.covie-action-violet:hover { background: #cec1f6; }
+.covie-action-sunshine {
+  border: 1px solid #243139;
+  background: #f7dc86;
+  color: #243139;
+  font-weight: 800;
+}
+.covie-action-sunshine:hover { background: #f2d16b; }
+.covie-icon-button {
+  border: 1px solid #e6dbcf;
+  background: #fff9f2;
+  color: #526168;
+}
+.covie-icon-button:hover { background: #f7efe5; color: #243139; }
 .covie-surface {
   border-color: #e6dbcf;
   background: #fff;
