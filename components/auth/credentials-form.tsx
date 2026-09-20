@@ -152,12 +152,12 @@ export function CredentialsForm({
               name="password"
               type="password"
               autoComplete={isSignUp ? "new-password" : "current-password"}
-              minLength={8}
+              minLength={isSignUp ? 12 : 1}
               maxLength={128}
               required
               className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
             />
-            {isSignUp ? <span className="mt-2 block text-xs text-slate-500">At least 8 characters.</span> : null}
+            {isSignUp ? <span className="mt-2 block text-xs text-slate-500">At least 12 characters.</span> : null}
           </label>
 
           {state.error ? (
