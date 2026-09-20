@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ResponsibilitiesShell } from "@/components/responsibilities/responsibilities-shell";
+import { listResponsibilities } from "@/lib/responsibilities/service";
 import { getCalendarSession } from "@/lib/security/session";
 
 export const dynamic = "force-dynamic";
@@ -21,5 +22,16 @@ export default async function ResponsibilitiesPage({
   const initialDate =
     rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : null;
 
-  return <ResponsibilitiesShell initialDate={initialDate} calendarTimezone={session.calendarTimezone} />;
+  const initialData = await listResponsibilities({
+    session,
+    date: initialDate,
+  });
+
+  return (
+    <ResponsibilitiesShell
+      initialDate={initialDate}
+      calendarTimezone={session.calendarTimezone}
+      initialData={initialData}
+    />
+  );
 }
