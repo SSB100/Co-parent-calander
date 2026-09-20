@@ -178,3 +178,25 @@ test("phone workspace actions stay useful without hiding the result of an action
   assert.match(expenses, /grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-3/);
   assert.match(responsibilities, /grid grid-cols-2 gap-2 sm:mt-5/);
 });
+
+
+test("every workspace page keeps the phone hamburger on the right and opens inward", async () => {
+  const [styles, calendar, home, organiser, expenses, responsibilities, kids] = await Promise.all([
+    source("app/globals.css"),
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/home/home-shell.tsx"),
+    source("components/workspace/organiser-shell.tsx"),
+    source("components/expenses/expenses-shell.tsx"),
+    source("components/responsibilities/responsibilities-shell.tsx"),
+    source("components/children/kids-shell.tsx"),
+  ]);
+
+  assert.match(styles, /\.workspace-actions \{[\s\S]*?align-self: flex-end;[\s\S]*?justify-content: flex-end;[\s\S]*?margin-left: auto;/);
+  assert.match(styles, /\.workspace-mobile-actions \{[\s\S]*?margin-left: auto;/);
+  assert.match(styles, /\.workspace-mobile-action-panel \{[\s\S]*?right: 0;[\s\S]*?left: auto;/);
+  assert.match(styles, /max-width: calc\(100vw - 16px\)/);
+
+  for (const page of [calendar, home, organiser, expenses, responsibilities, kids]) {
+    assert.match(page, /WorkspaceNav/);
+  }
+});
