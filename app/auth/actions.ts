@@ -16,6 +16,13 @@ function onboardingDestination(formData: FormData) {
   return invite ? `/onboarding?invite=${encodeURIComponent(invite)}` : "/onboarding";
 }
 
+function verificationDestination(formData: FormData) {
+  const invite = normalizeInviteCode(String(formData.get("invite") ?? ""));
+  const params = new URLSearchParams({ verify: "1" });
+  if (invite) params.set("invite", invite);
+  return `/auth/sign-in?${params.toString()}`;
+}
+
 export async function signInWithEmail(
   _previous: AuthActionState,
   formData: FormData,
@@ -29,7 +36,17 @@ export async function signInWithEmail(
   }
 
   const { error: signInError } = await auth.signIn.email(parsed.data);
-  if (signInError) return { error: "The email or password is incorrect." };
+  if (signInError) {
+    const status = (signInError as { status?: number }).status;
+    const message = signInError.message?.toLocaleLowerCase("en-NZ") ?? "";
+    if (status === 403 || message.includes("verif")) {
+      return {
+        error:
+          "Verify your email using the message we sent you, then sign in.",
+      };
+    }
+    return { error: "The email or password is incorrect." };
+  }
 
   const invite = normalizeInviteCode(String(formData.get("invite") ?? ""));
   redirect(invite ? onboardingDestination(formData) : "/");
@@ -62,5 +79,5 @@ export async function signUpWithEmail(
     };
   }
 
-  redirect(onboardingDestination(formData));
+  redirect(verificationDestination(formData));
 }

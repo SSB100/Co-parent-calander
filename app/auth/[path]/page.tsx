@@ -10,13 +10,19 @@ export default async function AuthPage({
   searchParams,
 }: {
   params: Promise<{ path: string }>;
-  searchParams: Promise<{ invite?: string }>;
+  searchParams: Promise<{ invite?: string; verify?: string }>;
 }) {
   const [{ path }, query] = await Promise.all([params, searchParams]);
   const inviteCode = query.invite ? normalizeInviteCode(query.invite) : "";
 
   if (path === "sign-in" || path === "sign-up") {
-    return <CredentialsForm mode={path} inviteCode={inviteCode} />;
+    return (
+      <CredentialsForm
+        mode={path}
+        inviteCode={inviteCode}
+        verificationNotice={path === "sign-in" && query.verify === "1"}
+      />
+    );
   }
 
   return (

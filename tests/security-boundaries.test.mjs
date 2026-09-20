@@ -149,12 +149,30 @@ test("email password flow uses stronger new passwords without breaking existing 
   assert.match(actions, /newPassword[\s\S]*min\(12/);
   assert.match(actions, /password:\s*newPassword/);
   assert.match(actions, /The email or password is incorrect/);
+  assert.match(actions, /Verify your email using the message we sent you/);
+  assert.match(actions, /verificationDestination/);
+  assert.match(actions, /\/auth\/sign-in\?/);
   assert.doesNotMatch(actions, /signUpError\.message/);
   assert.doesNotMatch(actions, /alreadyExists/);
   assert.match(form, /minLength=\{isSignUp \? 12 : 1\}/);
   assert.match(form, /At least 12 characters/);
+  assert.match(form, /verification email/);
 });
 
+
+test("runtime database access prefers a restricted credential while migrations keep the owner URL", async () => {
+  const [database, drizzle, env] = await Promise.all([
+    source("lib/db/index.ts"),
+    source("drizzle.config.ts"),
+    source(".env.example"),
+  ]);
+
+  assert.match(database, /process\.env\.APP_DATABASE_URL \?\? process\.env\.DATABASE_URL/);
+  assert.match(env, /APP_DATABASE_URL=/);
+  assert.match(env, /restricted Covie application role/);
+  assert.match(drizzle, /process\.env\.DATABASE_URL/);
+  assert.doesNotMatch(drizzle, /APP_DATABASE_URL/);
+});
 
 test("the public root explains Covie and keeps authenticated workspace data private", async () => {
   const home = await source("app/page.tsx");
