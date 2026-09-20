@@ -792,8 +792,8 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
       </section>
 
       {formOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 sm:items-center sm:p-4">
-          <section role="dialog" aria-modal="true" aria-labelledby="expense-form-title" className="max-h-[94vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#243139]/35 sm:items-center sm:p-4">
+          <section role="dialog" aria-modal="true" aria-labelledby="expense-form-title" className="max-h-[94vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border-2 border-[#243139] bg-white p-5 shadow-[7px_7px_0_#F4C64E] sm:rounded-3xl sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Shared expense</p>
@@ -806,7 +806,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
                 disabled={busy}
                 onClick={() => setFormOpen(false)}
                 aria-label="Close expense form"
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50"
+                className="covie-icon-button flex h-10 w-10 items-center justify-center rounded-xl disabled:opacity-50"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
@@ -912,8 +912,12 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
                     onClick={() => setForm((current) => ({ ...current, splitMode: value as ExpenseFormState["splitMode"] }))}
                     className={`min-h-11 rounded-xl border px-3 text-sm font-semibold ${
                       form.splitMode === value
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        ? value === "equal"
+                          ? "border-[#243139] bg-[#BFEDE6] text-[#243139] ring-2 ring-[#19A897]"
+                          : value === "payer_only"
+                            ? "border-[#243139] bg-[#F7DC86] text-[#243139] ring-2 ring-[#F4C64E]"
+                            : "border-[#243139] bg-[#DDD3FA] text-[#243139] ring-2 ring-[#765ED6]"
+                        : "border-[#E6DBCF] bg-[#FFF9F2] text-[#243139] hover:bg-[#F7EFE5]"
                     }`}
                   >
                     {label}
@@ -985,7 +989,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
                 type="button"
                 disabled={busy}
                 onClick={() => setFormOpen(false)}
-                className="min-h-12 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="covie-action-secondary min-h-12 rounded-xl px-4 text-sm disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -993,7 +997,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
                 type="button"
                 disabled={busy}
                 onClick={() => void saveExpense()}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                className="covie-primary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm disabled:opacity-50"
               >
                 {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                 {form.id ? "Save change" : "Add expense"}

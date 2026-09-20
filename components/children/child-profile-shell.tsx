@@ -762,8 +762,8 @@ export function ChildProfileShell({ childId }: { childId: string }) {
       </section>
 
       {profileOpen && profileForm ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 sm:items-center sm:p-4">
-          <section role="dialog" aria-modal="true" aria-labelledby="edit-child-profile-title" className="max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#243139]/35 sm:items-center sm:p-4">
+          <section role="dialog" aria-modal="true" aria-labelledby="edit-child-profile-title" className="max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-t-3xl border-2 border-[#243139] bg-white p-5 shadow-[7px_7px_0_#765ED6] sm:rounded-3xl sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Child profile</p>
@@ -774,7 +774,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
                 disabled={busy}
                 onClick={() => setProfileOpen(false)}
                 aria-label="Close child profile editor"
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50"
+                className="covie-icon-button flex h-10 w-10 items-center justify-center rounded-xl disabled:opacity-50"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
@@ -837,8 +837,8 @@ export function ChildProfileShell({ childId }: { childId: string }) {
             </div>
 
             <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
-              <button type="button" disabled={busy} onClick={() => setProfileOpen(false)} className="min-h-12 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Cancel</button>
-              <button type="button" disabled={busy} onClick={() => void saveProfile()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
+              <button type="button" disabled={busy} onClick={() => setProfileOpen(false)} className="covie-action-secondary min-h-12 rounded-xl px-4 text-sm disabled:opacity-50">Cancel</button>
+              <button type="button" disabled={busy} onClick={() => void saveProfile()} className="covie-primary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm disabled:opacity-50">
                 {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                 Save profile
               </button>
@@ -848,8 +848,8 @@ export function ChildProfileShell({ childId }: { childId: string }) {
       ) : null}
 
       {activityOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 sm:items-center sm:p-4">
-          <section role="dialog" aria-modal="true" aria-labelledby="activity-form-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#243139]/35 sm:items-center sm:p-4">
+          <section role="dialog" aria-modal="true" aria-labelledby="activity-form-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border-2 border-[#243139] bg-white p-5 shadow-[7px_7px_0_#19A897] sm:rounded-3xl sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Child activity</p>
@@ -857,7 +857,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
                   {activityForm.id ? "Edit activity" : "Add activity"}
                 </h2>
               </div>
-              <button type="button" disabled={busy} onClick={() => setActivityOpen(false)} aria-label="Close activity form" className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-50">
+              <button type="button" disabled={busy} onClick={() => setActivityOpen(false)} aria-label="Close activity form" className="covie-icon-button flex h-10 w-10 items-center justify-center rounded-xl disabled:opacity-50">
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
@@ -875,8 +875,8 @@ export function ChildProfileShell({ childId }: { childId: string }) {
             </div>
 
             <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
-              <button type="button" disabled={busy} onClick={() => setActivityOpen(false)} className="min-h-12 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Cancel</button>
-              <button type="button" disabled={busy} onClick={() => void saveActivity()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
+              <button type="button" disabled={busy} onClick={() => setActivityOpen(false)} className="covie-action-secondary min-h-12 rounded-xl px-4 text-sm disabled:opacity-50">Cancel</button>
+              <button type="button" disabled={busy} onClick={() => void saveActivity()} className="covie-primary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm disabled:opacity-50">
                 {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                 {activityForm.id ? "Save activity" : "Add activity"}
               </button>

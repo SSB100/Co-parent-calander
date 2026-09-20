@@ -146,7 +146,7 @@ export function ActivityPanel() {
         type="button"
         aria-label="Activity"
         onClick={() => void openPanel()}
-        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+        className="covie-action-sunshine inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm"
       >
         <History className="h-4 w-4" aria-hidden="true" />
         <span>Activity</span>

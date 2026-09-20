@@ -414,7 +414,7 @@ export function AttachmentPanel({
             type="button"
             disabled={busy}
             onClick={() => inputRef.current?.click()}
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            className="covie-primary-action inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-xs disabled:opacity-50"
           >
             {busy ? (
               <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />

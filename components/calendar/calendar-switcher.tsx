@@ -148,7 +148,7 @@ export function CalendarSwitcher({
 
             <button
               disabled={creating}
-              className="mt-3 min-h-10 w-full rounded-xl bg-emerald-700 px-3 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-60"
+              className="covie-action-teal mt-3 min-h-10 w-full rounded-xl px-3 text-sm disabled:opacity-60"
             >
               {creating ? "Creating…" : "Create calendar"}
             </button>
@@ -192,7 +192,7 @@ export function CalendarSwitcher({
 
             <button
               disabled={joining}
-              className="mt-3 min-h-10 w-full rounded-xl bg-violet-700 px-3 text-sm font-semibold text-white hover:bg-violet-900 disabled:opacity-60"
+              className="covie-action-violet mt-3 min-h-10 w-full rounded-xl px-3 text-sm disabled:opacity-60"
             >
               {joining ? "Joining…" : "Join calendar"}
             </button>

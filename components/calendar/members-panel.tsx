@@ -182,7 +182,7 @@ export function MembersPanel({ onChanged }: { onChanged?: () => void }) {
       <button
         type="button"
         onClick={openParentPanel}
-        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        className="covie-action-teal inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm"
       >
         <UserPlus className="h-4 w-4" aria-hidden="true" />
         Add parent
@@ -190,7 +190,7 @@ export function MembersPanel({ onChanged }: { onChanged?: () => void }) {
       <button
         type="button"
         onClick={openPanel}
-        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        className="covie-action-violet inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm"
       >
         <UsersRound className="h-4 w-4" aria-hidden="true" />
         People & access
@@ -447,7 +447,7 @@ export function MembersPanel({ onChanged }: { onChanged?: () => void }) {
                       <button
                         type="button"
                         onClick={() => void copyCode()}
-                        className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-100 px-3 text-sm font-semibold text-slate-700"
+                        className="covie-action-sunshine inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm"
                       >
                         {copied ? (
                           <Check className="h-4 w-4" aria-hidden="true" />

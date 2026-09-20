@@ -52,7 +52,7 @@ export function DayExpenses({ date, readOnly = false }: { date: string; readOnly
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="flex items-center gap-2 font-semibold text-slate-900">
-            <CircleDollarSign className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+            <CircleDollarSign className="h-4 w-4 text-[#0D7A6D]" aria-hidden="true" />
             Expenses on this day
           </p>
           <p className="mt-1 text-xs text-slate-500">
@@ -61,7 +61,7 @@ export function DayExpenses({ date, readOnly = false }: { date: string; readOnly
         </div>
         <Link
           href={`/expenses?date=${encodeURIComponent(date)}`}
-          className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="covie-action-sunshine shrink-0 rounded-xl px-3 py-2 text-xs"
         >
           {readOnly ? "View expenses" : "Add / manage"}
         </Link>

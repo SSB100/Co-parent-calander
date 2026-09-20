@@ -85,7 +85,7 @@ export function ProposalActions({
               type="button"
               disabled={Boolean(busy)}
               onClick={() => void run("accept")}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+              className="covie-action-teal inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm disabled:opacity-60"
             >
               {busy === "accept" ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -96,7 +96,7 @@ export function ProposalActions({
               type="button"
               disabled={Boolean(busy)}
               onClick={() => void run("decline")}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#243139] bg-[#FFD0CB] px-4 text-sm font-bold text-[#243139] hover:bg-[#FFC0B9] disabled:opacity-60"
             >
               {busy === "decline" ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -112,7 +112,7 @@ export function ProposalActions({
           type="button"
           disabled={Boolean(busy)}
           onClick={() => void run("withdraw")}
-          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          className="covie-action-sunshine inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm disabled:opacity-60"
         >
           {busy === "withdraw" ? (
             <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />

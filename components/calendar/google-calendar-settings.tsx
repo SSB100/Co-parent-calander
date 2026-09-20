@@ -275,11 +275,11 @@ export function GoogleCalendarSettings() {
           </p>
 
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => void save()} disabled={busy !== null} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
+            <button type="button" onClick={() => void save()} disabled={busy !== null} className="covie-primary-action inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm disabled:opacity-50">
               {busy === "save" ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <CalendarSync className="h-4 w-4" aria-hidden="true" />}
               Save sync settings
             </button>
-            <button type="button" onClick={() => void syncNow()} disabled={busy !== null || connection.status === "reconnect_required"} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+            <button type="button" onClick={() => void syncNow()} disabled={busy !== null || connection.status === "reconnect_required"} className="covie-action-teal inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm disabled:opacity-50">
               {busy === "sync" ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <RefreshCw className="h-4 w-4" aria-hidden="true" />}
               Sync now
             </button>

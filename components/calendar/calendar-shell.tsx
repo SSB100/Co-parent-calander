@@ -111,7 +111,7 @@ const mixedStyle: VisualStyle = {
   dot: "bg-slate-500",
   slot: "bg-slate-200",
   pill: "bg-slate-200 text-slate-700",
-  button: "bg-slate-100 text-slate-700 hover:bg-slate-200",
+  button: "bg-[#F7DC86] text-[#243139] hover:bg-[#F2D16B]",
 };
 
 function keyFor(day: Date) {
@@ -477,7 +477,7 @@ export function CalendarShell({
                     <>
                       <EventPanel includeRangeTools={false} onChanged={() => setRefreshKey((value) => value + 1)} />
                       <details ref={toolsMenuRef} className="relative">
-                      <summary className="covie-menu-trigger"><span><span className="hidden sm:inline">Calendar </span>Tools</span><ChevronDown size={16} aria-hidden="true" /></summary>
+                      <summary className="covie-menu-trigger covie-action-violet"><span><span className="hidden sm:inline">Calendar </span>Tools</span><ChevronDown size={16} aria-hidden="true" /></summary>
                         <div className="covie-menu covie-tool-menu">
                           <RangeAssignmentPanel onChanged={() => setRefreshKey((value) => value + 1)} />
                           <RecurringSchedulePanel onChanged={() => setRefreshKey((value) => value + 1)} />
@@ -489,7 +489,7 @@ export function CalendarShell({
                   ) : null}
                   {accessMode === "editor" || accessMode === "viewer" ? (
                     <details ref={settingsMenuRef} className="relative">
-                      <summary className="covie-menu-trigger"><span><span className="hidden sm:inline">Calendar </span>Settings</span><ChevronDown size={16} aria-hidden="true" /></summary>
+                      <summary className="covie-menu-trigger covie-action-sunshine"><span><span className="hidden sm:inline">Calendar </span>Settings</span><ChevronDown size={16} aria-hidden="true" /></summary>
                       <div className="covie-menu covie-tool-menu">
                         {calendarData?.permission === "owner" ? (
                           <MembersPanel onChanged={() => setRefreshKey((value) => value + 1)} />
@@ -528,11 +528,11 @@ export function CalendarShell({
               })}
             </div>
             {accessMode === "editor" ? (
-              <button type="button" onClick={toggleSelectionMode} aria-pressed={selectionMode} className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition ${selectionMode ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
+              <button type="button" onClick={toggleSelectionMode} aria-pressed={selectionMode} className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition ${selectionMode ? "border-[#243139] bg-[#FFD0CB] text-[#243139] ring-2 ring-[#FF6B5F]" : "border-[#E6DBCF] bg-[#FFF9F2] text-[#243139] hover:bg-[#F7EFE5]"}`}>
                 <CheckSquare2 className="h-4 w-4" aria-hidden="true" />{selectionMode ? "Cancel select" : "Select days"}
               </button>
             ) : null}
-            <button type="button" onClick={goToday} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800"><RotateCcw className="h-4 w-4" aria-hidden="true" />Today</button>
+            <button type="button" onClick={goToday} className="covie-action-teal inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm"><RotateCcw className="h-4 w-4" aria-hidden="true" />Today</button>
           </div>
         </div>
 
@@ -656,7 +656,7 @@ export function CalendarShell({
                     {format(day, "d")}
                   </span>
 
-                  {selected ? <span className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold text-white" aria-hidden="true">✓</span> : null}
+                  {selected ? <span className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full border border-[#243139] bg-[#FF6B5F] px-1.5 py-0.5 text-[9px] font-bold text-[#243139]" aria-hidden="true">✓</span> : null}
 
                   {tileEvents.length > 0 ? (
                     <div className="absolute inset-x-0 bottom-0 z-20 flex h-5 items-center gap-1 truncate bg-[#F4C64E] px-1.5 text-[8px] font-bold text-[#243139] sm:h-7 sm:px-2 sm:text-[10px]">

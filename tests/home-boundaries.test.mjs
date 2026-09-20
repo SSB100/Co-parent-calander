@@ -200,3 +200,65 @@ test("every workspace page keeps the phone hamburger on the right and opens inwa
     assert.match(page, /WorkspaceNav/);
   }
 });
+
+
+test("Covie interactive surfaces use the branded action hierarchy instead of generic black controls", async () => {
+  const [
+    styles,
+    calendar,
+    day,
+    expenses,
+    responsibilities,
+    child,
+    attachments,
+    links,
+    google,
+    undo,
+    onboarding,
+  ] = await Promise.all([
+    source("app/globals.css"),
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/calendar/day-details-panel.tsx"),
+    source("components/expenses/expenses-shell.tsx"),
+    source("components/responsibilities/responsibilities-shell.tsx"),
+    source("components/children/child-profile-shell.tsx"),
+    source("components/attachments/attachment-panel.tsx"),
+    source("components/links/linked-items-panel.tsx"),
+    source("components/calendar/google-calendar-settings.tsx"),
+    source("components/calendar/undo-bulk-button.tsx"),
+    source("components/onboarding/onboarding-shell.tsx"),
+  ]);
+
+  assert.match(styles, /\.covie-action-teal/);
+  assert.match(styles, /\.covie-action-violet/);
+  assert.match(styles, /\.covie-action-sunshine/);
+  assert.match(styles, /\.covie-action-secondary/);
+  assert.match(styles, /\.covie-icon-button/);
+
+  assert.match(day, /participantChoiceClass/);
+  assert.match(day, /#FFD0CB/);
+  assert.match(day, /#DDD3FA/);
+  assert.match(day, /#F7DC86/);
+  assert.match(day, /covie-primary-action/);
+  assert.doesNotMatch(day, /border-slate-900 bg-slate-900 text-white/);
+
+  assert.match(calendar, /covie-action-teal/);
+  assert.match(calendar, /covie-action-violet/);
+  assert.match(calendar, /covie-action-sunshine/);
+
+  for (const text of [
+    expenses,
+    responsibilities,
+    child,
+    attachments,
+    links,
+    google,
+    undo,
+    onboarding,
+  ]) {
+    assert.doesNotMatch(text, /bg-slate-(?:900|950)/);
+  }
+
+  assert.match(onboarding, /bg-\[#BFEDE6\]/);
+  assert.match(onboarding, /bg-\[#DDD3FA\]/);
+});
