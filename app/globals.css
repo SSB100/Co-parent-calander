@@ -71,13 +71,13 @@ button:disabled { cursor: not-allowed; }
 [role="grid"] { touch-action: pan-y; font-variant-numeric: tabular-nums; }
 .covie-split-forward { background: linear-gradient(to right, #527761 0 50%, #796286 50%); }
 .covie-split-reverse { background: linear-gradient(to right, #796286 0 50%, #527761 50%); }
-.covie-menu-trigger { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; cursor: pointer; border: 1px solid #7a8981; border-radius: 10px; background: #fff; font-size: 14px; font-weight: 500; list-style: none; }
+.covie-menu-trigger { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; cursor: pointer; border: 1px solid #7a8981; border-radius: 10px; background: #fff9f2; font-size: 14px; font-weight: 650; list-style: none; }
 .covie-menu-trigger::-webkit-details-marker { display: none; }
 .covie-menu { position: absolute; right: 0; z-index: 30; margin-top: 8px; width: 272px; max-width: calc(100vw - 32px); padding: 8px; border: 2px solid #243139; border-radius: 12px; background: #fff9f2; box-shadow: 6px 6px 0 #f4c64e; }
 .covie-menu-item { display: flex; align-items: center; gap: 8px; min-height: 44px; width: 100%; padding: 10px 12px; border-radius: 8px; text-align: left; font-size: 14px; }
 .covie-menu-item:hover { background: #f7efe5; }
 .covie-tool-menu { display: flex; flex-direction: column; gap: 8px; }
-.covie-tool-menu > button { min-height: 44px; justify-content: flex-start; border-color: #e6dbcf; background: #fff; }
+.covie-tool-menu > button { min-height: 44px; justify-content: flex-start; border-color: #e6dbcf; background: #fff9f2; }
 .workspace-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .workspace-mobile-actions-trigger { display: none; }
 .workspace-coming-up-menu,
@@ -546,7 +546,7 @@ main:has(.workspace-nav) { background: #fff9f2; }
   justify-content: center;
   border: 1px solid #243139;
   border-radius: 10px;
-  background: #fff;
+  background: #fff9f2;
   color: #243139;
 }
 .covie-dialog-close:hover { background: #f7efe5; }
@@ -592,7 +592,7 @@ main:has(.workspace-nav) { background: #fff9f2; }
 .covie-dialog-primary:hover { background: #f35f54; }
 .covie-dialog-secondary {
   border: 1px solid #243139;
-  background: #fff;
+  background: #fff9f2;
   color: #243139;
 }
 .covie-dialog-secondary:hover { background: #f7efe5; }
@@ -704,7 +704,7 @@ main:has(.workspace-nav) { background: #fff9f2; }
     cursor: pointer;
     border: 1px solid #243139;
     border-radius: 10px;
-    background: #fff;
+    background: #fff9f2;
     color: #243139;
     list-style: none;
   }
