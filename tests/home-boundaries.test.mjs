@@ -195,6 +195,8 @@ test("every workspace page pins Quick view to the top-right corner and opens inw
   ]);
 
   assert.match(styles, /\.covie-page-header,[\s\S]*?\.covie-calendar-header \{[\s\S]*?position: relative;/);
+  assert.match(styles, /\.covie-page-title \{[\s\S]*?max-width: calc\(100% - 50px\);/);
+  assert.doesNotMatch(styles, /padding-right: 50px;/);
   assert.match(styles, /\.workspace-actions \{[\s\S]*?width: 100%;[\s\S]*?justify-content: flex-end;/);
   assert.match(styles, /\.workspace-mobile-actions \{[\s\S]*?position: absolute;[\s\S]*?top: 0;[\s\S]*?right: 0;[\s\S]*?left: auto;/);
   assert.match(styles, /\.workspace-actions:not\(:has\(\.workspace-page-actions\)\) \{[\s\S]*?display: contents;/);
