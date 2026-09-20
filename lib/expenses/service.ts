@@ -17,7 +17,6 @@ import {
   expenses,
   participants,
 } from "@/lib/db/schema";
-import type { SettlementOperation } from "@/lib/expenses/contracts";
 import {
   assertExpenseRelations,
   defaultSettlementStatus,
@@ -184,6 +183,7 @@ export async function listExpenses(input: {
           expenseId: expenseShares.expenseId,
           participantId: expenseShares.participantId,
           shareCents: expenseShares.shareCents,
+          paidCents: expenseShares.paidCents,
           paidAt: expenseShares.paidAt,
         })
         .from(expenseShares)
@@ -193,13 +193,19 @@ export async function listExpenses(input: {
 
   const sharesByExpense = new Map<
     string,
-    Array<{ participantId: string; shareCents: number; paidAt: string | null }>
+    Array<{
+      participantId: string;
+      shareCents: number;
+      paidCents: number;
+      paidAt: string | null;
+    }>
   >();
   for (const share of shareRows) {
     const current = sharesByExpense.get(share.expenseId) ?? [];
     current.push({
       participantId: share.participantId,
       shareCents: share.shareCents,
+      paidCents: share.paidCents,
       paidAt: share.paidAt?.toISOString() ?? null,
     });
     sharesByExpense.set(share.expenseId, current);
@@ -500,9 +506,9 @@ export async function deleteExpense(input: {
 export async function updateExpenseSettlement(input: {
   session: ExpenseWriteSession;
   id: string;
-  operation: SettlementOperation;
+  paidCents: number;
 }) {
-  const { session, id, operation } = input;
+  const { session, id, paidCents } = input;
   const db = getDb();
   const [expenseRows, shareRows] = await Promise.all([
     db
@@ -522,7 +528,7 @@ export async function updateExpenseSettlement(input: {
       .select({
         participantId: expenseShares.participantId,
         shareCents: expenseShares.shareCents,
-        paidAt: expenseShares.paidAt,
+        paidCents: expenseShares.paidCents,
       })
       .from(expenseShares)
       .where(
@@ -547,29 +553,44 @@ export async function updateExpenseSettlement(input: {
   if (share.shareCents <= 0) {
     throw new ExpenseServiceError(
       409,
-      "Your share is zero, so there is no payment to confirm.",
+      "Your share is zero, so there is no payment amount to record.",
     );
   }
-
-  const nextPaid = operation === "mark_paid";
-  if (Boolean(share.paidAt) === nextPaid) {
+  if (paidCents > share.shareCents) {
+    throw new ExpenseServiceError(
+      400,
+      "The amount paid cannot be more than your share.",
+    );
+  }
+  if (paidCents === share.paidCents) {
     return {
       ok: true as const,
       settlementStatus: expense.settlementStatus,
-      paid: nextPaid,
+      paidCents,
+      shareCents: share.shareCents,
     };
   }
 
-  const paidAt = nextPaid ? new Date() : null;
+  const completedAt = paidCents >= share.shareCents ? new Date() : null;
   const sql = getSql();
 
   try {
     await sql.transaction([
       sql`
+        SELECT id
+        FROM expenses
+        WHERE id = ${id}::uuid
+          AND calendar_id = ${session.calendarId}::uuid
+        FOR UPDATE
+      `,
+      sql`
         UPDATE expense_shares
-        SET paid_at = ${paidAt}, updated_at = now()
-        WHERE expense_id = ${id}
-          AND participant_id = ${session.participantId}
+        SET
+          paid_cents = ${paidCents}::integer,
+          paid_at = ${completedAt}::timestamptz,
+          updated_at = now()
+        WHERE expense_id = ${id}::uuid
+          AND participant_id = ${session.participantId}::uuid
       `,
       sql`
         UPDATE expenses
@@ -578,9 +599,8 @@ export async function updateExpenseSettlement(input: {
             WHEN NOT EXISTS (
               SELECT 1
               FROM expense_shares share
-              WHERE share.expense_id = ${id}
-                AND share.share_cents > 0
-                AND share.paid_at IS NULL
+              WHERE share.expense_id = ${id}::uuid
+                AND share.paid_cents < share.share_cents
             ) THEN 'settled'::expense_settlement_status
             ELSE 'outstanding'::expense_settlement_status
           END,
@@ -588,16 +608,15 @@ export async function updateExpenseSettlement(input: {
             WHEN NOT EXISTS (
               SELECT 1
               FROM expense_shares share
-              WHERE share.expense_id = ${id}
-                AND share.share_cents > 0
-                AND share.paid_at IS NULL
+              WHERE share.expense_id = ${id}::uuid
+                AND share.paid_cents < share.share_cents
             ) THEN COALESCE(settled_at, now())
             ELSE NULL
           END,
           settled_by_participant_id = NULL,
           updated_at = now()
-        WHERE id = ${id}
-          AND calendar_id = ${session.calendarId}
+        WHERE id = ${id}::uuid
+          AND calendar_id = ${session.calendarId}::uuid
       `,
       sql`
         INSERT INTO audit_log (
@@ -606,29 +625,36 @@ export async function updateExpenseSettlement(input: {
         )
         SELECT
           calendar_id,
-          ${session.participantId},
+          ${session.participantId}::uuid,
           'expense.share_payment.update',
           'expense',
           id,
-          ${JSON.stringify({
-            participantId: session.participantId,
-            paid: Boolean(share.paidAt),
-            settlementStatus: expense.settlementStatus,
-          })}::jsonb,
           jsonb_build_object(
             'participantId', ${session.participantId}::text,
-            'paid', ${nextPaid},
+            'paidCents', ${share.paidCents}::integer,
+            'shareCents', ${share.shareCents}::integer,
+            'settlementStatus', ${expense.settlementStatus}::text
+          ),
+          jsonb_build_object(
+            'participantId', ${session.participantId}::text,
+            'paidCents', ${paidCents}::integer,
+            'shareCents', ${share.shareCents}::integer,
             'settlementStatus', settlement_status::text
           )
         FROM expenses
-        WHERE id = ${id}
-          AND calendar_id = ${session.calendarId}
+        WHERE id = ${id}::uuid
+          AND calendar_id = ${session.calendarId}::uuid
       `,
     ]);
-  } catch {
+  } catch (error) {
+    console.error("Shared cost payment update failed", {
+      expenseId: id,
+      participantId: session.participantId,
+      message: error instanceof Error ? error.message : "unknown database error",
+    });
     throw new ExpenseServiceError(
       409,
-      "Your payment confirmation could not be updated.",
+      "Your payment amount could not be updated.",
     );
   }
 
@@ -646,6 +672,7 @@ export async function updateExpenseSettlement(input: {
   return {
     ok: true as const,
     settlementStatus: updatedRows[0]?.settlementStatus ?? "outstanding",
-    paid: nextPaid,
+    paidCents,
+    shareCents: share.shareCents,
   };
 }
