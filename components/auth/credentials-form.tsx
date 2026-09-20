@@ -48,7 +48,9 @@ export function CredentialsForm({
 
     const callbackPath = inviteCode
       ? `/onboarding?invite=${encodeURIComponent(inviteCode)}`
-      : "/";
+      : isSignUp
+        ? "/onboarding"
+        : "/";
     const callbackURL = new URL(callbackPath, window.location.origin).toString();
 
     try {

@@ -23,6 +23,23 @@ export const expenseCategoryValues = [
 export type ExpenseCategory = (typeof expenseCategoryValues)[number];
 export type ExpenseSettlementStatus = "not_needed" | "outstanding" | "settled";
 
+export const expenseRecurrenceFrequencyValues = [
+  "weekly",
+  "fortnightly",
+  "monthly",
+  "yearly",
+] as const;
+
+export const expenseRecurrenceSchema = z.object({
+  frequency: z.enum(expenseRecurrenceFrequencyValues),
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a valid recurrence end date.")
+    .nullable(),
+});
+
+export type ExpenseRecurrence = z.infer<typeof expenseRecurrenceSchema>;
+
 const isoDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a valid date.")
@@ -73,6 +90,7 @@ export const expenseWithIdSchema = expenseDetailsSchema.safeExtend({
 export const expenseProposalStateSchema = z.object({
   kind: z.literal("expense"),
   expense: expenseWithIdSchema.nullable(),
+  recurrence: expenseRecurrenceSchema.nullable().optional(),
 });
 
 export type ExpenseDetails = z.infer<typeof expenseDetailsSchema>;

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { differenceInCalendarDays, parseISO } from "date-fns";
 import { and, eq } from "drizzle-orm";
 import { getDb, getSql } from "@/lib/db";
 import { expenses } from "@/lib/db/schema";
@@ -8,6 +10,10 @@ import {
 } from "@/lib/approvals/engine";
 import { canRespondToProposal } from "@/lib/approvals/rules";
 import type { ApprovalActor } from "@/lib/approvals/types";
+import {
+  initialRecurringExpenseHorizon,
+  materializeRecurringExpenseSeries,
+} from "@/lib/expenses/recurrence";
 import {
   assertExpenseRelations,
   defaultSettlementStatus,
@@ -159,6 +165,8 @@ export async function acceptExpenseApprovalProposal(input: {
   const proposed = expenseProposalStateSchema.safeParse(proposal.proposedState);
   const previous = expenseProposalStateSchema.safeParse(proposal.previousState);
   const proposedExpense = proposed.success ? proposed.data.expense : null;
+  const proposedRecurrence =
+    proposed.success ? proposed.data.recurrence ?? null : null;
   const previousExpense = previous.success ? previous.data.expense : null;
 
   if ((proposal.action === "create" || proposal.action === "edit") && !proposedExpense) {
@@ -210,6 +218,18 @@ export async function acceptExpenseApprovalProposal(input: {
     ? defaultSettlementStatus(proposedExpense)
     : "outstanding";
 
+  const recurringSeriesId =
+    proposal.action === "create" && proposedRecurrence
+      ? randomUUID()
+      : null;
+  const recurringDueOffsetDays =
+    proposedExpense?.dueDate && proposedRecurrence
+      ? differenceInCalendarDays(
+          parseISO(proposedExpense.dueDate),
+          parseISO(proposedExpense.expenseDate),
+        )
+      : null;
+
   const respondedAt = new Date();
   const sql = getSql();
   const marker = {
@@ -221,10 +241,66 @@ export async function acceptExpenseApprovalProposal(input: {
   const statements = [acceptanceTransitionStatement(sql, marker)];
 
   if (proposal.action === "create" && proposedExpense) {
+    if (proposedRecurrence && recurringSeriesId) {
+      statements.push(sql`
+        INSERT INTO expense_recurring_series (
+          id,
+          calendar_id,
+          child_id,
+          title,
+          category,
+          amount_cents,
+          paid_by_participant_id,
+          start_date,
+          due_offset_days,
+          frequency,
+          end_date,
+          last_generated_date,
+          note,
+          active,
+          created_by,
+          updated_at
+        )
+        SELECT
+          ${recurringSeriesId},
+          ${input.calendarId},
+          ${proposedExpense.childId},
+          ${proposedExpense.title},
+          ${proposedExpense.category},
+          ${proposedExpense.amountCents},
+          ${proposedExpense.paidByParticipantId},
+          ${proposedExpense.expenseDate},
+          ${recurringDueOffsetDays},
+          ${proposedRecurrence.frequency}::expense_recurrence_frequency,
+          ${proposedRecurrence.endDate},
+          ${proposedExpense.expenseDate},
+          ${proposedExpense.note},
+          true,
+          ${proposal.proposedByParticipantId},
+          now()
+        WHERE ${markerExists(sql, marker)}
+      `);
+      for (const share of proposedExpense.shares) {
+        statements.push(sql`
+          INSERT INTO expense_recurring_series_shares (
+            series_id,
+            participant_id,
+            share_cents
+          )
+          SELECT
+            ${recurringSeriesId},
+            ${share.participantId},
+            ${share.shareCents}
+          WHERE ${markerExists(sql, marker)}
+        `);
+      }
+    }
+
     statements.push(sql`
       INSERT INTO expenses (
         id, calendar_id, child_id, expense_date, title, category, amount_cents,
-        paid_by_participant_id, due_date, note, settlement_status, created_by, updated_at
+        paid_by_participant_id, due_date, note, series_id,
+        series_occurrence_date, settlement_status, created_by, updated_at
       )
       SELECT
         ${proposedExpense.id},
@@ -237,6 +313,8 @@ export async function acceptExpenseApprovalProposal(input: {
         ${proposedExpense.paidByParticipantId},
         ${proposedExpense.dueDate},
         ${proposedExpense.note},
+        ${recurringSeriesId},
+        ${recurringSeriesId ? proposedExpense.expenseDate : null},
         ${nextSettlementStatus}::expense_settlement_status,
         ${proposal.proposedByParticipantId},
         now()
@@ -339,6 +417,23 @@ export async function acceptExpenseApprovalProposal(input: {
       409,
       "The expense changed before this proposal could be approved.",
     );
+  }
+
+  if (recurringSeriesId && proposedExpense) {
+    try {
+      await materializeRecurringExpenseSeries({
+        seriesId: recurringSeriesId,
+        throughDate: initialRecurringExpenseHorizon(
+          proposedExpense.expenseDate,
+        ),
+      });
+    } catch (error) {
+      console.error("Recurring Shared Costs materialization failed after approval", {
+        proposalId: proposal.id,
+        seriesId: recurringSeriesId,
+        message: error instanceof Error ? error.message : "unknown error",
+      });
+    }
   }
 
   return {

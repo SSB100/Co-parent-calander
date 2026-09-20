@@ -16,6 +16,7 @@ import {
 import {
   CheckCircle2,
   CheckSquare2,
+  CircleDollarSign,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -132,6 +133,11 @@ export type CalendarPayload = {
     count: number;
     incompleteCount: number;
     pendingCount: number;
+  }>;
+  expenseMarkers: Array<{
+    date: string;
+    count: number;
+    outstandingCount: number;
   }>;
   recurringScheduleActive: boolean;
   nextHandover: HandoverSummary | null;
@@ -822,6 +828,17 @@ export function CalendarShell({
     return map;
   }, [calendarData]);
 
+  const expenseByDate = useMemo(() => {
+    const map: Record<
+      string,
+      { date: string; count: number; outstandingCount: number }
+    > = {};
+    for (const marker of calendarData?.expenseMarkers ?? []) {
+      map[marker.date] = marker;
+    }
+    return map;
+  }, [calendarData]);
+
   const today = parseISO(initialToday);
   const currentEditor = calendarData?.participants.find((participant) => participant.id === calendarData.currentParticipantId);
 
@@ -1184,6 +1201,7 @@ export function CalendarShell({
               const dayEvents = eventsByDate[key] ?? [];
               const dayPending = pendingByDate[key] ?? [];
               const responsibilityMarker = responsibilityByDate[key];
+              const expenseMarker = expenseByDate[key];
               const morningStyle = ownerStyle(assignment?.morning);
               const afternoonStyle = ownerStyle(assignment?.afternoon);
               const fullDayOwner = assignment?.morning && assignment.morning === assignment.afternoon ? assignment.morning : null;
@@ -1207,7 +1225,7 @@ export function CalendarShell({
                   disabled={saving}
                   aria-selected={selected}
                   aria-current={isToday ? "date" : undefined}
-                  aria-label={`${format(day, "EEEE d MMMM")}, ${assignmentLabel(assignment)}${tileEvents.length ? `, ${tileEvents.length} event${tileEvents.length === 1 ? "" : "s"}` : ""}${responsibilityMarker?.count ? `, ${responsibilityMarker.count} responsibilit${responsibilityMarker.count === 1 ? "y" : "ies"}` : ""}${responsibilityMarker?.pendingCount ? `, ${responsibilityMarker.pendingCount} pending responsibility change${responsibilityMarker.pendingCount === 1 ? "" : "s"}` : ""}${dayPending.length ? `, ${dayPending.length} pending calendar change${dayPending.length === 1 ? "" : "s"}` : ""}`}
+                  aria-label={`${format(day, "EEEE d MMMM")}, ${assignmentLabel(assignment)}${tileEvents.length ? `, ${tileEvents.length} event${tileEvents.length === 1 ? "" : "s"}` : ""}${responsibilityMarker?.count ? `, ${responsibilityMarker.count} responsibilit${responsibilityMarker.count === 1 ? "y" : "ies"}` : ""}${expenseMarker?.count ? `, ${expenseMarker.count} shared cost${expenseMarker.count === 1 ? "" : "s"}` : ""}${responsibilityMarker?.pendingCount ? `, ${responsibilityMarker.pendingCount} pending responsibility change${responsibilityMarker.pendingCount === 1 ? "" : "s"}` : ""}${dayPending.length ? `, ${dayPending.length} pending calendar change${dayPending.length === 1 ? "" : "s"}` : ""}`}
                   onClick={() => handleDayClick(day)}
                   className={`relative h-full min-h-0 overflow-hidden rounded-lg border bg-white p-1 text-left transition sm:rounded-xl ${inMonth ? "border-slate-200 hover:ring-1 hover:ring-slate-300" : "border-slate-300"} ${selected ? "ring-2 ring-blue-500 ring-offset-1" : ""} ${selectionMode ? "cursor-pointer" : ""}`}
                 >
@@ -1253,7 +1271,8 @@ export function CalendarShell({
                   {(marker ||
                     dayPending.length > 0 ||
                     responsibilityMarker?.count ||
-                    responsibilityMarker?.pendingCount) ? (
+                    responsibilityMarker?.pendingCount ||
+                    expenseMarker?.count) ? (
                     <div className={`absolute right-1 z-10 flex items-center gap-1 rounded-full bg-white px-1 text-slate-500 ${tileEvents.length ? "bottom-6 sm:bottom-8" : "bottom-1 sm:bottom-2"}`}>
                       {dayPending.length > 0 ? (
                         <Hourglass
@@ -1275,9 +1294,24 @@ export function CalendarShell({
                           }
                         />
                       ) : null}
+                      {expenseMarker?.count ? (
+                        <CircleDollarSign
+                          className={`h-3.5 w-3.5 ${
+                            expenseMarker.outstandingCount > 0
+                              ? "text-[#D94D43]"
+                              : "text-[#0D7A6D]"
+                          }`}
+                          aria-label={
+                            expenseMarker.outstandingCount > 0
+                              ? "Shared cost outstanding"
+                              : "Shared cost"
+                          }
+                        />
+                      ) : null}
                       {(dayPending.length > 0 ? 1 : 0) +
-                        (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) <
-                      2 ? (
+                        (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) +
+                        (expenseMarker?.count ? 1 : 0) <
+                      3 ? (
                         marker?.handover ? (
                           <Clock3 className="hidden h-3.5 w-3.5 sm:block" aria-label="Handover" />
                         ) : marker?.note ? (
@@ -1286,10 +1320,27 @@ export function CalendarShell({
                       ) : null}
                       {(dayPending.length > 0 ? 1 : 0) +
                         (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) +
+                        (expenseMarker?.count ? 1 : 0) +
                         (marker?.handover || marker?.note ? 1 : 0) >
-                      2 ? (
-                        <span className="text-[9px] font-bold text-slate-500" aria-label="One more detail">
-                          +1
+                      3 ? (
+                        <span
+                          className="text-[9px] font-bold text-slate-500"
+                          aria-label={
+                            (dayPending.length > 0 ? 1 : 0) +
+                              (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) +
+                              (expenseMarker?.count ? 1 : 0) +
+                              (marker?.handover || marker?.note ? 1 : 0) -
+                              3 ===
+                            1
+                              ? "One more detail"
+                              : "More details"
+                          }
+                        >
+                          +{(dayPending.length > 0 ? 1 : 0) +
+                            (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) +
+                            (expenseMarker?.count ? 1 : 0) +
+                            (marker?.handover || marker?.note ? 1 : 0) -
+                            3}
                         </span>
                       ) : null}
                     </div>

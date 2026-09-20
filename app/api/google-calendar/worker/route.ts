@@ -4,6 +4,7 @@ import {
   enqueuePeriodicGoogleReconciliations,
   processDueGoogleSyncJobs,
 } from "@/lib/google-calendar/queue";
+import { materializeActiveRecurringExpenses } from "@/lib/expenses/recurrence";
 import { runRetentionMaintenance } from "@/lib/retention/service";
 
 function authorized(request: Request) {
@@ -25,8 +26,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const retention = await runRetentionMaintenance();
+  const [retention, recurringSharedCosts] = await Promise.all([
+    runRetentionMaintenance(),
+    materializeActiveRecurringExpenses({ monthsAhead: 12 }),
+  ]);
   await enqueuePeriodicGoogleReconciliations();
   const googleCalendar = await processDueGoogleSyncJobs({ limit: 20 });
-  return NextResponse.json({ ok: true, retention, googleCalendar });
+  return NextResponse.json({
+    ok: true,
+    retention,
+    recurringSharedCosts,
+    googleCalendar,
+  });
 }

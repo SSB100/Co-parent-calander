@@ -76,9 +76,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { reason, ...details } = parsed.data;
+  const { reason, recurrence, ...details } = parsed.data;
   try {
-    const result = await createExpense({ session, details, reason });
+    const result = await createExpense({
+      session,
+      details,
+      reason,
+      recurrence,
+    });
     return NextResponse.json(result, { status: result.pending ? 202 : 200 });
   } catch (error) {
     return expenseServiceError(error);

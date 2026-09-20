@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
   ReceiptText,
+  Repeat2,
   Trash2,
   X,
 } from "lucide-react";
@@ -58,6 +59,9 @@ type Expense = {
   paidByParticipantId: string;
   dueDate: string | null;
   note: string | null;
+  seriesId: string | null;
+  seriesOccurrenceDate: string | null;
+  recurrenceFrequency: "weekly" | "fortnightly" | "monthly" | "yearly" | null;
   settlementStatus: "not_needed" | "outstanding" | "settled";
   settledAt: string | null;
   settledByParticipantId: string | null;
@@ -99,6 +103,8 @@ type ExpenseFormState = {
   dueDate: string;
   note: string;
   reason: string;
+  recurrenceFrequency: "none" | "weekly" | "fortnightly" | "monthly" | "yearly";
+  recurrenceEndDate: string;
   splitMode: "equal" | "payer_only" | "custom";
   customShares: Record<string, string>;
 };
@@ -114,6 +120,13 @@ const categoryLabels: Record<Expense["category"], string> = {
   essentials: "Essentials",
   other: "Other",
 };
+
+const recurrenceLabels = {
+  weekly: "Weekly",
+  fortnightly: "Every 2 weeks",
+  monthly: "Monthly",
+  yearly: "Yearly",
+} as const;
 
 const currency = new Intl.NumberFormat("en-NZ", {
   style: "currency",
@@ -163,7 +176,28 @@ function proposalExpense(value: unknown): (Expense & { shares: ExpenseShare[] })
   return record.expense as Expense & { shares: ExpenseShare[] };
 }
 
-function proposalSummary(expense: ReturnType<typeof proposalExpense>, participants: Participant[]) {
+function proposalRecurrence(value: unknown) {
+  if (!value || typeof value !== "object") return null;
+  const record = value as {
+    recurrence?: {
+      frequency?: keyof typeof recurrenceLabels;
+      endDate?: string | null;
+    } | null;
+  };
+  const frequency = record.recurrence?.frequency;
+  return frequency && frequency in recurrenceLabels
+    ? {
+        frequency,
+        endDate: record.recurrence?.endDate ?? null,
+      }
+    : null;
+}
+
+function proposalSummary(
+  expense: ReturnType<typeof proposalExpense>,
+  participants: Participant[],
+  recurrence?: ReturnType<typeof proposalRecurrence>,
+) {
   if (!expense) return "No shared cost";
   const payer = participants.find((participant) => participant.id === expense.paidByParticipantId);
   const split = expense.shares
@@ -172,7 +206,10 @@ function proposalSummary(expense: ReturnType<typeof proposalExpense>, participan
       return `${parent?.displayName ?? "Parent"} ${money(share.shareCents)}`;
     })
     .join(" · ");
-  return `${expense.title} · ${money(expense.amountCents)} · paid by ${payer?.displayName ?? "Parent"} · ${split}`;
+  const cadence = recurrence
+    ? ` · ${recurrenceLabels[recurrence.frequency]}${recurrence.endDate ? ` until ${dateLabel(recurrence.endDate)}` : ""}`
+    : "";
+  return `${expense.title} · ${money(expense.amountCents)} · paid by ${payer?.displayName ?? "Parent"} · ${split}${cadence}`;
 }
 
 function unpaidAmount(expense: Expense) {
@@ -194,6 +231,8 @@ function blankForm(initialDate: string | null, participantId: string | null, tim
     dueDate: "",
     note: "",
     reason: "",
+    recurrenceFrequency: "none",
+    recurrenceEndDate: "",
     splitMode: "equal",
     customShares: {},
   };
@@ -293,16 +332,28 @@ export function ExpensesShell({
   const participants = data?.participants ?? [];
   const children = data?.children ?? [];
   const editable = data?.permission === "owner" || data?.permission === "editor";
+  const today = localDateInTimeZone(calendarTimezone);
 
   const filteredExpenses = useMemo(() => {
     const rows = data?.expenses ?? [];
     return statusFilter === "current"
-      ? rows.filter((expense) => expense.settlementStatus === "outstanding")
+      ? rows.filter(
+          (expense) =>
+            expense.settlementStatus === "outstanding" &&
+            (Boolean(dateFilter) ||
+              !expense.seriesOccurrenceDate ||
+              expense.seriesOccurrenceDate <= today),
+        )
       : rows.filter((expense) => expense.settlementStatus !== "outstanding");
-  }, [data?.expenses, statusFilter]);
+  }, [data?.expenses, dateFilter, statusFilter, today]);
 
   const summary = useMemo(() => {
-    const rows = data?.expenses ?? [];
+    const rows = (data?.expenses ?? []).filter(
+      (expense) =>
+        Boolean(dateFilter) ||
+        !expense.seriesOccurrenceDate ||
+        expense.seriesOccurrenceDate <= today,
+    );
     return {
       recorded: rows.reduce((sum, expense) => sum + expense.amountCents, 0),
       outstanding: rows
@@ -310,7 +361,7 @@ export function ExpensesShell({
         .reduce((sum, expense) => sum + unpaidAmount(expense), 0),
       archived: rows.filter((expense) => expense.settlementStatus !== "outstanding").length,
     };
-  }, [data?.expenses]);
+  }, [data?.expenses, dateFilter, today]);
 
   function openCreate() {
     const participantId = data?.currentParticipantId ?? participants[0]?.id ?? "";
@@ -342,6 +393,8 @@ export function ExpensesShell({
       dueDate: expense.dueDate ?? "",
       note: expense.note ?? "",
       reason: "",
+      recurrenceFrequency: "none",
+      recurrenceEndDate: "",
       splitMode: payerOnly ? "payer_only" : equal ? "equal" : "custom",
       customShares: Object.fromEntries(
         expense.shares.map((share) => [share.participantId, centsInput(share.shareCents)]),
@@ -429,6 +482,17 @@ export function ExpensesShell({
         note: form.note.trim() || null,
         shares,
         reason: form.reason.trim() || null,
+        ...(!form.id
+          ? {
+              recurrence:
+                form.recurrenceFrequency === "none"
+                  ? null
+                  : {
+                      frequency: form.recurrenceFrequency,
+                      endDate: form.recurrenceEndDate || null,
+                    },
+            }
+          : {}),
       };
       const response = await fetch("/api/expenses", {
         method: form.id ? "PATCH" : "POST",
@@ -642,6 +706,8 @@ export function ExpensesShell({
             {data?.pendingProposals.map((proposal) => {
               const previous = proposalExpense(proposal.previousState);
               const proposed = proposalExpense(proposal.proposedState);
+              const previousRecurrence = proposalRecurrence(proposal.previousState);
+              const proposedRecurrence = proposalRecurrence(proposal.proposedState);
               const title =
                 proposal.action === "create"
                   ? "New shared cost"
@@ -659,12 +725,12 @@ export function ExpensesShell({
                   agreedSummary={
                     proposal.action === "create"
                       ? "No agreed shared cost yet."
-                      : proposalSummary(previous, participants)
+                      : proposalSummary(previous, participants, previousRecurrence)
                   }
                   proposedSummary={
                     proposal.action === "delete"
                       ? "Remove this shared cost."
-                      : proposalSummary(proposed, participants)
+                      : proposalSummary(proposed, participants, proposedRecurrence)
                   }
                   actions={
                     <ProposalActions
@@ -735,16 +801,22 @@ export function ExpensesShell({
               );
               const child = children.find((item) => item.id === expense.childId);
               return (
-                <article key={expense.id} id={`record-${expense.id}`} tabIndex={-1} className="rounded-2xl border border-[#E6DBCF] bg-white p-4 shadow-[4px_4px_0_#24313910] sm:p-5">
+                <article key={expense.id} id={`record-${expense.id}`} tabIndex={-1} className="rounded-[22px] border-2 border-[#243139] bg-[#FFFDF9] p-4 shadow-[5px_5px_0_#E9DED2] sm:p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                        <span className="rounded-full border border-[#243139] bg-[#F7DC86] px-2.5 py-1 text-[11px] font-bold text-[#5F4709]">
                           {categoryLabels[expense.category]}
                         </span>
                         {child ? (
-                          <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
+                          <span className="rounded-full border border-[#19A897] bg-[#BFEDE6] px-2.5 py-1 text-[11px] font-bold text-[#0B665C]">
                             {child.displayName}
+                          </span>
+                        ) : null}
+                        {expense.recurrenceFrequency ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-[#765ED6] bg-[#DDD3FA] px-2.5 py-1 text-[11px] font-bold text-[#544394]">
+                            <Repeat2 className="h-3 w-3" aria-hidden="true" />
+                            {recurrenceLabels[expense.recurrenceFrequency]}
                           </span>
                         ) : null}
                       </div>
@@ -768,7 +840,11 @@ export function ExpensesShell({
                       return (
                         <span
                           key={share.participantId}
-                          className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700"
+                          className={`rounded-xl border px-3 py-2 text-xs font-bold ${
+                            share.participantId === data.currentParticipantId
+                              ? "border-[#19A897] bg-[#E8F8F4] text-[#0B665C]"
+                              : "border-[#C9BDF1] bg-[#F1ECFD] text-[#544394]"
+                          }`}
                         >
                           {parent?.displayName ?? "Parent"} · {status}
                         </span>
@@ -776,13 +852,17 @@ export function ExpensesShell({
                     })}
                   </div>
 
-                  <div className="mt-4 rounded-xl bg-slate-50 px-3 py-3 text-sm">
+                  <div className={`mt-4 rounded-xl border-2 px-3 py-3 text-sm ${
+                    expense.settlementStatus === "settled"
+                      ? "border-[#19A897] bg-[#E8F8F4]"
+                      : "border-[#F4C64E] bg-[#FFF9DF]"
+                  }`}>
                     {expense.settlementStatus === "settled" ? (
-                      <p className="flex items-center gap-2 font-semibold text-emerald-700">
+                      <p className="flex items-center gap-2 font-bold text-[#0B665C]">
                         <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> All shares paid in full
                       </p>
                     ) : (
-                      <p className="flex items-center gap-2 font-semibold text-amber-700">
+                      <p className="flex items-center gap-2 font-bold text-[#6E5411]">
                         <Clock3 className="h-4 w-4" aria-hidden="true" /> {money(unpaidAmount(expense))} still unpaid
                       </p>
                     )}
@@ -810,12 +890,12 @@ export function ExpensesShell({
                   </div>
 
                   {editable ? (
-                    <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                    <div className="mt-4 flex flex-wrap gap-2 border-t-2 border-[#E9DED2] pt-4">
                       <button
                         type="button"
                         disabled={busy}
                         onClick={() => openEdit(expense)}
-                        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                        className="covie-action-secondary inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs disabled:opacity-50"
                       >
                         <Pencil className="h-3.5 w-3.5" aria-hidden="true" /> Edit
                       </button>
@@ -827,12 +907,31 @@ export function ExpensesShell({
                         if (myShare.paidCents >= myShare.shareCents) return null;
                         const value = paymentAmounts[expense.id] ?? "";
                         return (
-                          <div className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 sm:max-w-sm">
-                            <label className="block text-xs font-semibold text-slate-700">
-                              Add payment
-                            </label>
+                          <div className="w-full rounded-2xl border-2 border-[#19A897] bg-[#E8F8F4] p-3 shadow-[3px_3px_0_#BFEDE6] sm:max-w-sm">
+                            <div className="flex items-center justify-between gap-3">
+                              <label className="text-xs font-black uppercase tracking-[0.08em] text-[#0B665C]">
+                                Your payment
+                              </label>
+                              <span className="text-xs font-bold text-[#243139]">
+                                {money(myShare.paidCents)} / {money(myShare.shareCents)}
+                              </span>
+                            </div>
+                            <div className="mt-2 h-2 overflow-hidden rounded-full border border-[#74C9BD] bg-white">
+                              <div
+                                className="h-full bg-[#19A897]"
+                                style={{
+                                  width: `${Math.min(
+                                    100,
+                                    Math.round(
+                                      (myShare.paidCents / myShare.shareCents) * 100,
+                                    ),
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                            <p className="mt-3 text-xs font-bold text-[#243139]">Add payment</p>
                             <div className="mt-2 flex items-center gap-2">
-                              <div className="flex min-h-10 min-w-0 flex-1 items-center rounded-xl border border-slate-300 bg-white px-3">
+                              <div className="flex min-h-10 min-w-0 flex-1 items-center rounded-xl border-2 border-[#9FD7CE] bg-white px-3 focus-within:border-[#19A897]">
                                 <span className="mr-2 text-xs text-slate-500">NZ$</span>
                                 <input
                                   inputMode="decimal"
@@ -844,7 +943,7 @@ export function ExpensesShell({
                                     }))
                                   }
                                   aria-label="Add a payment toward your share"
-                                  className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none"
+                                  className="min-w-0 flex-1 border-0 bg-transparent text-sm font-semibold text-[#243139] outline-none"
                                 />
                               </div>
                               <button
@@ -857,7 +956,7 @@ export function ExpensesShell({
                                 Add
                               </button>
                             </div>
-                            <p className="mt-2 text-[11px] text-slate-500">
+                            <p className="mt-2 text-[11px] font-medium text-[#43535A]">
                               Paid {money(myShare.paidCents)} of {money(myShare.shareCents)}. Add another payment of up to {money(Math.max(0, myShare.shareCents - myShare.paidCents))}.
                             </p>
                           </div>
@@ -867,7 +966,7 @@ export function ExpensesShell({
                         type="button"
                         disabled={busy}
                         onClick={() => void deleteExpense(expense)}
-                        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-rose-200 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                        className="inline-flex min-h-10 items-center gap-2 rounded-xl border-2 border-[#FFB5AE] bg-[#FFF3F1] px-3 text-xs font-bold text-[#A73E36] hover:bg-[#FFE6E2] disabled:opacity-50"
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Remove
                       </button>
@@ -986,6 +1085,81 @@ export function ExpensesShell({
                 />
               </label>
             </div>
+
+            {!form.id ? (
+              <section className="mt-5 rounded-2xl border-2 border-[#765ED6] bg-[#F6F2FF] p-4 shadow-[3px_3px_0_#DDD3FA]">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#765ED6] bg-white text-[#6651B7]">
+                    <Repeat2 className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-black text-[#243139]">Does this repeat?</p>
+                    <p className="mt-1 text-xs leading-5 text-[#5B6670]">
+                      Each occurrence becomes its own Shared Cost with separate payment progress.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label>
+                    <span className="text-xs font-bold text-[#544394]">Frequency</span>
+                    <select
+                      value={form.recurrenceFrequency}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          recurrenceFrequency:
+                            event.target.value as ExpenseFormState["recurrenceFrequency"],
+                        }))
+                      }
+                      className="mt-1 min-h-11 w-full rounded-xl border-2 border-[#C9BDF1] bg-white px-3 text-sm font-semibold text-[#243139] outline-none focus:border-[#765ED6]"
+                    >
+                      <option value="none">One-off</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="fortnightly">Every 2 weeks</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="yearly">Yearly</option>
+                    </select>
+                  </label>
+
+                  {form.recurrenceFrequency !== "none" ? (
+                    <label>
+                      <span className="text-xs font-bold text-[#544394]">
+                        Ends <span className="font-medium text-[#7B728F]">(optional)</span>
+                      </span>
+                      <input
+                        type="date"
+                        min={form.expenseDate}
+                        value={form.recurrenceEndDate}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            recurrenceEndDate: event.target.value,
+                          }))
+                        }
+                        className="mt-1 min-h-11 w-full rounded-xl border-2 border-[#C9BDF1] bg-white px-3 text-sm font-semibold text-[#243139] outline-none focus:border-[#765ED6]"
+                      />
+                    </label>
+                  ) : null}
+                </div>
+
+                {form.recurrenceFrequency !== "none" ? (
+                  <p className="mt-3 text-xs font-semibold text-[#544394]">
+                    Starts {dateLabel(form.expenseDate)} · {recurrenceLabels[form.recurrenceFrequency]}
+                    {form.recurrenceEndDate
+                      ? ` · ends ${dateLabel(form.recurrenceEndDate)}`
+                      : " · no end date set"}
+                  </p>
+                ) : null}
+              </section>
+            ) : data.expenses.find((expense) => expense.id === form.id)?.seriesId ? (
+              <div className="mt-5 rounded-xl border-2 border-[#C9BDF1] bg-[#F6F2FF] px-4 py-3 text-xs font-semibold text-[#544394]">
+                <span className="inline-flex items-center gap-1.5">
+                  <Repeat2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  This is one occurrence in a recurring series. This edit changes this occurrence only.
+                </span>
+              </div>
+            ) : null}
 
             <div className="mt-5">
               <p className="text-sm font-semibold text-slate-800">How should it be shared?</p>

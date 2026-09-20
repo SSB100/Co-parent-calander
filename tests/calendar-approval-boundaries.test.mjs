@@ -105,6 +105,23 @@ test("calendar UI shows pending status without replacing parenting colours", asy
 });
 
 
+test("Calendar exposes Shared Costs on due dates without turning them into events", async () => {
+  const [loader, shell] = await Promise.all([
+    source("lib/calendar/load-calendar.ts"),
+    source("components/calendar/calendar-shell.tsx"),
+  ]);
+
+  assert.match(loader, /expenseMarkerRows/);
+  assert.match(loader, /dueDate \?\? item\.expenseDate|item\.dueDate \?\? item\.expenseDate/);
+  assert.match(loader, /expenseMarkers/);
+  assert.match(shell, /expenseMarkers/);
+  assert.match(shell, /expenseByDate/);
+  assert.match(shell, /CircleDollarSign/);
+  assert.match(shell, /Shared cost outstanding/);
+  assert.doesNotMatch(loader, /events\.insert|INSERT INTO events/);
+});
+
+
 test("calendar settings action keeps a visible mobile label", async () => {
   const settings = await source("components/calendar/settings-panel.tsx");
 
