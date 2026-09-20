@@ -78,6 +78,7 @@ export function ComingUp({ variant = "default" }: { variant?: "default" | "menu"
   useDismissibleDetails(detailsRef, { mobileOnly: true });
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState(false);
+  const idPrefix = variant === "menu" ? "workspace-menu" : "workspace";
 
   useEffect(() => {
     const controller = new AbortController();
@@ -123,9 +124,9 @@ export function ComingUp({ variant = "default" }: { variant?: "default" | "menu"
         <p className="workspace-context-empty">Loading…</p>
       ) : (
         <>
-          <section className="workspace-context-section" aria-labelledby="workspace-priorities-title">
+          <section className="workspace-context-section" aria-labelledby={`${idPrefix}-priorities-title`}>
             <div className="workspace-context-heading">
-              <h2 id="workspace-priorities-title">Organiser</h2>
+              <h2 id={`${idPrefix}-priorities-title`}>Organiser</h2>
               <Link href="/organiser">Open</Link>
             </div>
 
@@ -185,9 +186,9 @@ export function ComingUp({ variant = "default" }: { variant?: "default" | "menu"
               : null}
           </section>
 
-          <section className="workspace-context-section" aria-labelledby="workspace-events-title">
+          <section className="workspace-context-section" aria-labelledby={`${idPrefix}-events-title`}>
             <div className="workspace-context-heading">
-              <h2 id="workspace-events-title">Your Events</h2>
+              <h2 id={`${idPrefix}-events-title`}>Your Events</h2>
               <Link href="/calendar">
                 {data.total > 3 ? `+${data.total - 3}` : "Calendar"}
               </Link>
