@@ -267,7 +267,7 @@ export function ResponsibilitiesShell({
     ),
   );
   const [dateFilter, setDateFilter] = useState<string | null>(initialDate);
-  const initialDateLoadRef = useRef(true);
+  const loadedDateRef = useRef<string | null>(initialDate);
   const [statusFilter, setStatusFilter] = useState<"current" | "archive" | "upcoming" | "due_soon" | "due_today" | "overdue">("current");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -300,10 +300,7 @@ export function ResponsibilitiesShell({
   }, [dateFilter]);
 
   useEffect(() => {
-    if (initialDateLoadRef.current) {
-      initialDateLoadRef.current = false;
-      return;
-    }
+    if (loadedDateRef.current === dateFilter) return;
 
     let cancelled = false;
     const query = dateFilter ? `?date=${encodeURIComponent(dateFilter)}` : "";
@@ -327,6 +324,7 @@ export function ResponsibilitiesShell({
           return;
         }
         setData(body);
+        loadedDateRef.current = dateFilter;
         setError(null);
         setForm((current) => ({
           ...current,
