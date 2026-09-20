@@ -403,7 +403,7 @@ export function LinkedItemsPanel({
             <button
               type="button"
               onClick={() => void openPicker()}
-              className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800"
+              className="covie-primary-action inline-flex min-h-9 items-center gap-2 rounded-xl px-3 text-xs"
             >
               <Plus className="h-3.5 w-3.5" aria-hidden="true" />
               Link existing
@@ -420,7 +420,7 @@ export function LinkedItemsPanel({
                     onClick={() => setFilter(value)}
                     className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${
                       filter === value
-                        ? "bg-slate-900 text-white"
+                        ? "bg-[#DDD3FA] text-[#243139] ring-1 ring-[#765ED6]"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
