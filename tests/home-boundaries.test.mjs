@@ -164,10 +164,11 @@ test("mobile Quick view stays consistent while page actions remain visible", asy
   assert.match(nav, /<Eye size=\{21\}/);
   assert.match(nav, /<ComingUp variant="menu" \/>/);
   assert.match(nav, /workspace-page-actions/);
-  assert.doesNotMatch(
-    nav.slice(nav.indexOf('<div className="workspace-mobile-action-panel">'), nav.indexOf("</div>\n      </div>\n\n      <details")),
-    /\{actions\}/,
-  );
+  const quickViewStart = nav.indexOf('<div className="workspace-mobile-action-panel">');
+  const quickViewEnd = nav.indexOf('<details ref={accountRef}');
+  assert.ok(quickViewStart >= 0);
+  assert.ok(quickViewEnd > quickViewStart);
+  assert.doesNotMatch(nav.slice(quickViewStart, quickViewEnd), /\{actions\}/);
   assert.match(comingUp, />Quick view</);
   assert.match(comingUp, /Upcoming & outstanding/);
   assert.match(comingUp, /responsibilities\.slice\(0, 1\)/);
