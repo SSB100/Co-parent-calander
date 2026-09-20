@@ -252,3 +252,49 @@ test("performance stage 4 server-loads Tasks and Shared costs without initial AP
   assert.match(session, /auth\.getSession\(\)/);
   assert.match(session, /membershipForUser/);
 });
+
+
+test("performance stage 5 keeps heavy closed Calendar panels behind interaction-time boundaries", async () => {
+  const [shell, toolsMenu, settingsMenu, eventPanel, dayDetails] = await Promise.all([
+    readFile(path.join(root, "components/calendar/calendar-shell.tsx"), "utf8"),
+    readFile(path.join(root, "components/calendar/calendar-tools-menu.tsx"), "utf8"),
+    readFile(path.join(root, "components/calendar/calendar-settings-menu.tsx"), "utf8"),
+    readFile(path.join(root, "components/calendar/event-panel.tsx"), "utf8"),
+    readFile(path.join(root, "components/calendar/day-details-panel.tsx"), "utf8"),
+  ]);
+
+  assert.match(shell, /import dynamic from "next\/dynamic"/);
+  assert.doesNotMatch(shell, /import \{ DayDetailsPanel \} from/);
+  assert.doesNotMatch(shell, /import \{ RangeAssignmentPanel \} from/);
+  assert.doesNotMatch(shell, /import \{ RecurringSchedulePanel \} from/);
+  assert.doesNotMatch(shell, /import \{ ActivityPanel \} from/);
+  assert.doesNotMatch(shell, /import \{ MembersPanel \} from/);
+  assert.doesNotMatch(shell, /import \{ SettingsPanel \} from/);
+
+  assert.match(shell, /import\("@\/components\/calendar\/day-details-panel"\)/);
+  assert.match(shell, /import\("@\/components\/calendar\/calendar-tools-menu"\)/);
+  assert.match(shell, /import\("@\/components\/calendar\/calendar-settings-menu"\)/);
+  assert.doesNotMatch(shell, /ssr:\s*false/);
+
+  assert.match(shell, /detailsDate && calendarData/);
+  assert.match(shell, /toolsMenuOpen/);
+  assert.match(shell, /settingsMenuOpen/);
+  assert.match(shell, /onToggle=\{\(event\)/);
+  assert.match(shell, /<EventPanel includeRangeTools=\{false\}/);
+  assert.match(shell, /href="\/responsibilities"/);
+  assert.match(shell, /calendarData\?\.permission === "owner"/);
+  assert.match(shell, /readOnly=\{accessMode === "viewer"\}/);
+
+  assert.match(toolsMenu, /RangeAssignmentPanel/);
+  assert.match(toolsMenu, /RecurringSchedulePanel/);
+  assert.match(toolsMenu, /ActivityPanel/);
+  assert.match(settingsMenu, /MembersPanel/);
+  assert.match(settingsMenu, /SettingsPanel/);
+
+  assert.match(eventPanel, /import dynamic from "next\/dynamic"/);
+  assert.match(eventPanel, /import\("@\/components\/calendar\/range-assignment-panel"\)/);
+  assert.doesNotMatch(eventPanel, /ssr:\s*false/);
+
+  assert.match(dayDetails, /Shared plans recorded for this day/);
+  assert.match(dayDetails, /<EventPanel/);
+});
