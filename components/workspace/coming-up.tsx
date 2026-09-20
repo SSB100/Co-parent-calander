@@ -229,8 +229,8 @@ export function ComingUp({ variant = "default" }: { variant?: "default" | "menu"
     return (
       <section className="workspace-coming-up workspace-coming-up-menu" aria-labelledby="workspace-glance-title">
         <div className="workspace-menu-section-heading">
-          <h2 id="workspace-glance-title">At a glance</h2>
-          <span>What needs your attention</span>
+          <h2 id="workspace-glance-title">Quick view</h2>
+          <span>Upcoming & outstanding</span>
         </div>
         {content}
       </section>
