@@ -82,6 +82,7 @@ const CalendarSettingsMenu = dynamic(
 );
 import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
+import { CovieMark } from "@/components/workspace/covie-brand";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
 import { useDismissibleDetails } from "@/lib/client/use-details-dismiss";
 import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
@@ -974,6 +975,9 @@ export function CalendarShell({
     <main className={`covie-calendar-page w-full max-w-none px-3 py-3 sm:px-5 sm:py-4 lg:px-4${selectionMode ? " is-selecting-days" : ""}`}>
       <header className="covie-calendar-header relative mb-3 sm:mb-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="covie-calendar-mobile-brand" aria-label="Covie">
+            <CovieMark size={32} />
+          </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <CalendarSwitcher
