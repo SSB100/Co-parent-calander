@@ -94,9 +94,9 @@ export function OnboardingShell({
               <button
                 type="button"
                 onClick={() => setMode("create")}
-                className="group rounded-xl border-2 border-slate-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                className="group rounded-xl border-2 border-[#243139] bg-[#BFEDE6] p-6 text-left shadow-[5px_5px_0_#19A897] transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#19A897]"
               >
-                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#243139] bg-white text-[#0D7A6D]">
                   <CalendarPlus2 className="h-6 w-6" aria-hidden="true" />
                 </span>
                 <h2 className="mt-5 text-xl font-semibold text-slate-950">Create a Covie calendar</h2>
@@ -108,9 +108,9 @@ export function OnboardingShell({
               <button
                 type="button"
                 onClick={() => setMode("join")}
-                className="group rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-violet-200"
+                className="group rounded-xl border-2 border-[#243139] bg-[#DDD3FA] p-6 text-left shadow-[5px_5px_0_#765ED6] transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#765ED6]"
               >
-                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#243139] bg-white text-[#6651B7]">
                   <KeyRound className="h-6 w-6" aria-hidden="true" />
                 </span>
                 <h2 className="mt-5 text-xl font-semibold text-slate-950">Join a Covie calendar</h2>
@@ -123,7 +123,7 @@ export function OnboardingShell({
         ) : null}
 
         {mode === "create" ? (
-          <section className="rounded-xl border-2 border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+          <section className="rounded-xl border-2 border-[#19A897] bg-[#FFF9F2] p-5 shadow-[5px_5px_0_#BFEDE6] sm:p-7">
             <button
               type="button"
               onClick={() => setMode("choose")}
@@ -194,7 +194,7 @@ export function OnboardingShell({
         ) : null}
 
         {mode === "join" ? (
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+          <section className="rounded-xl border-2 border-[#765ED6] bg-[#FFF9F2] p-5 shadow-[5px_5px_0_#DDD3FA] sm:p-7">
             {!initialInviteCode ? (
               <button
                 type="button"
