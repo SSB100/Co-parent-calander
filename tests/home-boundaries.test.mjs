@@ -190,7 +190,9 @@ test("mobile Quick view stays consistent while page actions remain visible", asy
   assert.match(calendar, /Sync to Google|GoogleCalendarQuickAction/);
 
   assert.match(install, /Close install Covie prompt/);
-  assert.match(organiser, /min-h-\[104px\]/);
+  assert.match(organiser, /min-h-\[68px\]/);
+  assert.doesNotMatch(organiser, /min-h-\[104px\]/);
+  assert.match(organiser, /max-w-3xl/);
   assert.match(organiser, /text-3xl sm:text-4xl/);
   assert.doesNotMatch(organiser, /p-4 sm:p-6/);
 });
