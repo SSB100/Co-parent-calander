@@ -47,30 +47,30 @@ test("expense context says whether money is owed to or by the current parent", (
   );
 });
 
-test("paid shared-cost shares stop appearing as money still owed by that parent", () => {
+test("partial shared-cost payments reduce only that parent's remaining balance", () => {
   const shares = [
-    { participantId: me, shareCents: 3000, paidAt: new Date() },
-    { participantId: them, shareCents: 3000, paidAt: null },
+    { participantId: me, shareCents: 10000, paidCents: 5000 },
+    { participantId: them, shareCents: 10000, paidCents: 2500 },
   ];
 
   assert.deepEqual(
     expenseReimbursementContext({
-      amountCents: 6000,
+      amountCents: 20000,
       paidByParticipantId: me,
       shares,
       currentParticipantId: them,
     }),
-    { direction: "you_owe", amountCents: 3000 },
+    { direction: "you_owe", amountCents: 7500 },
   );
 
   assert.deepEqual(
     expenseReimbursementContext({
-      amountCents: 6000,
+      amountCents: 20000,
       paidByParticipantId: them,
       shares,
       currentParticipantId: me,
     }),
-    { direction: "you_owe", amountCents: 0 },
+    { direction: "you_owe", amountCents: 5000 },
   );
 });
 
