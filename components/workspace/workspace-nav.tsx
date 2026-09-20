@@ -1,5 +1,5 @@
 "use client";
-import { CalendarDays, Bell, LayoutGrid, LogOut, UsersRound, ListChecks, WalletCards, ChevronDown, Download, Menu } from "lucide-react";
+import { CalendarDays, Bell, LayoutGrid, LogOut, UsersRound, ListChecks, WalletCards, ChevronDown, Download, Eye } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -119,6 +119,8 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
     </nav>
 
     <div className="workspace-actions">
+      {actions ? <div className="workspace-page-actions">{actions}</div> : null}
+
       <div
         ref={mobileActionsRef}
         className={`workspace-mobile-actions relative${mobileActionsOpen ? " is-open" : ""}`}
@@ -126,17 +128,17 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
         <button
           type="button"
           className="workspace-mobile-actions-trigger"
-          aria-label={mobileActionsOpen ? "Close actions menu" : "Open actions menu"}
+          aria-label={mobileActionsOpen ? "Close quick view" : "Open quick view"}
+          title="Quick view"
           aria-expanded={mobileActionsOpen}
           onClick={() => setMobileActionsOpen((current) => !current)}
         >
-          <Menu size={22} aria-hidden="true" />
-          <span className="sr-only">Menu</span>
+          <Eye size={21} aria-hidden="true" />
+          <span className="sr-only">Quick view</span>
         </button>
         <div className="workspace-mobile-action-panel">
           <ComingUp variant="menu" />
           <div className="workspace-mobile-action-divider" />
-          {actions}
           <button
             type="button"
             onClick={openInstallPrompt}
@@ -145,15 +147,6 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
             <Download size={16} aria-hidden="true" />
             Install Covie
           </button>
-          <details ref={accountRef} className="workspace-account relative">
-            <summary className="covie-menu-trigger">Account <ChevronDown size={16} aria-hidden="true" /></summary>
-            <div className="covie-menu">
-              <button type="button" onClick={() => void signOut()} disabled={signingOut} className="covie-menu-item">
-                <LogOut size={16} aria-hidden="true" />{signingOut ? "Signing out…" : "Log out"}
-              </button>
-              {signOutError && <p role="alert" className="px-3 text-sm text-rose-700">Could not log out. Please try again.</p>}
-            </div>
-          </details>
           <button
             type="button"
             onClick={() => void signOut()}
@@ -169,6 +162,16 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
           ) : null}
         </div>
       </div>
+
+      <details ref={accountRef} className="workspace-account relative">
+        <summary className="covie-menu-trigger">Account <ChevronDown size={16} aria-hidden="true" /></summary>
+        <div className="covie-menu">
+          <button type="button" onClick={() => void signOut()} disabled={signingOut} className="covie-menu-item">
+            <LogOut size={16} aria-hidden="true" />{signingOut ? "Signing out…" : "Log out"}
+          </button>
+          {signOutError && <p role="alert" className="px-3 text-sm text-rose-700">Could not log out. Please try again.</p>}
+        </div>
+      </details>
     </div>
     <InstallApp />
   </>;
