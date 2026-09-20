@@ -24,6 +24,7 @@ import {
   RotateCcw,
   StickyNote,
   ChevronDown,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityPanel } from "@/components/calendar/activity-panel";
@@ -36,7 +37,6 @@ import { RecurringSchedulePanel } from "@/components/calendar/recurring-schedule
 import { RangeAssignmentPanel } from "@/components/calendar/range-assignment-panel";
 import { SettingsPanel } from "@/components/calendar/settings-panel";
 import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
-import { InstallApp } from "@/components/pwa/install-app";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
 import { useDismissibleDetails } from "@/lib/client/use-details-dismiss";
@@ -183,6 +183,7 @@ export function CalendarShell({
   const [currentMonth, setCurrentMonth] = useState<Date>(() => startOfMonth(new Date()));
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const [bulkEditorOpen, setBulkEditorOpen] = useState(false);
   const [calendarData, setCalendarData] = useState<CalendarPayload | null>(null);
   const [accessMode, setAccessMode] = useState<AccessMode>("checking");
   const [saving, setSaving] = useState(false);
@@ -344,6 +345,7 @@ export function CalendarShell({
       if (!next) {
         setSelectedDays([]);
         setBulkReason("");
+        setBulkEditorOpen(false);
       }
       setDetailsDate(null);
       return next;
@@ -391,6 +393,7 @@ export function CalendarShell({
       const count = selectedDays.length;
       setSelectedDays([]);
       setSelectionMode(false);
+      setBulkEditorOpen(false);
       setBulkReason("");
       setMessage(
         body?.pending
@@ -409,17 +412,11 @@ export function CalendarShell({
 
   function moveMonth(direction: "previous" | "next") {
     setCurrentMonth((month) => direction === "previous" ? subMonths(month, 1) : addMonths(month, 1));
-    setSelectedDays([]);
-    setSelectionMode(false);
-    setBulkReason("");
     setDetailsDate(null);
   }
 
   function goToday() {
     setCurrentMonth(startOfMonth(new Date()));
-    setSelectedDays([]);
-    setSelectionMode(false);
-    setBulkReason("");
     setDetailsDate(null);
   }
 
@@ -448,7 +445,7 @@ export function CalendarShell({
   ];
 
   return (
-    <main className="covie-calendar-page w-full max-w-none px-3 py-3 sm:px-5 sm:py-4 lg:px-4">
+    <main className={`covie-calendar-page w-full max-w-none px-3 py-3 sm:px-5 sm:py-4 lg:px-4${selectionMode ? " is-selecting-days" : ""}`}>
       <header className="covie-calendar-header relative mb-3 sm:mb-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -532,12 +529,49 @@ export function CalendarShell({
             </div>
             {accessMode === "editor" ? (
               <button type="button" onClick={toggleSelectionMode} aria-pressed={selectionMode} className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition ${selectionMode ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
-                <CheckSquare2 className="h-4 w-4" aria-hidden="true" />{selectionMode ? "Done selecting" : "Select days"}
+                <CheckSquare2 className="h-4 w-4" aria-hidden="true" />{selectionMode ? "Cancel select" : "Select days"}
               </button>
             ) : null}
             <button type="button" onClick={goToday} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800"><RotateCcw className="h-4 w-4" aria-hidden="true" />Today</button>
           </div>
         </div>
+
+        {accessMode === "editor" && selectionMode ? (
+          <div className="covie-mobile-selection-bar mx-3 mb-1 flex min-h-12 items-center justify-between gap-3 rounded-xl border border-[#243139] bg-[#FFF9F2] px-3 py-2 sm:hidden">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[#243139]" role="status" aria-live="polite" aria-atomic="true">
+                {selectedDays.length > 0
+                  ? `${selectedDays.length} ${selectedDays.length === 1 ? "day" : "days"} selected`
+                  : "Tap dates to select them"}
+              </p>
+              {selectedDays.length > 0 ? (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    setSelectedDays([]);
+                    setBulkEditorOpen(false);
+                  }}
+                  className="mt-0.5 text-xs font-semibold text-slate-500 underline underline-offset-2 disabled:opacity-50"
+                >
+                  Clear
+                </button>
+              ) : (
+                <p className="mt-0.5 text-[11px] text-slate-500">You can move between months without losing your selection.</p>
+              )}
+            </div>
+            {selectedDays.length > 0 ? (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setBulkEditorOpen(true)}
+                className="covie-primary-action inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl px-4 text-sm"
+              >
+                Assign days
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="covie-calendar-board-body flex min-h-0 flex-1 flex-col px-1.5 pb-1.5 pt-2 sm:px-3 sm:pb-3">
           <p className="mb-1.5 hidden shrink-0 px-1 text-xs text-slate-500 lg:block">
@@ -685,7 +719,7 @@ export function CalendarShell({
       </div>
 
       {accessMode === "editor" && selectionMode && selectedDays.length > 0 ? (
-        <div className="sticky bottom-3 z-20 mx-auto mt-4 flex max-w-4xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur">
+        <div className="sticky bottom-3 z-20 mx-auto mt-4 hidden max-w-4xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur sm:flex">
           <div className="flex items-center justify-between gap-3">
             <div className="px-1">
               <p className="font-semibold text-slate-900" role="status" aria-live="polite" aria-atomic="true">{selectedDays.length} {selectedDays.length === 1 ? "day" : "days"} selected</p>
@@ -720,6 +754,71 @@ export function CalendarShell({
               </button>
             ))}
           </div>
+        </div>
+      ) : null}
+
+      {accessMode === "editor" && selectionMode && selectedDays.length > 0 && bulkEditorOpen ? (
+        <div className="covie-dialog-backdrop sm:hidden">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-assign-title"
+            className="covie-dialog covie-dialog-sm"
+          >
+            <header className="covie-dialog-header">
+              <div className="covie-dialog-heading">
+                <div className="covie-dialog-icon teal">
+                  <CheckSquare2 aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <h2 id="bulk-assign-title" className="covie-dialog-title">Assign selected days</h2>
+                  <p className="covie-dialog-description">
+                    {selectedDays.length} {selectedDays.length === 1 ? "day" : "days"} selected. Choose the parenting state to apply to all of them.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Close day assignment"
+                disabled={saving}
+                onClick={() => setBulkEditorOpen(false)}
+                className="covie-dialog-close"
+              >
+                <X aria-hidden="true" />
+              </button>
+            </header>
+
+            <div className="covie-dialog-body">
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-600">
+                  Reason for change <span className="font-normal text-slate-400">(optional)</span>
+                </span>
+                <input
+                  type="text"
+                  maxLength={500}
+                  value={bulkReason}
+                  disabled={saving}
+                  placeholder="e.g. Family event"
+                  onChange={(event) => setBulkReason(event.target.value)}
+                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
+                />
+              </label>
+
+              <div className="mt-3 grid gap-2">
+                {bulkChoices.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    disabled={saving || (item.value !== "unassigned" && (!me || !them))}
+                    onClick={() => void applySelected(item.value)}
+                    className={`min-h-12 rounded-xl px-3 text-sm font-semibold transition disabled:opacity-40 ${item.className}`}
+                  >
+                    {saving ? "Saving…" : item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
         </div>
       ) : null}
 
@@ -760,7 +859,6 @@ export function CalendarShell({
           : "You have view-only access. Ask the calendar owner if you need editing permission."}
       </p>
 
-      <InstallApp />
     </main>
   );
 }
