@@ -53,6 +53,47 @@ test("supporting attachments reject executables and oversize files", () => {
   );
 });
 
+test("attachment names must match their declared content type", () => {
+  assert.equal(
+    attachmentBeginSchema.safeParse({
+      entityType: "expense",
+      entityId: expenseId,
+      role: "supporting",
+      category: "receipt",
+      originalFileName: "receipt.exe",
+      contentType: "application/pdf",
+      sizeBytes: 1000,
+    }).success,
+    false,
+  );
+
+  assert.equal(
+    attachmentBeginSchema.safeParse({
+      entityType: "expense",
+      entityId: expenseId,
+      role: "supporting",
+      category: "receipt",
+      originalFileName: "receipt.PDF",
+      contentType: "application/pdf",
+      sizeBytes: 1000,
+    }).success,
+    true,
+  );
+
+  assert.equal(
+    attachmentBeginSchema.safeParse({
+      entityType: "child",
+      entityId: childId,
+      role: "profile_photo",
+      category: "profile_photo",
+      originalFileName: "photo.png\n.jpg",
+      contentType: "image/jpeg",
+      sizeBytes: 1000,
+    }).success,
+    false,
+  );
+});
+
 test("profile photo role is restricted to child images and 8 MB", () => {
   assert.equal(
     attachmentBeginSchema.safeParse({
