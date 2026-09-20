@@ -10,20 +10,20 @@ async function source(file) {
 }
 
 test("Home aggregates approvals urgent expenses responsibilities and daily calendar context", async () => {
-  const api = await source("app/api/home/route.ts");
+  const loader = await source("lib/home/load-home.ts");
 
-  assert.match(api, /listApprovalProposals/);
+  assert.match(loader, /listApprovalProposals/);
   assert.match(api, /approverMembershipId === session\.membershipId/);
   assert.match(api, /proposedByMembershipId === session\.membershipId/);
-  assert.match(api, /attentionCutoff/);
-  assert.match(api, /expenseReimbursementContext/);
-  assert.match(api, /responsibilityAttention/);
-  assert.match(api, /todayAssignments/);
-  assert.match(api, /expandEventOccurrences/);
-  assert.match(api, /nextHandover/);
-  assert.match(api, /nextEvent/);
-  assert.match(api, /nextExpense/);
-  assert.match(api, /nextResponsibility/);
+  assert.match(loader, /attentionCutoff/);
+  assert.match(loader, /expenseReimbursementContext/);
+  assert.match(loader, /responsibilityAttention/);
+  assert.match(loader, /todayAssignments/);
+  assert.match(loader, /expandEventOccurrences/);
+  assert.match(loader, /nextHandover/);
+  assert.match(loader, /nextEvent/);
+  assert.match(loader, /nextExpense/);
+  assert.match(loader, /nextResponsibility/);
 });
 
 test("Open Updates includes incoming decisions plus the user's own withdrawable requests", async () => {
@@ -34,7 +34,7 @@ test("Open Updates includes incoming decisions plus the user's own withdrawable 
   assert.match(api, /expense\.dueDate <= attentionThrough/);
   assert.match(api, /!item\.completedAt/);
   assert.match(api, /item\.dueDate <= now\.date/);
-  assert.doesNotMatch(api, /auditLog|audit_log/);
+  assert.doesNotMatch(loader, /auditLog|audit_log/);
 });
 
 test("Updates uses branded action-first sections without duplicating the side-rail feed", async () => {
@@ -100,18 +100,18 @@ test("existing core feature screens all use the shared workspace navigation", as
 });
 
 test("Home remains a derived overview with no Home-specific database model", async () => {
-  const [api, schema] = await Promise.all([
-    source("app/api/home/route.ts"),
+  const [loader, schema] = await Promise.all([
+    source("lib/home/load-home.ts"),
     source("lib/db/schema.ts"),
   ]);
 
-  assert.doesNotMatch(api, /INSERT INTO .*home|UPDATE .*home|DELETE FROM .*home/i);
+  assert.doesNotMatch(loader, /INSERT INTO .*home|UPDATE .*home|DELETE FROM .*home/i);
   assert.doesNotMatch(schema, /export const home[A-Z]|pgTable\("home/);
 });
 
 test("Home does not create a new Google Calendar sync surface", async () => {
   const files = await Promise.all([
-    source("app/api/home/route.ts"),
+    source("lib/home/load-home.ts"),
     source("components/home/home-shell.tsx"),
     source("lib/home/summary.ts"),
   ]);
