@@ -81,8 +81,11 @@ export async function signUpWithEmail(
     return { error: parsed.error.issues[0]?.message ?? "Check your details." };
   }
 
-  const { confirmPassword: _confirmPassword, termsAccepted: _termsAccepted, ...account } =
-    parsed.data;
+  const account = {
+    name: parsed.data.name,
+    email: parsed.data.email,
+    password: parsed.data.password,
+  };
   const { error: signUpError } = await auth.signUp.email(account);
   if (signUpError) {
     return {
