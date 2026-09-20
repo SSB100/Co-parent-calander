@@ -104,6 +104,8 @@ test("proposal withdrawal stays proposer-owned and safely records enum history",
     source("lib/approvals/rules.ts"),
   ]);
 
+  assert.match(engine, /await sql\.transaction\(\[/);
+  assert.match(engine, /withdrawn_at = \$\{transitionedAt\}/);
   assert.match(engine, /\$\{fromStatus\}::proposal_status/);
   assert.match(engine, /status IN \('draft', 'waiting'\)/);
   assert.match(engine, /proposed_by_membership_id = \$\{input\.actor\.membershipId\}/);
@@ -111,7 +113,11 @@ test("proposal withdrawal stays proposer-owned and safely records enum history",
   assert.match(engine, /actorParticipantId = input\.actor\.participantId \?\? proposal\.proposedByParticipantId/);
   assert.match(rules, /proposal\.proposedByMembershipId === actor\.membershipId/);
   assert.match(rules, /proposal\.proposedByParticipantId === actor\.participantId/);
-  assert.doesNotMatch(rules.slice(rules.indexOf("export function canWithdrawProposal")), /canCreateProposal\(actor\)/);
+  const withdrawRule = rules.slice(
+    rules.indexOf("export function canWithdrawProposal"),
+    rules.indexOf("export function canUseApprover"),
+  );
+  assert.doesNotMatch(withdrawRule, /canCreateProposal\(actor\)/);
   assert.match(rules, /proposal\.status === "draft" \|\| proposal\.status === "waiting"/);
 });
 
