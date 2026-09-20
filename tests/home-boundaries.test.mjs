@@ -188,6 +188,9 @@ test("mobile Quick view stays consistent while page actions remain visible", asy
   assert.match(expenses, /Add shared cost/);
   assert.match(responsibilities, /Add task/);
   assert.match(calendar, /Sync to Google|GoogleCalendarQuickAction/);
+  assert.match(calendar, /covie-calendar-mobile-brand/);
+  assert.match(calendar, /<CovieMark size=\{32\}/);
+  assert.match(styles, /\.covie-calendar-mobile-brand[\s\S]*left: 50%;[\s\S]*transform: translateX\(-50%\)/);
 
   assert.match(install, /Close install Covie prompt/);
   assert.match(organiser, /min-h-\[68px\]/);
