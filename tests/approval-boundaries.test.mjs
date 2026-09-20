@@ -107,7 +107,11 @@ test("proposal withdrawal stays proposer-owned and safely records enum history",
   assert.match(engine, /\$\{fromStatus\}::proposal_status/);
   assert.match(engine, /status IN \('draft', 'waiting'\)/);
   assert.match(engine, /proposed_by_membership_id = \$\{input\.actor\.membershipId\}/);
+  assert.match(engine, /proposed_by_participant_id = \$\{input\.actor\.participantId\}/);
+  assert.match(engine, /actorParticipantId = input\.actor\.participantId \?\? proposal\.proposedByParticipantId/);
   assert.match(rules, /proposal\.proposedByMembershipId === actor\.membershipId/);
+  assert.match(rules, /proposal\.proposedByParticipantId === actor\.participantId/);
+  assert.doesNotMatch(rules.slice(rules.indexOf("export function canWithdrawProposal")), /canCreateProposal\(actor\)/);
   assert.match(rules, /proposal\.status === "draft" \|\| proposal\.status === "waiting"/);
 });
 
