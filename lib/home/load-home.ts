@@ -262,6 +262,7 @@ export async function loadHomeData(session: HomeLoadSession) {
           expenseId: expenseShares.expenseId,
           participantId: expenseShares.participantId,
           shareCents: expenseShares.shareCents,
+          paidAt: expenseShares.paidAt,
         })
         .from(expenseShares)
         .where(inArray(expenseShares.expenseId, expenseIds))
@@ -269,13 +270,18 @@ export async function loadHomeData(session: HomeLoadSession) {
 
   const sharesByExpense = new Map<
     string,
-    Array<{ participantId: string; shareCents: number }>
+    Array<{
+      participantId: string;
+      shareCents: number;
+      paidAt: Date | null;
+    }>
   >();
   for (const share of shareRows) {
     const current = sharesByExpense.get(share.expenseId) ?? [];
     current.push({
       participantId: share.participantId,
       shareCents: share.shareCents,
+      paidAt: share.paidAt,
     });
     sharesByExpense.set(share.expenseId, current);
   }
