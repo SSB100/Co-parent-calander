@@ -67,10 +67,8 @@ test("child profile hub reuses existing linked expenses and responsibilities", a
 
   assert.match(service, /responsibilityChildren/);
   assert.match(service, /expenses\.childId/);
-  assert.match(shell, /Responsibilities/);
-  assert.match(shell, /Recent expenses/);
-  assert.match(shell, /Open responsibilities/);
-  assert.match(shell, /Recent expenses/);
+  assert.match(shell, /Open tasks/);
+  assert.match(shell, /Recent shared costs/);
   assert.match(shell, /href="\/responsibilities"/);
   assert.match(shell, /href="\/expenses"/);
 });
