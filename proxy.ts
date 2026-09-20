@@ -3,5 +3,14 @@ import { auth } from "@/lib/auth/server";
 export default auth.middleware({ loginUrl: "/auth/sign-in" });
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/calendar/:path*", "/organiser/:path*", "/onboarding/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/calendar/:path*",
+    "/home/:path*",
+    "/organiser/:path*",
+    "/expenses/:path*",
+    "/responsibilities/:path*",
+    "/kids/:path*",
+    "/onboarding/:path*",
+  ],
 };
