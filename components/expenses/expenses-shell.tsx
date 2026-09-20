@@ -1048,6 +1048,81 @@ export function ExpensesShell({
               </label>
             </div>
 
+            {!form.id ? (
+              <section className="mt-5 rounded-2xl border-2 border-[#765ED6] bg-[#F6F2FF] p-4 shadow-[3px_3px_0_#DDD3FA]">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#765ED6] bg-white text-[#6651B7]">
+                    <Repeat2 className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-black text-[#243139]">Does this repeat?</p>
+                    <p className="mt-1 text-xs leading-5 text-[#5B6670]">
+                      Each occurrence becomes its own Shared Cost with separate payment progress.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label>
+                    <span className="text-xs font-bold text-[#544394]">Frequency</span>
+                    <select
+                      value={form.recurrenceFrequency}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          recurrenceFrequency:
+                            event.target.value as ExpenseFormState["recurrenceFrequency"],
+                        }))
+                      }
+                      className="mt-1 min-h-11 w-full rounded-xl border-2 border-[#C9BDF1] bg-white px-3 text-sm font-semibold text-[#243139] outline-none focus:border-[#765ED6]"
+                    >
+                      <option value="none">One-off</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="fortnightly">Every 2 weeks</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="yearly">Yearly</option>
+                    </select>
+                  </label>
+
+                  {form.recurrenceFrequency !== "none" ? (
+                    <label>
+                      <span className="text-xs font-bold text-[#544394]">
+                        Ends <span className="font-medium text-[#7B728F]">(optional)</span>
+                      </span>
+                      <input
+                        type="date"
+                        min={form.expenseDate}
+                        value={form.recurrenceEndDate}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            recurrenceEndDate: event.target.value,
+                          }))
+                        }
+                        className="mt-1 min-h-11 w-full rounded-xl border-2 border-[#C9BDF1] bg-white px-3 text-sm font-semibold text-[#243139] outline-none focus:border-[#765ED6]"
+                      />
+                    </label>
+                  ) : null}
+                </div>
+
+                {form.recurrenceFrequency !== "none" ? (
+                  <p className="mt-3 text-xs font-semibold text-[#544394]">
+                    Starts {dateLabel(form.expenseDate)} · {recurrenceLabels[form.recurrenceFrequency]}
+                    {form.recurrenceEndDate
+                      ? ` · ends ${dateLabel(form.recurrenceEndDate)}`
+                      : " · continues until stopped"}
+                  </p>
+                ) : null}
+              </section>
+            ) : data.expenses.find((expense) => expense.id === form.id)?.seriesId ? (
+              <div className="mt-5 rounded-xl border-2 border-[#C9BDF1] bg-[#F6F2FF] px-4 py-3 text-xs font-semibold text-[#544394]">
+                <span className="inline-flex items-center gap-1.5">
+                  <Repeat2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  This is one occurrence in a recurring series. This edit changes this occurrence only.
+                </span>
+              </div>
+            ) : null}
+
             <div className="mt-5">
               <p className="text-sm font-semibold text-slate-800">How should it be shared?</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-3">
