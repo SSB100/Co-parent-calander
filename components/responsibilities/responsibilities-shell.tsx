@@ -886,7 +886,7 @@ export function ResponsibilitiesShell({ initialDate, calendarTimezone }: { initi
                       {linkedExpense ? (
                         <p className="flex items-center gap-2">
                           <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
-                          Expense: {linkedExpense.title}
+                          Shared cost: {linkedExpense.title}
                         </p>
                       ) : null}
                     </div>
