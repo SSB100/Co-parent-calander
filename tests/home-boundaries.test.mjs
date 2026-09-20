@@ -183,7 +183,7 @@ test("mobile Quick view stays consistent while page actions remain visible", asy
 });
 
 
-test("every workspace page keeps Quick view on the right and opens inward", async () => {
+test("every workspace page pins Quick view to the top-right corner and opens inward", async () => {
   const [styles, calendar, home, organiser, expenses, responsibilities, kids] = await Promise.all([
     source("app/globals.css"),
     source("components/calendar/calendar-shell.tsx"),
@@ -194,8 +194,10 @@ test("every workspace page keeps Quick view on the right and opens inward", asyn
     source("components/children/kids-shell.tsx"),
   ]);
 
+  assert.match(styles, /\.covie-page-header,[\s\S]*?\.covie-calendar-header \{[\s\S]*?position: relative;/);
   assert.match(styles, /\.workspace-actions \{[\s\S]*?width: 100%;[\s\S]*?justify-content: flex-end;/);
-  assert.match(styles, /\.workspace-mobile-actions \{[\s\S]*?order: 1;[\s\S]*?margin-left: auto;/);
+  assert.match(styles, /\.workspace-mobile-actions \{[\s\S]*?position: absolute;[\s\S]*?top: 0;[\s\S]*?right: 0;[\s\S]*?left: auto;/);
+  assert.match(styles, /\.workspace-actions:not\(:has\(\.workspace-page-actions\)\) \{[\s\S]*?display: contents;/);
   assert.match(styles, /\.workspace-page-actions \{[\s\S]*?order: 2;[\s\S]*?width: 100%;/);
   assert.match(styles, /\.workspace-mobile-action-panel \{[\s\S]*?right: 0;[\s\S]*?left: auto;/);
   assert.match(styles, /max-width: calc\(100vw - 16px\)/);
