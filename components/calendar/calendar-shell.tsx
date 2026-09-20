@@ -1323,7 +1323,19 @@ export function CalendarShell({
                         (expenseMarker?.count ? 1 : 0) +
                         (marker?.handover || marker?.note ? 1 : 0) >
                       3 ? (
-                        <span className="text-[9px] font-bold text-slate-500" aria-label="More details">
+                        <span
+                          className="text-[9px] font-bold text-slate-500"
+                          aria-label={
+                            (dayPending.length > 0 ? 1 : 0) +
+                              (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) +
+                              (expenseMarker?.count ? 1 : 0) +
+                              (marker?.handover || marker?.note ? 1 : 0) -
+                              3 ===
+                            1
+                              ? "One more detail"
+                              : "More details"
+                          }
+                        >
                           +{(dayPending.length > 0 ? 1 : 0) +
                             (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) +
                             (expenseMarker?.count ? 1 : 0) +
