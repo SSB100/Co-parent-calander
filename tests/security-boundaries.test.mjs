@@ -21,9 +21,23 @@ const calendarMutationRoutes = [
 ];
 const sameOriginMutationRoutes = [
   ...calendarMutationRoutes,
+  { file: "app/api/children/[id]/route.ts", methods: ["PATCH"] },
+  { file: "app/api/children/[id]/activities/route.ts", methods: ["POST", "PATCH", "DELETE"] },
+  { file: "app/api/expenses/route.ts", methods: ["POST", "PATCH", "DELETE"] },
+  { file: "app/api/expenses/[id]/settlement/route.ts", methods: ["PATCH"] },
+  { file: "app/api/responsibilities/route.ts", methods: ["POST", "PATCH", "DELETE"] },
+  { file: "app/api/responsibilities/[id]/completion/route.ts", methods: ["PATCH"] },
+  { file: "app/api/attachments/route.ts", methods: ["POST"] },
+  { file: "app/api/attachments/[id]/route.ts", methods: ["PATCH", "DELETE"] },
+  { file: "app/api/links/route.ts", methods: ["POST", "DELETE"] },
+  { file: "app/api/proposals/route.ts", methods: ["POST"] },
+  { file: "app/api/proposals/[id]/route.ts", methods: ["PATCH"] },
   { file: "app/api/invites/route.ts", methods: ["POST", "PATCH", "DELETE"] },
   { file: "app/api/parents/route.ts", methods: ["POST"] },
+  { file: "app/api/google-calendar/route.ts", methods: ["PATCH", "DELETE"] },
+  { file: "app/api/google-calendar/reconcile/route.ts", methods: ["POST"] },
   { file: "app/api/session/logout/route.ts", methods: ["POST"] },
+  { file: "app/api/setup/route.ts", methods: ["POST"] },
 ];
 
 test("every calendar mutation requires an editor session", async () => {
@@ -96,9 +110,46 @@ test("account routes use managed Neon auth and protect the signed-in workspace",
   assert.match(proxy, /auth\.middleware/);
   assert.match(proxy, /\/dashboard\/\:path\*/);
   assert.match(proxy, /\/calendar\/\:path\*/);
+  assert.match(proxy, /\/home\/\:path\*/);
+  assert.match(proxy, /\/expenses\/\:path\*/);
+  assert.match(proxy, /\/responsibilities\/\:path\*/);
+  assert.match(proxy, /\/kids\/\:path\*/);
   assert.match(session, /calendarMemberships\.userId/);
   assert.match(session, /session\.permission === ["']viewer["']/);
 });
+
+test("global browser headers reduce common web attack surface and APIs are never cached", async () => {
+  const config = await source("next.config.ts");
+
+  assert.match(config, /Content-Security-Policy/);
+  assert.match(config, /frame-ancestors 'none'/);
+  assert.match(config, /object-src 'none'/);
+  assert.match(config, /form-action 'self'/);
+  assert.match(config, /Strict-Transport-Security/);
+  assert.match(config, /X-Content-Type-Options/);
+  assert.match(config, /X-Frame-Options/);
+  assert.match(config, /Permissions-Policy/);
+  assert.match(config, /source: "\/api\/\:path\*"/);
+  assert.match(config, /private, no-store, max-age=0/);
+  assert.doesNotMatch(config, /poweredByHeader:\s*true/);
+});
+
+test("email password flow uses stronger new passwords without breaking existing sign-ins or enumerating accounts", async () => {
+  const [actions, form] = await Promise.all([
+    source("app/auth/actions.ts"),
+    source("components/auth/credentials-form.tsx"),
+  ]);
+
+  assert.match(actions, /signInPassword[\s\S]*min\(1/);
+  assert.match(actions, /newPassword[\s\S]*min\(12/);
+  assert.match(actions, /password:\s*newPassword/);
+  assert.match(actions, /The email or password is incorrect/);
+  assert.doesNotMatch(actions, /signUpError\.message/);
+  assert.doesNotMatch(actions, /alreadyExists/);
+  assert.match(form, /minLength=\{isSignUp \? 12 : 1\}/);
+  assert.match(form, /At least 12 characters/);
+});
+
 
 test("the public root explains Covie and keeps authenticated workspace data private", async () => {
   const home = await source("app/page.tsx");
