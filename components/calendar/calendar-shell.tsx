@@ -27,6 +27,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { flushSync } from "react-dom";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { CalendarSwitcher, type CalendarOption } from "@/components/calendar/calendar-switcher";
@@ -262,16 +263,12 @@ function SwipeMonthPreview({
   fallbackParticipants,
   today,
   direction,
-  dragOffset,
-  settling,
 }: {
   month: Date;
   data: CalendarPayload | null;
   fallbackParticipants: Participant[];
   today: Date;
   direction: SwipeDirection;
-  dragOffset: number;
-  settling: boolean;
 }) {
   const range = monthGridRange(month);
   const days = eachDayOfInterval({ start: range.start, end: range.end });
@@ -291,9 +288,6 @@ function SwipeMonthPreview({
   }
 
   const startingPosition = direction === "next" ? "100%" : "-100%";
-  const transition = settling
-    ? "transform " + SWIPE_SETTLE_MS + "ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "none";
 
   return (
     <div
@@ -304,10 +298,10 @@ function SwipeMonthPreview({
         transform:
           "translate3d(calc(" +
           startingPosition +
-          " + " +
-          dragOffset +
-          "px), 0, 0)",
-        transition,
+          " + var(--covie-calendar-swipe-x, 0px)), 0, 0)",
+        transition: "var(--covie-calendar-swipe-transition, none)",
+        willChange: "transform",
+        backfaceVisibility: "hidden",
       }}
       aria-hidden="true"
     >
@@ -458,7 +452,6 @@ export function CalendarShell({
   const [bulkReason, setBulkReason] = useState("");
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
-  const [dragOffset, setDragOffset] = useState(0);
   const [swipePreview, setSwipePreview] = useState<SwipePreview | null>(null);
   const [swipeSettling, setSwipeSettling] = useState(false);
   const toolsMenuRef = useRef<HTMLDetailsElement>(null);
@@ -614,10 +607,28 @@ export function CalendarShell({
     }
   }
 
+  function setSwipeMotion(offset: number, animate = false) {
+    const viewport = swipeViewportRef.current;
+    if (!viewport) return;
+
+    viewport.style.setProperty(
+      "--covie-calendar-swipe-transition",
+      animate
+        ? `transform ${SWIPE_SETTLE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
+        : "none",
+    );
+
+    if (animate) {
+      void viewport.offsetWidth;
+    }
+
+    viewport.style.setProperty("--covie-calendar-swipe-x", `${offset}px`);
+  }
+
   function resetSwipeState() {
     previewRequestRef.current += 1;
     swipeGestureRef.current = null;
-    setDragOffset(0);
+    setSwipeMotion(0);
     setSwipeSettling(false);
     setSwipePreviewValue(null);
   }
@@ -625,6 +636,7 @@ export function CalendarShell({
   function handleSwipePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.pointerType === "mouse" || swipeSettling || saving) return;
 
+    setSwipeMotion(0);
     swipeGestureRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -663,7 +675,7 @@ export function CalendarShell({
       void prepareSwipePreview(direction);
     }
 
-    setDragOffset(offset);
+    setSwipeMotion(offset);
   }
 
   function finishSwipe(
@@ -688,13 +700,14 @@ export function CalendarShell({
 
     if (!shouldCommit) {
       setSwipeSettling(true);
-      setDragOffset(0);
+      setSwipeMotion(0, true);
 
       if (settleTimerRef.current !== null) {
         window.clearTimeout(settleTimerRef.current);
       }
       settleTimerRef.current = window.setTimeout(() => {
         previewRequestRef.current += 1;
+        setSwipeMotion(0);
         setSwipePreviewValue(null);
         setSwipeSettling(false);
         suppressSwipeClickRef.current = false;
@@ -718,7 +731,7 @@ export function CalendarShell({
     }
 
     setSwipeSettling(true);
-    setDragOffset(direction === "next" ? -width : width);
+    setSwipeMotion(direction === "next" ? -width : width, true);
 
     if (settleTimerRef.current !== null) {
       window.clearTimeout(settleTimerRef.current);
@@ -732,20 +745,22 @@ export function CalendarShell({
           : null;
       const targetRange = monthGridRange(targetMonth);
 
-      setCurrentMonth(targetMonth);
-      if (previewData) {
-        setCalendarData(previewData);
-        loadedRequestRef.current = {
-          range: targetRange.from + ":" + targetRange.to,
-          refreshKey,
-        };
-        setAccessMode(previewData.permission === "viewer" ? "viewer" : "editor");
-      }
-      setDetailsDate(null);
-      previewRequestRef.current += 1;
-      setDragOffset(0);
-      setSwipePreviewValue(null);
-      setSwipeSettling(false);
+      flushSync(() => {
+        setCurrentMonth(targetMonth);
+        if (previewData) {
+          setCalendarData(previewData);
+          loadedRequestRef.current = {
+            range: targetRange.from + ":" + targetRange.to,
+            refreshKey,
+          };
+          setAccessMode(previewData.permission === "viewer" ? "viewer" : "editor");
+        }
+        setDetailsDate(null);
+        previewRequestRef.current += 1;
+        setSwipePreviewValue(null);
+        setSwipeSettling(false);
+      });
+      setSwipeMotion(0);
       suppressSwipeClickRef.current = false;
       settleTimerRef.current = null;
     }, SWIPE_SETTLE_MS);
@@ -1137,8 +1152,6 @@ export function CalendarShell({
                 fallbackParticipants={participants}
                 today={today}
                 direction={swipePreview.direction}
-                dragOffset={dragOffset}
-                settling={swipeSettling}
               />
             ) : null}
 
@@ -1146,10 +1159,11 @@ export function CalendarShell({
               className="covie-calendar-grid absolute inset-0 grid min-h-0 grid-cols-7 gap-1 sm:gap-1.5"
               style={{
                 gridTemplateRows: `auto repeat(${Math.ceil(calendarDays.length / 7)}, minmax(0, 1fr))`,
-                transform: `translate3d(${dragOffset}px, 0, 0)`,
-                transition: swipeSettling
-                  ? `transform ${SWIPE_SETTLE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
-                  : "none",
+                transform:
+                  "translate3d(var(--covie-calendar-swipe-x, 0px), 0, 0)",
+                transition: "var(--covie-calendar-swipe-transition, none)",
+                willChange: "transform",
+                backfaceVisibility: "hidden",
               }}
               role="grid"
               aria-label={format(currentMonth, "MMMM yyyy")}
