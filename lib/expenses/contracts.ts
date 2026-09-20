@@ -23,7 +23,7 @@ export const deleteExpenseSchema = z.object({
 export const expenseIdSchema = z.string().uuid();
 
 export const settlementUpdateSchema = z.object({
-  operation: z.enum(["settle", "reopen"]),
+  operation: z.enum(["mark_paid", "mark_unpaid"]),
 });
 
 export type SettlementOperation = z.infer<typeof settlementUpdateSchema>["operation"];
