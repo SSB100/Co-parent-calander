@@ -13,7 +13,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { localDateInTimeZone } from "@/lib/calendar/time";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
@@ -77,7 +77,7 @@ type PendingProposal = {
   proposedState: unknown;
 };
 
-type ExpensePayload = {
+export type ExpensePayload = {
   currentParticipantId: string | null;
   currentMembershipId: string;
   permission: "owner" | "editor" | "viewer";
@@ -189,13 +189,27 @@ function blankForm(initialDate: string | null, participantId: string | null, tim
   };
 }
 
-export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: string | null; calendarTimezone: string }) {
-  const [data, setData] = useState<ExpensePayload | null>(null);
-  const [loading, setLoading] = useState(true);
+export function ExpensesShell({
+  initialDate,
+  calendarTimezone,
+  initialData,
+}: {
+  initialDate: string | null;
+  calendarTimezone: string;
+  initialData: ExpensePayload;
+}) {
+  const [data, setData] = useState<ExpensePayload>(initialData);
   const [busy, setBusy] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState<ExpenseFormState>(() => blankForm(initialDate, null, calendarTimezone));
+  const [form, setForm] = useState<ExpenseFormState>(() =>
+    blankForm(
+      initialDate,
+      initialData.currentParticipantId ?? initialData.participants[0]?.id ?? null,
+      calendarTimezone,
+    ),
+  );
   const [dateFilter, setDateFilter] = useState<string | null>(initialDate);
+  const initialDateLoadRef = useRef(true);
   const [statusFilter, setStatusFilter] = useState<"current" | "archive">("current");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -224,6 +238,11 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
   }, [dateFilter]);
 
   useEffect(() => {
+    if (initialDateLoadRef.current) {
+      initialDateLoadRef.current = false;
+      return;
+    }
+
     let cancelled = false;
     const query = dateFilter ? `?date=${encodeURIComponent(dateFilter)}` : "";
 
@@ -246,7 +265,6 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
           return;
         }
         setData(body);
-      window.dispatchEvent(new Event("covie-records-updated"));
         setError(null);
         setForm((current) => ({
           ...current,
@@ -260,10 +278,6 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
       .catch(() => {
         if (!cancelled) setError("Shared costs could not be loaded.");
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
     return () => {
       cancelled = true;
     };
@@ -658,11 +672,7 @@ export function ExpensesShell({ initialDate, calendarTimezone }: { initialDate: 
           </div>
         </div>
 
-        {loading ? (
-          <div className="mt-4 flex min-h-40 items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm text-slate-500">
-            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> Loading shared costs…
-          </div>
-        ) : filteredExpenses.length === 0 ? (
+        {filteredExpenses.length === 0 ? (
           <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center">
             <ReceiptText className="mx-auto h-7 w-7 text-slate-400" aria-hidden="true" />
             <p className="mt-2 font-semibold text-slate-800">No shared costs here yet</p>
