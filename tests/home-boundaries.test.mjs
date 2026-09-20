@@ -278,3 +278,23 @@ test("Covie interactive surfaces use the branded action hierarchy instead of gen
   assert.match(onboarding, /bg-\[#BFEDE6\]/);
   assert.match(onboarding, /bg-\[#DDD3FA\]/);
 });
+
+
+test("Tasks belong to Calendar while Organiser exposes Shared costs and Children", async () => {
+  const [calendar, organiser, nav, taskPage, costPage] = await Promise.all([
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/workspace/organiser-shell.tsx"),
+    source("components/workspace/workspace-nav.tsx"),
+    source("app/responsibilities/page.tsx"),
+    source("app/expenses/page.tsx"),
+  ]);
+
+  assert.match(calendar, />\s*Tasks\s*</);
+  assert.match(calendar, /href="\/responsibilities"/);
+  assert.doesNotMatch(organiser, /href="\/responsibilities"/);
+  assert.match(organiser, /Shared costs/);
+  assert.match(organiser, /Children/);
+  assert.match(nav, /active === "responsibilities"[\s\S]*?\? "calendar"/);
+  assert.match(taskPage, /title: "Tasks"/);
+  assert.match(costPage, /title: "Shared costs"/);
+});
