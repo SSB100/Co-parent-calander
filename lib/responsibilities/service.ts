@@ -256,15 +256,26 @@ export async function listResponsibilities(input: {
     expenses: expenseRows,
     responsibilities: responsibilityRows.map((item) => ({
       ...item,
+      completedAt: item.completedAt?.toISOString() ?? null,
+      createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString(),
       dueTime: item.dueTime ? item.dueTime.slice(0, 5) : null,
       childIds: childIdsByResponsibility.get(item.id) ?? [],
       status: responsibilityStatus(item, today),
     })),
-    pendingProposals: date
+    pendingProposals: (date
       ? pendingProposals.filter((proposal) =>
           proposalTouchesDate(proposal, date),
         )
-      : pendingProposals,
+      : pendingProposals).map((proposal) => ({
+        ...proposal,
+        status: "waiting" as const,
+        submittedAt: proposal.submittedAt?.toISOString() ?? null,
+        respondedAt: proposal.respondedAt?.toISOString() ?? null,
+        withdrawnAt: proposal.withdrawnAt?.toISOString() ?? null,
+        createdAt: proposal.createdAt.toISOString(),
+        updatedAt: proposal.updatedAt.toISOString(),
+      })),
   };
 }
 

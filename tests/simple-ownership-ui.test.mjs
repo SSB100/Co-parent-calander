@@ -176,3 +176,79 @@ test("performance stage 3 server-loads Updates without an initial /api/home wate
   assert.match(session, /auth\.getSession\(\)/);
   assert.match(session, /membershipForUser/);
 });
+
+
+test("performance stage 4 server-loads Tasks and Shared costs without initial API waterfalls", async () => {
+  const [
+    taskPage,
+    taskShell,
+    taskRoute,
+    taskService,
+    costPage,
+    costShell,
+    costRoute,
+    costService,
+    session,
+  ] = await Promise.all([
+    readFile(path.join(root, "app/responsibilities/page.tsx"), "utf8"),
+    readFile(path.join(root, "components/responsibilities/responsibilities-shell.tsx"), "utf8"),
+    readFile(path.join(root, "app/api/responsibilities/route.ts"), "utf8"),
+    readFile(path.join(root, "lib/responsibilities/service.ts"), "utf8"),
+    readFile(path.join(root, "app/expenses/page.tsx"), "utf8"),
+    readFile(path.join(root, "components/expenses/expenses-shell.tsx"), "utf8"),
+    readFile(path.join(root, "app/api/expenses/route.ts"), "utf8"),
+    readFile(path.join(root, "lib/expenses/service.ts"), "utf8"),
+    readFile(path.join(root, "lib/security/session.ts"), "utf8"),
+  ]);
+
+  assert.match(taskPage, /getCalendarSession\(\)/);
+  assert.match(taskPage, /listResponsibilities\(\{/);
+  assert.match(taskPage, /initialData=\{initialData\}/);
+  assert.doesNotMatch(taskPage, /fetch\s*\(/);
+
+  assert.match(taskShell, /useState<ResponsibilityPayload>\(initialData\)/);
+  assert.match(taskShell, /loadedDateRef = useRef<string \| null>\(initialDate\)/);
+  assert.match(taskShell, /loadedDateRef\.current === dateFilter/);
+  assert.match(taskShell, /fetch\(`\/api\/responsibilities\$\{query\}`/);
+  assert.match(taskShell, /const refresh = useCallback/);
+  assert.doesNotMatch(taskShell, /Loading tasks/);
+  assert.doesNotMatch(taskShell, /setLoading/);
+
+  assert.equal((taskRoute.match(/getCalendarSession\(\)/g) ?? []).length, 1);
+  assert.match(taskRoute, /responsibilityDateQuerySchema\.safeParse/);
+  assert.match(taskRoute, /listResponsibilities\(\{/);
+  assert.match(taskRoute, /getEditorSession\(\)/);
+  assert.match(taskRoute, /isSameOriginMutation\(request\)/);
+
+  assert.match(taskService, /completedAt: item\.completedAt\?\.toISOString\(\) \?\? null/);
+  assert.match(taskService, /createdAt: item\.createdAt\.toISOString\(\)/);
+  assert.match(taskService, /updatedAt: item\.updatedAt\.toISOString\(\)/);
+  assert.match(taskService, /status: "waiting" as const/);
+
+  assert.match(costPage, /getCalendarSession\(\)/);
+  assert.match(costPage, /listExpenses\(\{/);
+  assert.match(costPage, /initialData=\{initialData\}/);
+  assert.doesNotMatch(costPage, /fetch\s*\(/);
+
+  assert.match(costShell, /useState<ExpensePayload>\(initialData\)/);
+  assert.match(costShell, /loadedDateRef = useRef<string \| null>\(initialDate\)/);
+  assert.match(costShell, /loadedDateRef\.current === dateFilter/);
+  assert.match(costShell, /fetch\(`\/api\/expenses\$\{query\}`/);
+  assert.match(costShell, /const load = useCallback/);
+  assert.doesNotMatch(costShell, /Loading shared costs/);
+  assert.doesNotMatch(costShell, /setLoading/);
+
+  assert.equal((costRoute.match(/getCalendarSession\(\)/g) ?? []).length, 1);
+  assert.match(costRoute, /expenseDateQuerySchema\.safeParse/);
+  assert.match(costRoute, /listExpenses\(\{/);
+  assert.match(costRoute, /getEditorSession\(\)/);
+  assert.match(costRoute, /isSameOriginMutation\(request\)/);
+
+  assert.match(costService, /settledAt: expense\.settledAt\?\.toISOString\(\) \?\? null/);
+  assert.match(costService, /createdAt: expense\.createdAt\.toISOString\(\)/);
+  assert.match(costService, /updatedAt: expense\.updatedAt\.toISOString\(\)/);
+  assert.match(costService, /status: "waiting" as const/);
+
+  assert.match(session, /auth\.getSession\(\)/);
+  assert.match(session, /membershipForUser/);
+});
