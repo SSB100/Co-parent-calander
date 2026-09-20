@@ -669,8 +669,18 @@ main:has(.workspace-nav) { background: #fff9f2; }
     padding-top: 12px;
   }
 
+  .covie-page-header,
+  .covie-calendar-header {
+    position: relative;
+  }
+
   .covie-page-header {
+    padding-right: 50px;
     padding-bottom: 10px;
+  }
+
+  .covie-calendar-header {
+    padding-right: 50px;
   }
 
   .workspace-actions {
@@ -706,10 +716,17 @@ main:has(.workspace-nav) { background: #fff9f2; }
   }
 
   .workspace-mobile-actions {
-    position: relative;
-    order: 1;
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: auto;
+    z-index: 46;
     display: block;
-    margin-left: auto;
+    margin: 0;
+  }
+
+  .workspace-actions:not(:has(.workspace-page-actions)) {
+    display: contents;
   }
 
   .workspace-actions > .workspace-account {
