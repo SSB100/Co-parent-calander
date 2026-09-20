@@ -125,7 +125,7 @@ export function InstallApp() {
           type="button"
           onClick={() => void install()}
           aria-expanded={showInstructions}
-          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#243139] px-4 text-sm font-semibold text-white hover:bg-[#35474F]"
+          className="covie-primary-action inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm"
         >
           <Download className="h-4 w-4" aria-hidden="true" />
           Install Covie
