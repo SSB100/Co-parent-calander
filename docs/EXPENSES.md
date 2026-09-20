@@ -85,9 +85,37 @@ Migration `0019_expense_share_partial_payments.sql` added the running `paid_cent
 
 Migration `0020_expense_share_payment_history.sql` adds individual payment history. Existing positive `paid_cents` balances are preserved by backfilling one historical payment row per share.
 
+## One-off and recurring Shared Costs
+
+A Shared Cost can be created as:
+
+- One-off
+- Weekly
+- Every 2 weeks
+- Monthly
+- Yearly
+
+Recurring series can have an optional end date. If no end date is set, the series remains open-ended.
+
+The agreed series stores a template for the title, amount, category, child, payer, split, due-date offset and note. Covie materializes normal Shared Cost occurrence records from that template.
+
+Each occurrence:
+
+- has its own expense UUID
+- has its own parent share rows
+- has independent payment totals and payment history
+- can be edited or removed as an individual occurrence using the normal approval rules
+- is unique by series + occurrence date so generation is idempotent
+
+The first occurrence is created only after the recurring Shared Cost is agreed when two-parent approval is required.
+
+Covie generates an initial 12-month horizon and the existing daily worker keeps active series filled approximately 12 months ahead. Monthly/yearly dates are calculated from the original agreed start date rather than iteratively from the previous occurrence to avoid date drift.
+
+This initial recurring-cost version deliberately does not add a separate “edit all future occurrences” workflow. Editing a generated occurrence changes that occurrence only.
+
 ## Calendar and Home
 
-Shared costs remain linked to their expense/due dates but are not synced into Google Calendar.
+Shared costs remain linked to their expense/due dates but are not synced into Google Calendar as events. Calendar month tiles show a Shared Cost marker on the due date, or the cost date when no separate due date exists. Day Details continues to show the actual Shared Costs for that date.
 
 Home and workspace summaries calculate outstanding amounts from `share_cents - paid_cents`.
 
@@ -107,3 +135,6 @@ The left **At a glance** / mobile Quick View surface shows actual active tasks a
 10. Create/edit/delete approval behaviour remains unchanged.
 11. Day Details and Home show the remaining balance.
 12. Shared cost activity creates no Google Calendar jobs.
+13. Weekly, fortnightly, monthly and yearly series generate unique normal Shared Cost occurrences.
+14. Recurring series honor optional end dates and preserve due-date offsets.
+15. Calendar month tiles show Shared Cost markers without creating event records.
