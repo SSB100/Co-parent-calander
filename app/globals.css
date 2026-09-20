@@ -755,6 +755,13 @@ main:has(.workspace-nav) { background: #fff9f2; }
     border-radius: 10px;
   }
 
+  .workspace-mobile-action-panel .google-calendar-quick-action > [role="status"] {
+    position: static;
+    width: 100%;
+    margin-top: 6px;
+    box-shadow: none;
+  }
+
   .workspace-mobile-action-panel .workspace-account {
     display: none;
   }
