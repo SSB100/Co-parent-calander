@@ -490,7 +490,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
         </div>
       ) : null}
 
-      <section className="mt-4 grid grid-cols-3 gap-2 sm:mt-5 sm:gap-3">
+      <section className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3">
         <Link
           href="/responsibilities"
           className="rounded-xl border-2 border-[#243139] bg-[#BFEDE6] p-2.5 transition hover:-translate-y-0.5 sm:rounded-2xl sm:p-4"
@@ -527,7 +527,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
           type="button"
           onClick={openNewActivity}
           disabled={!editable}
-          className="rounded-xl border-2 border-[#243139] bg-[#DDD3FA] p-2.5 text-left transition hover:-translate-y-0.5 disabled:cursor-default disabled:opacity-70 sm:rounded-2xl sm:p-4"
+          className="col-span-2 rounded-xl border-2 border-[#243139] bg-[#DDD3FA] p-2.5 text-left transition hover:-translate-y-0.5 disabled:cursor-default disabled:opacity-70 sm:col-span-1 sm:rounded-2xl sm:p-4"
         >
           <div className="flex items-center justify-between gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white">
