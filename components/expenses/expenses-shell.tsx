@@ -396,7 +396,7 @@ export function ExpensesShell({
       return;
     }
 
-    let shares: ExpenseShare[];
+    let shares: Array<{ participantId: string; shareCents: number }>;
     try {
       shares = buildShares(amountCents);
     } catch (caught) {
