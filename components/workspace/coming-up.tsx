@@ -165,7 +165,7 @@ export function ComingUp({ variant = "default" }: { variant?: "default" | "menu"
                   <ListChecks aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <strong>Responsibilities</strong>
+                  <strong>Tasks</strong>
                   <span>
                     {data.organiser.responsibilityTotal === 0
                       ? "Nothing open"
@@ -189,7 +189,7 @@ export function ComingUp({ variant = "default" }: { variant?: "default" | "menu"
                   <CircleDollarSign aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <strong>Expenses</strong>
+                  <strong>Shared costs</strong>
                   <span>
                     {data.organiser.expenseTotal === 0
                       ? "Nothing outstanding"
