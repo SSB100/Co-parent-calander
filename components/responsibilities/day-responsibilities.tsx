@@ -40,14 +40,14 @@ export function DayResponsibilities({
       .then(({ response, body }) => {
         if (cancelled?.()) return;
         if (!response.ok || !body || !("responsibilities" in body)) {
-          setError(body && "error" in body && body.error ? body.error : "Responsibilities could not be loaded.");
+          setError(body && "error" in body && body.error ? body.error : "Tasks could not be loaded.");
           return;
         }
         setPayload(body);
         setError(null);
       })
       .catch(() => {
-        if (!cancelled?.()) setError("Responsibilities could not be loaded.");
+        if (!cancelled?.()) setError("Tasks could not be loaded.");
       });
   }, [date]);
 
@@ -78,11 +78,11 @@ export function DayResponsibilities({
         body: JSON.stringify({ operation: "complete" }),
       });
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (!response.ok) throw new Error(body?.error ?? "The responsibility could not be completed.");
+      if (!response.ok) throw new Error(body?.error ?? "The task could not be completed.");
       await load();
       onChanged?.();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The responsibility could not be completed.");
+      setError(caught instanceof Error ? caught.message : "The task could not be completed.");
     } finally {
       setBusyId(null);
     }
@@ -97,7 +97,7 @@ export function DayResponsibilities({
         <div>
           <p className="flex items-center gap-2 font-semibold text-slate-900">
             <CheckSquare2 className="h-4 w-4 text-[#6651B7]" aria-hidden="true" />
-            Responsibilities
+            Tasks
           </p>
           <p className="mt-1 text-xs text-slate-500">
             Shared tasks due on this date.
@@ -118,11 +118,11 @@ export function DayResponsibilities({
       ) : payload === null ? (
         <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
           <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Loading responsibilities…
+          Loading tasks…
         </div>
       ) : responsibilities.length === 0 ? (
         <p className="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
-          No agreed responsibilities are due on this day.
+          No agreed tasks are due on this day.
         </p>
       ) : (
         <div className="mt-3 space-y-2">
@@ -194,7 +194,7 @@ export function DayResponsibilities({
 
       {pendingCount > 0 ? (
         <p className="mt-2 text-xs font-semibold text-amber-700">
-          {pendingCount} responsibility {pendingCount === 1 ? "change is" : "changes are"} waiting for agreement.
+          {pendingCount} task {pendingCount === 1 ? "change is" : "changes are"} waiting for agreement.
         </p>
       ) : null}
     </div>
