@@ -37,9 +37,8 @@ export async function signInWithEmail(
 
   const { error: signInError } = await auth.signIn.email(parsed.data);
   if (signInError) {
-    const status = (signInError as { status?: number }).status;
     const message = signInError.message?.toLocaleLowerCase("en-NZ") ?? "";
-    if (status === 403 || message.includes("verif")) {
+    if (message.includes("verif")) {
       return {
         error:
           "Verify your email using the message we sent you, then sign in.",
@@ -61,18 +60,33 @@ export async function signUpWithEmail(
       name: z.string().trim().min(1, "Enter your name.").max(60),
       email,
       password: newPassword,
+      confirmPassword: newPassword,
+      termsAccepted: z.literal("yes", {
+        error: "Agree to the Terms & Conditions before creating your account.",
+      }),
+    })
+    .refine((value) => value.password === value.confirmPassword, {
+      path: ["confirmPassword"],
+      message: "The passwords do not match.",
     })
     .safeParse({
       name: formData.get("name"),
       email: formData.get("email"),
       password: formData.get("password"),
+      confirmPassword: formData.get("confirmPassword"),
+      termsAccepted: formData.get("termsAccepted"),
     });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check your details." };
   }
 
-  const { error: signUpError } = await auth.signUp.email(parsed.data);
+  const account = {
+    name: parsed.data.name,
+    email: parsed.data.email,
+    password: parsed.data.password,
+  };
+  const { error: signUpError } = await auth.signUp.email(account);
   if (signUpError) {
     return {
       error: "Your account could not be created. Check your details or try signing in.",

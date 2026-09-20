@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0016", async () => {
+test("schema migrations are sequential through 0017", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 17 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 18 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -50,7 +50,6 @@ test("database invariants are declared in both migration SQL and Drizzle schema"
   const names = [
     "events_end_date_valid",
     "events_recurrence_end_valid",
-    "recurring_rules_end_valid",
     "calendar_invites_usage_valid",
     "expenses_settlement_state_valid",
     "google_event_link_range_valid",
@@ -105,6 +104,36 @@ test("0014 retires the legacy auth runtime path while preserving recovery data",
   assert.doesNotMatch(migration, /DROP TABLE|DROP TYPE|DELETE FROM/);
   assert.doesNotMatch(schema, /accessTokens|sessions = pgTable|accessTokenType/);
   assert.doesNotMatch(session, /coparent_session|getLegacyEditorSession|claimLegacyCalendarForCurrentUser/);
+});
+
+
+test("0017 removes retired auth and recurring-rule storage from the live schema", async () => {
+  const [migration, parenting] = await Promise.all([
+    source("drizzle/0017_remove_retired_schema.sql"),
+    source("lib/db/schema/parenting.ts"),
+  ]);
+
+  for (const retired of [
+    "access_tokens",
+    "sessions",
+    "access_token_type",
+    "recurring_rules",
+    "recurring_rule_children",
+    "assignment_source",
+    "recurring_rule_id",
+  ]) {
+    assert.match(migration, new RegExp(retired));
+  }
+
+  assert.match(migration, /DROP TABLE IF EXISTS "access_tokens"/);
+  assert.match(migration, /DROP TABLE IF EXISTS "recurring_rules"/);
+  assert.match(migration, /DROP COLUMN IF EXISTS "recurring_rule_id"/);
+  assert.match(migration, /DROP COLUMN IF EXISTS "source"/);
+  assert.match(migration, /'0017', 'Remove retired authentication and recurring-rule schema'/);
+
+  assert.doesNotMatch(parenting, /recurringRules|recurringRuleChildren|assignmentSource|recurringRuleId/);
+  assert.match(parenting, /parentingSchedules/);
+  assert.match(parenting, /parentingAssignments/);
 });
 
 

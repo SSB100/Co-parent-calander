@@ -30,11 +30,19 @@ export function CredentialsForm({
   );
   const [googlePending, setGooglePending] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const alternateHref = `${isSignUp ? "/auth/sign-in" : "/auth/sign-up"}${
     inviteCode ? `?invite=${encodeURIComponent(inviteCode)}` : ""
   }`;
 
   async function continueWithGoogle() {
+    if (isSignUp && !termsAccepted) {
+      setGoogleError(
+        "Agree to the Terms & Conditions before creating your account.",
+      );
+      return;
+    }
+
     setGooglePending(true);
     setGoogleError(null);
 
@@ -95,11 +103,39 @@ export function CredentialsForm({
           </div>
         ) : null}
 
+        {isSignUp ? (
+          <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-[#D8CEC3] bg-[#FFF9F2] p-4">
+            <input
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(event) => setTermsAccepted(event.target.checked)}
+              className="mt-1 h-4 w-4 flex-none accent-[#243139]"
+            />
+            <span className="text-sm leading-6 text-[#43535A]">
+              I agree to the{" "}
+              <Link
+                href="/terms"
+                className="font-bold text-[#243139] underline decoration-[#FF6B5F] decoration-2 underline-offset-3"
+              >
+                Terms & Conditions
+              </Link>{" "}
+              and have read the{" "}
+              <Link
+                href="/privacy"
+                className="font-bold text-[#243139] underline decoration-[#19A897] decoration-2 underline-offset-3"
+              >
+                Privacy Policy
+              </Link>
+              .
+            </span>
+          </label>
+        ) : null}
+
         <div className="mt-7">
           <button
             type="button"
             onClick={() => void continueWithGoogle()}
-            disabled={googlePending || pending}
+            disabled={googlePending || pending || (isSignUp && !termsAccepted)}
             className={`${googleActionClassName} w-full min-h-12`}
             style={{ fontFamily: '"Google Sans", Roboto, Arial, sans-serif' }}
           >
@@ -124,6 +160,13 @@ export function CredentialsForm({
 
         <form action={action} className="space-y-5">
           {inviteCode ? <input type="hidden" name="invite" value={inviteCode} /> : null}
+          {isSignUp ? (
+            <input
+              type="hidden"
+              name="termsAccepted"
+              value={termsAccepted ? "yes" : ""}
+            />
+          ) : null}
 
           {isSignUp ? (
             <label className="block">
@@ -177,6 +220,23 @@ export function CredentialsForm({
             ) : null}
           </label>
 
+          {isSignUp ? (
+            <label className="block">
+              <span className="text-sm font-semibold text-slate-800">
+                Re-enter password
+              </span>
+              <input
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                minLength={12}
+                maxLength={128}
+                required
+                className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              />
+            </label>
+          ) : null}
+
           {state.error ? (
             <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
               {state.error}
@@ -185,7 +245,7 @@ export function CredentialsForm({
 
           <button
             type="submit"
-            disabled={pending || googlePending}
+            disabled={pending || googlePending || (isSignUp && !termsAccepted)}
             className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#FF6B5F] px-5 text-sm font-bold text-[#243139] transition hover:bg-[#F35F54] disabled:cursor-wait disabled:opacity-60"
           >
             {pending ? (isSignUp ? "Creating account…" : "Logging in…") : isSignUp ? "Create account" : "Log in"}

@@ -38,8 +38,8 @@ test("day-detail edits keep validation, direct split ownership, transaction, and
 
   assert.match(text, /eq\(children\.active,\s*true\)/);
   assert.match(text, /Add at least one child before editing a calendar day\./);
-  assert.match(text, /'manual'/);
-  assert.match(text, /recurring_rule_id\s*=\s*NULL/);
+  assert.doesNotMatch(text, /recurring_rule_id/);
+  assert.doesNotMatch(text, /source\s*=\s*'manual'/);
   assert.match(text, /afternoon_parent_id/);
   assert.match(text, /assignment\.details_update/);
   assert.match(text, /assignment\.single_clear/);

@@ -46,7 +46,6 @@ export async function loadEffectiveAssignmentMap({
         .where(
           and(
             eq(parentingAssignments.calendarId, calendarId),
-            eq(parentingAssignments.source, "manual"),
             inArray(parentingAssignments.childId, childIds),
             gte(parentingAssignments.assignmentDate, from),
             lte(parentingAssignments.assignmentDate, to),

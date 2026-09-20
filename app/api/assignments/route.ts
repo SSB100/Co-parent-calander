@@ -258,8 +258,6 @@ export async function POST(request: NextRequest) {
           assignment_date,
           parent_id,
           afternoon_parent_id,
-          source,
-          recurring_rule_id,
           handover_time,
           handover_location,
           note,
@@ -272,8 +270,6 @@ export async function POST(request: NextRequest) {
           ${assignment.date},
           NULL,
           NULL,
-          'manual',
-          NULL,
           NULL,
           NULL,
           NULL,
@@ -284,8 +280,6 @@ export async function POST(request: NextRequest) {
         DO UPDATE SET
           parent_id = NULL,
           afternoon_parent_id = NULL,
-          source = 'manual',
-          recurring_rule_id = NULL,
           handover_time = NULL,
           handover_location = NULL,
           note = NULL,
@@ -301,8 +295,6 @@ export async function POST(request: NextRequest) {
         assignment_date,
         parent_id,
         afternoon_parent_id,
-        source,
-        recurring_rule_id,
         created_by,
         updated_at
       )
@@ -312,8 +304,6 @@ export async function POST(request: NextRequest) {
         ${assignment.date},
         ${assignment.morningParentId},
         ${assignment.afternoonParentId},
-        'manual',
-        NULL,
         ${session.participantId},
         now()
       )
@@ -321,8 +311,6 @@ export async function POST(request: NextRequest) {
       DO UPDATE SET
         parent_id = EXCLUDED.parent_id,
         afternoon_parent_id = EXCLUDED.afternoon_parent_id,
-        source = 'manual',
-        recurring_rule_id = NULL,
         created_by = EXCLUDED.created_by,
         updated_at = now()
     `;

@@ -1,64 +1,55 @@
 # Legacy authentication retirement
 
-Covie now uses Managed Neon Auth plus `calendar_memberships` for application access.
+Covie uses Managed Neon Auth plus `calendar_memberships` for application access.
 
-The former token/session authentication path is retired in application code and recorded by migration `0014_retire_legacy_auth.sql`, applied in Production on 19 September 2026.
+The former token/session authentication path was retired from runtime code by migration `0014_retire_legacy_auth.sql` on 19 September 2026.
 
-## Runtime retirement
+## Final cleanup
 
-The application no longer authenticates through:
+After the account migration was validated, the retained recovery credential tables were no longer needed by the current application.
+
+Migration `0017_remove_retired_schema.sql` removes:
+
+- `access_tokens`
+- legacy public-schema `sessions`
+- `access_token_type`
+
+It also removes the first-generation recurring schedule storage that had already been migrated into first-class parenting schedules by migration `0013`:
+
+- `recurring_rules`
+- `recurring_rule_children`
+- `parenting_assignments.recurring_rule_id`
+- `parenting_assignments.source`
+- `assignment_source`
+
+The active schedule model remains:
+
+- `parenting_schedules`
+- `parenting_schedule_slots`
+- `parenting_schedule_children`
+- `parenting_assignments` for manual date overrides only
+
+## Current authentication boundary
+
+The application does not authenticate through:
 
 - `/access/editor/[token]`
 - the `coparent_session` cookie
 - legacy setup links
 - legacy editor-session records
+- public share tokens
 
 Old editor-link URLs redirect to managed sign-in and cannot create a legacy session.
 
-The old setup API returns HTTP 410 with guidance to use the Covie dashboard.
+The old setup API returns HTTP 410 with guidance to use the Covie calendar/account flow.
 
-## Recovery data retained
+## Production verification before cleanup
 
-Migration `0014` is deliberately non-destructive.
+Before preparing migration `0017`, Production was checked to confirm:
 
-It does **not** drop or delete:
-
-- `access_tokens`
-- `sessions`
-- `access_token_type`
-- calendars
-- participants
-- children
-- parenting schedules or assignments
-- events
-- expenses
-- responsibilities
-- attachments
-- audit history
-
-The legacy credential tables are no longer part of the application runtime schema, but they remain in Postgres temporarily as recovery evidence for calendars that have not yet been attached to a Managed Neon Auth membership.
-
-Legacy credentials must not be re-enabled for normal authentication.
-
-## Recovery process
-
-If a legacy-only calendar must be recovered:
-
-1. identify the intended calendar and account owner
-2. confirm the participant that should be linked to the account
-3. create an explicit `calendar_memberships` record
-4. verify the account can access the intended calendar through Managed Neon Auth
-5. record the administrative recovery in audit/history where appropriate
-
-Once every legacy-only calendar has either been recovered or explicitly approved for archival, a later migration may remove the retained credential tables and enum.
-
-## Production verification
-
-The 19 September 2026 release verified that:
-
-1. the current application does not read legacy token/session records
-2. migration `0014` contains no `DROP TABLE`, `DROP TYPE` or credential-row deletion
-3. `0013` was applied before `0014`
-4. legacy credential tables and rows remained present after migration
-5. calendar and family-domain row counts were unchanged
-6. recovery data remains available for any legacy-only calendar that must be attached to a modern membership
+1. there were exactly two active Neon Auth users with calendar membership;
+2. both active users were marked email verified;
+3. no persisted parenting assignment referenced `recurring_rule_id`;
+4. no persisted parenting assignment used the retired `recurring` source;
+5. the first-class parenting schedule tables contained the migrated schedule data; and
+6. the cleanup migration applied successfully on an isolated Neon migration branch without changing active schedule or manual assignment row counts.

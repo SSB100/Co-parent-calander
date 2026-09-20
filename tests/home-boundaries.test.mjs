@@ -9,6 +9,47 @@ async function source(file) {
   return readFile(path.join(root, file), "utf8");
 }
 
+test("public Covie chrome exposes branded FAQ contact and legal pages", async () => {
+  const [home, chrome, help, terms, privacy, legalShell] = await Promise.all([
+    source("app/page.tsx"),
+    source("components/marketing/public-chrome.tsx"),
+    source("app/help/page.tsx"),
+    source("app/terms/page.tsx"),
+    source("app/privacy/page.tsx"),
+    source("components/marketing/legal-page-shell.tsx"),
+  ]);
+
+  assert.match(home, /PublicHeader/);
+  assert.match(home, /PublicFooter/);
+
+  assert.match(chrome, /href="\/help"/);
+  assert.match(chrome, />\s*FAQ\s*</);
+  assert.match(chrome, /href="\/help#contact"/);
+  assert.match(chrome, />\s*Contact\s*</);
+  assert.match(chrome, /href="\/terms"/);
+  assert.match(chrome, /Terms & Conditions/);
+  assert.match(chrome, /href="\/privacy"/);
+  assert.match(chrome, /Privacy Policy/);
+
+  assert.match(help, /FAQ & Contact/);
+  assert.match(help, /ContactForm/);
+  assert.match(help, /id="contact"/);
+  assert.match(help, /What are you contacting us about/);
+  assert.match(help, /PublicHeader/);
+  assert.match(help, /PublicFooter/);
+
+  assert.match(terms, /LegalPageShell/);
+  assert.match(terms, /Consumer Guarantees Act 1993/);
+  assert.match(terms, /Fair Trading Act 1986/);
+  assert.match(privacy, /LegalPageShell/);
+  assert.match(privacy, /New Zealand privacy law/);
+  assert.match(privacy, /does not sell personal information/);
+  assert.match(legalShell, /covie-legal-copy/);
+  assert.match(legalShell, /PublicHeader/);
+  assert.match(legalShell, /PublicFooter/);
+});
+
+
 test("Home aggregates approvals urgent expenses responsibilities and daily calendar context", async () => {
   const loader = await source("lib/home/load-home.ts");
 
