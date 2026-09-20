@@ -12,8 +12,7 @@ import { CovieBrand } from "./covie-brand";
 
 export type WorkspaceSection = "home" | "calendar" | "expenses" | "responsibilities" | "kids" | "organiser";
 export const organiserItems = [
-  { href: "/responsibilities", label: "Responsibilities", description: "Shared tasks, due dates and repeating responsibilities.", icon: ListChecks },
-  { href: "/expenses", label: "Expenses", description: "Shared costs, reimbursements and settlements.", icon: WalletCards },
+  { href: "/expenses", label: "Shared costs", description: "Shared costs, reimbursements and settlements.", icon: WalletCards },
   { href: "/kids", label: "Children", description: "Profiles, activities and useful information.", icon: UsersRound },
 ];
 const items = [
@@ -30,7 +29,12 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
   const accountRef = useRef<HTMLDetailsElement>(null);
   const mobileActionsRef = useRef<HTMLDivElement>(null);
   useDismissibleDetails(accountRef);
-  const section = active && ["expenses", "responsibilities", "kids"].includes(active) ? "organiser" : active;
+  const section =
+    active === "responsibilities"
+      ? "calendar"
+      : active && ["expenses", "kids"].includes(active)
+        ? "organiser"
+        : active;
 
   useEffect(() => {
     const controller = new AbortController();
