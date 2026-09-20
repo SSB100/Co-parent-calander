@@ -88,6 +88,7 @@ export const expenseShares = pgTable(
       .notNull()
       .references(() => participants.id, { onDelete: "restrict" }),
     shareCents: integer("share_cents").notNull(),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
