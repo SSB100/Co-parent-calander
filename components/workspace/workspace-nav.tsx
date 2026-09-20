@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
 import { useDismissibleDetails } from "@/lib/client/use-details-dismiss";
+import { InstallApp } from "@/components/pwa/install-app";
 import { ComingUp } from "./coming-up";
 import { CovieBrand } from "./covie-brand";
 
@@ -178,5 +179,6 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
         </div>
       </div>
     </div>
+    <InstallApp />
   </>;
 }
