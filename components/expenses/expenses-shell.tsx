@@ -146,7 +146,7 @@ function paymentAmountToCents(value: string) {
   const cleaned = value.replace(/[^0-9.]/g, "");
   if (!cleaned || !/^\d+(\.\d{0,2})?$/.test(cleaned)) return null;
   const amount = Number(cleaned);
-  if (!Number.isFinite(amount) || amount < 0) return null;
+  if (!Number.isFinite(amount) || amount <= 0) return null;
   return Math.round(amount * 100);
 }
 
@@ -497,15 +497,18 @@ export function ExpensesShell({
     );
     if (!share || share.shareCents <= 0) return;
 
-    const inputValue =
-      paymentAmounts[expense.id] ?? centsInput(share.paidCents);
-    const paidCents = paymentAmountToCents(inputValue);
-    if (paidCents === null) {
-      setError("Enter a valid amount you have paid.");
+    const inputValue = paymentAmounts[expense.id] ?? "";
+    const paymentCents = paymentAmountToCents(inputValue);
+    if (paymentCents === null) {
+      setError("Enter a payment amount greater than zero.");
       return;
     }
-    if (paidCents > share.shareCents) {
-      setError("The amount paid cannot be more than your share.");
+
+    const remainingCents = Math.max(0, share.shareCents - share.paidCents);
+    if (paymentCents > remainingCents) {
+      setError(
+        `You only have ${money(remainingCents)} left to pay on your share.`,
+      );
       return;
     }
 
@@ -516,30 +519,35 @@ export function ExpensesShell({
       const response = await fetch(`/api/expenses/${expense.id}/settlement`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ paidCents }),
+        body: JSON.stringify({ paymentCents }),
       });
       const body = (await response.json().catch(() => null)) as
-        | { error?: string; settlementStatus?: string }
+        | {
+            error?: string;
+            settlementStatus?: string;
+            paidCents?: number;
+            shareCents?: number;
+          }
         | null;
       if (!response.ok) {
-        throw new Error(body?.error ?? "Your payment amount could not be updated.");
+        throw new Error(body?.error ?? "Your payment could not be added.");
       }
       setPaymentAmounts((current) => {
         const next = { ...current };
         delete next[expense.id];
         return next;
       });
+      const nextPaid = body?.paidCents ?? share.paidCents + paymentCents;
+      const shareTotal = body?.shareCents ?? share.shareCents;
       setMessage(
-        paidCents >= share.shareCents
-          ? "Your share is fully paid."
-          : `${money(paidCents)} recorded toward your ${money(share.shareCents)} share.`,
+        nextPaid >= shareTotal
+          ? `${money(paymentCents)} added. Your share is now fully paid.`
+          : `${money(paymentCents)} added. You have paid ${money(nextPaid)} of ${money(shareTotal)}.`,
       );
       await load();
     } catch (caught) {
       setError(
-        caught instanceof Error
-          ? caught.message
-          : "Your payment amount could not be updated.",
+        caught instanceof Error ? caught.message : "Your payment could not be added.",
       );
     } finally {
       setBusy(false);
@@ -816,12 +824,12 @@ export function ExpensesShell({
                           (share) => share.participantId === data.currentParticipantId,
                         );
                         if (!myShare || myShare.shareCents <= 0) return null;
-                        const value =
-                          paymentAmounts[expense.id] ?? centsInput(myShare.paidCents);
+                        if (myShare.paidCents >= myShare.shareCents) return null;
+                        const value = paymentAmounts[expense.id] ?? "";
                         return (
                           <div className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 sm:max-w-sm">
                             <label className="block text-xs font-semibold text-slate-700">
-                              Amount you&apos;ve paid
+                              Add payment
                             </label>
                             <div className="mt-2 flex items-center gap-2">
                               <div className="flex min-h-10 min-w-0 flex-1 items-center rounded-xl border border-slate-300 bg-white px-3">
@@ -835,7 +843,7 @@ export function ExpensesShell({
                                       [expense.id]: event.target.value,
                                     }))
                                   }
-                                  aria-label="Amount you have paid toward your share"
+                                  aria-label="Add a payment toward your share"
                                   className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none"
                                 />
                               </div>
@@ -846,11 +854,11 @@ export function ExpensesShell({
                                 className="covie-action-teal inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs disabled:opacity-50"
                               >
                                 <CircleDollarSign className="h-3.5 w-3.5" aria-hidden="true" />
-                                Save
+                                Add
                               </button>
                             </div>
                             <p className="mt-2 text-[11px] text-slate-500">
-                              Your share is {money(myShare.shareCents)}. Enter the total you have paid so far.
+                              Paid {money(myShare.paidCents)} of {money(myShare.shareCents)}. Add another payment of up to {money(Math.max(0, myShare.shareCents - myShare.paidCents))}.
                             </p>
                           </div>
                         );
