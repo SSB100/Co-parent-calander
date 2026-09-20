@@ -14,6 +14,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { listApprovalProposals } from "@/lib/approvals/engine";
+import { loadEffectiveAssignmentMap } from "@/lib/assignments/effective";
 import { localDateTimePartsInTimeZone } from "@/lib/calendar/time";
 import { getDb } from "@/lib/db";
 import {
@@ -24,8 +25,6 @@ import {
   expenses,
   parentingAssignments,
   participants,
-  recurringRuleChildren,
-  recurringRules,
   responsibilities,
 } from "@/lib/db/schema";
 import { expandEventOccurrences } from "@/lib/events/recurrence";
@@ -36,7 +35,6 @@ import {
   proposalDisplay,
   urgencyForDate,
 } from "@/lib/home/summary";
-import { resolveRecurringAssignments } from "@/lib/recurrence/fortnight";
 
 
 export type HomeLoadSession = {
@@ -79,9 +77,6 @@ export async function loadHomeData(session: HomeLoadSession) {
   const [
     parentRows,
     childRows,
-    manualAssignmentRows,
-    recurringRuleRows,
-    recurringRuleChildRows,
     eventRows,
     handoverRows,
     expenseRows,
@@ -111,57 +106,6 @@ export async function loadHomeData(session: HomeLoadSession) {
         ),
       )
       .orderBy(asc(children.createdAt)),
-    db
-      .select({
-        id: parentingAssignments.id,
-        childId: parentingAssignments.childId,
-        date: parentingAssignments.assignmentDate,
-        morningParentId: parentingAssignments.parentId,
-        afternoonParentId: parentingAssignments.afternoonParentId,
-        handoverTime: parentingAssignments.handoverTime,
-        handoverLocation: parentingAssignments.handoverLocation,
-        note: parentingAssignments.note,
-      })
-      .from(parentingAssignments)
-      .where(
-        and(
-          eq(parentingAssignments.calendarId, session.calendarId),
-          eq(parentingAssignments.source, "manual"),
-          eq(parentingAssignments.assignmentDate, now.date),
-        ),
-      )
-      .orderBy(asc(parentingAssignments.createdAt)),
-    db
-      .select({
-        id: recurringRules.id,
-        parentId: recurringRules.parentId,
-        startDate: recurringRules.startDate,
-        endDate: recurringRules.endDate,
-        rrule: recurringRules.rrule,
-      })
-      .from(recurringRules)
-      .where(
-        and(
-          eq(recurringRules.calendarId, session.calendarId),
-          eq(recurringRules.active, true),
-        ),
-      ),
-    db
-      .select({
-        ruleId: recurringRuleChildren.recurringRuleId,
-        childId: recurringRuleChildren.childId,
-      })
-      .from(recurringRuleChildren)
-      .innerJoin(
-        recurringRules,
-        eq(recurringRuleChildren.recurringRuleId, recurringRules.id),
-      )
-      .where(
-        and(
-          eq(recurringRules.calendarId, session.calendarId),
-          eq(recurringRules.active, true),
-        ),
-      ),
     db
       .select({
         id: events.id,
@@ -211,7 +155,6 @@ export async function loadHomeData(session: HomeLoadSession) {
       .where(
         and(
           eq(parentingAssignments.calendarId, session.calendarId),
-          eq(parentingAssignments.source, "manual"),
           or(
             isNotNull(parentingAssignments.handoverTime),
             and(
@@ -282,13 +225,13 @@ export async function loadHomeData(session: HomeLoadSession) {
       .limit(200),
   ]);
 
-  const todayAssignments = resolveRecurringAssignments({
-    manualAssignments: manualAssignmentRows,
-    rules: recurringRuleRows,
-    ruleChildren: recurringRuleChildRows,
+  const todayAssignmentMap = await loadEffectiveAssignmentMap({
+    calendarId: session.calendarId,
+    childIds: childRows.map((child) => child.id),
     from: now.date,
     to: now.date,
   });
+  const todayAssignments = [...todayAssignmentMap.values()];
 
   const parentingLabel = aggregateParentingLabel({
     rows: todayAssignments,
