@@ -8,6 +8,7 @@ import {
   Send,
   ShieldCheck,
 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 const reasons = [
@@ -228,14 +229,26 @@ export function ContactForm() {
             </p>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={status === "sending"}
-            className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-[10px] border border-[#243139] bg-[#FF6B5F] px-6 text-sm font-black text-[#243139] transition hover:bg-[#F35F54] disabled:cursor-wait disabled:opacity-60"
-          >
-            <Send className="h-4 w-4" aria-hidden="true" />
-            {status === "sending" ? "Sending…" : "Send message"}
-          </button>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="submit"
+              disabled={status === "sending"}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[10px] border border-[#243139] bg-[#FF6B5F] px-6 text-sm font-black text-[#243139] transition hover:bg-[#F35F54] disabled:cursor-wait disabled:opacity-60"
+            >
+              <Send className="h-4 w-4" aria-hidden="true" />
+              {status === "sending" ? "Sending…" : "Send message"}
+            </button>
+            <p className="max-w-sm text-xs leading-5 text-[#617077]">
+              We’ll use these details to respond to your message. See our{" "}
+              <Link
+                href="/privacy"
+                className="font-bold text-[#243139] underline underline-offset-3"
+              >
+                Privacy Policy
+              </Link>
+              .
+            </p>
+          </div>
         </form>
       ) : (
         <p className="mt-5 text-sm leading-6 text-[#617077]">
