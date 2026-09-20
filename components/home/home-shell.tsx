@@ -49,6 +49,8 @@ type HomeExpense = {
   };
 };
 
+type HomeUpcomingExpense = Omit<HomeExpense, "urgency">;
+
 type HomeResponsibility = {
   id: string;
   title: string;
@@ -104,7 +106,7 @@ export type HomePayload = {
   comingUp: {
     handover: Handover | null;
     event: HomeEvent | null;
-    expense: HomeExpense | null;
+    expense: HomeUpcomingExpense | null;
     responsibility: HomeResponsibility | null;
   };
 };
