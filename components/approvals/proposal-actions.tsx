@@ -117,7 +117,7 @@ export function ProposalActions({
           {busy === "withdraw" ? (
             <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : null}
-          Withdraw proposal
+          Withdraw request
         </button>
       ) : null}
 
