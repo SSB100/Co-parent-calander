@@ -171,8 +171,16 @@ test("mobile Quick view stays consistent while page actions remain visible", asy
   assert.doesNotMatch(nav.slice(quickViewStart, quickViewEnd), /\{actions\}/);
   assert.match(comingUp, />Quick view</);
   assert.match(comingUp, /Upcoming & outstanding/);
-  assert.match(comingUp, /responsibilities\.slice\(0, 1\)/);
-  assert.match(comingUp, /expenses\.slice\(0, 1\)/);
+  assert.match(comingUp, />Needs attention</);
+  assert.match(comingUp, /data\.organiser\.responsibilities\.length > 0 \|\| data\.organiser\.expenses\.length > 0/);
+  assert.doesNotMatch(comingUp, /responsibilities\.slice\(0, 1\)|expenses\.slice\(0, 1\)/);
+  const mobileOrganiserStart = comingUp.indexOf('variant === "menu" ? (');
+  const desktopOrganiserStart = comingUp.indexOf(') : (', mobileOrganiserStart);
+  assert.ok(mobileOrganiserStart >= 0);
+  assert.ok(desktopOrganiserStart > mobileOrganiserStart);
+  const mobileOrganiser = comingUp.slice(mobileOrganiserStart, desktopOrganiserStart);
+  assert.doesNotMatch(mobileOrganiser, /workspace-priority-card/);
+  assert.doesNotMatch(mobileOrganiser, />Responsibilities<|>Expenses</);
 
   assert.match(expenses, /Add expense/);
   assert.match(responsibilities, /Add responsibility/);
