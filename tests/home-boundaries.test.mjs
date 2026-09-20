@@ -139,10 +139,11 @@ test("calendar settings and parent changes refetch without hard page reloads", a
 });
 
 
-test("phone workspace styling stays compact without changing desktop breakpoints", async () => {
-  const [styles, nav, install, organiser, expenses, responsibilities] = await Promise.all([
+test("phone workspace actions stay useful without hiding the result of an action", async () => {
+  const [styles, nav, comingUp, install, organiser, expenses, responsibilities] = await Promise.all([
     source("app/globals.css"),
     source("components/workspace/workspace-nav.tsx"),
+    source("components/workspace/coming-up.tsx"),
     source("components/pwa/install-app.tsx"),
     source("components/workspace/organiser-shell.tsx"),
     source("components/expenses/expenses-shell.tsx"),
@@ -154,15 +155,25 @@ test("phone workspace styling stays compact without changing desktop breakpoints
   assert.match(styles, /workspace-mobile-action-panel[\s\S]*position: absolute/);
   assert.match(styles, /top: calc\(100% \+ 8px\)/);
   assert.match(styles, /workspace-mobile-actions:not\(\.is-open\)/);
-  assert.match(styles, /bottom: calc\(84px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(styles, /workspace-coming-up-menu/);
+  assert.match(styles, /google-calendar-quick-action > button/);
+  assert.match(styles, /covie-calendar-page\.is-selecting-days \.covie-install-mobile/);
   assert.match(styles, /div\.fixed\.inset-0\.z-50 > section\[role="dialog"\]/);
   assert.match(styles, /box-shadow: 0 -6px 0 #765ed6/);
+
   assert.match(nav, /aria-label=\{mobileActionsOpen \? "Close actions menu" : "Open actions menu"\}/);
-  assert.match(nav, /setMobileActionsOpen\(false\)/);
-  assert.match(nav, /workspace-mobile-logout/);
-  assert.match(install, /max-w-\[calc\(100vw-1rem\)\]/);
-  assert.match(install, /flex min-w-0 flex-col gap-3/);
-  assert.match(install, /min-h-11 w-full/);
+  assert.match(nav, /<ComingUp variant="menu" \/>/);
+  assert.match(nav, /covie-open-install/);
+  assert.match(nav, /Install Covie/);
+  assert.doesNotMatch(nav, /closeMobileActionsAfterAction/);
+  assert.match(comingUp, /variant === "menu"/);
+  assert.match(comingUp, /At a glance/);
+
+  assert.match(install, /Close install Covie prompt/);
+  assert.match(install, /DISMISSED_UNTIL_KEY/);
+  assert.match(install, /covie-open-install/);
+  assert.match(install, />\s*Install Covie\s*</);
+  assert.match(install, /Add to Home Screen/);
   assert.match(organiser, /p-4 sm:p-6/);
   assert.match(expenses, /grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-3/);
   assert.match(responsibilities, /grid grid-cols-2 gap-2 sm:mt-5/);
