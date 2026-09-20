@@ -138,3 +138,41 @@ test("performance stage 2 server-loads the initial calendar range without an API
   assert.match(session, /auth\.getSession\(\)/);
   assert.match(session, /membershipForUser/);
 });
+
+
+test("performance stage 3 server-loads Updates without an initial /api/home waterfall", async () => {
+  const [page, shell, route, loader, session] = await Promise.all([
+    readFile(path.join(root, "app/home/page.tsx"), "utf8"),
+    readFile(path.join(root, "components/home/home-shell.tsx"), "utf8"),
+    readFile(path.join(root, "app/api/home/route.ts"), "utf8"),
+    readFile(path.join(root, "lib/home/load-home.ts"), "utf8"),
+    readFile(path.join(root, "lib/security/session.ts"), "utf8"),
+  ]);
+
+  assert.match(page, /getCalendarSession\(\)/);
+  assert.match(page, /loadHomeData\(session\)/);
+  assert.match(page, /<HomeShell initialData=\{initialData\} \/>/);
+  assert.doesNotMatch(page, /fetch\s*\(/);
+
+  assert.match(shell, /HomeShell\(\{ initialData \}/);
+  assert.match(shell, /useState<HomePayload>\(initialData\)/);
+  assert.doesNotMatch(shell, /useEffect/);
+  assert.doesNotMatch(shell, /Loading Updates/);
+  assert.match(shell, /const refresh = useCallback/);
+  assert.match(shell, /fetch\("\/api\/home"/);
+  assert.match(shell, /onChanged=\{\(\) => \{/);
+
+  assert.equal((route.match(/getCalendarSession\(\)/g) ?? []).length, 1);
+  assert.match(route, /loadHomeData\(session\)/);
+  assert.doesNotMatch(route, /getDb\(\)|listApprovalProposals|expandEventOccurrences/);
+
+  assert.match(loader, /Promise\.all\(/);
+  assert.match(loader, /listApprovalProposals/);
+  assert.match(loader, /expandEventOccurrences/);
+  assert.match(loader, /expenseReimbursementContext/);
+  assert.match(loader, /proposalDisplay/);
+  assert.doesNotMatch(loader, /NextResponse|getCalendarSession/);
+
+  assert.match(session, /auth\.getSession\(\)/);
+  assert.match(session, /membershipForUser/);
+});
