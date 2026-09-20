@@ -332,16 +332,28 @@ export function ExpensesShell({
   const participants = data?.participants ?? [];
   const children = data?.children ?? [];
   const editable = data?.permission === "owner" || data?.permission === "editor";
+  const today = localDateInTimeZone(calendarTimezone);
 
   const filteredExpenses = useMemo(() => {
     const rows = data?.expenses ?? [];
     return statusFilter === "current"
-      ? rows.filter((expense) => expense.settlementStatus === "outstanding")
+      ? rows.filter(
+          (expense) =>
+            expense.settlementStatus === "outstanding" &&
+            (Boolean(dateFilter) ||
+              !expense.seriesOccurrenceDate ||
+              expense.seriesOccurrenceDate <= today),
+        )
       : rows.filter((expense) => expense.settlementStatus !== "outstanding");
-  }, [data?.expenses, statusFilter]);
+  }, [data?.expenses, dateFilter, statusFilter, today]);
 
   const summary = useMemo(() => {
-    const rows = data?.expenses ?? [];
+    const rows = (data?.expenses ?? []).filter(
+      (expense) =>
+        Boolean(dateFilter) ||
+        !expense.seriesOccurrenceDate ||
+        expense.seriesOccurrenceDate <= today,
+    );
     return {
       recorded: rows.reduce((sum, expense) => sum + expense.amountCents, 0),
       outstanding: rows
@@ -349,7 +361,7 @@ export function ExpensesShell({
         .reduce((sum, expense) => sum + unpaidAmount(expense), 0),
       archived: rows.filter((expense) => expense.settlementStatus !== "outstanding").length,
     };
-  }, [data?.expenses]);
+  }, [data?.expenses, dateFilter, today]);
 
   function openCreate() {
     const participantId = data?.currentParticipantId ?? participants[0]?.id ?? "";
