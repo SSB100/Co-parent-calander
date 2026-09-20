@@ -124,69 +124,94 @@ export function ComingUp({ variant = "default" }: { variant?: "default" | "menu"
         <p className="workspace-context-empty">Loading…</p>
       ) : (
         <>
-          <section className="workspace-context-section" aria-labelledby={`${idPrefix}-priorities-title`}>
-            <div className="workspace-context-heading">
-              <h2 id={`${idPrefix}-priorities-title`}>Organiser</h2>
-              <Link href="/organiser">Open</Link>
-            </div>
+          {variant === "menu" ? (
+            data.organiser.responsibilities.length > 0 || data.organiser.expenses.length > 0 ? (
+              <section className="workspace-context-section" aria-labelledby={`${idPrefix}-priorities-title`}>
+                <div className="workspace-context-heading">
+                  <h2 id={`${idPrefix}-priorities-title`}>Needs attention</h2>
+                </div>
 
-            <Link href="/responsibilities" className="workspace-priority-card workspace-priority-responsibility">
-              <span className="workspace-priority-icon">
-                <ListChecks aria-hidden="true" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <strong>Responsibilities</strong>
-                <span>
-                  {data.organiser.responsibilityTotal === 0
-                    ? "Nothing open"
-                    : `${data.organiser.responsibilityTotal} open`}
-                </span>
-              </span>
-              <ArrowRight aria-hidden="true" />
-            </Link>
+                {data.organiser.responsibilities.map((item) => (
+                  <Link key={item.id} href={item.href} className="workspace-priority-row">
+                    <span className={item.overdue ? "workspace-date-chip is-overdue" : "workspace-date-chip"}>
+                      {shortDate(item.date)}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                  </Link>
+                ))}
 
-            {(variant === "menu"
-              ? data.organiser.responsibilities.slice(0, 1)
-              : data.organiser.responsibilities
-            ).map((item) => (
-              <Link key={item.id} href={item.href} className="workspace-priority-row">
-                <span className={item.overdue ? "workspace-date-chip is-overdue" : "workspace-date-chip"}>
-                  {shortDate(item.date)}
+                {data.organiser.expenses.map((item) => (
+                  <Link key={item.id} href={item.href} className="workspace-priority-row">
+                    <span className={item.overdue ? "workspace-date-chip is-overdue" : "workspace-date-chip"}>
+                      {item.dueDate ? shortDate(item.dueDate) : "Open"}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                    <strong className="shrink-0 text-[11px]">
+                      {currency.format(item.amountCents / 100)}
+                    </strong>
+                  </Link>
+                ))}
+              </section>
+            ) : null
+          ) : (
+            <section className="workspace-context-section" aria-labelledby={`${idPrefix}-priorities-title`}>
+              <div className="workspace-context-heading">
+                <h2 id={`${idPrefix}-priorities-title`}>Organiser</h2>
+                <Link href="/organiser">Open</Link>
+              </div>
+
+              <Link href="/responsibilities" className="workspace-priority-card workspace-priority-responsibility">
+                <span className="workspace-priority-icon">
+                  <ListChecks aria-hidden="true" />
                 </span>
-                <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                <span className="min-w-0 flex-1">
+                  <strong>Responsibilities</strong>
+                  <span>
+                    {data.organiser.responsibilityTotal === 0
+                      ? "Nothing open"
+                      : `${data.organiser.responsibilityTotal} open`}
+                  </span>
+                </span>
+                <ArrowRight aria-hidden="true" />
               </Link>
-            ))}
 
-            <Link href="/expenses" className="workspace-priority-card workspace-priority-expense">
-              <span className="workspace-priority-icon">
-                <CircleDollarSign aria-hidden="true" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <strong>Expenses</strong>
-                <span>
-                  {data.organiser.expenseTotal === 0
-                    ? "Nothing outstanding"
-                    : `${data.organiser.expenseTotal} outstanding`}
-                </span>
-              </span>
-              <ArrowRight aria-hidden="true" />
-            </Link>
+              {data.organiser.responsibilities.map((item) => (
+                <Link key={item.id} href={item.href} className="workspace-priority-row">
+                  <span className={item.overdue ? "workspace-date-chip is-overdue" : "workspace-date-chip"}>
+                    {shortDate(item.date)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                </Link>
+              ))}
 
-            {(variant === "menu"
-              ? data.organiser.expenses.slice(0, 1)
-              : data.organiser.expenses
-            ).map((item) => (
-              <Link key={item.id} href={item.href} className="workspace-priority-row">
-                <span className={item.overdue ? "workspace-date-chip is-overdue" : "workspace-date-chip"}>
-                  {item.dueDate ? shortDate(item.dueDate) : "Open"}
+              <Link href="/expenses" className="workspace-priority-card workspace-priority-expense">
+                <span className="workspace-priority-icon">
+                  <CircleDollarSign aria-hidden="true" />
                 </span>
-                <span className="min-w-0 flex-1 truncate">{item.title}</span>
-                <strong className="shrink-0 text-[11px]">
-                  {currency.format(item.amountCents / 100)}
-                </strong>
+                <span className="min-w-0 flex-1">
+                  <strong>Expenses</strong>
+                  <span>
+                    {data.organiser.expenseTotal === 0
+                      ? "Nothing outstanding"
+                      : `${data.organiser.expenseTotal} outstanding`}
+                  </span>
+                </span>
+                <ArrowRight aria-hidden="true" />
               </Link>
-            ))}
-          </section>
+
+              {data.organiser.expenses.map((item) => (
+                <Link key={item.id} href={item.href} className="workspace-priority-row">
+                  <span className={item.overdue ? "workspace-date-chip is-overdue" : "workspace-date-chip"}>
+                    {item.dueDate ? shortDate(item.dueDate) : "Open"}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                  <strong className="shrink-0 text-[11px]">
+                    {currency.format(item.amountCents / 100)}
+                  </strong>
+                </Link>
+              ))}
+            </section>
+          )}
 
           <section className="workspace-context-section" aria-labelledby={`${idPrefix}-events-title`}>
             <div className="workspace-context-heading">
