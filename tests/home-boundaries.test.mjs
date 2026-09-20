@@ -173,7 +173,7 @@ test("mobile Quick view stays consistent while page actions remain visible", asy
   assert.match(comingUp, />Quick view</);
   assert.match(comingUp, /Upcoming & outstanding/);
   assert.match(comingUp, />Needs attention</);
-  assert.match(comingUp, /data\.organiser\.responsibilities\.length > 0 \|\| data\.organiser\.expenses\.length > 0/);
+  assert.match(comingUp, /data\.organiser\.responsibilities\.length > 0\s+\|\|\s+data\.organiser\.expenses\.length > 0/);
   assert.doesNotMatch(comingUp, /responsibilities\.slice\(0, 1\)|expenses\.slice\(0, 1\)/);
   const mobileOrganiserStart = comingUp.indexOf('variant === "menu" ? (');
   const desktopOrganiserStart = comingUp.indexOf(') : (', mobileOrganiserStart);
