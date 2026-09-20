@@ -73,17 +73,13 @@ function eventDate(item: EventItem) {
   return item.time ? `${day} · ${item.time}` : day;
 }
 
-export function ComingUp() {
+export function ComingUp({ variant = "default" }: { variant?: "default" | "menu" }) {
   const detailsRef = useRef<HTMLDetailsElement>(null);
   useDismissibleDetails(detailsRef, { mobileOnly: true });
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    document
-      .querySelectorAll(".mobile-coming-up details")
-      .forEach((element) => element.removeAttribute("open"));
-
     const controller = new AbortController();
 
     async function refresh() {
@@ -148,14 +144,16 @@ export function ComingUp() {
               <ArrowRight aria-hidden="true" />
             </Link>
 
-            {data.organiser.responsibilities.map((item) => (
-              <Link key={item.id} href={item.href} className="workspace-priority-row">
-                <span className={item.overdue ? "workspace-date-chip is-overdue" : "workspace-date-chip"}>
-                  {shortDate(item.date)}
-                </span>
-                <span className="min-w-0 flex-1 truncate">{item.title}</span>
-              </Link>
-            ))}
+            {variant === "default"
+              ? data.organiser.responsibilities.map((item) => (
+                  <Link key={item.id} href={item.href} className="workspace-priority-row">
+                    <span className={item.overdue ? "workspace-date-chip is-overdue" : "workspace-date-chip"}>
+                      {shortDate(item.date)}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                  </Link>
+                ))
+              : null}
 
             <Link href="/expenses" className="workspace-priority-card workspace-priority-expense">
               <span className="workspace-priority-icon">
@@ -172,17 +170,19 @@ export function ComingUp() {
               <ArrowRight aria-hidden="true" />
             </Link>
 
-            {data.organiser.expenses.map((item) => (
-              <Link key={item.id} href={item.href} className="workspace-priority-row">
-                <span className={item.overdue ? "workspace-date-chip is-overdue" : "workspace-date-chip"}>
-                  {item.dueDate ? shortDate(item.dueDate) : "Open"}
-                </span>
-                <span className="min-w-0 flex-1 truncate">{item.title}</span>
-                <strong className="shrink-0 text-[11px]">
-                  {currency.format(item.amountCents / 100)}
-                </strong>
-              </Link>
-            ))}
+            {variant === "default"
+              ? data.organiser.expenses.map((item) => (
+                  <Link key={item.id} href={item.href} className="workspace-priority-row">
+                    <span className={item.overdue ? "workspace-date-chip is-overdue" : "workspace-date-chip"}>
+                      {item.dueDate ? shortDate(item.dueDate) : "Open"}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                    <strong className="shrink-0 text-[11px]">
+                      {currency.format(item.amountCents / 100)}
+                    </strong>
+                  </Link>
+                ))
+              : null}
           </section>
 
           <section className="workspace-context-section" aria-labelledby="workspace-events-title">
@@ -223,6 +223,18 @@ export function ComingUp() {
       )}
     </div>
   );
+
+  if (variant === "menu") {
+    return (
+      <section className="workspace-coming-up workspace-coming-up-menu" aria-labelledby="workspace-glance-title">
+        <div className="workspace-menu-section-heading">
+          <h2 id="workspace-glance-title">At a glance</h2>
+          <span>What needs your attention</span>
+        </div>
+        {content}
+      </section>
+    );
+  }
 
   return (
     <details ref={detailsRef} className="workspace-coming-up" open>
