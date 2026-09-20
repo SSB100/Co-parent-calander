@@ -299,7 +299,7 @@ export function HomeShell() {
               </div>
               <div>
                 <p className="text-sm font-bold text-slate-900">Nothing needs action right now.</p>
-                <p className="text-xs text-slate-600">No approvals, urgent expenses or overdue responsibilities.</p>
+                <p className="text-xs text-slate-600">No approvals, urgent shared costs or overdue tasks.</p>
               </div>
             </div>
           ) : null}
@@ -451,7 +451,7 @@ export function HomeShell() {
                 >
                   <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600">
                     <ListChecks className="h-3.5 w-3.5" aria-hidden="true" />
-                    Responsibilities
+                    Tasks
                   </div>
                   <p className="mt-2 truncate text-sm font-bold text-slate-950">
                     {data.today.responsibilities[0]?.title ?? "Nothing due"}
