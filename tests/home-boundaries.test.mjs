@@ -13,8 +13,8 @@ test("Home aggregates approvals urgent expenses responsibilities and daily calen
   const loader = await source("lib/home/load-home.ts");
 
   assert.match(loader, /listApprovalProposals/);
-  assert.match(api, /approverMembershipId === session\.membershipId/);
-  assert.match(api, /proposedByMembershipId === session\.membershipId/);
+  assert.match(loader, /approverMembershipId === session\.membershipId/);
+  assert.match(loader, /proposedByMembershipId === session\.membershipId/);
   assert.match(loader, /attentionCutoff/);
   assert.match(loader, /expenseReimbursementContext/);
   assert.match(loader, /responsibilityAttention/);
@@ -27,13 +27,13 @@ test("Home aggregates approvals urgent expenses responsibilities and daily calen
 });
 
 test("Open Updates includes incoming decisions plus the user's own withdrawable requests", async () => {
-  const api = await source("app/api/home/route.ts");
+  const loader = await source("lib/home/load-home.ts");
 
-  assert.match(api, /proposal\.approverMembershipId === session\.membershipId/);
-  assert.match(api, /proposal\.proposedByMembershipId === session\.membershipId/);
-  assert.match(api, /expense\.dueDate <= attentionThrough/);
-  assert.match(api, /!item\.completedAt/);
-  assert.match(api, /item\.dueDate <= now\.date/);
+  assert.match(loader, /proposal\.approverMembershipId === session\.membershipId/);
+  assert.match(loader, /proposal\.proposedByMembershipId === session\.membershipId/);
+  assert.match(loader, /expense\.dueDate <= attentionThrough/);
+  assert.match(loader, /!item\.completedAt/);
+  assert.match(loader, /item\.dueDate <= now\.date/);
   assert.doesNotMatch(loader, /auditLog|audit_log/);
 });
 
