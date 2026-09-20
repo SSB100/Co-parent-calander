@@ -8,7 +8,8 @@ import { normalizeInviteCode } from "@/lib/security/invites";
 export type AuthActionState = { error: string | null };
 
 const email = z.string().trim().email("Enter a valid email address.").max(256);
-const password = z.string().min(8, "Use at least 8 characters.").max(128);
+const signInPassword = z.string().min(1, "Enter your password.").max(128);
+const newPassword = z.string().min(12, "Use at least 12 characters.").max(128);
 
 function onboardingDestination(formData: FormData) {
   const invite = normalizeInviteCode(String(formData.get("invite") ?? ""));
@@ -20,7 +21,7 @@ export async function signInWithEmail(
   formData: FormData,
 ): Promise<AuthActionState> {
   const parsed = z
-    .object({ email, password })
+    .object({ email, password: signInPassword })
     .safeParse({ email: formData.get("email"), password: formData.get("password") });
 
   if (!parsed.success) {
@@ -42,7 +43,7 @@ export async function signUpWithEmail(
     .object({
       name: z.string().trim().min(1, "Enter your name.").max(60),
       email,
-      password,
+      password: newPassword,
     })
     .safeParse({
       name: formData.get("name"),
@@ -56,11 +57,8 @@ export async function signUpWithEmail(
 
   const { error: signUpError } = await auth.signUp.email(parsed.data);
   if (signUpError) {
-    const alreadyExists = signUpError.message?.toLowerCase().includes("already");
     return {
-      error: alreadyExists
-        ? "An account already exists for that email. Log in instead."
-        : signUpError.message || "Your account could not be created.",
+      error: "Your account could not be created. Check your details or try signing in.",
     };
   }
 
