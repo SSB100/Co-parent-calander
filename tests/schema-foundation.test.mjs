@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0017", async () => {
+test("schema migrations are sequential through 0018", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 18 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 19 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -134,6 +134,19 @@ test("0017 removes retired auth and recurring-rule storage from the live schema"
   assert.doesNotMatch(parenting, /recurringRules|recurringRuleChildren|assignmentSource|recurringRuleId/);
   assert.match(parenting, /parentingSchedules/);
   assert.match(parenting, /parentingAssignments/);
+});
+
+
+test("0018 adds per-parent shared-cost payment confirmation", async () => {
+  const [migration, expenseSchema] = await Promise.all([
+    source("drizzle/0018_expense_share_payment_confirmation.sql"),
+    source("lib/db/schema/expenses.ts"),
+  ]);
+
+  assert.match(migration, /ADD COLUMN "paid_at"/);
+  assert.match(migration, /expense\."settlement_status" IN \('settled', 'not_needed'\)/);
+  assert.match(migration, /'0018', 'Per-parent shared-cost payment confirmation'/);
+  assert.match(expenseSchema, /paidAt: timestamp\("paid_at"/);
 });
 
 
