@@ -53,7 +53,7 @@ export function DayExpenses({ date, readOnly = false }: { date: string; readOnly
         <div>
           <p className="flex items-center gap-2 font-semibold text-slate-900">
             <CircleDollarSign className="h-4 w-4 text-[#0D7A6D]" aria-hidden="true" />
-            Expenses on this day
+            Shared costs on this day
           </p>
           <p className="mt-1 text-xs text-slate-500">
             Costs recorded or reimbursement due on this date.
@@ -63,17 +63,17 @@ export function DayExpenses({ date, readOnly = false }: { date: string; readOnly
           href={`/expenses?date=${encodeURIComponent(date)}`}
           className="covie-action-sunshine shrink-0 rounded-xl px-3 py-2 text-xs"
         >
-          {readOnly ? "View expenses" : "Add / manage"}
+          {readOnly ? "View shared costs" : "Add / manage"}
         </Link>
       </div>
 
       {loading ? (
         <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
-          <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading expenses…
+          <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading shared costs…
         </div>
       ) : expenses.length === 0 ? (
         <p className="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
-          No agreed expenses are recorded or due on this day.
+          No agreed shared costs are recorded or due on this day.
         </p>
       ) : (
         <div className="mt-3 space-y-2">
@@ -99,7 +99,7 @@ export function DayExpenses({ date, readOnly = false }: { date: string; readOnly
 
       {pendingCount > 0 ? (
         <p className="mt-2 text-xs font-semibold text-amber-700">
-          {pendingCount} expense {pendingCount === 1 ? "change is" : "changes are"} waiting for agreement.
+          {pendingCount} shared cost {pendingCount === 1 ? "change is" : "changes are"} waiting for agreement.
         </p>
       ) : null}
     </div>
