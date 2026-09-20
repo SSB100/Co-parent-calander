@@ -226,7 +226,7 @@ export function ProfilePhoto({
   return (
     <div className="flex shrink-0 flex-col items-center gap-2">
       <div className="relative">
-        <div className="flex h-16 w-16 overflow-hidden rounded-2xl bg-slate-950 text-lg font-bold text-white">
+        <div className="flex h-16 w-16 overflow-hidden rounded-2xl border-2 border-[#243139] bg-[#DDD3FA] text-lg font-bold text-[#243139] shadow-[3px_3px_0_#765ED6]">
           {hasPhoto ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -240,7 +240,7 @@ export function ProfilePhoto({
           )}
         </div>
         {busy ? (
-          <span className="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/55 text-white">
+          <span className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[#765ED6]/70 text-white">
             <LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />
           </span>
         ) : null}
@@ -264,7 +264,7 @@ export function ProfilePhoto({
             disabled={busy}
             onClick={() => inputRef.current?.click()}
             aria-label={hasPhoto ? "Replace profile photo" : "Add profile photo"}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+            className="covie-icon-button flex h-8 w-8 items-center justify-center rounded-lg disabled:opacity-50"
           >
             <Camera className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -274,7 +274,7 @@ export function ProfilePhoto({
               disabled={busy}
               onClick={() => void remove()}
               aria-label="Remove profile photo"
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-500 hover:bg-rose-50 disabled:opacity-50"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 bg-[#FBECE8] text-rose-700 hover:bg-rose-100 disabled:opacity-50"
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
             </button>
