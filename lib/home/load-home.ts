@@ -32,6 +32,7 @@ import {
   aggregateParentingLabel,
   attentionCutoff,
   expenseReimbursementContext,
+  proposalChangeDetails,
   proposalDisplay,
   urgencyForDate,
 } from "@/lib/home/summary";
@@ -392,6 +393,14 @@ export async function loadHomeData(session: HomeLoadSession) {
         action: proposal.action,
         previousState: proposal.previousState,
         proposedState: proposal.proposedState,
+      }),
+      details: proposalChangeDetails({
+        entityType: proposal.entityType,
+        action: proposal.action,
+        previousState: proposal.previousState,
+        proposedState: proposal.proposedState,
+        participants: parentRows,
+        children: childRows,
       }),
     }));
 

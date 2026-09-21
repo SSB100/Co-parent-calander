@@ -79,9 +79,23 @@ test("Open Updates includes incoming decisions plus the user's own withdrawable 
 });
 
 test("Updates uses branded action-first sections without duplicating the side-rail feed", async () => {
-  const shell = await source("components/home/home-shell.tsx");
+  const [shell, loader, proposalCard, summary] = await Promise.all([
+    source("components/home/home-shell.tsx"),
+    source("lib/home/load-home.ts"),
+    source("components/approvals/proposal-card.tsx"),
+    source("lib/home/summary.ts"),
+  ]);
 
   assert.match(shell, /Open updates/);
+  assert.match(shell, /changeDetails=\{proposal\.details\}/);
+  assert.match(loader, /proposalChangeDetails/);
+  assert.match(loader, /previousState: proposal\.previousState/);
+  assert.match(loader, /proposedState: proposal\.proposedState/);
+  assert.match(proposalCard, /View change details/);
+  assert.match(proposalCard, />Before</);
+  assert.match(proposalCard, />Proposed</);
+  assert.match(summary, /export function proposalChangeDetails/);
+  assert.match(summary, /Steven|'s share|assignmentSummary/);
   assert.match(shell, /#FF6B5F/);
   assert.match(shell, /#BFEDE6/);
   assert.match(shell, /#DDD3FA/);

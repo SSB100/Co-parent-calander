@@ -4,6 +4,7 @@ import {
   aggregateParentingLabel,
   attentionCutoff,
   expenseReimbursementContext,
+  proposalChangeDetails,
   proposalDisplay,
   urgencyForDate,
 } from "@/lib/home/summary";
@@ -107,6 +108,193 @@ test("proposal display provides calm Home summaries across shared features", () 
       summary: "Return school form · due 2026-09-21",
     },
   );
+});
+
+
+test("proposal change details explain specific Shared Costs edits", () => {
+  const details = proposalChangeDetails({
+    entityType: "expense",
+    action: "edit",
+    previousState: {
+      kind: "expense",
+      expense: {
+        title: "School shoes",
+        amountCents: 8000,
+        paidByParticipantId: me,
+        expenseDate: "2026-09-18",
+        dueDate: "2026-09-25",
+        category: "clothing",
+        childId: null,
+        note: null,
+        shares: [
+          { participantId: me, shareCents: 4000 },
+          { participantId: them, shareCents: 4000 },
+        ],
+      },
+    },
+    proposedState: {
+      kind: "expense",
+      expense: {
+        title: "School shoes",
+        amountCents: 10000,
+        paidByParticipantId: me,
+        expenseDate: "2026-09-18",
+        dueDate: "2026-09-25",
+        category: "clothing",
+        childId: null,
+        note: null,
+        shares: [
+          { participantId: me, shareCents: 0 },
+          { participantId: them, shareCents: 10000 },
+        ],
+      },
+    },
+    participants: [
+      { id: me, displayName: "Steven" },
+      { id: them, displayName: "Jess" },
+    ],
+    children: [],
+  });
+
+  assert.deepEqual(details, [
+    { label: "Amount", before: "$80.00", after: "$100.00" },
+    { label: "Steven's share", before: "$40.00", after: "$0.00" },
+    { label: "Jess's share", before: "$40.00", after: "$100.00" },
+  ]);
+});
+
+test("proposal change details resolve task and event fields into readable values", () => {
+  const childId = "33333333-3333-4333-8333-333333333333";
+  const taskDetails = proposalChangeDetails({
+    entityType: "responsibility",
+    action: "edit",
+    previousState: {
+      kind: "responsibility",
+      responsibility: {
+        title: "Return school form",
+        responsibleParticipantId: me,
+        dueDate: "2026-09-21",
+        dueTime: "15:00",
+        category: "school",
+        childIds: [childId],
+        recurrence: "none",
+        recurrenceEndDate: null,
+        note: null,
+      },
+    },
+    proposedState: {
+      kind: "responsibility",
+      responsibility: {
+        title: "Return school form",
+        responsibleParticipantId: them,
+        dueDate: "2026-09-22",
+        dueTime: "16:30",
+        category: "school",
+        childIds: [childId],
+        recurrence: "none",
+        recurrenceEndDate: null,
+        note: null,
+      },
+    },
+    participants: [
+      { id: me, displayName: "Steven" },
+      { id: them, displayName: "Jess" },
+    ],
+    children: [{ id: childId, displayName: "Drake" }],
+  });
+
+  assert.deepEqual(taskDetails, [
+    { label: "Assigned to", before: "Steven", after: "Jess" },
+    { label: "Due date", before: "21 Sep 2026", after: "22 Sep 2026" },
+    { label: "Due time", before: "15:00", after: "16:30" },
+  ]);
+
+  const eventDetails = proposalChangeDetails({
+    entityType: "shared_event",
+    action: "edit",
+    previousState: {
+      kind: "shared_event",
+      event: {
+        title: "School assembly",
+        startDate: "2026-09-23",
+        endDate: null,
+        category: "school",
+        recurrence: "none",
+        recurrenceEndDate: null,
+        description: null,
+      },
+    },
+    proposedState: {
+      kind: "shared_event",
+      event: {
+        title: "School assembly",
+        startDate: "2026-09-24",
+        endDate: null,
+        category: "school",
+        recurrence: "none",
+        recurrenceEndDate: null,
+        description: "Main hall",
+      },
+    },
+    participants: [],
+    children: [],
+  });
+
+  assert.deepEqual(eventDetails, [
+    { label: "Start date", before: "23 Sep 2026", after: "24 Sep 2026" },
+    { label: "Description", before: "None", after: "Main hall" },
+  ]);
+});
+
+test("proposal change details explain parenting assignment changes by child and date", () => {
+  const childId = "33333333-3333-4333-8333-333333333333";
+  const details = proposalChangeDetails({
+    entityType: "parenting_schedule",
+    action: "edit",
+    previousState: {
+      kind: "parenting_assignments",
+      dates: ["2026-09-22"],
+      assignments: [
+        {
+          childId,
+          date: "2026-09-22",
+          morningParentId: me,
+          afternoonParentId: me,
+          handoverTime: null,
+          handoverLocation: null,
+          note: null,
+        },
+      ],
+    },
+    proposedState: {
+      kind: "parenting_assignments",
+      dates: ["2026-09-22"],
+      assignments: [
+        {
+          childId,
+          date: "2026-09-22",
+          morningParentId: them,
+          afternoonParentId: them,
+          handoverTime: null,
+          handoverLocation: null,
+          note: null,
+        },
+      ],
+    },
+    participants: [
+      { id: me, displayName: "Steven" },
+      { id: them, displayName: "Jess" },
+    ],
+    children: [{ id: childId, displayName: "Drake" }],
+  });
+
+  assert.deepEqual(details, [
+    {
+      label: "Drake · 22 Sep 2026",
+      before: "Steven all day",
+      after: "Jess all day",
+    },
+  ]);
 });
 
 test("parenting label uses You and the other parent without exposing morning terminology", () => {

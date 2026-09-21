@@ -34,6 +34,11 @@ type HomeApproval = {
   reason: string | null;
   title: string;
   summary: string;
+  details: Array<{
+    label: string;
+    before: string | null;
+    after: string | null;
+  }>;
 };
 
 type HomeExpense = {
@@ -268,6 +273,7 @@ export function HomeShell({ initialData }: { initialData: HomePayload }) {
                   approverName={proposal.approverName}
                   reason={proposal.reason}
                   proposedSummary={proposal.summary}
+                  changeDetails={proposal.details}
                   actions={
                     <ProposalActions
                       proposalId={proposal.id}
