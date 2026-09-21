@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
+import { CoviePage, CoviePageHeader } from "@/components/ui/covie";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
 type Participant = {
@@ -207,21 +208,18 @@ export function HomeShell({ initialData }: { initialData: HomePayload }) {
   }, [data]);
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-7xl px-3 py-3 sm:px-5 sm:py-4 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden lg:px-6">
-      <header className="covie-page-header shrink-0">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="mb-1.5 h-1.5 w-14 rounded-full bg-[#FF6B5F]" aria-hidden="true" />
-            <h1 className="covie-page-title text-3xl sm:text-4xl">Updates</h1>
-            <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
-              {data
-                ? `${data.calendar.name} · ${weekdayDateLabel(data.today.date)} · Hi, ${data.currentUserName}`
-                : "Your shared updates"}
-            </p>
-          </div>
-          <WorkspaceNav active="home" />
-        </div>
-      </header>
+    <CoviePage className="lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">
+      <CoviePageHeader
+        accent="coral"
+        title="Updates"
+        context={
+          data
+            ? `${data.calendar.name} · ${weekdayDateLabel(data.today.date)} · Hi, ${data.currentUserName}`
+            : "Your shared updates"
+        }
+        actions={<WorkspaceNav active="home" />}
+        className="shrink-0"
+      />
 
       {message ? (
         <div role="status" className="mt-2 shrink-0 rounded-xl border border-[#19A897] bg-[#EAF8F5] px-3 py-2 text-sm text-[#0B665C]">
@@ -463,6 +461,6 @@ export function HomeShell({ initialData }: { initialData: HomePayload }) {
             ? `${attentionCount} items need attention.`
             : ""}
       </div>
-    </main>
+    </CoviePage>
   );
 }
