@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { assignmentProposalRowsEqual } from "../lib/assignments/ownership";
 import {
   blocksAnotherWaitingProposal,
   canCreateProposal,
@@ -102,4 +103,30 @@ test("friendly labels avoid legalistic status wording", () => {
   assert.equal(proposalStatusLabel("declined"), "Declined");
   assert.equal(proposalStatusLabel("withdrawn"), "Withdrawn");
   assert.equal(proposalStatusLabel("draft"), "Draft");
+});
+
+
+test("parenting assignment proposals detect visible no-op requests", () => {
+  const before = [
+    {
+      childId: "child-1",
+      date: "2026-11-16",
+      morningParentId: "parent-a",
+      afternoonParentId: "parent-b",
+      handoverTime: null,
+      handoverLocation: null,
+      note: null,
+    },
+  ];
+
+  assert.equal(
+    assignmentProposalRowsEqual(before, before.map((row) => ({ ...row }))),
+    true,
+  );
+  assert.equal(
+    assignmentProposalRowsEqual(before, [
+      { ...before[0], afternoonParentId: "parent-a" },
+    ]),
+    false,
+  );
 });
