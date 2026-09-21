@@ -16,13 +16,19 @@ Each agreed shared cost stores:
 - the running amount each parent has paid toward their own share
 - an individual history row for every payment entered
 
-The split options remain intentionally simple:
+The cost-handling options remain intentionally simple:
 
-- 50 / 50
-- paid by payer only
-- custom split
+- **Split between us**
+  - 50 / 50
+  - custom split
+- **Reimbursement**
+  - one parent has already paid the bill
+  - the parent who paid has a zero amount owing
+  - the other parent owes the full reimbursement amount entered
 
-All shares must add up to the full cost.
+For a reimbursement, the entered amount is the amount being requested back. It does not need to represent the full original receipt value.
+
+All shares must add up to the full recorded amount.
 
 ## Agreement rules
 
@@ -138,3 +144,5 @@ The left **At a glance** / mobile Quick View surface shows actual active tasks a
 13. Weekly, fortnightly, monthly and yearly series generate unique normal Shared Cost occurrences.
 14. Recurring series honor optional end dates and preserve due-date offsets.
 15. Calendar month tiles show Shared Cost markers without creating event records.
+16. Reimbursement assigns zero owing to the parent who already paid and the full reimbursement amount to the other parent.
+17. Reimbursement creation and edits continue through the normal Shared Cost approval flow.
