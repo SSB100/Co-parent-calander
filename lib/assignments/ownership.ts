@@ -29,3 +29,42 @@ export function ownershipForChoice(
   }
   return { morningParentId: null, afternoonParentId: null };
 }
+
+
+export type AssignmentProposalRow = {
+  childId: string;
+  date: string;
+  morningParentId: string | null;
+  afternoonParentId: string | null;
+  handoverTime: string | null;
+  handoverLocation: string | null;
+  note: string | null;
+};
+
+export function assignmentProposalRowsEqual(
+  before: AssignmentProposalRow[],
+  after: AssignmentProposalRow[],
+) {
+  if (before.length !== after.length) return false;
+
+  const afterByKey = new Map(
+    after.map((assignment) => [
+      `${assignment.childId}:${assignment.date}`,
+      assignment,
+    ]),
+  );
+
+  return before.every((assignment) => {
+    const proposed = afterByKey.get(
+      `${assignment.childId}:${assignment.date}`,
+    );
+    return (
+      proposed !== undefined &&
+      assignment.morningParentId === proposed.morningParentId &&
+      assignment.afternoonParentId === proposed.afternoonParentId &&
+      assignment.handoverTime === proposed.handoverTime &&
+      assignment.handoverLocation === proposed.handoverLocation &&
+      assignment.note === proposed.note
+    );
+  });
+}
