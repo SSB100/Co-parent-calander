@@ -105,7 +105,7 @@ type ExpenseFormState = {
   reason: string;
   recurrenceFrequency: "none" | "weekly" | "fortnightly" | "monthly" | "yearly";
   recurrenceEndDate: string;
-  splitMode: "equal" | "payer_only" | "custom";
+  splitMode: "equal" | "reimbursement" | "custom";
   customShares: Record<string, string>;
 };
 
@@ -374,8 +374,10 @@ export function ExpensesShell({
     const payerShare =
       expense.shares.find((share) => share.participantId === expense.paidByParticipantId)?.shareCents ?? 0;
     const otherShares = expense.shares.filter((share) => share.participantId !== expense.paidByParticipantId);
-    const payerOnly =
-      payerShare === expense.amountCents && otherShares.every((share) => share.shareCents === 0);
+    const reimbursement =
+      payerShare === 0 &&
+      otherShares.length === 1 &&
+      otherShares[0]?.shareCents === expense.amountCents;
     const values = expense.shares.map((share) => share.shareCents);
     const equal =
       values.length > 0 &&
@@ -395,7 +397,7 @@ export function ExpensesShell({
       reason: "",
       recurrenceFrequency: "none",
       recurrenceEndDate: "",
-      splitMode: payerOnly ? "payer_only" : equal ? "equal" : "custom",
+      splitMode: reimbursement ? "reimbursement" : equal ? "equal" : "custom",
       customShares: Object.fromEntries(
         expense.shares.map((share) => [share.participantId, centsInput(share.shareCents)]),
       ),
@@ -411,13 +413,16 @@ export function ExpensesShell({
     }
 
     if (active.length === 1) {
+      if (form.splitMode === "reimbursement") {
+        throw new Error("Add the other parent before requesting reimbursement.");
+      }
       return [{ participantId: active[0].id, shareCents: amountCents }];
     }
 
-    if (form.splitMode === "payer_only") {
+    if (form.splitMode === "reimbursement") {
       return active.map((participant) => ({
         participantId: participant.id,
-        shareCents: participant.id === form.paidByParticipantId ? amountCents : 0,
+        shareCents: participant.id === form.paidByParticipantId ? 0 : amountCents,
       }));
     }
 
@@ -619,6 +624,12 @@ export function ExpensesShell({
   }
 
   const formAmountCents = amountToCents(form.amount) ?? 0;
+  const originalPayer = participants.find(
+    (participant) => participant.id === form.paidByParticipantId,
+  );
+  const reimbursingParticipant = participants
+    .slice(0, 2)
+    .find((participant) => participant.id !== form.paidByParticipantId);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
@@ -1014,7 +1025,9 @@ export function ExpensesShell({
               </label>
 
               <label>
-                <span className="text-sm font-semibold text-slate-800">Amount</span>
+                <span className="text-sm font-semibold text-slate-800">
+                  {form.splitMode === "reimbursement" ? "Amount to reimburse" : "Total amount"}
+                </span>
                 <div className="mt-2 flex min-h-12 items-center rounded-xl border border-slate-300 bg-white px-4 focus-within:border-slate-500 focus-within:ring-2 focus-within:ring-slate-200">
                   <span className="mr-2 text-slate-500">NZ$</span>
                   <input
@@ -1162,65 +1175,129 @@ export function ExpensesShell({
             ) : null}
 
             <div className="mt-5">
-              <p className="text-sm font-semibold text-slate-800">How should it be shared?</p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                {[
-                  ["equal", "50 / 50"],
-                  ["payer_only", "Paid by payer only"],
-                  ["custom", "Custom split"],
-                ].map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setForm((current) => ({ ...current, splitMode: value as ExpenseFormState["splitMode"] }))}
-                    className={`min-h-11 rounded-xl border px-3 text-sm font-semibold ${
-                      form.splitMode === value
-                        ? value === "equal"
-                          ? "border-[#243139] bg-[#BFEDE6] text-[#243139] ring-2 ring-[#19A897]"
-                          : value === "payer_only"
-                            ? "border-[#243139] bg-[#F7DC86] text-[#243139] ring-2 ring-[#F4C64E]"
-                            : "border-[#243139] bg-[#DDD3FA] text-[#243139] ring-2 ring-[#765ED6]"
-                        : "border-[#E6DBCF] bg-[#FFF9F2] text-[#243139] hover:bg-[#F7EFE5]"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+              <p className="text-sm font-semibold text-slate-800">How should this cost be handled?</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((current) => ({
+                      ...current,
+                      splitMode: current.splitMode === "custom" ? "custom" : "equal",
+                    }))
+                  }
+                  className={`rounded-xl border px-4 py-3 text-left ${
+                    form.splitMode !== "reimbursement"
+                      ? "border-[#243139] bg-[#BFEDE6] text-[#243139] ring-2 ring-[#19A897]"
+                      : "border-[#E6DBCF] bg-[#FFF9F2] text-[#243139] hover:bg-[#F7EFE5]"
+                  }`}
+                >
+                  <span className="block text-sm font-bold">Split between us</span>
+                  <span className="mt-1 block text-xs font-medium opacity-75">
+                    Choose 50 / 50 or set a custom amount for each parent.
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((current) => ({ ...current, splitMode: "reimbursement" }))
+                  }
+                  className={`rounded-xl border px-4 py-3 text-left ${
+                    form.splitMode === "reimbursement"
+                      ? "border-[#243139] bg-[#F7DC86] text-[#243139] ring-2 ring-[#F4C64E]"
+                      : "border-[#E6DBCF] bg-[#FFF9F2] text-[#243139] hover:bg-[#F7EFE5]"
+                  }`}
+                >
+                  <span className="block text-sm font-bold">Reimbursement</span>
+                  <span className="mt-1 block text-xs font-medium opacity-75">
+                    One parent already paid and the other parent owes them money back.
+                  </span>
+                </button>
               </div>
 
-              {form.splitMode === "equal" && formAmountCents > 0 ? (
-                <p className="mt-2 text-xs text-slate-500">
-                  Covie keeps the full amount exact. If there is an odd cent, it stays with the parent who paid.
-                </p>
-              ) : null}
-
-              {form.splitMode === "custom" ? (
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {participants.slice(0, 2).map((participant) => (
-                    <label key={participant.id}>
-                      <span className="text-xs font-semibold text-slate-600">{participant.displayName}&apos;s share</span>
-                      <div className="mt-1 flex min-h-11 items-center rounded-xl border border-slate-300 px-3">
-                        <span className="mr-2 text-sm text-slate-500">NZ$</span>
-                        <input
-                          inputMode="decimal"
-                          value={form.customShares[participant.id] ?? ""}
-                          onChange={(event) =>
-                            setForm((current) => ({
-                              ...current,
-                              customShares: {
-                                ...current.customShares,
-                                [participant.id]: event.target.value,
-                              },
-                            }))
-                          }
-                          placeholder="0.00"
-                          className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none"
-                        />
-                      </div>
-                    </label>
-                  ))}
+              {form.splitMode === "reimbursement" ? (
+                <div className="mt-3 rounded-xl border-2 border-[#F4C64E] bg-[#FFF9DF] px-4 py-3 text-sm text-[#5F4709]">
+                  {originalPayer && reimbursingParticipant && formAmountCents > 0 ? (
+                    <p className="font-semibold">
+                      {reimbursingParticipant.displayName} will be asked to reimburse{" "}
+                      {originalPayer.displayName} {money(formAmountCents)}.
+                    </p>
+                  ) : (
+                    <p className="font-semibold">
+                      The parent who did not pay the bill will owe the full reimbursement amount.
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs">
+                    The parent who already paid has no amount owing. The reimbursement still needs
+                    the other parent&apos;s approval.
+                  </p>
                 </div>
-              ) : null}
+              ) : (
+                <div className="mt-3 rounded-xl border border-[#C9BDF1] bg-[#F6F2FF] p-3">
+                  <p className="text-xs font-bold text-[#544394]">How should the split work?</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {[
+                      ["equal", "50 / 50"],
+                      ["custom", "Custom split"],
+                    ].map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() =>
+                          setForm((current) => ({
+                            ...current,
+                            splitMode: value as ExpenseFormState["splitMode"],
+                          }))
+                        }
+                        className={`min-h-11 rounded-xl border px-3 text-sm font-semibold ${
+                          form.splitMode === value
+                            ? value === "equal"
+                              ? "border-[#243139] bg-[#BFEDE6] text-[#243139] ring-2 ring-[#19A897]"
+                              : "border-[#243139] bg-[#DDD3FA] text-[#243139] ring-2 ring-[#765ED6]"
+                            : "border-[#E6DBCF] bg-white text-[#243139] hover:bg-[#FFF9F2]"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {form.splitMode === "equal" && formAmountCents > 0 ? (
+                    <p className="mt-2 text-xs text-slate-500">
+                      Covie keeps the full amount exact. If there is an odd cent, it stays with the parent who paid.
+                    </p>
+                  ) : null}
+
+                  {form.splitMode === "custom" ? (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {participants.slice(0, 2).map((participant) => (
+                        <label key={participant.id}>
+                          <span className="text-xs font-semibold text-slate-600">
+                            {participant.displayName}&apos;s share
+                          </span>
+                          <div className="mt-1 flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-3">
+                            <span className="mr-2 text-sm text-slate-500">NZ$</span>
+                            <input
+                              inputMode="decimal"
+                              value={form.customShares[participant.id] ?? ""}
+                              onChange={(event) =>
+                                setForm((current) => ({
+                                  ...current,
+                                  customShares: {
+                                    ...current.customShares,
+                                    [participant.id]: event.target.value,
+                                  },
+                                }))
+                              }
+                              placeholder="0.00"
+                              className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none"
+                            />
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
 
             <label className="mt-5 block">
