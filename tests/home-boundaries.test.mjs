@@ -97,7 +97,8 @@ test("Updates uses branded action-first sections without duplicating the side-ra
   assert.match(proposalCard, />Proposed</);
   assert.match(summary, /export function proposalChangeDetails/);
   assert.match(summary, /Steven|'s share|assignmentSummary/);
-  assert.match(shell, /#FF6B5F/);
+  assert.match(shell, /CoviePageHeader/);
+  assert.match(shell, /accent="coral"/);
   assert.match(shell, /#BFEDE6/);
   assert.match(shell, /#DDD3FA/);
   assert.match(shell, /#F7DC86/);
@@ -252,7 +253,7 @@ test("mobile Quick view stays consistent while page actions remain visible", asy
   assert.match(organiser, /min-h-\[68px\]/);
   assert.doesNotMatch(organiser, /min-h-\[104px\]/);
   assert.match(organiser, /max-w-3xl/);
-  assert.match(organiser, /text-3xl sm:text-4xl/);
+  assert.match(organiser, /CoviePageHeader/);
   assert.doesNotMatch(organiser, /p-4 sm:p-6/);
 });
 

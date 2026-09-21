@@ -101,7 +101,11 @@ test("authenticated pages share the public Covie design system", async () => {
   assert.match(styles, /workspace-destinations a\[aria-current="page"\].*#ff6b5f/i);
   assert.match(styles, /covie-page-header/);
   assert.match(styles, /covie-primary-action/);
-  for (const page of [home, expenses, responsibilities, kids, organiser]) {
+  for (const page of [home, organiser]) {
+    assert.match(page, /CoviePageHeader/);
+    assert.match(page, /CoviePage/);
+  }
+  for (const page of [expenses, responsibilities, kids]) {
     assert.match(page, /covie-page-header/);
     assert.match(page, /covie-page-title/);
   }
