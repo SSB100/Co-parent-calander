@@ -76,7 +76,8 @@ export function ProposalCard({
         </div>
       )}
 
-      {changeDetails && changeDetails.length > 0 ? (
+      {changeDetails ? (
+        changeDetails.length > 0 ? (
         <details className="mt-3 rounded-xl border border-[#C9BDF1] bg-[#F6F2FF]">
           <summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-bold text-[#544394] marker:hidden">
             View change details
@@ -118,6 +119,16 @@ export function ProposalCard({
             </div>
           </div>
         </details>
+        ) : (
+          <div className="mt-3 rounded-xl border border-[#E6DBCF] bg-[#FFF9F2] px-3 py-2.5">
+            <p className="text-sm font-semibold text-slate-700">
+              No differences were recorded in this request.
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              This older proposal does not contain a before/after change to display.
+            </p>
+          </div>
+        )
       ) : null}
 
       {reason && (

@@ -92,6 +92,7 @@ test("Updates uses branded action-first sections without duplicating the side-ra
   assert.match(loader, /previousState: proposal\.previousState/);
   assert.match(loader, /proposedState: proposal\.proposedState/);
   assert.match(proposalCard, /View change details/);
+  assert.match(proposalCard, /No differences were recorded in this request/);
   assert.match(proposalCard, />Before</);
   assert.match(proposalCard, />Proposed</);
   assert.match(summary, /export function proposalChangeDetails/);
@@ -373,4 +374,16 @@ test("Tasks belong to Calendar while Organiser exposes Shared costs and Children
   assert.match(nav, /active === "responsibilities"[\s\S]*?\? "calendar"/);
   assert.match(taskPage, /title: "Tasks"/);
   assert.match(costPage, /title: "Shared costs"/);
+});
+
+
+test("parenting assignment API does not create approvals when nothing changed", async () => {
+  const [route, ownership] = await Promise.all([
+    source("app/api/assignments/route.ts"),
+    source("lib/assignments/ownership.ts"),
+  ]);
+
+  assert.match(route, /assignmentProposalRowsEqual\(previousAssignments, proposedAssignments\)/);
+  assert.match(route, /already match the selected parenting schedule/);
+  assert.match(ownership, /export function assignmentProposalRowsEqual/);
 });

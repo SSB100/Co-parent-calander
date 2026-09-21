@@ -9,6 +9,7 @@ import {
 } from "@/lib/approvals/engine";
 import { approvalActorFromSession, proposalReasonSchema, sharedApprovalTargetForSession } from "@/lib/approvals/http";
 import { loadEffectiveAssignmentMap } from "@/lib/assignments/effective";
+import { assignmentProposalRowsEqual } from "@/lib/assignments/ownership";
 import { getDb, getSql } from "@/lib/db";
 import { children, parentingAssignments, participants } from "@/lib/db/schema";
 import { buildCalendarSyncJobStatement, expandGoogleSyncRange } from "@/lib/google-calendar/outbox";
@@ -198,6 +199,13 @@ export async function POST(request: NextRequest) {
       };
     }),
   );
+
+  if (assignmentProposalRowsEqual(previousAssignments, proposedAssignments)) {
+    return NextResponse.json(
+      { error: "Those dates already match the selected parenting schedule." },
+      { status: 409 },
+    );
+  }
 
   try {
     const approvalTarget = await sharedApprovalTargetForSession(session);
