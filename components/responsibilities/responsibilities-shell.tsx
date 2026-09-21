@@ -22,6 +22,7 @@ import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
+import { CoviePage, CoviePageHeader } from "@/components/ui/covie";
 import { RecordFocus } from "@/components/workspace/record-focus";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
@@ -572,24 +573,21 @@ export function ResponsibilitiesShell({
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-7 lg:px-8">
-      <header className="covie-page-header">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="mb-2 h-2 w-16 rounded-full bg-[#19A897]" aria-hidden="true" />
-            <h1 className="covie-page-title text-3xl sm:text-4xl">Tasks</h1>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500">
-              Keep practical tasks clear: what needs doing, who owns it and when it is due.
-            </p>
-          </div>
-          <RecordFocus ready={Boolean(data)} /><WorkspaceNav
+    <CoviePage>
+      <RecordFocus ready={Boolean(data)} />
+      <CoviePageHeader
+        accent="teal"
+        title="Tasks"
+        context="Keep practical tasks clear: what needs doing, who owns it and when it is due."
+        actions={
+          <WorkspaceNav
             active="responsibilities"
             actions={
               editable ? (
                 <button
                   type="button"
                   onClick={openCreate}
-                  className="covie-primary-action inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm"
+                  className="covie-primary-action inline-flex min-h-11 items-center gap-2 rounded-[10px] px-4 text-sm"
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
                   Add task
@@ -597,8 +595,8 @@ export function ResponsibilitiesShell({
               ) : null
             }
           />
-        </div>
-      </header>
+        }
+      />
 
       {dateFilter ? (
         <div className="mt-4 flex flex-col gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 sm:flex-row sm:items-center sm:justify-between">
@@ -1280,6 +1278,6 @@ export function ResponsibilitiesShell({
           You have view-only access to tasks.
         </p>
       ) : null}
-    </main>
+    </CoviePage>
   );
 }
