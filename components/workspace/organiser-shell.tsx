@@ -6,6 +6,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
+import { CoviePage, CoviePageHeader } from "@/components/ui/covie";
 import { WorkspaceNav } from "./workspace-nav";
 
 const sections = [
@@ -27,22 +28,13 @@ const sections = [
 
 export function OrganiserShell() {
   return (
-    <main className="mx-auto min-h-screen w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-      <header className="covie-page-header">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div
-              className="mb-2 h-2 w-16 rounded-full bg-[#FF6B5F]"
-              aria-hidden="true"
-            />
-            <h1 className="covie-page-title text-3xl sm:text-4xl">Organiser</h1>
-            <p className="mt-1 max-w-xl text-sm text-slate-500">
-              Shared family information that sits alongside the calendar.
-            </p>
-          </div>
-          <WorkspaceNav active="organiser" />
-        </div>
-      </header>
+    <CoviePage>
+      <CoviePageHeader
+        accent="coral"
+        title="Organiser"
+        context="Shared family information that sits alongside the calendar."
+        actions={<WorkspaceNav active="organiser" />}
+      />
 
       <section className="mt-4 max-w-3xl" aria-label="Organiser sections">
         <div className="overflow-hidden rounded-2xl border border-[#E6DBCF] bg-white">
@@ -79,6 +71,6 @@ export function OrganiserShell() {
           )}
         </div>
       </section>
-    </main>
+    </CoviePage>
   );
 }
