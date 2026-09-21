@@ -87,12 +87,13 @@ test("redundant decorative eyebrow labels are removed from core product pages", 
 });
 
 test("authenticated pages share the public Covie design system", async () => {
-  const [styles, home, expenses, responsibilities, kids, organiser, auth] = await Promise.all([
+  const [styles, home, expenses, responsibilities, kids, childProfile, organiser, auth] = await Promise.all([
     source("app/globals.css"),
     source("components/home/home-shell.tsx"),
     source("components/expenses/expenses-shell.tsx"),
     source("components/responsibilities/responsibilities-shell.tsx"),
     source("components/children/kids-shell.tsx"),
+    source("components/children/child-profile-shell.tsx"),
     source("components/workspace/organiser-shell.tsx"),
     source("components/auth/credentials-form.tsx"),
   ]);
@@ -101,13 +102,9 @@ test("authenticated pages share the public Covie design system", async () => {
   assert.match(styles, /workspace-destinations a\[aria-current="page"\].*#ff6b5f/i);
   assert.match(styles, /covie-page-header/);
   assert.match(styles, /covie-primary-action/);
-  for (const page of [home, organiser]) {
+  for (const page of [home, expenses, responsibilities, kids, childProfile, organiser]) {
     assert.match(page, /CoviePageHeader/);
     assert.match(page, /CoviePage/);
-  }
-  for (const page of [expenses, responsibilities, kids]) {
-    assert.match(page, /covie-page-header/);
-    assert.match(page, /covie-page-title/);
   }
   assert.match(auth, /#FFF9F2/);
   assert.match(auth, /#FF6B5F/);

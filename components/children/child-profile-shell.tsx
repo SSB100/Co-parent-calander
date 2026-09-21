@@ -19,6 +19,8 @@ import Link from "next/link";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { ProfilePhoto } from "@/components/attachments/profile-photo";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
+import { CoviePage, CoviePageHeader } from "@/components/ui/covie";
+import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type ChildProfile = {
@@ -409,75 +411,103 @@ export function ChildProfileShell({ childId }: { childId: string }) {
 
   if (!data && !error) {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center px-4">
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />
+      <CoviePage>
+        <CoviePageHeader
+          accent="violet"
+          title="Child profile"
+          context="Loading child profile…"
+          actions={<WorkspaceNav active="kids" />}
+        />
+        <div className="flex min-h-40 items-center justify-center text-sm text-slate-500">
+          <LoaderCircle className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" />
           Loading child profile…
         </div>
-      </main>
+      </CoviePage>
     );
   }
 
   if (!data) {
     return (
-      <main className="mx-auto min-h-screen w-full max-w-4xl px-4 py-8">
-        <Link href="/kids" className="text-sm font-semibold text-slate-600 hover:underline">
-          Back to Kids
-        </Link>
-        <p role="alert" className="mt-4 rounded-2xl bg-rose-50 p-4 text-sm text-rose-800">
+      <CoviePage>
+        <CoviePageHeader
+          accent="violet"
+          title="Child profile"
+          context="This profile could not be opened."
+          actions={
+            <WorkspaceNav
+              active="kids"
+              actions={
+                <Link
+                  href="/kids"
+                  className="covie-action-secondary inline-flex min-h-11 items-center gap-2 rounded-[10px] px-3 text-sm"
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                  Children
+                </Link>
+              }
+            />
+          }
+        />
+        <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
           {error ?? "The child profile could not be loaded."}
         </p>
-      </main>
+      </CoviePage>
     );
   }
 
   const child = data.child;
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-      <header className="covie-page-header">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-4">
-            <ProfilePhoto childId={child.id} displayName={child.displayName} />
-            <div>
-              <div className="mb-2 h-2 w-16 rounded-full bg-[#765ED6]" aria-hidden="true" />
-              <h1 className="covie-page-title text-3xl sm:text-4xl">{child.displayName}</h1>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                {child.schoolName ? (
-                  <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-600">
-                    {child.schoolName}{child.yearClass ? ` · ${child.yearClass}` : ""}
-                  </span>
-                ) : null}
-                {child.dateOfBirth ? (
-                  <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-600">
-                    {dateLabel(child.dateOfBirth)}
-                  </span>
-                ) : null}
-              </div>
+    <CoviePage>
+      <CoviePageHeader
+        accent="violet"
+        title={child.displayName}
+        leading={<ProfilePhoto childId={child.id} displayName={child.displayName} />}
+        context={
+          child.schoolName || child.dateOfBirth ? (
+            <div className="flex flex-wrap gap-2 text-xs">
+              {child.schoolName ? (
+                <span className="rounded-full border border-[#E6DBCF] bg-white px-2.5 py-1 font-semibold text-[#526168]">
+                  {child.schoolName}{child.yearClass ? ` · ${child.yearClass}` : ""}
+                </span>
+              ) : null}
+              {child.dateOfBirth ? (
+                <span className="rounded-full border border-[#E6DBCF] bg-white px-2.5 py-1 font-semibold text-[#526168]">
+                  {dateLabel(child.dateOfBirth)}
+                </span>
+              ) : null}
             </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/kids"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#243139] bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-              Children
-            </Link>
-            {editable ? (
-              <button
-                type="button"
-                onClick={openProfileEditor}
-                className="covie-primary-action inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm"
-              >
-                <Pencil className="h-4 w-4" aria-hidden="true" />
-                Edit profile
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </header>
+          ) : (
+            "Child profile"
+          )
+        }
+        actions={
+          <WorkspaceNav
+            active="kids"
+            actions={
+              <>
+                <Link
+                  href="/kids"
+                  className="covie-action-secondary inline-flex min-h-11 items-center gap-2 rounded-[10px] px-3 text-sm"
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                  Children
+                </Link>
+                {editable ? (
+                  <button
+                    type="button"
+                    onClick={openProfileEditor}
+                    className="covie-primary-action inline-flex min-h-11 items-center gap-2 rounded-[10px] px-4 text-sm"
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
+                    Edit profile
+                  </button>
+                ) : null}
+              </>
+            }
+          />
+        }
+      />
 
       {message ? (
         <div role="status" className="mt-3 rounded-xl border border-[#19A897] bg-[#EAF8F5] px-4 py-2.5 text-sm text-[#0B665C]">
@@ -890,6 +920,6 @@ export function ChildProfileShell({ childId }: { childId: string }) {
           You have view-only access to this child profile.
         </p>
       ) : null}
-    </main>
+    </CoviePage>
   );
 }

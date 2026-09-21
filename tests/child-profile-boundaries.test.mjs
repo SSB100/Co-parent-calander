@@ -115,6 +115,7 @@ test("Kids is reachable through the shared workspace navigation", async () => {
     source("components/calendar/calendar-shell.tsx"),
     source("components/expenses/expenses-shell.tsx"),
     source("components/responsibilities/responsibilities-shell.tsx"),
+    source("components/children/child-profile-shell.tsx"),
   ]);
 
   assert.match(nav, /href: "\/kids"/);
@@ -123,6 +124,8 @@ test("Kids is reachable through the shared workspace navigation", async () => {
   }
   assert.match(files[0], /Children/);
   assert.match(files[0], /\/kids\/\$\{child\.id\}/);
+  assert.match(files[4], /CoviePageHeader/);
+  assert.match(files[4], /active="kids"/);
 });
 
 test("child profiles create no date marker or Google Calendar sync surface", async () => {

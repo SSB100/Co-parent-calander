@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AddChildPanel } from "@/components/children/add-child-panel";
+import { CoviePage, CoviePageHeader } from "@/components/ui/covie";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
 type ChildSummary = {
@@ -82,24 +83,22 @@ export function KidsShell() {
   const editable = data?.permission === "owner" || data?.permission === "editor";
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-      <header className="covie-page-header">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="mb-2 h-2 w-16 rounded-full bg-[#765ED6]" aria-hidden="true" />
-            <h1 className="covie-page-title text-3xl sm:text-4xl">Children</h1>
-            <p className="mt-1 max-w-xl text-sm text-slate-500">
-              Start with the basics. Open a profile only when you need the extra detail.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {editable ? (
-              <AddChildPanel onChanged={() => void refresh()} />
-            ) : null}
-            <WorkspaceNav active="kids" />
-          </div>
-        </div>
-      </header>
+    <CoviePage>
+      <CoviePageHeader
+        accent="violet"
+        title="Children"
+        context="Start with the basics. Open a profile only when you need the extra detail."
+        actions={
+          <WorkspaceNav
+            active="kids"
+            actions={
+              editable ? (
+                <AddChildPanel onChanged={() => void refresh()} />
+              ) : null
+            }
+          />
+        }
+      />
 
       {error ? (
         <div
@@ -211,6 +210,6 @@ export function KidsShell() {
           )}
         </section>
       ) : null}
-    </main>
+    </CoviePage>
   );
 }

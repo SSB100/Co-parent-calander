@@ -41,26 +41,39 @@ export function CoviePageHeader({
   title,
   context,
   actions,
+  leading,
   className,
 }: {
   accent: Accent;
   title: ReactNode;
   context?: ReactNode;
   actions?: ReactNode;
+  leading?: ReactNode;
   className?: string;
 }) {
+  const heading = (
+    <div className="covie-page-heading">
+      <div
+        className="covie-page-accent"
+        data-accent={accent}
+        aria-hidden="true"
+      />
+      <h1 className="covie-page-title">{title}</h1>
+      {context ? <div className="covie-page-context">{context}</div> : null}
+    </div>
+  );
+
   return (
     <header className={classes("covie-page-header", className)}>
       <div className="covie-page-header-row">
-        <div className="covie-page-heading">
-          <div
-            className="covie-page-accent"
-            data-accent={accent}
-            aria-hidden="true"
-          />
-          <h1 className="covie-page-title">{title}</h1>
-          {context ? <p className="covie-page-context">{context}</p> : null}
-        </div>
+        {leading ? (
+          <div className="covie-page-header-main">
+            <div className="covie-page-header-leading">{leading}</div>
+            {heading}
+          </div>
+        ) : (
+          heading
+        )}
         {actions}
       </div>
     </header>

@@ -55,7 +55,7 @@ export function AddChildPanel({
       <button
         type="button"
         onClick={openPanel}
-        className="covie-primary-action inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm"
+        className="covie-primary-action inline-flex min-h-11 items-center gap-2 rounded-[10px] px-4 text-sm"
       >
         <Plus className="h-4 w-4" aria-hidden="true" />
         {buttonLabel}
