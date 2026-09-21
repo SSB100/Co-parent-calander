@@ -1,0 +1,254 @@
+import type {
+  ButtonHTMLAttributes,
+  HTMLAttributes,
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from "react";
+
+type Accent = "coral" | "teal" | "sunshine" | "violet";
+type Tone = Accent | "danger" | "neutral";
+
+function classes(...values: Array<string | false | null | undefined>) {
+  return values.filter(Boolean).join(" ");
+}
+
+export function CoviePage({
+  children,
+  className,
+  width = "standard",
+}: {
+  children: ReactNode;
+  className?: string;
+  width?: "standard" | "wide";
+}) {
+  return (
+    <main
+      className={classes(
+        "covie-page",
+        width === "wide" && "covie-page-wide",
+        className,
+      )}
+    >
+      {children}
+    </main>
+  );
+}
+
+export function CoviePageHeader({
+  accent,
+  title,
+  context,
+  actions,
+  className,
+}: {
+  accent: Accent;
+  title: ReactNode;
+  context?: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <header className={classes("covie-page-header", className)}>
+      <div className="covie-page-header-row">
+        <div className="covie-page-heading">
+          <div
+            className="covie-page-accent"
+            data-accent={accent}
+            aria-hidden="true"
+          />
+          <h1 className="covie-page-title">{title}</h1>
+          {context ? <p className="covie-page-context">{context}</p> : null}
+        </div>
+        {actions}
+      </div>
+    </header>
+  );
+}
+
+export function CoviePageActions({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={classes("covie-page-actions", className)}>{children}</div>
+  );
+}
+
+export function CovieCard({
+  children,
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={classes("covie-card", className)} {...props}>
+      {children}
+    </div>
+  );
+}
+
+export function CovieStrongCard({
+  children,
+  className,
+  tone = "neutral",
+  ...props
+}: HTMLAttributes<HTMLDivElement> & { tone?: Tone }) {
+  return (
+    <div
+      className={classes("covie-strong-card", className)}
+      data-tone={tone}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function CovieMetricCard({
+  children,
+  className,
+  tone = "neutral",
+  ...props
+}: HTMLAttributes<HTMLDivElement> & { tone?: Tone }) {
+  return (
+    <div
+      className={classes("covie-metric-card", className)}
+      data-tone={tone}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+}
+
+const buttonClassByTone: Record<Tone, string> = {
+  coral: "covie-primary-action",
+  teal: "covie-action-teal",
+  sunshine: "covie-action-sunshine",
+  violet: "covie-action-violet",
+  danger: "covie-action-danger",
+  neutral: "covie-action-secondary",
+};
+
+export function CovieButton({
+  className,
+  tone = "coral",
+  type = "button",
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { tone?: Tone }) {
+  return (
+    <button
+      type={type}
+      className={classes("covie-button", buttonClassByTone[tone], className)}
+      {...props}
+    />
+  );
+}
+
+export function CovieIconButton({
+  className,
+  type = "button",
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type={type}
+      className={classes("covie-icon-button covie-icon-button-control", className)}
+      {...props}
+    />
+  );
+}
+
+export function CovieInput({
+  className,
+  ...props
+}: InputHTMLAttributes<HTMLInputElement>) {
+  return <input className={classes("covie-input", className)} {...props} />;
+}
+
+export function CovieSelect({
+  className,
+  children,
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select className={classes("covie-select", className)} {...props}>
+      {children}
+    </select>
+  );
+}
+
+export function CovieTextarea({
+  className,
+  ...props
+}: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea className={classes("covie-textarea", className)} {...props} />;
+}
+
+export function CovieStatusBadge({
+  children,
+  tone = "neutral",
+  className,
+}: {
+  children: ReactNode;
+  tone?: Tone;
+  className?: string;
+}) {
+  return (
+    <span
+      className={classes("covie-status-badge", className)}
+      data-tone={tone}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function CovieNotice({
+  children,
+  tone = "neutral",
+  className,
+  role,
+}: {
+  children: ReactNode;
+  tone?: Tone;
+  className?: string;
+  role?: "status" | "alert";
+}) {
+  return (
+    <div
+      role={role ?? (tone === "danger" ? "alert" : "status")}
+      className={classes("covie-notice", className)}
+      data-tone={tone}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function CovieEmptyState({
+  icon,
+  title,
+  description,
+  action,
+  className,
+}: {
+  icon?: ReactNode;
+  title: ReactNode;
+  description: ReactNode;
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={classes("covie-empty-state", className)}>
+      {icon ? <div className="covie-empty-state-icon">{icon}</div> : null}
+      <h2 className="covie-empty-state-title">{title}</h2>
+      <p className="covie-empty-state-description">{description}</p>
+      {action ? <div className="covie-empty-state-action">{action}</div> : null}
+    </div>
+  );
+}
