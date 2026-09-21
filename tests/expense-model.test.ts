@@ -64,18 +64,24 @@ test("new shared costs stay outstanding until required shares are confirmed paid
   );
 });
 
-test("reimbursement stays outstanding when the other parent has a share", () => {
-  assert.equal(
-    defaultSettlementStatus({
-      amountCents: 5000,
-      paidByParticipantId: me,
-      shares: [
-        { participantId: me, shareCents: 2500 },
-        { participantId: them, shareCents: 2500 },
-      ],
-    }),
-    "outstanding",
-  );
+test("reimbursement can assign the full amount to the parent who did not pay", () => {
+  const details = {
+    childId: null,
+    expenseDate: "2026-09-18",
+    title: "School shoes reimbursement",
+    category: "clothing" as const,
+    amountCents: 5000,
+    paidByParticipantId: me,
+    dueDate: null,
+    note: null,
+    shares: [
+      { participantId: me, shareCents: 0 },
+      { participantId: them, shareCents: 5000 },
+    ],
+  };
+
+  assert.equal(expenseDetailsSchema.safeParse(details).success, true);
+  assert.equal(defaultSettlementStatus(details), "outstanding");
 });
 
 test("financial signature ignores share ordering", () => {
