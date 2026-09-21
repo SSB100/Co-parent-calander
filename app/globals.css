@@ -445,6 +445,15 @@ main:has(.workspace-nav) { background: #fff9f2; }
 .covie-page-heading {
   min-width: 0;
 }
+.covie-page-header-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 16px;
+}
+.covie-page-header-leading {
+  flex: 0 0 auto;
+}
 .covie-page-accent {
   width: 56px;
   height: 6px;
