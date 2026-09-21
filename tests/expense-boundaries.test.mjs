@@ -69,6 +69,7 @@ test("each parent can append and total only their own Shared Costs payments", as
   );
   assert.match(settlementService, /eq\(expenseShares\.participantId, session\.participantId\)/);
   assert.match(settlementService, /paymentCents > remainingCents/);
+  assert.match(settlementService, /share\.shareCents <= 0/);
   assert.match(settlementService, /INSERT INTO expense_share_payments/);
   assert.match(settlementService, /paid_cents = paid_cents \+ \$\{paymentCents\}::integer/);
   assert.match(settlementService, /share\.paid_cents < share\.share_cents/);
@@ -146,9 +147,16 @@ test("expense UI keeps pending agreement separate and links calendar days into e
   assert.match(shell, /Waiting for agreement/);
   assert.match(shell, /Current shared costs/);
   assert.match(shell, /Shared cost archive/);
+  assert.match(shell, /How should this cost be handled\?/);
+  assert.match(shell, /Split between us/);
   assert.match(shell, /50 \/ 50/);
-  assert.match(shell, /Paid by payer only/);
   assert.match(shell, /Custom split/);
+  assert.match(shell, /Reimbursement/);
+  assert.match(shell, /splitMode === "reimbursement"/);
+  assert.match(
+    shell,
+    /shareCents: participant\.id === form\.paidByParticipantId \? 0 : amountCents/,
+  );
   assert.match(shell, /Add payment/);
   assert.match(shell, /Add another payment of up to/);
   assert.doesNotMatch(shell, /Enter the total you have paid so far/);
