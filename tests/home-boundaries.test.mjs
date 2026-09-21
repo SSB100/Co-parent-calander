@@ -97,7 +97,8 @@ test("Updates uses branded action-first sections without duplicating the side-ra
   assert.match(proposalCard, />Proposed</);
   assert.match(summary, /export function proposalChangeDetails/);
   assert.match(summary, /Steven|'s share|assignmentSummary/);
-  assert.match(shell, /#FF6B5F/);
+  assert.match(shell, /CoviePageHeader/);
+  assert.match(shell, /accent="coral"/);
   assert.match(shell, /#BFEDE6/);
   assert.match(shell, /#DDD3FA/);
   assert.match(shell, /#F7DC86/);
