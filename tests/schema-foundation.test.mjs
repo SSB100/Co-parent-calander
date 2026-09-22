@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0027", async () => {
+test("schema migrations are sequential through 0028", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 28 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 29 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -358,6 +358,31 @@ test("0027 adds Staff roster account invitations without reusing co-parent profi
     /'0027', 'Staff roster account invitations'/,
   );
   assert.doesNotMatch(migration, /participants/);
+});
+
+
+test("0028 adds a lightweight Staff roster publication update feed", async () => {
+  const [migration, staff] = await Promise.all([
+    source("drizzle/0028_staff_roster_updates.sql"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  for (const token of [
+    "staff_roster_updates",
+    "staff_roster_updates_calendar_created_idx",
+    "staff_roster_updates_member_created_idx",
+    "before_summary",
+    "after_summary",
+  ]) {
+    assert.match(migration, new RegExp(token));
+    assert.match(staff, new RegExp(token));
+  }
+
+  assert.match(
+    migration,
+    /'0028', 'Staff roster publication updates'/,
+  );
+  assert.doesNotMatch(migration.toLowerCase(), /push_token|email_provider|sms/);
 });
 
 
