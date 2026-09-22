@@ -114,6 +114,29 @@ test("shift service blocks overlaps and requires explicit unavailability overrid
   assert.match(schema, /staff_roster_shifts_time_valid/);
 });
 
+
+test("Staff roster publication keeps live drafts separate from Staff-visible snapshots", async () => {
+  const [service, route, schema] = await Promise.all([
+    source("lib/staff-rosters/service.ts"),
+    source("app/api/staff-roster/publication/route.ts"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  assert.match(service, /staffRosterWeekPublications/);
+  assert.match(service, /staffRosterPublishedShifts/);
+  assert.match(service, /visibleShifts = capabilities\.createShifts \? liveShifts : publishedShifts/);
+  assert.match(service, /publicationStatus/);
+  assert.match(service, /changes_pending/);
+  assert.match(service, /export async function publishRosterWeek/);
+  assert.match(service, /pg_advisory_xact_lock/);
+  assert.match(service, /DELETE FROM staff_roster_published_shifts/);
+  assert.match(service, /INSERT INTO staff_roster_published_shifts/);
+  assert.match(route, /publishRosterWeek/);
+  assert.match(route, /isSameOriginMutation/);
+  assert.match(schema, /staffRosterWeekPublications/);
+  assert.match(schema, /staffRosterPublishedShifts/);
+});
+
 test("Staff setup completion is persisted but does not force optional data", async () => {
   const [service, schema, setup] = await Promise.all([
     source("lib/staff-rosters/service.ts"),
