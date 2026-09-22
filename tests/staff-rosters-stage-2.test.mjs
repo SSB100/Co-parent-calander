@@ -103,8 +103,12 @@ test("shift service blocks overlaps and requires explicit unavailability overrid
   assert.match(service, /staff_roster\.shift\.create/);
   assert.match(service, /staff_roster\.shift\.update/);
   assert.match(service, /staff_roster\.shift\.delete/);
+  assert.match(service, /export async function copyPreviousRosterWeek/);
+  assert.match(service, /availabilitySkipped/);
+  assert.match(service, /overlapSkipped/);
 
   assert.match(contracts, /Shift end time must be after the start time/);
+  assert.match(contracts, /copyStaffRosterWeekSchema/);
   assert.match(contracts, /overrideAvailabilityConflict/);
   assert.match(schema, /staffRosterShifts/);
   assert.match(schema, /staff_roster_shifts_time_valid/);
