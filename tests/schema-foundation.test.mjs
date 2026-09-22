@@ -420,9 +420,11 @@ test("0030 adds Staff roster operational hours with a bounded day range", async 
     "staff_roster_settings_operational_hours_valid",
   ]) {
     assert.match(migration, new RegExp(token));
-    assert.match(staff, new RegExp(token.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())));
   }
 
+  assert.match(staff, /operationalStartMinute/);
+  assert.match(staff, /operationalEndMinute/);
+  assert.match(staff, /staff_roster_settings_operational_hours_valid/);
   assert.match(migration, /DEFAULT 0/);
   assert.match(migration, /DEFAULT 1440/);
   assert.match(
