@@ -6,21 +6,33 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  GripVertical,
   LoaderCircle,
-  MapPin,
   Plus,
   Trash2,
   UserRound,
 } from "lucide-react";
 import {
   addDays,
+  addMonths,
+  endOfMonth,
+  endOfWeek,
   format,
   parseISO,
+  startOfMonth,
   startOfWeek,
   subDays,
+  subMonths,
 } from "date-fns";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type DragEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   CovieButton,
   CovieConfirmDialog,
@@ -29,11 +41,11 @@ import {
   CovieInput,
   CovieNotice,
   CovieSelect,
-  CovieStatusBadge,
   CovieTextarea,
 } from "@/components/ui/covie";
 
 type StaffAccessRole = "owner" | "manager" | "staff";
+type RosterView = "week" | "month";
 
 type Member = {
   id: string;
@@ -89,9 +101,33 @@ type ShiftForm = {
   note: string;
 };
 
+type PositionedShift = {
+  shift: Shift;
+  lane: number;
+  laneCount: number;
+};
+
+const SNAP_MINUTES = 15;
+const DEFAULT_SHIFT_MINUTES = 8 * 60;
+const DAY_START_MINUTE = 6 * 60;
+const DAY_END_MINUTE = 23 * 60;
+const HOUR_HEIGHT = 64;
+const DND_TYPE = "application/x-covie-roster";
+
+function todayValue() {
+  return format(new Date(), "yyyy-MM-dd");
+}
+
 function currentWeekStart() {
   return format(
     startOfWeek(new Date(), { weekStartsOn: 1 }),
+    "yyyy-MM-dd",
+  );
+}
+
+function weekStartFor(date: string) {
+  return format(
+    startOfWeek(parseISO(date), { weekStartsOn: 1 }),
     "yyyy-MM-dd",
   );
 }
@@ -127,14 +163,152 @@ function weekLabel(start: string, end: string) {
   return first + " – " + last;
 }
 
+function monthLabel(date: string) {
+  return new Intl.DateTimeFormat("en-NZ", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(date + "T00:00:00Z"));
+}
+
+function minutesFromTime(value: string) {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function timeFromMinutes(value: number) {
+  const safe = Math.max(0, Math.min(23 * 60 + 45, value));
+  const hours = Math.floor(safe / 60);
+  const minutes = safe % 60;
+  return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0");
+}
+
+function compactTime(value: string) {
+  const [hoursValue, minutesValue] = value.split(":").map(Number);
+  const suffix = hoursValue >= 12 ? "pm" : "am";
+  const hour = hoursValue % 12 || 12;
+  return minutesValue
+    ? hour + ":" + String(minutesValue).padStart(2, "0") + suffix
+    : hour + suffix;
+}
+
+function snapMinutes(value: number) {
+  return Math.round(value / SNAP_MINUTES) * SNAP_MINUTES;
+}
+
+function shiftDuration(shift: Pick<Shift, "startTime" | "endTime">) {
+  return Math.max(0, minutesFromTime(shift.endTime) - minutesFromTime(shift.startTime));
+}
+
+function hoursText(minutes: number) {
+  const hours = minutes / 60;
+  return Number.isInteger(hours) ? hours + "h" : hours.toFixed(1) + "h";
+}
+
+function visibleMonthRange(anchorDate: string) {
+  const start = startOfWeek(startOfMonth(parseISO(anchorDate)), {
+    weekStartsOn: 1,
+  });
+  const end = endOfWeek(endOfMonth(parseISO(anchorDate)), {
+    weekStartsOn: 1,
+  });
+  return { start, end };
+}
+
+function weeksForMonth(anchorDate: string) {
+  const { start, end } = visibleMonthRange(anchorDate);
+  const weeks: string[] = [];
+  let cursor = start;
+  while (cursor <= end) {
+    weeks.push(format(cursor, "yyyy-MM-dd"));
+    cursor = addDays(cursor, 7);
+  }
+  return weeks;
+}
+
+function layoutOverlappingShifts(shifts: Shift[]): PositionedShift[] {
+  const sorted = [...shifts].sort(
+    (a, b) => minutesFromTime(a.startTime) - minutesFromTime(b.startTime),
+  );
+  const positioned: PositionedShift[] = [];
+  let cluster: Shift[] = [];
+  let clusterEnd = -1;
+
+  function flushCluster() {
+    if (cluster.length === 0) return;
+
+    const laneEnds: number[] = [];
+    const temporary: Array<{ shift: Shift; lane: number }> = [];
+
+    for (const shift of cluster) {
+      const start = minutesFromTime(shift.startTime);
+      const end = minutesFromTime(shift.endTime);
+      let lane = laneEnds.findIndex((laneEnd) => laneEnd <= start);
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(end);
+      } else {
+        laneEnds[lane] = end;
+      }
+      temporary.push({ shift, lane });
+    }
+
+    const laneCount = Math.max(1, laneEnds.length);
+    positioned.push(
+      ...temporary.map((item) => ({ ...item, laneCount })),
+    );
+    cluster = [];
+    clusterEnd = -1;
+  }
+
+  for (const shift of sorted) {
+    const start = minutesFromTime(shift.startTime);
+    const end = minutesFromTime(shift.endTime);
+    if (cluster.length > 0 && start >= clusterEnd) flushCluster();
+    cluster.push(shift);
+    clusterEnd = Math.max(clusterEnd, end);
+  }
+  flushCluster();
+
+  return positioned;
+}
+
+async function readRosterWeek(weekStart: string) {
+  const response = await fetch(
+    "/api/staff-roster/shifts?weekStart=" + encodeURIComponent(weekStart),
+    { cache: "no-store" },
+  );
+  const body = (await response.json().catch(() => null)) as
+    | RosterPayload
+    | { error?: string }
+    | null;
+
+  if (!response.ok || !body || !("shifts" in body)) {
+    throw new Error(
+      body && "error" in body && body.error
+        ? body.error
+        : "The roster could not be loaded.",
+    );
+  }
+
+  return body;
+}
+
 export function StaffRosterCalendarPage() {
-  const [weekStart, setWeekStart] = useState(currentWeekStart);
+  const [anchorDate, setAnchorDate] = useState(todayValue);
+  const [mobileDay, setMobileDay] = useState(todayValue);
+  const [view, setView] = useState<RosterView>("week");
   const [data, setData] = useState<RosterPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [conflictMessage, setConflictMessage] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Shift | null>(null);
+  const [resizePreview, setResizePreview] = useState<{
+    shiftId: string;
+    startTime: string;
+    endTime: string;
+  } | null>(null);
   const [form, setForm] = useState<ShiftForm>({
     shiftId: null,
     memberId: "",
@@ -146,42 +320,7 @@ export function StaffRosterCalendarPage() {
     note: "",
   });
 
-  const refresh = useCallback(async (nextWeekStart: string) => {
-    const response = await fetch(
-      "/api/staff-roster/shifts?weekStart=" +
-        encodeURIComponent(nextWeekStart),
-      { cache: "no-store" },
-    );
-    const body = (await response.json().catch(() => null)) as
-      | RosterPayload
-      | { error?: string }
-      | null;
-
-    if (!response.ok || !body || !("shifts" in body)) {
-      throw new Error(
-        body && "error" in body && body.error
-          ? body.error
-          : "The roster could not be loaded.",
-      );
-    }
-
-    setData(body);
-    setError(null);
-  }, []);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void refresh(weekStart).catch((caught) =>
-        setError(
-          caught instanceof Error
-            ? caught.message
-            : "The roster could not be loaded.",
-        ),
-      );
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [refresh, weekStart]);
-
+  const weekStart = useMemo(() => weekStartFor(anchorDate), [anchorDate]);
   const days = useMemo(
     () =>
       Array.from({ length: 7 }, (_, index) =>
@@ -190,7 +329,102 @@ export function StaffRosterCalendarPage() {
     [weekStart],
   );
 
-  function openCreate(memberId?: string, date?: string) {
+  const refresh = useCallback(async (date: string, nextView: RosterView) => {
+    if (nextView === "week") {
+      const payload = await readRosterWeek(weekStartFor(date));
+      setData(payload);
+      setError(null);
+      return;
+    }
+
+    const weekStarts = weeksForMonth(date);
+    const payloads = await Promise.all(weekStarts.map(readRosterWeek));
+    const first = payloads[0];
+    const last = payloads[payloads.length - 1];
+    if (!first || !last) {
+      throw new Error("The roster month could not be loaded.");
+    }
+
+    const shifts = new Map<string, Shift>();
+    for (const payload of payloads) {
+      for (const shift of payload.shifts) shifts.set(shift.id, shift);
+    }
+
+    setData({
+      ...first,
+      weekStart: first.weekStart,
+      weekEnd: last.weekEnd,
+      shifts: [...shifts.values()].sort((a, b) =>
+        (a.date + a.startTime).localeCompare(b.date + b.startTime),
+      ),
+    });
+    setError(null);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void refresh(anchorDate, view).catch((caught) =>
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "The roster could not be loaded.",
+        ),
+      );
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [anchorDate, refresh, view]);
+
+  const roleById = useMemo(
+    () => new Map(data?.roles.map((role) => [role.id, role.name]) ?? []),
+    [data?.roles],
+  );
+  const locationById = useMemo(
+    () =>
+      new Map(
+        data?.locations.map((location) => [location.id, location.name]) ?? [],
+      ),
+    [data?.locations],
+  );
+
+  const weekShifts = useMemo(
+    () =>
+      data?.shifts.filter(
+        (shift) => shift.date >= weekStart && shift.date <= days[6],
+      ) ?? [],
+    [data?.shifts, days, weekStart],
+  );
+
+  const weeklyMinutesByMember = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const shift of weekShifts) {
+      totals.set(
+        shift.memberId,
+        (totals.get(shift.memberId) ?? 0) + shiftDuration(shift),
+      );
+    }
+    return totals;
+  }, [weekShifts]);
+
+  const totalWeekMinutes = useMemo(
+    () => weekShifts.reduce((sum, shift) => sum + shiftDuration(shift), 0),
+    [weekShifts],
+  );
+
+  function shiftWithPreview(shift: Shift) {
+    if (!resizePreview || resizePreview.shiftId !== shift.id) return shift;
+    return {
+      ...shift,
+      startTime: resizePreview.startTime,
+      endTime: resizePreview.endTime,
+    };
+  }
+
+  function openCreate(
+    memberId?: string,
+    date?: string,
+    startTime = "09:00",
+    endTime = "17:00",
+  ) {
     const member =
       data?.members.find((item) => item.id === memberId) ??
       data?.members[0] ??
@@ -200,9 +434,9 @@ export function StaffRosterCalendarPage() {
     setForm({
       shiftId: null,
       memberId: member?.id ?? "",
-      date: date ?? days[0] ?? weekStart,
-      startTime: "",
-      endTime: "",
+      date: date ?? mobileDay ?? days[0] ?? weekStart,
+      startTime,
+      endTime,
       roleId: member?.defaultRoleId ?? "",
       locationId: member?.defaultLocationId ?? "",
       note: "",
@@ -283,12 +517,77 @@ export function StaffRosterCalendarPage() {
 
       setConflictMessage(null);
       setDialogOpen(false);
-      await refresh(weekStart);
+      await refresh(anchorDate, view);
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
           : "The shift could not be saved.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function moveShift(
+    shift: Shift,
+    date: string,
+    startTime: string,
+    endTime: string,
+  ) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/staff-roster/shifts", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          shiftId: shift.id,
+          memberId: shift.memberId,
+          date,
+          startTime,
+          endTime,
+          roleId: shift.roleId ?? "",
+          locationId: shift.locationId ?? "",
+          note: shift.note ?? "",
+          overrideAvailabilityConflict: false,
+        }),
+      });
+
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; code?: string | null }
+        | null;
+
+      if (!response.ok) {
+        if (body?.code === "availability_conflict") {
+          setForm({
+            shiftId: shift.id,
+            memberId: shift.memberId,
+            date,
+            startTime,
+            endTime,
+            roleId: shift.roleId ?? "",
+            locationId: shift.locationId ?? "",
+            note: shift.note ?? "",
+          });
+          setConflictMessage(
+            body.error ??
+              "This person is marked unavailable during the selected time.",
+          );
+          setDialogOpen(true);
+          return;
+        }
+        throw new Error(body?.error ?? "The shift could not be moved.");
+      }
+
+      await refresh(anchorDate, view);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "The shift could not be moved.",
       );
     } finally {
       setBusy(false);
@@ -316,7 +615,7 @@ export function StaffRosterCalendarPage() {
 
       setDeleteTarget(null);
       setDialogOpen(false);
-      await refresh(weekStart);
+      await refresh(anchorDate, view);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -328,17 +627,176 @@ export function StaffRosterCalendarPage() {
     }
   }
 
-  function shiftsFor(memberId: string, date: string) {
-    return (
-      data?.shifts.filter(
-        (shift) => shift.memberId === memberId && shift.date === date,
-      ) ?? []
+  function setDragPayload(
+    event: DragEvent<HTMLElement>,
+    payload: { kind: "member"; memberId: string } | { kind: "shift"; shiftId: string },
+  ) {
+    event.dataTransfer.effectAllowed = payload.kind === "member" ? "copy" : "move";
+    event.dataTransfer.setData(DND_TYPE, JSON.stringify(payload));
+  }
+
+  function handleTimelineDrop(event: DragEvent<HTMLDivElement>, date: string) {
+    event.preventDefault();
+    if (!data?.canManageRoster || busy) return;
+
+    const raw = event.dataTransfer.getData(DND_TYPE);
+    if (!raw) return;
+
+    let payload:
+      | { kind: "member"; memberId: string }
+      | { kind: "shift"; shiftId: string };
+    try {
+      payload = JSON.parse(raw) as typeof payload;
+    } catch {
+      return;
+    }
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const minutesPerPixel = 60 / HOUR_HEIGHT;
+    const rawMinutes =
+      DAY_START_MINUTE + (event.clientY - bounds.top) * minutesPerPixel;
+    const startMinute = Math.max(
+      DAY_START_MINUTE,
+      Math.min(DAY_END_MINUTE - SNAP_MINUTES, snapMinutes(rawMinutes)),
+    );
+
+    if (payload.kind === "member") {
+      const endMinute = Math.min(
+        23 * 60 + 45,
+        startMinute + DEFAULT_SHIFT_MINUTES,
+      );
+      openCreate(
+        payload.memberId,
+        date,
+        timeFromMinutes(startMinute),
+        timeFromMinutes(endMinute),
+      );
+      return;
+    }
+
+    const shift = data.shifts.find((item) => item.id === payload.shiftId);
+    if (!shift) return;
+    const duration = shiftDuration(shift);
+    const latestStart = Math.max(
+      DAY_START_MINUTE,
+      23 * 60 + 45 - duration,
+    );
+    const adjustedStart = Math.min(startMinute, latestStart);
+    void moveShift(
+      shift,
+      date,
+      timeFromMinutes(adjustedStart),
+      timeFromMinutes(adjustedStart + duration),
     );
   }
 
-  function goToWeek(nextDate: Date) {
-    setWeekStart(format(nextDate, "yyyy-MM-dd"));
+  function beginResize(
+    event: ReactPointerEvent<HTMLSpanElement>,
+    shift: Shift,
+    edge: "start" | "end",
+  ) {
+    if (!data?.canManageRoster || busy) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const originY = event.clientY;
+    const originStart = minutesFromTime(shift.startTime);
+    const originEnd = minutesFromTime(shift.endTime);
+    let finalStart = originStart;
+    let finalEnd = originEnd;
+    const target = event.currentTarget;
+    const pointerId = event.pointerId;
+    target.setPointerCapture(pointerId);
+
+    const onMove = (moveEvent: PointerEvent) => {
+      const deltaMinutes = snapMinutes(
+        (moveEvent.clientY - originY) * (60 / HOUR_HEIGHT),
+      );
+
+      if (edge === "start") {
+        finalStart = Math.max(
+          DAY_START_MINUTE,
+          Math.min(originEnd - SNAP_MINUTES, originStart + deltaMinutes),
+        );
+        finalEnd = originEnd;
+      } else {
+        finalStart = originStart;
+        finalEnd = Math.min(
+          23 * 60 + 45,
+          Math.max(originStart + SNAP_MINUTES, originEnd + deltaMinutes),
+        );
+      }
+
+      setResizePreview({
+        shiftId: shift.id,
+        startTime: timeFromMinutes(finalStart),
+        endTime: timeFromMinutes(finalEnd),
+      });
+    };
+
+    const finish = () => {
+      target.removeEventListener("pointermove", onMove);
+      target.removeEventListener("pointerup", finish);
+      target.removeEventListener("pointercancel", cancel);
+      if (target.hasPointerCapture(pointerId)) {
+        target.releasePointerCapture(pointerId);
+      }
+      setResizePreview(null);
+      if (finalStart !== originStart || finalEnd !== originEnd) {
+        void moveShift(
+          shift,
+          shift.date,
+          timeFromMinutes(finalStart),
+          timeFromMinutes(finalEnd),
+        );
+      }
+    };
+
+    const cancel = () => {
+      target.removeEventListener("pointermove", onMove);
+      target.removeEventListener("pointerup", finish);
+      target.removeEventListener("pointercancel", cancel);
+      if (target.hasPointerCapture(pointerId)) {
+        target.releasePointerCapture(pointerId);
+      }
+      setResizePreview(null);
+    };
+
+    target.addEventListener("pointermove", onMove);
+    target.addEventListener("pointerup", finish);
+    target.addEventListener("pointercancel", cancel);
   }
+
+  function goRelative(direction: -1 | 1) {
+    const current = parseISO(anchorDate);
+    const next =
+      view === "week"
+        ? direction === -1
+          ? subDays(current, 7)
+          : addDays(current, 7)
+        : direction === -1
+          ? subMonths(current, 1)
+          : addMonths(current, 1);
+    const value = format(next, "yyyy-MM-dd");
+    setAnchorDate(value);
+    setMobileDay(value);
+  }
+
+  function goToday() {
+    const value = todayValue();
+    setAnchorDate(value);
+    setMobileDay(value);
+  }
+
+  const selectedMobileDay = days.includes(mobileDay) ? mobileDay : days[0];
+  const selectedMobileShifts =
+    data?.shifts.filter((shift) => shift.date === selectedMobileDay) ?? [];
+  const timelineHeight =
+    ((DAY_END_MINUTE - DAY_START_MINUTE) / 60) * HOUR_HEIGHT;
+  const hourMarks = Array.from(
+    { length: (DAY_END_MINUTE - DAY_START_MINUTE) / 60 + 1 },
+    (_, index) => DAY_START_MINUTE / 60 + index,
+  );
 
   return (
     <>
@@ -357,60 +815,66 @@ export function StaffRosterCalendarPage() {
 
       {data ? (
         <>
-          {!data.setup.setupCompletedAt && data.canManageRoster ? (
-            <CovieNotice tone="sunshine" className="mb-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <span>
-                  Finish the quick roster setup to make roles, locations and
-                  team defaults easier to manage.
-                </span>
-                <Link
-                  href="/calendar-types/staff-rosters/setup"
-                  className="inline-flex min-h-11 items-center rounded-[10px] border border-[#243139] bg-white px-3 text-sm font-extrabold text-[#243139]"
-                >
-                  Finish setup
-                </Link>
+          <div className="mb-4 rounded-2xl border border-[#E6DBCF] bg-white p-3 sm:p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="inline-flex rounded-[12px] border border-[#E6DBCF] bg-[#FFF9F2] p-1">
+                {(["week", "month"] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setView(option)}
+                    className={
+                      "min-h-10 rounded-[9px] px-4 text-sm font-extrabold transition " +
+                      (view === option
+                        ? "bg-white text-[#243139] shadow-sm"
+                        : "text-[#66747A] hover:text-[#243139]")
+                    }
+                  >
+                    {option === "week" ? "Week" : "Month"}
+                  </button>
+                ))}
               </div>
-            </CovieNotice>
-          ) : null}
 
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <CovieButton
-                tone="neutral"
-                aria-label="Previous week"
-                onClick={() =>
-                  goToWeek(subDays(parseISO(weekStart), 7))
-                }
-              >
-                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-              </CovieButton>
-              <CovieButton
-                tone="neutral"
-                onClick={() => setWeekStart(currentWeekStart())}
-              >
-                Today
-              </CovieButton>
-              <CovieButton
-                tone="neutral"
-                aria-label="Next week"
-                onClick={() =>
-                  goToWeek(addDays(parseISO(weekStart), 7))
-                }
-              >
-                <ChevronRight className="h-4 w-4" aria-hidden="true" />
-              </CovieButton>
+              <div className="flex items-center gap-2">
+                <CovieButton
+                  tone="neutral"
+                  aria-label={view === "week" ? "Previous week" : "Previous month"}
+                  onClick={() => goRelative(-1)}
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                </CovieButton>
+                <CovieButton tone="neutral" onClick={goToday}>
+                  Today
+                </CovieButton>
+                <CovieButton
+                  tone="neutral"
+                  aria-label={view === "week" ? "Next week" : "Next month"}
+                  onClick={() => goRelative(1)}
+                >
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </CovieButton>
+              </div>
+
+              <strong className="order-first w-full text-center font-[family-name:var(--font-fraunces)] text-xl text-[#243139] sm:order-none sm:w-auto">
+                {view === "week"
+                  ? weekLabel(weekStart, days[6])
+                  : monthLabel(anchorDate)}
+              </strong>
+
+              {data.canManageRoster ? (
+                <CovieButton tone="neutral" onClick={() => openCreate()}>
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Create shift
+                </CovieButton>
+              ) : null}
             </div>
 
-            <strong className="text-sm text-[#243139] sm:text-base">
-              {weekLabel(data.weekStart, data.weekEnd)}
-            </strong>
-
-            {data.canManageRoster ? (
-              <CovieButton onClick={() => openCreate()}>
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Create shift
-              </CovieButton>
+            {view === "week" ? (
+              <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-[#EFE5DA] pt-3 text-xs font-bold text-[#66747A]">
+                <span>{data.members.length} team</span>
+                <span>{weekShifts.length} shifts</span>
+                <span>{hoursText(totalWeekMinutes)} rostered</span>
+              </div>
             ) : null}
           </div>
 
@@ -422,181 +886,434 @@ export function StaffRosterCalendarPage() {
                   aria-hidden="true"
                 />
               }
-              title="Add someone to the team first"
-              description="The roster needs at least one active team member before shifts can be assigned."
+              title="Add your first staff member to start rostering"
+              description="Once someone is on the team, they can be dragged straight onto the weekly calendar."
               action={
                 data.canManageRoster ? (
                   <Link
                     href="/calendar-types/staff-rosters/organiser/team"
                     className="inline-flex min-h-11 items-center rounded-[10px] bg-[#FF6B5F] px-4 text-sm font-extrabold text-[#243139]"
                   >
-                    Open team
+                    Add staff member
                   </Link>
                 ) : undefined
               }
             />
-          ) : (
-            <>
-              <div className="hidden overflow-x-auto rounded-2xl border-2 border-[#243139] bg-white md:block">
-                <div className="min-w-[1080px]">
-                  <div className="grid grid-cols-[180px_repeat(7,minmax(120px,1fr))] border-b border-[#E6DBCF] bg-[#FFF9F2]">
-                    <div className="p-3 text-xs font-extrabold uppercase tracking-[0.08em] text-[#66747A]">
-                      Team
-                    </div>
-                    {days.map((day) => (
+          ) : view === "month" ? (
+            <div className="overflow-hidden rounded-2xl border-2 border-[#243139] bg-white">
+              <div className="grid grid-cols-7 border-b border-[#E6DBCF] bg-[#FFF9F2]">
+                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => (
+                  <div
+                    key={label}
+                    className="border-r border-[#E6DBCF] px-2 py-2 text-center text-xs font-extrabold uppercase tracking-[0.06em] text-[#66747A] last:border-r-0"
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7">
+                {(() => {
+                  const { start, end } = visibleMonthRange(anchorDate);
+                  const month = parseISO(anchorDate).getMonth();
+                  const values: string[] = [];
+                  let cursor = start;
+                  while (cursor <= end) {
+                    values.push(format(cursor, "yyyy-MM-dd"));
+                    cursor = addDays(cursor, 1);
+                  }
+
+                  return values.map((day) => {
+                    const dayShifts = data.shifts.filter((shift) => shift.date === day);
+                    const outsideMonth = parseISO(day).getMonth() !== month;
+                    return (
                       <div
                         key={day}
-                        className="border-l border-[#E6DBCF] p-3 text-center text-sm font-extrabold text-[#243139]"
+                        className={
+                          "min-h-28 border-b border-r border-[#E6DBCF] p-2 last:border-r-0 sm:min-h-36 " +
+                          (outsideMonth ? "bg-[#FCF8F3]" : "bg-white")
+                        }
                       >
-                        {dayLabel(day)}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAnchorDate(day);
+                            setMobileDay(day);
+                            setView("week");
+                          }}
+                          className={
+                            "flex h-8 w-8 items-center justify-center rounded-full text-sm font-extrabold " +
+                            (day === todayValue()
+                              ? "bg-[#FF6B5F] text-[#243139]"
+                              : outsideMonth
+                                ? "text-[#A59B91]"
+                                : "text-[#243139]")
+                          }
+                          aria-label={"Open week containing " + dayLabel(day)}
+                        >
+                          {format(parseISO(day), "d")}
+                        </button>
+                        <div className="mt-1 space-y-1">
+                          {dayShifts.slice(0, 3).map((shift) => (
+                            <button
+                              key={shift.id}
+                              type="button"
+                              onClick={() =>
+                                data.canManageRoster
+                                  ? openEdit(shift)
+                                  : undefined
+                              }
+                              className="block w-full truncate rounded-md bg-[#EAF8F5] px-1.5 py-1 text-left text-[10px] font-bold text-[#243139] sm:text-xs"
+                            >
+                              {shift.memberName} {compactTime(shift.startTime)}–{compactTime(shift.endTime)}
+                            </button>
+                          ))}
+                          {dayShifts.length > 3 ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAnchorDate(day);
+                                setMobileDay(day);
+                                setView("week");
+                              }}
+                              className="text-[10px] font-extrabold text-[#0D7A6D] sm:text-xs"
+                            >
+                              +{dayShifts.length - 3} more
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
-                    ))}
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="hidden overflow-hidden rounded-2xl border-2 border-[#243139] bg-white md:grid md:grid-cols-[210px_minmax(0,1fr)]">
+                <aside className="border-r-2 border-[#243139] bg-[#FFF9F2]">
+                  <div className="flex min-h-[54px] items-center justify-between border-b border-[#E6DBCF] px-3">
+                    <span className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#66747A]">
+                      Staff
+                    </span>
+                    <span className="text-[10px] font-bold text-[#8B7D70]">
+                      Drag onto calendar
+                    </span>
                   </div>
+                  <div className="space-y-2 p-2">
+                    {data.members.map((member) => {
+                      const roleName = member.defaultRoleId
+                        ? roleById.get(member.defaultRoleId)
+                        : null;
+                      const locationName = member.defaultLocationId
+                        ? locationById.get(member.defaultLocationId)
+                        : null;
+                      return (
+                        <button
+                          key={member.id}
+                          type="button"
+                          draggable={data.canManageRoster}
+                          onDragStart={(event) =>
+                            setDragPayload(event, {
+                              kind: "member",
+                              memberId: member.id,
+                            })
+                          }
+                          onClick={() =>
+                            data.canManageRoster
+                              ? openCreate(member.id, selectedMobileDay)
+                              : undefined
+                          }
+                          className="group flex min-h-14 w-full items-center gap-2 rounded-xl border border-[#D8CEC3] bg-white p-2 text-left transition hover:border-[#19A897]"
+                        >
+                          {data.canManageRoster ? (
+                            <GripVertical
+                              className="h-4 w-4 shrink-0 text-[#9B9188] group-hover:text-[#0D7A6D]"
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                          <span className="min-w-0 flex-1">
+                            <strong className="block truncate text-sm text-[#243139]">
+                              {member.displayName}
+                            </strong>
+                            {roleName || locationName ? (
+                              <span className="mt-0.5 block truncate text-[11px] text-[#66747A]">
+                                {[roleName, locationName].filter(Boolean).join(" · ")}
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="shrink-0 rounded-lg bg-[#EAF8F5] px-2 py-1 text-xs font-extrabold text-[#0D7A6D]">
+                            {hoursText(weeklyMinutesByMember.get(member.id) ?? 0)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {data.canManageRoster ? (
+                    <div className="border-t border-[#E6DBCF] p-2">
+                      <Link
+                        href="/calendar-types/staff-rosters/organiser/team"
+                        className="flex min-h-11 w-full items-center justify-center rounded-[10px] border border-[#D8CEC3] bg-white px-3 text-sm font-extrabold text-[#243139] hover:bg-[#F7EFE5]"
+                      >
+                        <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                        Add staff
+                      </Link>
+                    </div>
+                  ) : null}
+                </aside>
 
-                  {data.members.map((member) => (
+                <div className="min-w-0 overflow-x-auto">
+                  <div className="min-w-[980px]">
+                    <div className="grid grid-cols-[54px_repeat(7,minmax(128px,1fr))] border-b border-[#E6DBCF] bg-[#FFF9F2]">
+                      <div aria-hidden="true" />
+                      {days.map((day) => (
+                        <div
+                          key={day}
+                          className="flex min-h-[54px] items-center justify-center border-l border-[#E6DBCF] px-2 text-center"
+                        >
+                          <span className="text-sm font-extrabold text-[#243139]">
+                            {dayLabel(day)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
                     <div
-                      key={member.id}
-                      className="grid grid-cols-[180px_repeat(7,minmax(120px,1fr))] border-b border-[#E6DBCF] last:border-b-0"
+                      className="grid grid-cols-[54px_repeat(7,minmax(128px,1fr))]"
+                      style={{ height: timelineHeight }}
                     >
-                      <div className="p-3">
-                        <strong className="block truncate text-sm text-[#243139]">
-                          {member.displayName}
-                        </strong>
-                        <span className="mt-1 block text-xs text-[#66747A]">
-                          {member.accessRole === "owner"
-                            ? "Owner"
-                            : member.accessRole === "manager"
-                              ? "Manager"
-                              : "Staff"}
-                        </span>
+                      <div className="relative bg-[#FFF9F2]">
+                        {hourMarks.map((hour, index) => (
+                          <span
+                            key={hour}
+                            className="absolute right-2 -translate-y-1/2 text-[10px] font-bold text-[#8B7D70]"
+                            style={{ top: index * HOUR_HEIGHT }}
+                          >
+                            {hour === 24
+                              ? ""
+                              : compactTime(
+                                  String(hour).padStart(2, "0") + ":00",
+                                )}
+                          </span>
+                        ))}
                       </div>
 
                       {days.map((day) => {
-                        const cellShifts = shiftsFor(member.id, day);
+                        const dayShifts = data.shifts
+                          .filter((shift) => shift.date === day)
+                          .map(shiftWithPreview);
+                        const positioned = layoutOverlappingShifts(dayShifts);
+
                         return (
                           <div
                             key={day}
-                            className="min-h-28 border-l border-[#E6DBCF] p-2"
+                            className="relative border-l border-[#E6DBCF] bg-white"
+                            onDragOver={(event) => {
+                              if (data.canManageRoster) {
+                                event.preventDefault();
+                                event.dataTransfer.dropEffect = "move";
+                              }
+                            }}
+                            onDrop={(event) => handleTimelineDrop(event, day)}
                           >
-                            <div className="space-y-2">
-                              {cellShifts.map((shift) => (
-                                <button
-                                  key={shift.id}
-                                  type="button"
-                                  disabled={!data.canManageRoster}
-                                  onClick={() => openEdit(shift)}
-                                  className="w-full rounded-xl border border-[#BFEDE6] bg-[#EAF8F5] p-2 text-left transition enabled:hover:border-[#19A897]"
-                                >
-                                  <strong className="block text-xs text-[#243139]">
-                                    {shift.startTime}–{shift.endTime}
-                                  </strong>
-                                  {shift.roleName || shift.locationName ? (
-                                    <span className="mt-1 block truncate text-[11px] text-[#526168]">
-                                      {[shift.roleName, shift.locationName]
-                                        .filter(Boolean)
-                                        .join(" · ")}
-                                    </span>
-                                  ) : null}
-                                  {shift.availabilityOverride ? (
-                                    <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-[#8B6714]">
-                                      <AlertTriangle
-                                        className="h-3 w-3"
-                                        aria-hidden="true"
-                                      />
-                                      Availability override
-                                    </span>
-                                  ) : null}
-                                </button>
-                              ))}
-                            </div>
+                            {hourMarks.map((hour, index) => (
+                              <span
+                                key={hour}
+                                className="pointer-events-none absolute inset-x-0 border-t border-[#EFE8E0]"
+                                style={{ top: index * HOUR_HEIGHT }}
+                                aria-hidden="true"
+                              />
+                            ))}
 
-                            {data.canManageRoster ? (
-                              <button
-                                type="button"
-                                onClick={() => openCreate(member.id, day)}
-                                className="mt-2 flex min-h-9 w-full items-center justify-center rounded-lg border border-dashed border-[#CFC4B8] text-xs font-bold text-[#66747A] hover:bg-[#F7EFE5]"
-                              >
-                                <Plus
-                                  className="mr-1 h-3.5 w-3.5"
-                                  aria-hidden="true"
-                                />
-                                Shift
-                              </button>
-                            ) : null}
+                            {positioned.map(({ shift, lane, laneCount }) => {
+                              const start = minutesFromTime(shift.startTime);
+                              const end = minutesFromTime(shift.endTime);
+                              const top =
+                                ((start - DAY_START_MINUTE) / 60) * HOUR_HEIGHT;
+                              const height = Math.max(
+                                38,
+                                ((end - start) / 60) * HOUR_HEIGHT,
+                              );
+                              const leftPercent = (lane / laneCount) * 100;
+                              const widthPercent = 100 / laneCount;
+
+                              return (
+                                <div
+                                  key={shift.id}
+                                  draggable={data.canManageRoster}
+                                  onDragStart={(event) =>
+                                    setDragPayload(event, {
+                                      kind: "shift",
+                                      shiftId: shift.id,
+                                    })
+                                  }
+                                  className="absolute z-10 overflow-hidden rounded-[10px] border border-[#8BDDD0] bg-[#EAF8F5] shadow-sm"
+                                  style={{
+                                    top: top + 2,
+                                    height: height - 4,
+                                    left:
+                                      "calc(" +
+                                      leftPercent +
+                                      "% + 3px)",
+                                    width:
+                                      "calc(" +
+                                      widthPercent +
+                                      "% - 6px)",
+                                  }}
+                                >
+                                  {data.canManageRoster ? (
+                                    <span
+                                      onPointerDown={(event) =>
+                                        beginResize(event, shift, "start")
+                                      }
+                                      className="absolute inset-x-0 top-0 z-20 h-3 cursor-ns-resize bg-transparent"
+                                      aria-hidden="true"
+                                    />
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      data.canManageRoster
+                                        ? openEdit(shift)
+                                        : undefined
+                                    }
+                                    className="h-full w-full px-2 py-2 text-left"
+                                  >
+                                    <strong className="block truncate text-xs text-[#243139]">
+                                      {shift.memberName}
+                                    </strong>
+                                    <span className="mt-0.5 block truncate text-[10px] font-bold text-[#0D7A6D]">
+                                      {compactTime(shift.startTime)}–{compactTime(shift.endTime)}
+                                    </span>
+                                    {shift.roleName || shift.locationName ? (
+                                      <span className="mt-1 block truncate text-[10px] text-[#526168]">
+                                        {[shift.roleName, shift.locationName]
+                                          .filter(Boolean)
+                                          .join(" · ")}
+                                      </span>
+                                    ) : null}
+                                    {shift.availabilityOverride ? (
+                                      <span className="mt-1 inline-flex items-center gap-1 text-[9px] font-extrabold text-[#8B6714]">
+                                        <AlertTriangle
+                                          className="h-3 w-3"
+                                          aria-hidden="true"
+                                        />
+                                        Override
+                                      </span>
+                                    ) : null}
+                                  </button>
+                                  {data.canManageRoster ? (
+                                    <span
+                                      onPointerDown={(event) =>
+                                        beginResize(event, shift, "end")
+                                      }
+                                      className="absolute inset-x-0 bottom-0 z-20 h-3 cursor-ns-resize bg-transparent"
+                                      aria-hidden="true"
+                                    />
+                                  ) : null}
+                                </div>
+                              );
+                            })}
                           </div>
                         );
                       })}
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
 
               <div className="space-y-3 md:hidden">
-                {days.map((day) => {
-                  const dayShifts =
-                    data.shifts.filter((shift) => shift.date === day);
-                  return (
-                    <section
+                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                  {days.map((day) => (
+                    <button
                       key={day}
-                      className="rounded-2xl border border-[#E6DBCF] bg-white p-4"
+                      type="button"
+                      onClick={() => setMobileDay(day)}
+                      className={
+                        "min-h-11 shrink-0 rounded-xl border px-3 text-sm font-extrabold " +
+                        (day === selectedMobileDay
+                          ? "border-[#19A897] bg-[#EAF8F5] text-[#0D7A6D]"
+                          : "border-[#E6DBCF] bg-white text-[#526168]")
+                      }
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <h2 className="font-extrabold text-[#243139]">
-                          {dayLabel(day)}
-                        </h2>
-                        {data.canManageRoster ? (
-                          <CovieButton
-                            tone="neutral"
-                            onClick={() => openCreate(undefined, day)}
-                          >
-                            <Plus className="h-4 w-4" aria-hidden="true" />
-                            Shift
-                          </CovieButton>
-                        ) : null}
-                      </div>
+                      {new Intl.DateTimeFormat("en-NZ", {
+                        weekday: "short",
+                        day: "numeric",
+                        timeZone: "UTC",
+                      }).format(new Date(day + "T00:00:00Z"))}
+                    </button>
+                  ))}
+                </div>
 
-                      {dayShifts.length === 0 ? (
-                        <p className="mt-3 text-sm text-[#66747A]">
-                          No shifts
-                        </p>
-                      ) : (
-                        <div className="mt-3 space-y-2">
-                          {dayShifts.map((shift) => (
-                            <button
-                              key={shift.id}
-                              type="button"
-                              disabled={!data.canManageRoster}
-                              onClick={() => openEdit(shift)}
-                              className="flex w-full items-start justify-between gap-3 rounded-xl border border-[#BFEDE6] bg-[#EAF8F5] p-3 text-left"
-                            >
-                              <span className="min-w-0">
-                                <strong className="block truncate text-sm text-[#243139]">
-                                  {shift.memberName}
-                                </strong>
-                                <span className="mt-1 block text-xs text-[#526168]">
-                                  {shift.startTime}–{shift.endTime}
-                                </span>
-                                {shift.roleName || shift.locationName ? (
-                                  <span className="mt-1 block truncate text-xs text-[#66747A]">
-                                    {[shift.roleName, shift.locationName]
-                                      .filter(Boolean)
-                                      .join(" · ")}
-                                  </span>
-                                ) : null}
+                <section className="rounded-2xl border border-[#E6DBCF] bg-white p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 className="font-[family-name:var(--font-fraunces)] text-xl font-bold text-[#243139]">
+                        {dayLabel(selectedMobileDay)}
+                      </h2>
+                      <p className="mt-1 text-xs font-bold text-[#66747A]">
+                        {selectedMobileShifts.length} shifts
+                      </p>
+                    </div>
+                    {data.canManageRoster ? (
+                      <CovieButton
+                        tone="neutral"
+                        onClick={() => openCreate(undefined, selectedMobileDay)}
+                      >
+                        <Plus className="h-4 w-4" aria-hidden="true" />
+                        Shift
+                      </CovieButton>
+                    ) : null}
+                  </div>
+
+                  {selectedMobileShifts.length === 0 ? (
+                    <p className="mt-4 rounded-xl bg-[#FFF9F2] p-4 text-sm text-[#66747A]">
+                      No shifts
+                    </p>
+                  ) : (
+                    <div className="mt-4 space-y-2">
+                      {selectedMobileShifts.map((shift) => (
+                        <button
+                          key={shift.id}
+                          type="button"
+                          disabled={!data.canManageRoster}
+                          onClick={() => openEdit(shift)}
+                          className="flex min-h-16 w-full items-start justify-between gap-3 rounded-xl border border-[#BFEDE6] bg-[#EAF8F5] p-3 text-left"
+                        >
+                          <span className="min-w-0">
+                            <strong className="block truncate text-sm text-[#243139]">
+                              {shift.memberName}
+                            </strong>
+                            <span className="mt-1 block text-xs font-bold text-[#0D7A6D]">
+                              {compactTime(shift.startTime)}–{compactTime(shift.endTime)}
+                            </span>
+                            {shift.roleName || shift.locationName ? (
+                              <span className="mt-1 block truncate text-xs text-[#66747A]">
+                                {[shift.roleName, shift.locationName]
+                                  .filter(Boolean)
+                                  .join(" · ")}
                               </span>
-                              {shift.availabilityOverride ? (
-                                <AlertTriangle
-                                  className="h-4 w-4 shrink-0 text-[#8B6714]"
-                                  aria-label="Availability overridden"
-                                />
-                              ) : null}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </section>
-                  );
-                })}
+                            ) : null}
+                          </span>
+                          {shift.availabilityOverride ? (
+                            <AlertTriangle
+                              className="h-4 w-4 shrink-0 text-[#8B6714]"
+                              aria-label="Availability overridden"
+                            />
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                {data.canManageRoster ? (
+                  <Link
+                    href="/calendar-types/staff-rosters/organiser/team"
+                    className="flex min-h-11 items-center justify-center rounded-[10px] border border-[#E6DBCF] bg-white px-4 text-sm font-extrabold text-[#243139]"
+                  >
+                    Manage team
+                  </Link>
+                ) : null}
               </div>
             </>
           )}
@@ -691,6 +1408,7 @@ export function StaffRosterCalendarPage() {
                 <span className="mb-1.5 block text-sm font-bold">Starts</span>
                 <CovieInput
                   type="time"
+                  step={900}
                   value={form.startTime}
                   disabled={busy}
                   onChange={(event) =>
@@ -705,6 +1423,7 @@ export function StaffRosterCalendarPage() {
                 <span className="mb-1.5 block text-sm font-bold">Ends</span>
                 <CovieInput
                   type="time"
+                  step={900}
                   value={form.endTime}
                   disabled={busy}
                   onChange={(event) =>
@@ -788,7 +1507,7 @@ export function StaffRosterCalendarPage() {
                   disabled={busy}
                   onClick={() => void saveShift(true)}
                 >
-                  Create anyway
+                  Save anyway
                 </CovieButton>
               </div>
             </CovieNotice>
