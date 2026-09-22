@@ -29,9 +29,10 @@ test("additional calendar templates have explicit Brand Bible manifests", async 
   assert.match(manifests, /label: "Activity",[\s\S]*colour: "coral"/);
 });
 
-test("calendar type shells reuse canonical Covie UI and navigation", async () => {
-  const [shell, nav, indexPage, route] = await Promise.all([
+test("calendar type shells reuse Covie Core without changing co-parenting navigation", async () => {
+  const [shell, templateNav, coParentNav, indexPage, route] = await Promise.all([
     source("components/templates/template-shell.tsx"),
+    source("components/templates/template-workspace-nav.tsx"),
     source("components/workspace/workspace-nav.tsx"),
     source("app/calendar-types/page.tsx"),
     source("app/calendar-types/[template]/page.tsx"),
@@ -50,16 +51,25 @@ test("calendar type shells reuse canonical Covie UI and navigation", async () =>
     assert.match(shell, new RegExp(primitive));
   }
 
-  assert.match(shell, /WorkspaceNav/);
-  assert.match(shell, /primaryItemsOverride/);
-  assert.match(shell, /organiserItemsOverride/);
-  assert.match(shell, /contextEnabled=\{false\}/);
-  assert.match(shell, /accountEnabled=\{false\}/);
+  assert.match(shell, /TemplateWorkspaceNav/);
+  assert.doesNotMatch(shell, /@\/components\/workspace\/workspace-nav/);
 
-  assert.match(nav, /primaryItemsOverride/);
-  assert.match(nav, /organiserItemsOverride/);
-  assert.match(nav, /contextEnabled = true/);
-  assert.match(nav, /accountEnabled = true/);
+  assert.match(templateNav, /CovieBrand/);
+  assert.match(templateNav, /useDismissibleDetails/);
+  assert.match(templateNav, />Calendar</);
+  assert.match(templateNav, />Updates</);
+  assert.match(templateNav, />Organiser</);
+  assert.match(templateNav, /bottom-\[calc\(100%\+10px\)\]/);
+
+  assert.match(coParentNav, /export function WorkspaceNav\(\{ active, actions \}/);
+  assert.match(
+    coParentNav,
+    /active && \["responsibilities", "expenses", "kids", "organiser"\]\.includes\(active\)/,
+  );
+  assert.doesNotMatch(
+    coParentNav,
+    /primaryItemsOverride|organiserItemsOverride|contextEnabled|accountEnabled/,
+  );
 
   assert.match(indexPage, /Calendar type shells/);
   assert.match(route, /isAdditionalCalendarTemplateSlug/);
@@ -81,12 +91,14 @@ test("shell schedules reflect each template's documented scheduling model", asyn
   assert.match(shell, /Saving is intentionally left for the detailed feature pass/);
 });
 
-test("shell stage is preview-only and does not introduce a database migration", async () => {
+test("shell stage is data-isolated and does not introduce a database migration", async () => {
   const [docs, treeMarker] = await Promise.all([
     source("docs/CALENDAR_TEMPLATE_SHELLS.md"),
     source("lib/db/schema/core.ts"),
   ]);
 
-  assert.match(docs, /does not add a database column, migrations or live domain records/);
+  assert.match(docs, /does not add a database column, migration or live domain record/);
+  assert.match(docs, /components\/templates/);
+  assert.match(docs, /new calendars use `TemplateWorkspaceNav` rather than changing the co-parenting `WorkspaceNav`/);
   assert.doesNotMatch(treeMarker, /calendar_template|template_type|calendar_type/);
 });
