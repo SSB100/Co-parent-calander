@@ -95,7 +95,19 @@ test("Staff Rosters calendar is a calendar-first weekly roster builder", async (
   assert.match(roster, /createShiftFromDrop/);
   assert.match(roster, /void createShiftFromDrop/);
   assert.match(roster, /setData\("text\/plain"/);
-  assert.match(roster, /HOUR_HEIGHT = 26/);
+  assert.match(roster, /effectAllowed[\s\S]*?"copy"[\s\S]*?"move"/);
+  assert.match(roster, /dropEffect[\s\S]*?"copy"[\s\S]*?"move"/);
+  assert.match(roster, /draggingPayloadRef/);
+  assert.match(roster, /dropPreview/);
+  assert.match(roster, /DROP_SHIFT_MINUTES = 60/);
+  assert.match(roster, /DAY_START_MINUTE = 0/);
+  assert.match(roster, /DAY_END_MINUTE = 24 \* 60/);
+  assert.match(roster, /MIN_HOUR_HEIGHT = 18/);
+  assert.match(roster, /operationalStartMinute/);
+  assert.match(roster, /operationalEndMinute/);
+  assert.match(roster, /Operational hours/);
+  assert.match(roster, /weekBoardHeight/);
+  assert.match(roster, /window\.innerHeight - top - 18/);
   assert.match(roster, /beginResize/);
   assert.match(roster, /SNAP_MINUTES = 15/);
   assert.match(roster, /weeklyMinutesByMember/);
@@ -105,6 +117,9 @@ test("Staff Rosters calendar is a calendar-first weekly roster builder", async (
   assert.match(roster, /All staff/);
   assert.match(roster, /All roles/);
   assert.match(roster, /All locations/);
+  assert.match(shell, /header=\{/);
+  assert.match(shell, /CalendarSwitcher/);
+  assert.match(roster, /Hours: \{operationalHoursLabel\}/);
   assert.match(roster, /member\.roleIds\.includes\(roleFilter\)/);
   assert.match(roster, /Publish roster/);
   assert.match(roster, /Send updates/);
@@ -124,6 +139,28 @@ test("Staff Rosters calendar is a calendar-first weekly roster builder", async (
   for (const mock of ["Alex", "Jordan", "Sam", "Main site", "Morning shift"]) {
     assert.doesNotMatch(roster, new RegExp(mock));
   }
+});
+
+test("Staff roster operational hours are manager-controlled and same-origin protected", async () => {
+  const [route, service, contracts, schema] = await Promise.all([
+    source("app/api/staff-roster/settings/route.ts"),
+    source("lib/staff-rosters/service.ts"),
+    source("lib/staff-rosters/contracts.ts"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  assert.match(route, /staffRosterOperationalHoursSchema/);
+  assert.match(route, /updateRosterOperationalHours/);
+  assert.match(route, /isSameOriginMutation/);
+  assert.match(service, /export async function updateRosterOperationalHours/);
+  assert.match(service, /capabilities\.createShifts/);
+  assert.match(service, /staff_roster\.operational_hours\.update/);
+  assert.match(contracts, /startMinute/);
+  assert.match(contracts, /endMinute/);
+  assert.match(contracts, /15-minute increments/);
+  assert.match(schema, /operationalStartMinute/);
+  assert.match(schema, /operationalEndMinute/);
+  assert.match(schema, /staff_roster_settings_operational_hours_valid/);
 });
 
 test("shift service blocks overlaps and requires explicit unavailability override", async () => {
