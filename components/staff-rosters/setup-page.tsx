@@ -2,9 +2,12 @@
 
 import {
   CalendarCheck2,
+  CalendarDays,
   CheckCircle2,
+  LayoutGrid,
   MapPin,
   UsersRound,
+  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -24,8 +27,10 @@ import {
   TemplateWorkspaceNav,
   type TemplateOrganiserNavItem,
 } from "@/components/templates/template-workspace-nav";
-import { getCalendarTemplateBySlug } from "@/lib/templates/calendar-templates";
-import { CalendarDays, LayoutGrid } from "lucide-react";
+import {
+  getCalendarTemplateBySlug,
+  type TemplateIconKey,
+} from "@/lib/templates/calendar-templates";
 
 type SetupPayload = {
   canManageSetup: boolean;
@@ -42,7 +47,7 @@ const iconByKey = {
   calendar: CalendarDays,
   settings: LayoutGrid,
   grid: LayoutGrid,
-};
+} satisfies Record<TemplateIconKey, LucideIcon>;
 
 export function StaffRosterSetupPage({
   calendars,
