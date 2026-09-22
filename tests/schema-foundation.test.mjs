@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0028", async () => {
+test("schema migrations are sequential through 0029", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 29 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 30 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -383,6 +383,28 @@ test("0028 adds a lightweight Staff roster publication update feed", async () =>
     /'0028', 'Staff roster publication updates'/,
   );
   assert.doesNotMatch(migration.toLowerCase(), /push_token|email_provider|sms/);
+});
+
+
+test("0029 adds reusable multi-role assignments and backfills existing defaults", async () => {
+  const [migration, staff] = await Promise.all([
+    source("drizzle/0029_staff_roster_member_roles.sql"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  for (const token of [
+    "staff_roster_member_roles",
+    "staff_roster_member_roles_member_role_unique",
+    "default_role_id",
+    "ON CONFLICT",
+  ]) {
+    assert.match(migration, new RegExp(token));
+  }
+  assert.match(staff, /staffRosterMemberRoles/);
+  assert.match(
+    migration,
+    /'0029', 'Staff roster member multi-role assignments'/,
+  );
 });
 
 
