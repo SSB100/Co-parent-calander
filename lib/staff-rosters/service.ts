@@ -1398,10 +1398,12 @@ export async function getRosterWeek(input: {
 
   const publication = publicationRows[0] ?? null;
   const changedMemberIds = new Set<string>();
+  let changedShiftCount = 0;
 
   if (capabilities.createShifts) {
     if (!publication) {
       for (const shift of liveShifts) changedMemberIds.add(shift.memberId);
+      changedShiftCount = liveShifts.length;
     } else {
       const liveById = new Map(
         liveShifts.map((shift) => [
@@ -1423,6 +1425,7 @@ export async function getRosterWeek(input: {
         const published = publishedById.get(id);
         if (!live || !published || live.key !== published.key) {
           changedMemberIds.add(live?.memberId ?? published?.memberId ?? "");
+          changedShiftCount += 1;
         }
       }
       changedMemberIds.delete("");
@@ -1452,6 +1455,7 @@ export async function getRosterWeek(input: {
       affectedMemberCount: capabilities.createShifts
         ? changedMemberIds.size
         : 0,
+      changedShiftCount: capabilities.createShifts ? changedShiftCount : 0,
     },
     members,
     roles: capabilities.createShifts ? roles : [],
