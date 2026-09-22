@@ -212,7 +212,7 @@ export function StaffRosterAvailabilityPage() {
             <p className="text-sm font-bold text-[#526168]">
               Upcoming availability
             </p>
-            <CovieButton tone="teal" onClick={openCreate}>
+            <CovieButton onClick={openCreate}>
               <Plus className="h-4 w-4" aria-hidden="true" />
               Add availability
             </CovieButton>
@@ -229,7 +229,7 @@ export function StaffRosterAvailabilityPage() {
               title="No availability yet"
               description="Add available or unavailable time so the roster can use it when shifts are built."
               action={
-                <CovieButton tone="teal" onClick={openCreate}>
+                <CovieButton onClick={openCreate}>
                   Add availability
                 </CovieButton>
               }
