@@ -18,5 +18,5 @@
   "regions": [
     "syd1"
   ],
-  "buildCommand": "npm run typecheck && npm run build"
+  "buildCommand": "npm test && npm run build"
 }
