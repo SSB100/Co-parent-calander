@@ -368,7 +368,6 @@ export function StaffRosterTeamPage() {
                 Cancel
               </CovieButton>
               <CovieButton
-                tone="teal"
                 disabled={busy || !form.displayName.trim()}
                 onClick={() => void saveMember()}
               >
