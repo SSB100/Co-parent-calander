@@ -7,6 +7,8 @@ import {
   staffRosterLocations,
   staffRosterMembers,
   staffRosterRoles,
+  staffRosterSettings,
+  staffRosterShifts,
 } from "@/lib/db/schema";
 import { localDateInTimeZone } from "@/lib/calendar/time";
 import {
@@ -18,6 +20,8 @@ export class StaffRosterServiceError extends Error {
   constructor(
     public statusCode: number,
     message: string,
+    public code?: string,
+    public details?: unknown,
   ) {
     super(message);
   }
@@ -932,6 +936,624 @@ export async function deleteAvailability(input: {
       409,
       "Availability could not be removed.",
     );
+  }
+
+  return { ok: true as const };
+}
+
+
+export async function getRosterSetup(session: StaffSession) {
+  const current = await ensureStaffRosterMember(session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: current.accessRole,
+    permission: session.permission,
+  });
+  const db = getDb();
+
+  const [roleCountRows, locationCountRows, memberCountRows, settingsRows] =
+    await Promise.all([
+      db
+        .select({ count: drizzleSql<number>`count(*)::int` })
+        .from(staffRosterRoles)
+        .where(
+          and(
+            eq(staffRosterRoles.calendarId, session.calendarId),
+            eq(staffRosterRoles.active, true),
+          ),
+        ),
+      db
+        .select({ count: drizzleSql<number>`count(*)::int` })
+        .from(staffRosterLocations)
+        .where(
+          and(
+            eq(staffRosterLocations.calendarId, session.calendarId),
+            eq(staffRosterLocations.active, true),
+          ),
+        ),
+      db
+        .select({ count: drizzleSql<number>`count(*)::int` })
+        .from(staffRosterMembers)
+        .where(
+          and(
+            eq(staffRosterMembers.calendarId, session.calendarId),
+            eq(staffRosterMembers.active, true),
+          ),
+        ),
+      db
+        .select({ setupCompletedAt: staffRosterSettings.setupCompletedAt })
+        .from(staffRosterSettings)
+        .where(eq(staffRosterSettings.calendarId, session.calendarId))
+        .limit(1),
+    ]);
+
+  return {
+    canManageSetup: capabilities.manageTeam,
+    currentAccessRole: current.accessRole,
+    roleCount: Number(roleCountRows[0]?.count ?? 0),
+    locationCount: Number(locationCountRows[0]?.count ?? 0),
+    memberCount: Number(memberCountRows[0]?.count ?? 0),
+    setupCompletedAt: settingsRows[0]?.setupCompletedAt ?? null,
+  };
+}
+
+export async function completeRosterSetup(session: StaffSession) {
+  const current = await ensureStaffRosterMember(session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: current.accessRole,
+    permission: session.permission,
+  });
+
+  if (!capabilities.manageTeam) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
+  const sql = getSql();
+  try {
+    await sql.transaction([
+      sql`
+        INSERT INTO staff_roster_settings (
+          calendar_id, setup_completed_at, created_at, updated_at
+        )
+        VALUES (${session.calendarId}, now(), now(), now())
+        ON CONFLICT (calendar_id)
+        DO UPDATE SET setup_completed_at = now(), updated_at = now()
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action,
+          entity_type, entity_id, after_state
+        )
+        VALUES (
+          ${session.calendarId}, NULL,
+          'staff_roster.setup.complete',
+          'staff_roster_setup',
+          ${session.calendarId},
+          ${JSON.stringify({ actorStaffMemberId: current.id })}::jsonb
+        )
+      `,
+    ]);
+  } catch {
+    throw new StaffRosterServiceError(
+      409,
+      "Roster setup could not be completed.",
+    );
+  }
+
+  return { ok: true as const };
+}
+
+async function assertActiveRosterMember(calendarId: string, memberId: string) {
+  const rows = await getDb()
+    .select({
+      id: staffRosterMembers.id,
+      displayName: staffRosterMembers.displayName,
+      defaultRoleId: staffRosterMembers.defaultRoleId,
+      defaultLocationId: staffRosterMembers.defaultLocationId,
+    })
+    .from(staffRosterMembers)
+    .where(
+      and(
+        eq(staffRosterMembers.id, memberId),
+        eq(staffRosterMembers.calendarId, calendarId),
+        eq(staffRosterMembers.active, true),
+      ),
+    )
+    .limit(1);
+
+  if (!rows[0]) {
+    throw new StaffRosterServiceError(404, "Team member not found.");
+  }
+
+  return rows[0];
+}
+
+async function shiftConflictState(input: {
+  calendarId: string;
+  memberId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  excludeShiftId?: string;
+}) {
+  const db = getDb();
+
+  const overlapConditions = [
+    eq(staffRosterShifts.calendarId, input.calendarId),
+    eq(staffRosterShifts.memberId, input.memberId),
+    eq(staffRosterShifts.shiftDate, input.date),
+    drizzleSql`${staffRosterShifts.startTime} < ${input.endTime}`,
+    drizzleSql`${staffRosterShifts.endTime} > ${input.startTime}`,
+  ];
+
+  if (input.excludeShiftId) {
+    overlapConditions.push(
+      drizzleSql`${staffRosterShifts.id} <> ${input.excludeShiftId}::uuid`,
+    );
+  }
+
+  const [overlaps, unavailable] = await Promise.all([
+    db
+      .select({
+        id: staffRosterShifts.id,
+        startTime: staffRosterShifts.startTime,
+        endTime: staffRosterShifts.endTime,
+      })
+      .from(staffRosterShifts)
+      .where(and(...overlapConditions))
+      .limit(5),
+    db
+      .select({
+        id: staffRosterAvailability.id,
+        startTime: staffRosterAvailability.startTime,
+        endTime: staffRosterAvailability.endTime,
+        note: staffRosterAvailability.note,
+      })
+      .from(staffRosterAvailability)
+      .where(
+        and(
+          eq(staffRosterAvailability.calendarId, input.calendarId),
+          eq(staffRosterAvailability.memberId, input.memberId),
+          eq(staffRosterAvailability.availabilityDate, input.date),
+          eq(staffRosterAvailability.status, "unavailable"),
+          drizzleSql`(
+            (${staffRosterAvailability.startTime} IS NULL AND ${staffRosterAvailability.endTime} IS NULL)
+            OR
+            (
+              ${staffRosterAvailability.startTime} < ${input.endTime}
+              AND ${staffRosterAvailability.endTime} > ${input.startTime}
+            )
+          )`,
+        ),
+      )
+      .limit(10),
+  ]);
+
+  return { overlaps, unavailable };
+}
+
+export async function getRosterWeek(input: {
+  session: StaffSession;
+  weekStart: string;
+}) {
+  const current = await ensureStaffRosterMember(input.session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: current.accessRole,
+    permission: input.session.permission,
+  });
+  const weekEnd = format(addDays(parseISO(input.weekStart), 6), "yyyy-MM-dd");
+  const db = getDb();
+
+  const memberFilter = capabilities.createShifts
+    ? drizzleSql`true`
+    : eq(staffRosterMembers.id, current.id);
+
+  const [members, roles, locations, shifts, setup] = await Promise.all([
+    db
+      .select({
+        id: staffRosterMembers.id,
+        displayName: staffRosterMembers.displayName,
+        accessRole: staffRosterMembers.accessRole,
+        defaultRoleId: staffRosterMembers.defaultRoleId,
+        defaultLocationId: staffRosterMembers.defaultLocationId,
+      })
+      .from(staffRosterMembers)
+      .where(
+        and(
+          eq(staffRosterMembers.calendarId, input.session.calendarId),
+          eq(staffRosterMembers.active, true),
+          memberFilter,
+        ),
+      )
+      .orderBy(asc(staffRosterMembers.displayName)),
+    db
+      .select({ id: staffRosterRoles.id, name: staffRosterRoles.name })
+      .from(staffRosterRoles)
+      .where(
+        and(
+          eq(staffRosterRoles.calendarId, input.session.calendarId),
+          eq(staffRosterRoles.active, true),
+        ),
+      )
+      .orderBy(asc(staffRosterRoles.name)),
+    db
+      .select({ id: staffRosterLocations.id, name: staffRosterLocations.name })
+      .from(staffRosterLocations)
+      .where(
+        and(
+          eq(staffRosterLocations.calendarId, input.session.calendarId),
+          eq(staffRosterLocations.active, true),
+        ),
+      )
+      .orderBy(asc(staffRosterLocations.name)),
+    db
+      .select({
+        id: staffRosterShifts.id,
+        memberId: staffRosterShifts.memberId,
+        memberName: staffRosterMembers.displayName,
+        roleId: staffRosterShifts.roleId,
+        roleName: staffRosterRoles.name,
+        locationId: staffRosterShifts.locationId,
+        locationName: staffRosterLocations.name,
+        date: staffRosterShifts.shiftDate,
+        startTime: staffRosterShifts.startTime,
+        endTime: staffRosterShifts.endTime,
+        note: staffRosterShifts.note,
+        availabilityOverride: staffRosterShifts.availabilityOverride,
+      })
+      .from(staffRosterShifts)
+      .innerJoin(
+        staffRosterMembers,
+        eq(staffRosterShifts.memberId, staffRosterMembers.id),
+      )
+      .leftJoin(staffRosterRoles, eq(staffRosterShifts.roleId, staffRosterRoles.id))
+      .leftJoin(
+        staffRosterLocations,
+        eq(staffRosterShifts.locationId, staffRosterLocations.id),
+      )
+      .where(
+        and(
+          eq(staffRosterShifts.calendarId, input.session.calendarId),
+          drizzleSql`${staffRosterShifts.shiftDate} >= ${input.weekStart}`,
+          drizzleSql`${staffRosterShifts.shiftDate} <= ${weekEnd}`,
+          capabilities.createShifts
+            ? drizzleSql`true`
+            : eq(staffRosterShifts.memberId, current.id),
+        ),
+      )
+      .orderBy(
+        asc(staffRosterShifts.shiftDate),
+        asc(staffRosterShifts.startTime),
+      ),
+    getRosterSetup(input.session),
+  ]);
+
+  return {
+    weekStart: input.weekStart,
+    weekEnd,
+    currentMemberId: current.id,
+    currentAccessRole: current.accessRole,
+    canManageRoster: capabilities.createShifts,
+    setup,
+    members,
+    roles,
+    locations,
+    shifts: shifts.map((shift) => ({
+      ...shift,
+      startTime: shift.startTime.slice(0, 5),
+      endTime: shift.endTime.slice(0, 5),
+    })),
+  };
+}
+
+export async function createShift(input: {
+  session: StaffSession;
+  memberId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  roleId: string | null;
+  locationId: string | null;
+  note: string | null;
+  overrideAvailabilityConflict: boolean;
+}) {
+  const actor = await ensureStaffRosterMember(input.session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
+
+  if (!capabilities.createShifts) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
+  const member = await assertActiveRosterMember(
+    input.session.calendarId,
+    input.memberId,
+  );
+  await assertReferenceBelongsToCalendar({
+    calendarId: input.session.calendarId,
+    roleId: input.roleId,
+    locationId: input.locationId,
+  });
+
+  const conflicts = await shiftConflictState({
+    calendarId: input.session.calendarId,
+    memberId: input.memberId,
+    date: input.date,
+    startTime: input.startTime,
+    endTime: input.endTime,
+  });
+
+  if (conflicts.overlaps.length > 0) {
+    throw new StaffRosterServiceError(
+      409,
+      "This person already has an overlapping shift.",
+      "shift_overlap",
+      conflicts.overlaps,
+    );
+  }
+
+  if (
+    conflicts.unavailable.length > 0 &&
+    !input.overrideAvailabilityConflict
+  ) {
+    throw new StaffRosterServiceError(
+      409,
+      member.displayName + " is marked unavailable during this shift.",
+      "availability_conflict",
+      conflicts.unavailable,
+    );
+  }
+
+  const id = randomUUID();
+  const sql = getSql();
+
+  try {
+    await sql.transaction([
+      sql`
+        INSERT INTO staff_roster_shifts (
+          id, calendar_id, member_id, role_id, location_id,
+          shift_date, start_time, end_time, note,
+          availability_override, created_by_membership_id
+        )
+        VALUES (
+          ${id}, ${input.session.calendarId}, ${input.memberId},
+          ${input.roleId}, ${input.locationId},
+          ${input.date}, ${input.startTime}, ${input.endTime}, ${input.note},
+          ${conflicts.unavailable.length > 0}, ${input.session.membershipId}
+        )
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action,
+          entity_type, entity_id, after_state
+        )
+        VALUES (
+          ${input.session.calendarId}, NULL,
+          'staff_roster.shift.create',
+          'staff_roster_shift',
+          ${id},
+          ${JSON.stringify({
+            memberId: input.memberId,
+            date: input.date,
+            startTime: input.startTime,
+            endTime: input.endTime,
+            roleId: input.roleId,
+            locationId: input.locationId,
+            note: input.note,
+            availabilityOverride: conflicts.unavailable.length > 0,
+            actorStaffMemberId: actor.id,
+          })}::jsonb
+        )
+      `,
+    ]);
+  } catch {
+    throw new StaffRosterServiceError(409, "The shift could not be created.");
+  }
+
+  return { ok: true as const, id };
+}
+
+export async function updateShift(input: {
+  session: StaffSession;
+  shiftId: string;
+  memberId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  roleId: string | null;
+  locationId: string | null;
+  note: string | null;
+  overrideAvailabilityConflict: boolean;
+}) {
+  const actor = await ensureStaffRosterMember(input.session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
+  if (!capabilities.createShifts) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
+  const existingRows = await getDb()
+    .select({
+      id: staffRosterShifts.id,
+      memberId: staffRosterShifts.memberId,
+      date: staffRosterShifts.shiftDate,
+      startTime: staffRosterShifts.startTime,
+      endTime: staffRosterShifts.endTime,
+      roleId: staffRosterShifts.roleId,
+      locationId: staffRosterShifts.locationId,
+      note: staffRosterShifts.note,
+      availabilityOverride: staffRosterShifts.availabilityOverride,
+    })
+    .from(staffRosterShifts)
+    .where(
+      and(
+        eq(staffRosterShifts.id, input.shiftId),
+        eq(staffRosterShifts.calendarId, input.session.calendarId),
+      ),
+    )
+    .limit(1);
+
+  const existing = existingRows[0];
+  if (!existing) {
+    throw new StaffRosterServiceError(404, "Shift not found.");
+  }
+
+  const member = await assertActiveRosterMember(
+    input.session.calendarId,
+    input.memberId,
+  );
+  await assertReferenceBelongsToCalendar({
+    calendarId: input.session.calendarId,
+    roleId: input.roleId,
+    locationId: input.locationId,
+  });
+
+  const conflicts = await shiftConflictState({
+    calendarId: input.session.calendarId,
+    memberId: input.memberId,
+    date: input.date,
+    startTime: input.startTime,
+    endTime: input.endTime,
+    excludeShiftId: input.shiftId,
+  });
+
+  if (conflicts.overlaps.length > 0) {
+    throw new StaffRosterServiceError(
+      409,
+      "This person already has an overlapping shift.",
+      "shift_overlap",
+      conflicts.overlaps,
+    );
+  }
+
+  if (
+    conflicts.unavailable.length > 0 &&
+    !input.overrideAvailabilityConflict
+  ) {
+    throw new StaffRosterServiceError(
+      409,
+      member.displayName + " is marked unavailable during this shift.",
+      "availability_conflict",
+      conflicts.unavailable,
+    );
+  }
+
+  const sql = getSql();
+  try {
+    await sql.transaction([
+      sql`
+        UPDATE staff_roster_shifts
+        SET
+          member_id = ${input.memberId},
+          role_id = ${input.roleId},
+          location_id = ${input.locationId},
+          shift_date = ${input.date},
+          start_time = ${input.startTime},
+          end_time = ${input.endTime},
+          note = ${input.note},
+          availability_override = ${conflicts.unavailable.length > 0},
+          updated_at = now()
+        WHERE id = ${input.shiftId}
+          AND calendar_id = ${input.session.calendarId}
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action,
+          entity_type, entity_id, before_state, after_state
+        )
+        VALUES (
+          ${input.session.calendarId}, NULL,
+          'staff_roster.shift.update',
+          'staff_roster_shift',
+          ${input.shiftId},
+          ${JSON.stringify(existing)}::jsonb,
+          ${JSON.stringify({
+            memberId: input.memberId,
+            date: input.date,
+            startTime: input.startTime,
+            endTime: input.endTime,
+            roleId: input.roleId,
+            locationId: input.locationId,
+            note: input.note,
+            availabilityOverride: conflicts.unavailable.length > 0,
+            actorStaffMemberId: actor.id,
+          })}::jsonb
+        )
+      `,
+    ]);
+  } catch {
+    throw new StaffRosterServiceError(409, "The shift could not be updated.");
+  }
+
+  return { ok: true as const };
+}
+
+export async function deleteShift(input: {
+  session: StaffSession;
+  shiftId: string;
+}) {
+  const actor = await ensureStaffRosterMember(input.session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
+  if (!capabilities.createShifts) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
+  const rows = await getDb()
+    .select({
+      id: staffRosterShifts.id,
+      memberId: staffRosterShifts.memberId,
+      date: staffRosterShifts.shiftDate,
+      startTime: staffRosterShifts.startTime,
+      endTime: staffRosterShifts.endTime,
+      roleId: staffRosterShifts.roleId,
+      locationId: staffRosterShifts.locationId,
+      note: staffRosterShifts.note,
+    })
+    .from(staffRosterShifts)
+    .where(
+      and(
+        eq(staffRosterShifts.id, input.shiftId),
+        eq(staffRosterShifts.calendarId, input.session.calendarId),
+      ),
+    )
+    .limit(1);
+
+  const existing = rows[0];
+  if (!existing) {
+    throw new StaffRosterServiceError(404, "Shift not found.");
+  }
+
+  const sql = getSql();
+  try {
+    await sql.transaction([
+      sql`
+        DELETE FROM staff_roster_shifts
+        WHERE id = ${input.shiftId}
+          AND calendar_id = ${input.session.calendarId}
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action,
+          entity_type, entity_id, before_state, after_state
+        )
+        VALUES (
+          ${input.session.calendarId}, NULL,
+          'staff_roster.shift.delete',
+          'staff_roster_shift',
+          ${input.shiftId},
+          ${JSON.stringify(existing)}::jsonb,
+          ${JSON.stringify({ deleted: true, actorStaffMemberId: actor.id })}::jsonb
+        )
+      `,
+    ]);
+  } catch {
+    throw new StaffRosterServiceError(409, "The shift could not be deleted.");
   }
 
   return { ok: true as const };
