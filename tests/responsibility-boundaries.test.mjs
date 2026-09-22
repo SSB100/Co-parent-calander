@@ -105,7 +105,7 @@ test("calendar and day details integrate responsibilities without replacing pare
   assert.match(shell, /WorkspaceNav/);
   assert.doesNotMatch(shell, /href="\/responsibilities"/);
   assert.match(nav, /href: "\/responsibilities"/);
-  assert.match(nav, /activeOrganiserItems\.some\(\(item\) => item\.key === active\)/);
+  assert.match(nav, /active && \["responsibilities", "expenses", "kids", "organiser"\]\.includes\(active\)/);
   assert.match(shell, /One more detail/);
   assert.match(day, /DayResponsibilities/);
   assert.match(dayResponsibilities, />\s*Tasks\s*</);
