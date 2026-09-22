@@ -382,6 +382,11 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
   } | null>(null);
   const [weekBoardHeight, setWeekBoardHeight] = useState(540);
   const weekBoardRef = useRef<HTMLDivElement>(null);
+  const draggingPayloadRef = useRef<
+    | { kind: "member"; memberId: string }
+    | { kind: "shift"; shiftId: string }
+    | null
+  >(null);
   const [form, setForm] = useState<ShiftForm>({
     shiftId: null,
     memberId: "",
@@ -1070,10 +1075,12 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
       payload.kind === "member" ? "copy" : "move";
     event.dataTransfer.setData(DND_TYPE, serialized);
     event.dataTransfer.setData("text/plain", serialized);
+    draggingPayloadRef.current = payload;
     setDraggingPayload(payload);
   }
 
   function clearDragState() {
+    draggingPayloadRef.current = null;
     setDraggingPayload(null);
     setDropPreview(null);
   }
@@ -1100,11 +1107,12 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     event: DragEvent<HTMLDivElement>,
     date: string,
   ) {
-    if (!data?.canManageRoster || busy || !draggingPayload) return;
+    const activeDrag = draggingPayloadRef.current ?? draggingPayload;
+    if (!data?.canManageRoster || busy || !activeDrag) return;
 
     event.preventDefault();
     event.dataTransfer.dropEffect =
-      draggingPayload.kind === "member" ? "copy" : "move";
+      activeDrag.kind === "member" ? "copy" : "move";
 
     const minute = minuteAtTimelinePointer(event);
     setDropPreview((current) =>
@@ -1125,7 +1133,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
       event.dataTransfer.getData(DND_TYPE) ||
       event.dataTransfer.getData("text/plain");
 
-    let payload = draggingPayload;
+    let payload = draggingPayloadRef.current ?? draggingPayload;
     if (raw) {
       try {
         payload = JSON.parse(raw) as
@@ -1945,7 +1953,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                                       onPointerDown={(event) =>
                                         beginResize(event, shift, "start")
                                       }
-                                      data-resize-handle
+                                      data-resize-handle="true"
                                       className="absolute inset-x-0 top-0 z-20 h-3 cursor-ns-resize bg-[#19A897]/10 hover:bg-[#19A897]/30"
                                       aria-hidden="true"
                                     />
@@ -1987,7 +1995,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                                       onPointerDown={(event) =>
                                         beginResize(event, shift, "end")
                                       }
-                                      data-resize-handle
+                                      data-resize-handle="true"
                                       className="absolute inset-x-0 bottom-0 z-20 h-3 cursor-ns-resize bg-[#19A897]/10 hover:bg-[#19A897]/30"
                                       aria-hidden="true"
                                     />
