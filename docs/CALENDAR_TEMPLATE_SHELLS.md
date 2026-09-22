@@ -90,9 +90,14 @@ Production calendar pages must not contain invented people, bookings, shifts, ev
 
 ## Routes
 
-- `/calendar-types` redirects to the user's currently selected calendar
-- `/calendar-types/staff-rosters`
-- `/calendar-types/shared-facilities`
-- `/calendar-types/social-groups`
+`/calendar-types` redirects to the user's currently selected calendar.
+
+Each additional calendar type uses real application routes rather than hash-only shell sections:
+
+- `/calendar-types/[template]` — Calendar
+- `/calendar-types/[template]/updates` — Updates
+- `/calendar-types/[template]/organiser/[tool]` — the selected Organiser tool
+
+The route loader verifies the signed-in membership and selected calendar type before rendering. Organiser tool keys are checked against that template's manifest, so one template cannot navigate into another template's tool set.
 
 Feature-specific create actions only appear once their persistence and permission rules are implemented.
