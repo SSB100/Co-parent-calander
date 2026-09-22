@@ -210,10 +210,6 @@ export async function createCalendar(
     redirect("/calendar?welcome=created");
   }
 
-  if (parsed.data.calendarType === "staff_rosters") {
-    redirect("/calendar-types/staff-rosters/setup");
-  }
-
   redirect(calendarPathForType(parsed.data.calendarType));
 }
 
