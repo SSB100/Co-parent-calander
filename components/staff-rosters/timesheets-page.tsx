@@ -135,6 +135,10 @@ export function StaffRosterTimesheetsPage() {
   const [requestedIn, setRequestedIn] = useState("");
   const [requestedOut, setRequestedOut] = useState("");
   const [reason, setReason] = useState("");
+  const [managerFixSession, setManagerFixSession] = useState<Session | null>(null);
+  const [managerClockIn, setManagerClockIn] = useState("");
+  const [managerClockOut, setManagerClockOut] = useState("");
+  const [managerReason, setManagerReason] = useState("");
 
   const refresh = useCallback(async () => {
     const response = await fetch(
@@ -185,6 +189,65 @@ export function StaffRosterTimesheetsPage() {
     setRequestedIn(localInputValue(session.clockInAt));
     setRequestedOut(localInputValue(session.clockOutAt));
     setReason("");
+  }
+
+  function openManagerFix(session: Session) {
+    setManagerFixSession(session);
+    setManagerClockIn(localInputValue(session.clockInAt));
+    setManagerClockOut(
+      session.clockOutAt
+        ? localInputValue(session.clockOutAt)
+        : session.scheduledDate && session.scheduledEndTime
+          ? session.scheduledDate + "T" + session.scheduledEndTime.slice(0, 5)
+          : "",
+    );
+    setManagerReason("");
+  }
+
+  async function saveManagerFix() {
+    if (
+      !managerFixSession ||
+      !managerClockIn ||
+      !managerClockOut ||
+      busy
+    ) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/staff-roster/timesheet", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          clockSessionId: managerFixSession.id,
+          clockInAt: new Date(managerClockIn).toISOString(),
+          clockOutAt: new Date(managerClockOut).toISOString(),
+          reason: managerReason,
+        }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Timesheet entry could not be corrected.");
+      }
+
+      setManagerFixSession(null);
+      setNotice("Timesheet entry corrected.");
+      await refresh();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Timesheet entry could not be corrected.",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function requestCorrection() {
@@ -459,7 +522,16 @@ export function StaffRosterTimesheetsPage() {
                       </p>
                     ) : null}
 
-                    {!data.canReview && session.clockOutAt ? (
+                    {data.canReview ? (
+                      <CovieButton
+                        tone="neutral"
+                        className="mt-3"
+                        onClick={() => openManagerFix(session)}
+                      >
+                        <PencilLine className="h-4 w-4" aria-hidden="true" />
+                        Fix time
+                      </CovieButton>
+                    ) : !data.canReview && session.clockOutAt ? (
                       <CovieButton
                         tone="neutral"
                         className="mt-3"
@@ -475,6 +547,70 @@ export function StaffRosterTimesheetsPage() {
             </section>
           )}
         </>
+      ) : null}
+
+      {managerFixSession ? (
+        <CovieDialog
+          id="manager-timesheet-fix-title"
+          title={"Fix " + managerFixSession.memberName + "’s time"}
+          description="This changes the recorded worked time immediately and is kept in the audit log."
+          icon={<PencilLine aria-hidden="true" />}
+          iconTone="sunshine"
+          size="md"
+          busy={busy}
+          onClose={() => setManagerFixSession(null)}
+          footer={
+            <>
+              <CovieButton
+                tone="neutral"
+                disabled={busy}
+                onClick={() => setManagerFixSession(null)}
+              >
+                Cancel
+              </CovieButton>
+              <CovieButton
+                disabled={busy || !managerClockIn || !managerClockOut}
+                onClick={() => void saveManagerFix()}
+              >
+                Save corrected time
+              </CovieButton>
+            </>
+          }
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label>
+              <span className="mb-1.5 block text-sm font-bold">Clock in</span>
+              <CovieInput
+                type="datetime-local"
+                value={managerClockIn}
+                disabled={busy}
+                onChange={(event) => setManagerClockIn(event.target.value)}
+              />
+            </label>
+            <label>
+              <span className="mb-1.5 block text-sm font-bold">Clock out</span>
+              <CovieInput
+                type="datetime-local"
+                value={managerClockOut}
+                disabled={busy}
+                onChange={(event) => setManagerClockOut(event.target.value)}
+              />
+            </label>
+            <label className="sm:col-span-2">
+              <span className="mb-1.5 block text-sm font-bold">
+                Correction note
+              </span>
+              <CovieTextarea
+                rows={3}
+                maxLength={500}
+                value={managerReason}
+                disabled={busy}
+                placeholder="Optional reason for the correction"
+                onChange={(event) => setManagerReason(event.target.value)}
+              />
+            </label>
+          </div>
+        </CovieDialog>
       ) : null}
 
       {correctionSession ? (
