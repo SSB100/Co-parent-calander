@@ -95,7 +95,7 @@ test("Staff Rosters calendar is a calendar-first weekly roster builder", async (
   assert.match(roster, /createShiftFromDrop/);
   assert.match(roster, /void createShiftFromDrop/);
   assert.match(roster, /setData\("text\/plain"/);
-  assert.match(roster, /HOUR_HEIGHT = 28/);
+  assert.match(roster, /HOUR_HEIGHT = 26/);
   assert.match(roster, /beginResize/);
   assert.match(roster, /SNAP_MINUTES = 15/);
   assert.match(roster, /weeklyMinutesByMember/);
