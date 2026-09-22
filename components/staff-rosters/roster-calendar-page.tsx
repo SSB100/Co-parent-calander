@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Copy,
   GripVertical,
   LoaderCircle,
   Plus,
@@ -110,7 +111,7 @@ type PositionedShift = {
 const SNAP_MINUTES = 15;
 const DEFAULT_SHIFT_MINUTES = 8 * 60;
 const DAY_START_MINUTE = 6 * 60;
-const DAY_END_MINUTE = 23 * 60;
+const DAY_END_MINUTE = 24 * 60;
 const HOUR_HEIGHT = 64;
 const DND_TYPE = "application/x-covie-roster";
 
@@ -303,6 +304,10 @@ export function StaffRosterCalendarPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [conflictMessage, setConflictMessage] = useState<string | null>(null);
+  const [copyNotice, setCopyNotice] = useState<{
+    tone: "teal" | "sunshine";
+    text: string;
+  } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Shift | null>(null);
   const [resizePreview, setResizePreview] = useState<{
     shiftId: string;
@@ -627,6 +632,88 @@ export function StaffRosterCalendarPage() {
     }
   }
 
+  async function copyPreviousWeek() {
+    if (busy || !data?.canManageRoster) return;
+
+    setBusy(true);
+    setError(null);
+    setCopyNotice(null);
+
+    try {
+      const response = await fetch("/api/staff-roster/copy-week", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ weekStart }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | {
+            copied?: number;
+            skipped?: number;
+            overlapSkipped?: number;
+            availabilitySkipped?: number;
+            error?: string;
+          }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "The previous week could not be copied.");
+      }
+
+      const copied = body?.copied ?? 0;
+      const skipped = body?.skipped ?? 0;
+      const availabilitySkipped = body?.availabilitySkipped ?? 0;
+      const overlapSkipped = body?.overlapSkipped ?? 0;
+
+      if (copied === 0 && skipped === 0) {
+        setCopyNotice({
+          tone: "sunshine",
+          text: "There were no shifts in the previous week to copy.",
+        });
+      } else if (skipped > 0) {
+        const reasons = [
+          availabilitySkipped > 0
+            ? availabilitySkipped + " unavailable"
+            : null,
+          overlapSkipped > 0 ? overlapSkipped + " overlapping" : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+
+        setCopyNotice({
+          tone: "sunshine",
+          text:
+            "Copied " +
+            copied +
+            " shift" +
+            (copied === 1 ? "" : "s") +
+            ". Skipped " +
+            skipped +
+            (reasons ? " (" + reasons + ")." : "."),
+        });
+      } else {
+        setCopyNotice({
+          tone: "teal",
+          text:
+            "Copied " +
+            copied +
+            " shift" +
+            (copied === 1 ? "" : "s") +
+            " from the previous week.",
+        });
+      }
+
+      await refresh(anchorDate, view);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "The previous week could not be copied.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function setDragPayload(
     event: DragEvent<HTMLElement>,
     payload: { kind: "member"; memberId: string } | { kind: "shift"; shiftId: string },
@@ -788,7 +875,9 @@ export function StaffRosterCalendarPage() {
     setMobileDay(value);
   }
 
-  const selectedMobileDay = days.includes(mobileDay) ? mobileDay : days[0];
+  const selectedMobileDay = days.includes(mobileDay)
+    ? mobileDay
+    : (days[0] ?? weekStart);
   const selectedMobileShifts =
     data?.shifts.filter((shift) => shift.date === selectedMobileDay) ?? [];
   const timelineHeight =
@@ -862,10 +951,26 @@ export function StaffRosterCalendarPage() {
               </strong>
 
               {data.canManageRoster ? (
-                <CovieButton tone="neutral" onClick={() => openCreate()}>
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                  Create shift
-                </CovieButton>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {view === "week" ? (
+                    <CovieButton
+                      tone="neutral"
+                      disabled={busy}
+                      onClick={() => void copyPreviousWeek()}
+                    >
+                      <Copy className="h-4 w-4" aria-hidden="true" />
+                      Copy previous week
+                    </CovieButton>
+                  ) : null}
+                  <CovieButton
+                    tone="neutral"
+                    disabled={busy}
+                    onClick={() => openCreate()}
+                  >
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    Create shift
+                  </CovieButton>
+                </div>
               ) : null}
             </div>
 
@@ -877,6 +982,12 @@ export function StaffRosterCalendarPage() {
               </div>
             ) : null}
           </div>
+
+          {copyNotice ? (
+            <CovieNotice tone={copyNotice.tone} className="mb-4">
+              {copyNotice.text}
+            </CovieNotice>
+          ) : null}
 
           {data.members.length === 0 ? (
             <CovieEmptyState
