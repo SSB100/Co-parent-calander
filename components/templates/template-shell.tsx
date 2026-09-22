@@ -363,15 +363,15 @@ export function TemplateShell({
         width="wide"
         className="pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6"
       >
+        <div className="mb-3">
+          <CalendarSwitcher
+            calendars={calendars}
+            currentCalendarId={currentCalendarId}
+            defaultName={defaultName}
+          />
+        </div>
         <CoviePageHeader
           accent={template.accentPair[0]}
-          leading={
-            <CalendarSwitcher
-              calendars={calendars}
-              currentCalendarId={currentCalendarId}
-              defaultName={defaultName}
-            />
-          }
           title={template.name}
           context={template.coreQuestion}
           actions={
