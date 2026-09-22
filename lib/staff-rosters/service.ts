@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { addDays, format, parseISO, subDays } from "date-fns";
-import { and, asc, desc, eq, sql as drizzleSql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql as drizzleSql } from "drizzle-orm";
 import { getDb, getSql } from "@/lib/db";
 import {
   staffRosterAvailability,
   staffRosterLeaveRequests,
   staffRosterLocations,
+  staffRosterMemberRoles,
   staffRosterMembers,
   staffRosterPublishedShifts,
   staffRosterRoles,
@@ -174,6 +175,42 @@ async function assertReferenceBelongsToCalendar(input: {
     if (!rows[0]) {
       throw new StaffRosterServiceError(400, "Choose an active roster location.");
     }
+  }
+}
+
+function normalizedMemberRoleIds(
+  roleIds: string[],
+  defaultRoleId: string | null,
+) {
+  const unique = [...new Set(roleIds)];
+  if (defaultRoleId && !unique.includes(defaultRoleId)) {
+    unique.unshift(defaultRoleId);
+  }
+  return unique;
+}
+
+async function assertStaffRolesBelongToCalendar(
+  calendarId: string,
+  roleIds: string[],
+) {
+  if (roleIds.length === 0) return;
+
+  const rows = await getDb()
+    .select({ id: staffRosterRoles.id })
+    .from(staffRosterRoles)
+    .where(
+      and(
+        eq(staffRosterRoles.calendarId, calendarId),
+        eq(staffRosterRoles.active, true),
+        inArray(staffRosterRoles.id, roleIds),
+      ),
+    );
+
+  if (rows.length !== roleIds.length) {
+    throw new StaffRosterServiceError(
+      400,
+      "Choose active roster roles from this calendar.",
+    );
   }
 }
 
