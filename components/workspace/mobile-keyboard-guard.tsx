@@ -9,6 +9,7 @@ export function MobileKeyboardGuard() {
   useEffect(() => {
     const visualViewport = window.visualViewport;
     if (!visualViewport) return;
+    const activeViewport: VisualViewport = visualViewport;
 
     const root = document.documentElement;
     let frame = 0;
@@ -17,8 +18,8 @@ export function MobileKeyboardGuard() {
     function syncViewport() {
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
-        const visualHeight = Math.round(visualViewport.height);
-        const visualTop = Math.round(visualViewport.offsetTop);
+        const visualHeight = Math.round(activeViewport.height);
+        const visualTop = Math.round(activeViewport.offsetTop);
         const keyboardHeight = Math.max(
           0,
           Math.round(window.innerHeight - visualHeight - visualTop),
@@ -71,8 +72,8 @@ export function MobileKeyboardGuard() {
     }
 
     syncViewport();
-    visualViewport.addEventListener("resize", syncViewport);
-    visualViewport.addEventListener("scroll", syncViewport);
+    activeViewport.addEventListener("resize", syncViewport);
+    activeViewport.addEventListener("scroll", syncViewport);
     window.addEventListener("orientationchange", syncViewport);
     document.addEventListener("focusin", handleFocusIn);
     document.addEventListener("focusout", handleFocusOut);
@@ -80,8 +81,8 @@ export function MobileKeyboardGuard() {
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(focusTimer);
-      visualViewport.removeEventListener("resize", syncViewport);
-      visualViewport.removeEventListener("scroll", syncViewport);
+      activeViewport.removeEventListener("resize", syncViewport);
+      activeViewport.removeEventListener("scroll", syncViewport);
       window.removeEventListener("orientationchange", syncViewport);
       document.removeEventListener("focusin", handleFocusIn);
       document.removeEventListener("focusout", handleFocusOut);
