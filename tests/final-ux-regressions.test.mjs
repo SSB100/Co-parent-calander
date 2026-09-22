@@ -99,7 +99,7 @@ test("authenticated pages share the public Covie design system", async () => {
   ]);
 
   assert.match(styles, /--background: #fff9f2/i);
-  assert.match(styles, /workspace-destinations a\[aria-current="page"\].*#ff6b5f/i);
+  assert.match(styles, /workspace-destinations > a\[aria-current="page"\],[\s\S]*workspace-organiser-menu\.is-active[\s\S]*#ff6b5f/i);
   assert.match(styles, /covie-page-header/);
   assert.match(styles, /covie-primary-action/);
   for (const page of [home, expenses, responsibilities, kids, childProfile, organiser]) {
@@ -158,14 +158,18 @@ test("Calendar fills the viewport and adjacent month days remain interactive", a
   assert.match(styles, /overflow: hidden/);
 });
 
-test("Calendar day tiles use parent names and a full-width bright event strip", async () => {
-  const shell = await source("components/calendar/calendar-shell.tsx");
+test("Calendar day tiles use parent names and semantic full-width event strips", async () => {
+  const [shell, categories] = await Promise.all([
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/calendar/event-category-icon.tsx"),
+  ]);
 
   assert.match(shell, /parentTileName/);
   assert.match(shell, /inset-x-1 top-1/);
   assert.match(shell, /right-1 top-1\/2/);
   assert.match(shell, /inset-x-0 bottom-0/);
-  assert.match(shell, /#F4C64E/);
+  assert.match(shell, /eventCategoryBarClass/);
+  assert.match(categories, /eventCategoryBarClass/);
   assert.match(shell, /title: "Handover"/);
   assert.doesNotMatch(shell, /shortOwnerLabel\(assignment\.morning\).*→.*shortOwnerLabel\(assignment\.afternoon\)/);
 });
@@ -485,6 +489,33 @@ test("Calendar and compact workspace controls follow the final brand consistency
   assert.match(styles, /\.workspace-mobile-actions-trigger \{[\s\S]*?height: 44px;[\s\S]*?width: 44px;/);
   assert.doesNotMatch(styles, /font-size:\s*(?:9|10)px;/);
   assert.match(styles, /\.covie-calendar-grid \{[\s\S]*?gap: 2px;/);
+});
+
+test("mobile keyboard support keeps focused fields inside the visual viewport", async () => {
+  const [layout, guard, styles] = await Promise.all([
+    source("app/layout.tsx"),
+    source("components/workspace/mobile-keyboard-guard.tsx"),
+    source("app/globals.css"),
+  ]);
+
+  assert.match(layout, /interactiveWidget: "resizes-content"/);
+  assert.match(layout, /viewportFit: "cover"/);
+  assert.match(layout, /MobileKeyboardGuard/);
+  assert.match(guard, /window\.visualViewport/);
+  assert.match(guard, /scrollIntoView/);
+  assert.match(guard, /covieKeyboardOpen/);
+  assert.match(styles, /--covie-visual-viewport-height/);
+  assert.match(styles, /data-covie-keyboard-open="true"[\s\S]*\.workspace-nav[\s\S]*display: none/);
+  assert.match(styles, /\.covie-dialog-body[\s\S]*scroll-padding-bottom/);
+});
+
+test("Calendar mobile header omits editor and repeating-schedule tags", async () => {
+  const shell = await source("components/calendar/calendar-shell.tsx");
+
+  assert.doesNotMatch(shell, /editing/);
+  assert.doesNotMatch(shell, /Repeating schedule on/);
+  assert.match(shell, /View only/);
+  assert.match(shell, /hidden sm:inline-flex/);
 });
 
 test("workspace dropdowns dismiss when users click elsewhere or press Escape", async () => {
