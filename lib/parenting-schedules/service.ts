@@ -9,6 +9,7 @@ import {
   sharedApprovalTargetForSession,
 } from "@/lib/approvals/http";
 import type { CalendarApprovalPermission } from "@/lib/approvals/types";
+import { ownershipChangeRequiresApproval } from "@/lib/assignments/ownership";
 import { getDb, getSql } from "@/lib/db";
 import {
   children,
@@ -44,6 +45,48 @@ export class ParentingScheduleServiceError extends Error {
     super(message);
     this.name = "ParentingScheduleServiceError";
   }
+}
+
+function repeatingScheduleChangeRequiresApproval(input: {
+  existing: SavedParentingSchedule | null;
+  anchorDate: string;
+  endDate: string | null;
+  pattern: ParentingScheduleSlot[];
+}) {
+  const { existing, anchorDate, endDate, pattern } = input;
+  if (!existing) return false;
+
+  if (existing.anchorDate !== anchorDate) return true;
+
+  if (existing.endDate === null && endDate !== null) {
+    return true;
+  }
+
+  if (
+    existing.endDate !== null &&
+    endDate !== null &&
+    endDate < existing.endDate
+  ) {
+    return true;
+  }
+
+  return existing.pattern.some((slot, index) =>
+    ownershipChangeRequiresApproval(
+      slot,
+      pattern[index] ?? {
+        morningParentId: null,
+        afternoonParentId: null,
+      },
+    ),
+  );
+}
+
+function repeatingScheduleDeleteRequiresApproval(
+  schedule: SavedParentingSchedule,
+) {
+  return schedule.pattern.some(
+    (slot) => slot.morningParentId !== null || slot.afternoonParentId !== null,
+  );
 }
 
 function serviceFailure(error: unknown, fallback: string): never {
@@ -271,14 +314,23 @@ export async function upsertParentingSchedule(input: {
     );
   }
 
-  try {
-    const approvalTarget =
-      await sharedApprovalTargetForSession(session);
+  const custodyApprovalRequired =
+    repeatingScheduleChangeRequiresApproval({
+      existing: existingSchedule ?? null,
+      anchorDate,
+      endDate,
+      pattern,
+    });
 
-    if (
-      approvalTarget.required &&
-      approvalTarget.approverMembershipId
-    ) {
+  if (custodyApprovalRequired) {
+    try {
+      const approvalTarget =
+        await sharedApprovalTargetForSession(session);
+
+      if (
+        approvalTarget.required &&
+        approvalTarget.approverMembershipId
+      ) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
         actor: approvalActorFromSession(session),
@@ -313,13 +365,14 @@ export async function upsertParentingSchedule(input: {
         anchorDate,
         endDate,
         pattern,
-      };
+        };
+      }
+    } catch (error) {
+      serviceFailure(
+        error,
+        "The repeating schedule proposal could not be saved.",
+      );
     }
-  } catch (error) {
-    serviceFailure(
-      error,
-      "The repeating schedule proposal could not be saved.",
-    );
   }
 
   const sql = getSql();
@@ -454,14 +507,18 @@ export async function deleteParentingSchedule(input: {
     );
   }
 
-  try {
-    const approvalTarget =
-      await sharedApprovalTargetForSession(session);
+  const custodyApprovalRequired =
+    repeatingScheduleDeleteRequiresApproval(existing);
 
-    if (
-      approvalTarget.required &&
-      approvalTarget.approverMembershipId
-    ) {
+  if (custodyApprovalRequired) {
+    try {
+      const approvalTarget =
+        await sharedApprovalTargetForSession(session);
+
+      if (
+        approvalTarget.required &&
+        approvalTarget.approverMembershipId
+      ) {
       const result = await createApprovalProposal({
         calendarId: session.calendarId,
         actor: approvalActorFromSession(session),
@@ -490,13 +547,14 @@ export async function deleteParentingSchedule(input: {
           result?.proposal.approverName ??
           approvalTarget.approverName,
         scheduleId,
-      };
+        };
+      }
+    } catch (error) {
+      serviceFailure(
+        error,
+        "The repeating schedule proposal could not be saved.",
+      );
     }
-  } catch (error) {
-    serviceFailure(
-      error,
-      "The repeating schedule proposal could not be saved.",
-    );
   }
 
   const sql = getSql();

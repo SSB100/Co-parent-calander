@@ -9,7 +9,7 @@ async function source(file) {
   return readFile(path.join(root, file), "utf8");
 }
 
-test("event CRUD keeps validation, approval gating, calendar scoping, transaction, and audit guarantees", async () => {
+test("event CRUD is immediate while keeping validation, calendar scoping, transaction, and audit guarantees", async () => {
   const [route, model, service] = await Promise.all([
     source("app/api/events/route.ts"),
     source("lib/events/model.ts"),
@@ -22,7 +22,7 @@ test("event CRUD keeps validation, approval gating, calendar scoping, transactio
   assert.match(model, /Add an event title\./);
   assert.match(model, /Keep the title under 80 characters\./);
   assert.match(model, /Keep the event note under 500 characters\./);
-  assert.match(model, /proposalReasonSchema/);
+  assert.doesNotMatch(model, /proposalReasonSchema/);
   assert.match(model, /The event end date cannot be before the start date\./);
   assert.match(model, /Events can span up to 32 days\./);
   assert.match(model, /createEventSchema/);
@@ -32,12 +32,12 @@ test("event CRUD keeps validation, approval gating, calendar scoping, transactio
   assert.match(route, /getCalendarSession\(\)/);
   assert.match(route, /getEditorSession\(\)/);
   assert.match(route, /request\.nextUrl\.searchParams\.get\("date"\)/);
-  assert.match(route, /result\.pending \? 202 : 200/);
+  assert.doesNotMatch(route, /result\.pending \? 202 : 200/);
 
-  assert.match(service, /sharedApprovalTargetForSession/);
-  assert.match(service, /createApprovalProposal/);
-  assert.match(service, /entityType: "shared_event"/);
-  assert.match(service, /pending: true/);
+  assert.doesNotMatch(service, /sharedApprovalTargetForSession/);
+  assert.doesNotMatch(service, /createApprovalProposal/);
+  assert.doesNotMatch(service, /entityType: "shared_event"/);
+  assert.doesNotMatch(service, /pending: true/);
   assert.match(service, /eq\(events\.calendarId, input\.calendarId\)/);
   assert.match(service, /event\.create/);
   assert.match(service, /event\.update/);
@@ -46,7 +46,7 @@ test("event CRUD keeps validation, approval gating, calendar scoping, transactio
   assert.match(service, /after_state/);
 
   const transactionCalls = service.match(/await sql\.transaction\(/g) ?? [];
-  assert.equal(transactionCalls.length, 3, "solo-parent event create/update/delete must remain transactional");
+  assert.equal(transactionCalls.length, 3, "event create/update/delete must remain transactional");
 });
 
 test("account sharing keeps permission choice, code rotation, revoke, and one-use guarantees", async () => {
@@ -61,7 +61,7 @@ test("account sharing keeps permission choice, code rotation, revoke, and one-us
   assert.match(text, /revokedAt: new Date\(\)/);
 });
 
-test("event creation stays explicit and approval-aware in the UI", async () => {
+test("event creation stays explicit and immediate in the UI", async () => {
   const eventPanel = await source("components/calendar/event-panel.tsx");
   const dayPanel = await source("components/calendar/day-details-panel.tsx");
   const activityPanel = await source("components/calendar/activity-panel.tsx");
@@ -70,10 +70,9 @@ test("event creation stays explicit and approval-aware in the UI", async () => {
   assert.match(eventPanel, /Create event/);
   assert.match(eventPanel, /Birthday/);
   assert.match(eventPanel, /School/);
-  assert.match(eventPanel, /Reason for change/);
-  assert.match(eventPanel, /reason: reason\.trim\(\) \|\| null/);
-  assert.match(eventPanel, /Event change sent to/);
-  assert.match(eventPanel, /Event cancellation sent to/);
+  assert.match(eventPanel, /Event changes are saved immediately for both parents/);
+  assert.doesNotMatch(eventPanel, /Reason for change/);
+  assert.doesNotMatch(eventPanel, /sent .* approval|sent for approval/);
   assert.match(eventPanel, /Event updated\./);
   assert.match(eventPanel, /Event added to the shared calendar\./);
   assert.match(eventPanel, /Event removed\./);
@@ -82,7 +81,8 @@ test("event creation stays explicit and approval-aware in the UI", async () => {
   assert.match(dayPanel, /\/api\/events\?date=/);
   assert.match(dayPanel, /Delete event/);
   assert.match(dayPanel, /method: "DELETE"/);
-  assert.match(dayPanel, /Event cancellation sent to/);
+  assert.match(dayPanel, /Event removed/);
+  assert.doesNotMatch(dayPanel, /Event cancellation sent/);
   assert.match(activityPanel, /aria-label="Activity"/);
   assert.match(settingsPanel, /aria-label="Settings"/);
 });

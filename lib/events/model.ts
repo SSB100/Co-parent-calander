@@ -1,6 +1,5 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { z } from "zod";
-import { proposalReasonSchema } from "@/lib/approvals/http";
 
 export const eventCategoryValues = [
   "school",
@@ -83,18 +82,14 @@ export const eventDetailsSchema = z
     }
   });
 
-export const createEventSchema = eventDetailsSchema.safeExtend({
-  reason: proposalReasonSchema,
-});
+export const createEventSchema = eventDetailsSchema;
 
 export const editEventSchema = eventDetailsSchema.safeExtend({
   id: z.string().uuid(),
-  reason: proposalReasonSchema,
 });
 
 export const deleteEventSchema = z.object({
   id: z.string().uuid(),
-  reason: proposalReasonSchema,
 });
 
 export type EventDetails = z.infer<typeof eventDetailsSchema>;

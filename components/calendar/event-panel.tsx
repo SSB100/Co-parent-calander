@@ -105,7 +105,6 @@ export function EventPanel({
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(() => blankForm(initialDate));
-  const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -174,7 +173,6 @@ export function EventPanel({
     setOpen(true);
     setEditingId(null);
     setForm(blankForm(initialDate));
-    setReason("");
     await loadEvents();
   }
 
@@ -189,7 +187,6 @@ export function EventPanel({
       recurrence: event.recurrence,
       recurrenceEndDate: event.recurrenceEndDate ?? "",
     });
-    setReason("");
     setMessage(null);
   }
 
@@ -208,7 +205,6 @@ export function EventPanel({
         recurrence: form.recurrence,
         recurrenceEndDate:
           form.recurrence === "none" ? null : form.recurrenceEndDate || null,
-        reason: reason.trim() || null,
       };
       const response = await fetch("/api/events", {
         method: editingId ? "PATCH" : "POST",
@@ -216,23 +212,18 @@ export function EventPanel({
         body: JSON.stringify(payload),
       });
       const body = (await response.json().catch(() => null)) as
-        | { error?: string; pending?: boolean; approverName?: string | null }
+        | { error?: string }
         | null;
       if (!response.ok) throw new Error(body?.error ?? "The event could not be saved.");
 
       const wasEditing = Boolean(editingId);
       setEditingId(null);
       setForm(blankForm(initialDate));
-      setReason("");
       await loadEvents();
       setMessage(
-        body?.pending
-          ? body.approverName
-            ? `Event change sent to ${body.approverName} for approval.`
-            : "Event change sent for approval."
-          : wasEditing
-            ? "Event updated."
-            : "Event added to the shared calendar.",
+        wasEditing
+          ? "Event updated."
+          : "Event added to the shared calendar.",
       );
       onChanged?.();
     } catch (error) {
@@ -250,28 +241,18 @@ export function EventPanel({
       const response = await fetch("/api/events", {
         method: "DELETE",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id,
-          reason: reason.trim() || null,
-        }),
+        body: JSON.stringify({ id }),
       });
       const body = (await response.json().catch(() => null)) as
-        | { error?: string; pending?: boolean; approverName?: string | null }
+        | { error?: string }
         | null;
       if (!response.ok) throw new Error(body?.error ?? "The event could not be deleted.");
       if (editingId === id) {
         setEditingId(null);
         setForm(blankForm(initialDate));
-        setReason("");
       }
       await loadEvents();
-      setMessage(
-        body?.pending
-          ? body.approverName
-            ? `Event cancellation sent to ${body.approverName} for approval.`
-            : "Event cancellation sent for approval."
-          : "Event removed.",
-      );
+      setMessage("Event removed.");
       onChanged?.();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "The event could not be deleted.");
@@ -314,7 +295,7 @@ export function EventPanel({
                     {editingId ? "Edit event" : "Create event"}
                   </h2>
                   <p id="event-panel-description" className="covie-dialog-description">
-                    Add a shared plan to the calendar. Event changes may wait for the other parent&apos;s approval.
+                    Add a shared plan to the calendar. Event changes are saved immediately for both parents.
                   </p>
                 </div>
               </div>
@@ -449,18 +430,6 @@ export function EventPanel({
                   />
                 </label>
 
-                <label className="sm:col-span-2">
-                  <span className="text-sm font-semibold text-slate-800">
-                    Reason for change <span className="font-normal text-slate-400">(optional)</span>
-                  </span>
-                  <input
-                    maxLength={500}
-                    value={reason}
-                    onChange={(event) => setReason(event.target.value)}
-                    placeholder="Only used when approval is needed"
-                    className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  />
-                </label>
               </div>
 
               {message ? (
@@ -529,7 +498,6 @@ export function EventPanel({
                   onClick={() => {
                     setEditingId(null);
                     setForm(blankForm(initialDate));
-                    setReason("");
                     setMessage(null);
                   }}
                   className="covie-dialog-secondary"

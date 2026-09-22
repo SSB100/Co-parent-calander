@@ -1489,7 +1489,7 @@ export function CalendarShell({
 
       <p className="mx-auto mt-2 hidden max-w-2xl shrink-0 text-center text-xs leading-5 text-slate-400 sm:block">
         {accessMode === "editor"
-          ? "Shared changes become part of the agreed calendar after approval when both parents are linked."
+          ? "Events and new unassigned custody are saved immediately. Changing or removing existing custody needs the other parent’s approval."
           : "You have view-only access. Ask the calendar owner if you need editing permission."}
       </p>
 

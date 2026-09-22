@@ -9,27 +9,29 @@ async function source(file) {
   return readFile(path.join(root, file), "utf8");
 }
 
-test("existing shared calendar mutations enter the reusable approval engine", async () => {
-  const files = await Promise.all(
-    [
-      "app/api/assignments/route.ts",
-      "app/api/assignment-details/route.ts",
-      "lib/events/service.ts",
-      "lib/parenting-schedules/service.ts",
-    ].map(source),
-  );
+test("approval is limited to changes that replace or remove existing custody", async () => {
+  const [assignments, details, events, recurring, ownership] = await Promise.all([
+    source("app/api/assignments/route.ts"),
+    source("app/api/assignment-details/route.ts"),
+    source("lib/events/service.ts"),
+    source("lib/parenting-schedules/service.ts"),
+    source("lib/assignments/ownership.ts"),
+  ]);
 
-  for (const text of files) {
+  for (const text of [assignments, details, recurring]) {
     assert.match(text, /sharedApprovalTargetForSession/);
     assert.match(text, /createApprovalProposal/);
-    assert.match(text, /pending: true/);
-    assert.match(text, /status: 202|pending: true/);
+    assert.match(text, /entityType: "parenting_schedule"/);
   }
 
-  assert.match(files[0], /entityType: "parenting_schedule"/);
-  assert.match(files[1], /entityType: "parenting_schedule"/);
-  assert.match(files[2], /entityType: "shared_event"/);
-  assert.match(files[3], /entityType: "parenting_schedule"/);
+  assert.match(assignments, /assignmentCustodyChangeRequiresApproval/);
+  assert.match(details, /assignmentCustodyChangeRequiresApproval/);
+  assert.match(recurring, /repeatingScheduleChangeRequiresApproval/);
+  assert.match(ownership, /beforeParentId !== null && beforeParentId !== afterParentId/);
+
+  assert.doesNotMatch(events, /sharedApprovalTargetForSession/);
+  assert.doesNotMatch(events, /createApprovalProposal/);
+  assert.doesNotMatch(events, /entityType: "shared_event"/);
 });
 
 test("solo-parent calendars remain usable until another edit-capable parent is linked", async () => {

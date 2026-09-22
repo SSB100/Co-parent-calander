@@ -9,7 +9,10 @@ import {
 } from "@/lib/approvals/engine";
 import { approvalActorFromSession, proposalReasonSchema, sharedApprovalTargetForSession } from "@/lib/approvals/http";
 import { loadEffectiveAssignmentMap } from "@/lib/assignments/effective";
-import { assignmentProposalRowsEqual } from "@/lib/assignments/ownership";
+import {
+  assignmentCustodyChangeRequiresApproval,
+  assignmentProposalRowsEqual,
+} from "@/lib/assignments/ownership";
 import { getDb, getSql } from "@/lib/db";
 import { children, parentingAssignments, participants } from "@/lib/db/schema";
 import { buildCalendarSyncJobStatement, expandGoogleSyncRange } from "@/lib/google-calendar/outbox";
@@ -207,44 +210,53 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  try {
-    const approvalTarget = await sharedApprovalTargetForSession(session);
+  const custodyApprovalRequired =
+    assignmentCustodyChangeRequiresApproval(
+      previousAssignments,
+      proposedAssignments,
+    );
 
-    if (approvalTarget.required && approvalTarget.approverMembershipId) {
-      const result = await createApprovalProposal({
-        calendarId: session.calendarId,
-        actor: approvalActorFromSession(session),
-        entityType: "parenting_schedule",
-        entityId: session.calendarId,
-        action: "edit",
-        previousState: {
-          kind: "parenting_assignments",
-          dates,
-          assignments: previousAssignments,
-        },
-        proposedState: {
-          kind: "parenting_assignments",
-          dates,
-          assignments: proposedAssignments,
-        },
-        reason: parsed.data.reason,
-        approverMembershipId: approvalTarget.approverMembershipId,
-      });
+  if (custodyApprovalRequired) {
+    try {
+      const approvalTarget = await sharedApprovalTargetForSession(session);
 
-      return NextResponse.json(
-        {
-          ok: true,
-          pending: true,
-          proposalId: result?.proposal.id ?? null,
-          approverName: result?.proposal.approverName ?? approvalTarget.approverName,
-          dates,
-          affectedChildren: childRows.length,
-        },
-        { status: 202 },
-      );
+      if (approvalTarget.required && approvalTarget.approverMembershipId) {
+        const result = await createApprovalProposal({
+          calendarId: session.calendarId,
+          actor: approvalActorFromSession(session),
+          entityType: "parenting_schedule",
+          entityId: session.calendarId,
+          action: "edit",
+          previousState: {
+            kind: "parenting_assignments",
+            dates,
+            assignments: previousAssignments,
+          },
+          proposedState: {
+            kind: "parenting_assignments",
+            dates,
+            assignments: proposedAssignments,
+          },
+          reason: parsed.data.reason,
+          approverMembershipId: approvalTarget.approverMembershipId,
+        });
+
+        return NextResponse.json(
+          {
+            ok: true,
+            pending: true,
+            proposalId: result?.proposal.id ?? null,
+            approverName:
+              result?.proposal.approverName ?? approvalTarget.approverName,
+            dates,
+            affectedChildren: childRows.length,
+          },
+          { status: 202 },
+        );
+      }
+    } catch (error) {
+      return approvalError(error);
     }
-  } catch (error) {
-    return approvalError(error);
   }
 
   const beforeState = JSON.stringify({ assignments: existing });

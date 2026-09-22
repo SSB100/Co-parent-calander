@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assignmentProposalRowsEqual } from "../lib/assignments/ownership";
+import {
+  assignmentCustodyChangeRequiresApproval,
+  assignmentProposalRowsEqual,
+} from "../lib/assignments/ownership";
 import {
   blocksAnotherWaitingProposal,
   canCreateProposal,
@@ -128,5 +131,56 @@ test("parenting assignment proposals detect visible no-op requests", () => {
       { ...before[0], afternoonParentId: "parent-a" },
     ]),
     false,
+  );
+});
+
+
+test("custody approval only triggers when an assigned slot is removed or reassigned", () => {
+  const empty = {
+    childId: "child-1",
+    date: "2026-11-17",
+    morningParentId: null,
+    afternoonParentId: null,
+    handoverTime: null,
+    handoverLocation: null,
+    note: null,
+  };
+
+  assert.equal(
+    assignmentCustodyChangeRequiresApproval(
+      [empty],
+      [{ ...empty, morningParentId: "parent-a", afternoonParentId: "parent-a" }],
+    ),
+    false,
+  );
+
+  const assigned = {
+    ...empty,
+    morningParentId: "parent-a",
+    afternoonParentId: "parent-a",
+  };
+
+  assert.equal(
+    assignmentCustodyChangeRequiresApproval(
+      [assigned],
+      [{ ...assigned, note: "Updated note" }],
+    ),
+    false,
+  );
+
+  assert.equal(
+    assignmentCustodyChangeRequiresApproval(
+      [assigned],
+      [{ ...assigned, afternoonParentId: "parent-b" }],
+    ),
+    true,
+  );
+
+  assert.equal(
+    assignmentCustodyChangeRequiresApproval(
+      [assigned],
+      [{ ...assigned, afternoonParentId: null }],
+    ),
+    true,
   );
 });
