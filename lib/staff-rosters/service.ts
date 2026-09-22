@@ -836,10 +836,22 @@ export async function archiveRoleOrLocation(input: {
     if (input.kind === "role") {
       await sql.transaction([
         sql`
-          UPDATE staff_roster_members
-          SET default_role_id = NULL, updated_at = now()
-          WHERE calendar_id = ${input.session.calendarId}
-            AND default_role_id = ${input.id}
+          UPDATE staff_roster_members member
+          SET default_role_id = (
+                SELECT member_role.role_id
+                FROM staff_roster_member_roles member_role
+                JOIN staff_roster_roles role
+                  ON role.id = member_role.role_id
+                WHERE member_role.member_id = member.id
+                  AND member_role.calendar_id = ${input.session.calendarId}
+                  AND member_role.role_id <> ${input.id}
+                  AND role.active = true
+                ORDER BY role.name
+                LIMIT 1
+              ),
+              updated_at = now()
+          WHERE member.calendar_id = ${input.session.calendarId}
+            AND member.default_role_id = ${input.id}
         `,
         sql`
           DELETE FROM staff_roster_member_roles
