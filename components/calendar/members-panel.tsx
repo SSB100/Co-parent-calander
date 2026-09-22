@@ -11,6 +11,8 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { CovieStatusBadge } from "@/components/ui/covie";
+import { normalizeParentColorKey, parentColorOptions } from "@/lib/parents/identity";
 
 type Permission = "owner" | "editor" | "viewer";
 type Member = {
@@ -247,33 +249,31 @@ export function MembersPanel({ onChanged }: { onChanged?: () => void }) {
               ) : null}
 
               <div className="space-y-2">
-                {parentProfiles.map((parent) => (
-                  <div
-                    key={parent.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span
-                        className={`h-3 w-3 shrink-0 rounded-full ${
-                          parent.colorKey === "violet" ? "bg-violet-500" : "bg-emerald-500"
-                        }`}
-                        aria-hidden="true"
-                      />
-                      <p className="truncate font-semibold text-slate-900">
-                        {parent.displayName}
-                      </p>
-                    </div>
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        parent.hasAccount
-                          ? "bg-blue-50 text-blue-700"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
+                {parentProfiles.map((parent, index) => {
+                  const colorKey = normalizeParentColorKey(parent.colorKey, index);
+                  const identity =
+                    parentColorOptions.find((option) => option.key === colorKey) ??
+                    parentColorOptions[index % parentColorOptions.length];
+                  return (
+                    <div
+                      key={parent.id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-[#E6DBCF] bg-white p-3"
                     >
-                      {parent.hasAccount ? "Has access" : "Profile only"}
-                    </span>
-                  </div>
-                ))}
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span
+                          className={`h-3 w-3 shrink-0 rounded-full ${identity.dotClass}`}
+                          aria-hidden="true"
+                        />
+                        <p className="truncate font-semibold text-slate-900">
+                          {parent.displayName}
+                        </p>
+                      </div>
+                      <CovieStatusBadge tone={parent.hasAccount ? "violet" : "neutral"}>
+                        {parent.hasAccount ? "Has access" : "Profile only"}
+                      </CovieStatusBadge>
+                    </div>
+                  );
+                })}
               </div>
 
               {parentProfiles.length < 2 ? (
@@ -401,7 +401,7 @@ export function MembersPanel({ onChanged }: { onChanged?: () => void }) {
                           )
                         }
                         aria-label={`Permission for ${member.name}`}
-                        className="min-h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700"
+                        className="covie-select min-h-11 text-sm font-semibold"
                       >
                         <option value="editor">Can edit</option>
                         <option value="viewer">View only</option>
@@ -431,7 +431,7 @@ export function MembersPanel({ onChanged }: { onChanged?: () => void }) {
                     setPermission(event.target.value as "editor" | "viewer")
                   }
                   disabled={busy}
-                  className="mt-1.5 min-h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900"
+                  className="covie-input mt-1.5 text-sm"
                 >
                   <option value="editor">Edit the calendar</option>
                   <option value="viewer">View only</option>
@@ -447,7 +447,7 @@ export function MembersPanel({ onChanged }: { onChanged?: () => void }) {
                       <button
                         type="button"
                         onClick={() => void copyCode()}
-                        className="covie-action-sunshine inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm"
+                        className="covie-action-sunshine inline-flex min-h-11 items-center gap-2 rounded-[10px] px-3 text-sm"
                       >
                         {copied ? (
                           <Check className="h-4 w-4" aria-hidden="true" />
