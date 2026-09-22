@@ -11,7 +11,6 @@ import {
   ReceiptText,
   Repeat2,
   Trash2,
-  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { localDateInTimeZone } from "@/lib/calendar/time";
