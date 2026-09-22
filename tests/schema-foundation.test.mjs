@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0021", async () => {
+test("schema migrations are sequential through 0022", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 22 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 23 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -201,6 +201,30 @@ test("0021 adds recurring Shared Costs series and occurrence identity", async ()
   assert.match(expenseSchema, /expenseRecurringSeriesShares/);
   assert.match(expenseSchema, /seriesOccurrenceDate/);
   assert.match(expenseSchema, /expenses_series_occurrence_unique/);
+});
+
+
+test("0022 adds calendar template identity without changing existing calendars", async () => {
+  const [migration, core] = await Promise.all([
+    source("drizzle/0022_calendar_template_types.sql"),
+    source("lib/db/schema/core.ts"),
+  ]);
+
+  for (const type of [
+    "co_parenting",
+    "staff_rosters",
+    "shared_facilities",
+    "social_groups",
+  ]) {
+    assert.match(migration, new RegExp(type));
+    assert.match(core, new RegExp(type));
+  }
+
+  assert.match(migration, /ADD COLUMN "calendar_type"/);
+  assert.match(migration, /NOT NULL DEFAULT 'co_parenting'/);
+  assert.match(migration, /'0022', 'Calendar template types and navigation'/);
+  assert.match(core, /calendarType = pgEnum\("calendar_type"/);
+  assert.match(core, /type: calendarType\("calendar_type"\)\.notNull\(\)\.default\("co_parenting"\)/);
 });
 
 
