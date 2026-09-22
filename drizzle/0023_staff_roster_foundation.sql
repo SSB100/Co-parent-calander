@@ -22,7 +22,8 @@ CREATE TABLE "staff_roster_roles" (
 );
 
 CREATE UNIQUE INDEX "staff_roster_roles_calendar_name_unique"
-  ON "staff_roster_roles" ("calendar_id", "name");
+  ON "staff_roster_roles" ("calendar_id", "name")
+  WHERE "active" = true;
 CREATE INDEX "staff_roster_roles_calendar_active_idx"
   ON "staff_roster_roles" ("calendar_id", "active");
 
@@ -39,7 +40,8 @@ CREATE TABLE "staff_roster_locations" (
 );
 
 CREATE UNIQUE INDEX "staff_roster_locations_calendar_name_unique"
-  ON "staff_roster_locations" ("calendar_id", "name");
+  ON "staff_roster_locations" ("calendar_id", "name")
+  WHERE "active" = true;
 CREATE INDEX "staff_roster_locations_calendar_active_idx"
   ON "staff_roster_locations" ("calendar_id", "active");
 
