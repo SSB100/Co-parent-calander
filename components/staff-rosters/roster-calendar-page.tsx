@@ -330,6 +330,9 @@ export function StaffRosterCalendarPage() {
   const [anchorDate, setAnchorDate] = useState(todayValue);
   const [mobileDay, setMobileDay] = useState(todayValue);
   const [view, setView] = useState<RosterView>("week");
+  const [staffFilter, setStaffFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
   const [data, setData] = useState<RosterPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -434,12 +437,43 @@ export function StaffRosterCalendarPage() {
     [data?.locations],
   );
 
-  const weekShifts = useMemo(
+  const filteredShifts = useMemo(
     () =>
       data?.shifts.filter(
-        (shift) => shift.date >= weekStart && shift.date <= days[6],
+        (shift) =>
+          (!staffFilter || shift.memberId === staffFilter) &&
+          (!roleFilter || shift.roleId === roleFilter) &&
+          (!locationFilter || shift.locationId === locationFilter),
       ) ?? [],
-    [data?.shifts, days, weekStart],
+    [data?.shifts, locationFilter, roleFilter, staffFilter],
+  );
+
+  const filteredLeave = useMemo(
+    () =>
+      data?.leave.filter(
+        (leave) => !staffFilter || leave.memberId === staffFilter,
+      ) ?? [],
+    [data?.leave, staffFilter],
+  );
+
+  const filteredMembers = useMemo(
+    () =>
+      data?.members.filter(
+        (member) =>
+          (!staffFilter || member.id === staffFilter) &&
+          (!roleFilter || member.defaultRoleId === roleFilter) &&
+          (!locationFilter ||
+            member.defaultLocationId === locationFilter),
+      ) ?? [],
+    [data?.members, locationFilter, roleFilter, staffFilter],
+  );
+
+  const weekShifts = useMemo(
+    () =>
+      filteredShifts.filter(
+        (shift) => shift.date >= weekStart && shift.date <= days[6],
+      ),
+    [filteredShifts, days, weekStart],
   );
 
   const weeklyMinutesByMember = useMemo(() => {
@@ -997,12 +1031,12 @@ export function StaffRosterCalendarPage() {
   const selectedMobileDay = days.includes(mobileDay)
     ? mobileDay
     : (days[0] ?? weekStart);
-  const selectedMobileShifts =
-    data?.shifts.filter((shift) => shift.date === selectedMobileDay) ?? [];
-  const selectedMobileLeave =
-    data?.leave.filter((leave) =>
-      leaveAppliesToDay(leave, selectedMobileDay),
-    ) ?? [];
+  const selectedMobileShifts = filteredShifts.filter(
+    (shift) => shift.date === selectedMobileDay,
+  );
+  const selectedMobileLeave = filteredLeave.filter((leave) =>
+    leaveAppliesToDay(leave, selectedMobileDay),
+  );
   const timelineHeight =
     ((DAY_END_MINUTE - DAY_START_MINUTE) / 60) * HOUR_HEIGHT;
   const hourMarks = Array.from(
@@ -1112,6 +1146,47 @@ export function StaffRosterCalendarPage() {
                 </div>
               ) : null}
             </div>
+
+            {data.canManageRoster ? (
+              <div className="mt-3 grid gap-2 border-t border-[#EFE5DA] pt-3 sm:grid-cols-3">
+                <CovieSelect
+                  aria-label="Filter roster by staff"
+                  value={staffFilter}
+                  onChange={(event) => setStaffFilter(event.target.value)}
+                >
+                  <option value="">All staff</option>
+                  {data.members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.displayName}
+                    </option>
+                  ))}
+                </CovieSelect>
+                <CovieSelect
+                  aria-label="Filter roster by role"
+                  value={roleFilter}
+                  onChange={(event) => setRoleFilter(event.target.value)}
+                >
+                  <option value="">All roles</option>
+                  {data.roles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.name}
+                    </option>
+                  ))}
+                </CovieSelect>
+                <CovieSelect
+                  aria-label="Filter roster by location"
+                  value={locationFilter}
+                  onChange={(event) => setLocationFilter(event.target.value)}
+                >
+                  <option value="">All locations</option>
+                  {data.locations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+                </CovieSelect>
+              </div>
+            ) : null}
 
             {view === "week" ? (
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#EFE5DA] pt-3 text-xs font-bold text-[#66747A]">
@@ -1235,8 +1310,8 @@ export function StaffRosterCalendarPage() {
                   }
 
                   return values.map((day) => {
-                    const dayShifts = data.shifts.filter((shift) => shift.date === day);
-                    const dayLeave = data.leave.filter((leave) =>
+                    const dayShifts = filteredShifts.filter((shift) => shift.date === day);
+                    const dayLeave = filteredLeave.filter((leave) =>
                       leaveAppliesToDay(leave, day),
                     );
                     const outsideMonth = parseISO(day).getMonth() !== month;
@@ -1328,7 +1403,7 @@ export function StaffRosterCalendarPage() {
                     </span>
                   </div>
                   <div className="space-y-2 p-2">
-                    {data.members.map((member) => {
+                    {filteredMembers.map((member) => {
                       const roleName = member.defaultRoleId
                         ? roleById.get(member.defaultRoleId)
                         : null;
@@ -1465,7 +1540,7 @@ export function StaffRosterCalendarPage() {
                       </div>
 
                       {days.map((day) => {
-                        const dayShifts = data.shifts
+                        const dayShifts = filteredShifts
                           .filter((shift) => shift.date === day)
                           .map(shiftWithPreview);
                         const positioned = layoutOverlappingShifts(dayShifts);
