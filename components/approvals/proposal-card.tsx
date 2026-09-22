@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { ProposalStatus } from "@/lib/approvals/types";
 import { ProposalStatusChip } from "@/components/approvals/proposal-status-chip";
+import { CovieStrongCard } from "@/components/ui/covie";
 
 type ProposalCardProps = {
   status: ProposalStatus;
@@ -43,7 +44,7 @@ export function ProposalCard({
             : "Draft";
 
   return (
-    <section className="rounded-2xl border-2 border-[#243139] bg-white p-4 shadow-[5px_5px_0_#FF6B5F22]">
+    <CovieStrongCard className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold text-slate-900">{title}</h3>
@@ -86,7 +87,7 @@ export function ProposalCard({
             </span>
           </summary>
           <div className="border-t border-[#C9BDF1] px-3 py-3">
-            <div className="hidden grid-cols-[minmax(110px,0.8fr)_1fr_1fr] gap-2 border-b border-[#DDD3FA] pb-2 text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:grid">
+            <div className="hidden grid-cols-[minmax(110px,0.8fr)_1fr_1fr] gap-2 border-b border-[#DDD3FA] pb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500 sm:grid">
               <span>Changed field</span>
               <span>Before</span>
               <span>Proposed</span>
@@ -99,7 +100,7 @@ export function ProposalCard({
                 >
                   <p className="text-xs font-bold text-slate-700">{detail.label}</p>
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 sm:hidden">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400 sm:hidden">
                       Before
                     </p>
                     <p className="break-words text-sm text-slate-600">
@@ -107,7 +108,7 @@ export function ProposalCard({
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#8A6E0B] sm:hidden">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-[#8A6E0B] sm:hidden">
                       Proposed
                     </p>
                     <p className="break-words text-sm font-semibold text-slate-900">
@@ -146,6 +147,6 @@ export function ProposalCard({
       )}
 
       {actions && <div className="mt-4 flex flex-wrap gap-2">{actions}</div>}
-    </section>
+    </CovieStrongCard>
   );
 }

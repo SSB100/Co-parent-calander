@@ -18,7 +18,7 @@ import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
-import { CovieConfirmDialog, CovieDialog, CoviePage, CoviePageHeader } from "@/components/ui/covie";
+import { CovieButton, CovieConfirmDialog, CovieDialog, CovieEmptyState, CovieMetricCard, CovieMetricGrid, CovieNotice, CoviePage, CoviePageHeader, CovieRecordCard, CovieSectionHeader, CovieSegmentedControl, CovieStatusBadge } from "@/components/ui/covie";
 import { RecordFocus } from "@/components/workspace/record-focus";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
@@ -663,7 +663,10 @@ export function ExpensesShell({
       />
 
       {dateFilter ? (
-        <div className="mt-4 flex flex-col gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 sm:flex-row sm:items-center sm:justify-between">
+        <CovieNotice
+          tone="violet"
+          className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+        >
           <span className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" aria-hidden="true" />
             Showing shared costs recorded or due on {dateLabel(dateFilter)}.
@@ -671,50 +674,48 @@ export function ExpensesShell({
           <button
             type="button"
             onClick={() => setDateFilter(null)}
-            className="self-start font-semibold hover:underline sm:self-auto"
+            className="self-start font-semibold underline-offset-2 hover:underline sm:self-auto"
           >
             Show all shared costs
           </button>
-        </div>
+        </CovieNotice>
       ) : null}
 
       {message ? (
-        <div role="status" className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <CovieNotice tone="teal" className="mt-4">
           {message}
-        </div>
+        </CovieNotice>
       ) : null}
       {error ? (
-        <div role="alert" className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+        <CovieNotice tone="danger" role="alert" className="mt-4">
           {error}
-        </div>
+        </CovieNotice>
       ) : null}
 
-      <section className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3">
-        <div className="rounded-2xl border border-[#243139] bg-[#F7DC86] p-3 sm:p-4">
-          <p className="text-xs font-bold text-[#5F4709]">Outstanding</p>
-          <p className="mt-2 text-3xl font-semibold text-[#243139]">{money(summary.outstanding)}</p>
-          <p className="mt-1 text-xs text-[#5F4709]">Still unpaid across active shares</p>
-        </div>
-        <div className="rounded-2xl border border-[#243139] bg-[#DDD3FA] p-3 sm:p-4">
-          <p className="text-xs font-bold text-[#544394]">Recorded</p>
-          <p className="mt-2 text-3xl font-semibold text-[#243139]">{money(summary.recorded)}</p>
-          <p className="mt-1 text-xs text-[#544394]">Total shared cost value</p>
-        </div>
-        <div className="col-span-2 rounded-2xl border border-[#243139] bg-[#BFEDE6] p-3 sm:col-span-1 sm:p-4">
-          <p className="text-xs font-bold text-[#0B665C]">Archived</p>
-          <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.archived}</p>
-          <p className="mt-1 text-xs text-[#0B665C]">All required shares confirmed paid</p>
-        </div>
-      </section>
+      <CovieMetricGrid columns={3}>
+        <CovieMetricCard tone="sunshine">
+          <p className="covie-metric-label">Outstanding</p>
+          <p className="covie-metric-value">{money(summary.outstanding)}</p>
+          <p className="covie-metric-description">Still unpaid across active shares</p>
+        </CovieMetricCard>
+        <CovieMetricCard tone="violet">
+          <p className="covie-metric-label">Recorded</p>
+          <p className="covie-metric-value">{money(summary.recorded)}</p>
+          <p className="covie-metric-description">Total shared cost value</p>
+        </CovieMetricCard>
+        <CovieMetricCard tone="teal" className="col-span-2 sm:col-span-1">
+          <p className="covie-metric-label">Archived</p>
+          <p className="covie-metric-value">{summary.archived}</p>
+          <p className="covie-metric-description">All required shares confirmed paid</p>
+        </CovieMetricCard>
+      </CovieMetricGrid>
 
       {(data?.pendingProposals.length ?? 0) > 0 ? (
         <section className="mt-6">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-950">Waiting for agreement</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              The agreed shared cost stays unchanged until the proposal is accepted.
-            </p>
-          </div>
+          <CovieSectionHeader
+            title="Waiting for agreement"
+            description="The agreed shared cost stays unchanged until the proposal is accepted."
+          />
           <div className="mt-3 grid gap-3 lg:grid-cols-2">
             {data?.pendingProposals.map((proposal) => {
               const previous = proposalExpense(proposal.previousState);
@@ -765,47 +766,56 @@ export function ExpensesShell({
       ) : null}
 
       <section className="mt-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-950">
-              {statusFilter === "current" ? "Current shared costs" : "Shared cost archive"}
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {statusFilter === "current"
-                ? "Only shared costs that still need attention stay here."
-                : "Settled shared costs remain available as history without cluttering the active view."}
-            </p>
-          </div>
-          <div className="flex rounded-xl border border-slate-200 bg-white p-1">
-            {(["current", "archive"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setStatusFilter(value)}
-                className={`min-h-9 rounded-lg px-3 text-xs font-semibold ${
-                  statusFilter === value
-                    ? value === "current"
-                      ? "bg-[#F4C64E] text-[#243139]"
-                      : "bg-[#765ED6] text-white"
-                    : "text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {value === "current" ? "Current" : "Archive"}
-              </button>
-            ))}
-          </div>
-        </div>
+        <CovieSectionHeader
+          title={statusFilter === "current" ? "Current shared costs" : "Shared cost archive"}
+          description={
+            statusFilter === "current"
+              ? "Only shared costs that still need attention stay here."
+              : "Settled shared costs remain available as history without cluttering the active view."
+          }
+          actions={
+            <CovieSegmentedControl
+              value={statusFilter}
+              options={[
+                { value: "current", label: "Current" },
+                { value: "archive", label: "Archive" },
+              ]}
+              onChange={setStatusFilter}
+              tone="sunshine"
+              ariaLabel="Shared cost view"
+            />
+          }
+        />
 
         {filteredExpenses.length === 0 ? (
-          <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center">
-            <ReceiptText className="mx-auto h-7 w-7 text-slate-400" aria-hidden="true" />
-            <p className="mt-2 font-semibold text-slate-800">No shared costs here yet</p>
-            <p className="mt-1 text-sm text-slate-500">
-              {dateFilter
+          <CovieEmptyState
+            className="mt-4"
+            icon={<ReceiptText className="h-7 w-7" aria-hidden="true" />}
+            title={statusFilter === "archive" ? "No archived shared costs" : "No shared costs here yet"}
+            description={
+              dateFilter
                 ? "No agreed shared costs are recorded or due on this date."
-                : "Add a shared cost when there is something worth keeping clear."}
-            </p>
-          </div>
+                : statusFilter === "archive"
+                  ? "Settled shared costs will stay available here as history."
+                  : "Add a shared cost when there is something worth keeping clear."
+            }
+            action={
+              dateFilter ? (
+                <CovieButton tone="neutral" onClick={() => setDateFilter(null)}>
+                  Show all shared costs
+                </CovieButton>
+              ) : statusFilter === "archive" ? (
+                <CovieButton tone="neutral" onClick={() => setStatusFilter("current")}>
+                  View current shared costs
+                </CovieButton>
+              ) : editable ? (
+                <CovieButton onClick={openCreate}>
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Add shared cost
+                </CovieButton>
+              ) : null
+            }
+          />
         ) : (
           <div className="mt-4 grid gap-3 lg:grid-cols-2">
             {filteredExpenses.map((expense) => {
@@ -814,23 +824,23 @@ export function ExpensesShell({
               );
               const child = children.find((item) => item.id === expense.childId);
               return (
-                <article key={expense.id} id={`record-${expense.id}`} tabIndex={-1} className="rounded-[22px] border-2 border-[#243139] bg-[#FFFDF9] p-4 shadow-[5px_5px_0_#E9DED2] sm:p-5">
+                <CovieRecordCard key={expense.id} id={`record-${expense.id}`} tabIndex={-1} className="sm:p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full border border-[#243139] bg-[#F7DC86] px-2.5 py-1 text-[11px] font-bold text-[#5F4709]">
+                        <CovieStatusBadge tone="sunshine">
                           {categoryLabels[expense.category]}
-                        </span>
+                        </CovieStatusBadge>
                         {child ? (
-                          <span className="rounded-full border border-[#19A897] bg-[#BFEDE6] px-2.5 py-1 text-[11px] font-bold text-[#0B665C]">
+                          <CovieStatusBadge tone="teal">
                             {child.displayName}
-                          </span>
+                          </CovieStatusBadge>
                         ) : null}
                         {expense.recurrenceFrequency ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-[#765ED6] bg-[#DDD3FA] px-2.5 py-1 text-[11px] font-bold text-[#544394]">
+                          <CovieStatusBadge tone="violet" className="gap-1">
                             <Repeat2 className="h-3 w-3" aria-hidden="true" />
                             {recurrenceLabels[expense.recurrenceFrequency]}
-                          </span>
+                          </CovieStatusBadge>
                         ) : null}
                       </div>
                       <h3 className="mt-2 truncate text-lg font-semibold text-slate-950">{expense.title}</h3>
@@ -903,15 +913,15 @@ export function ExpensesShell({
                   </div>
 
                   {editable ? (
-                    <div className="mt-4 flex flex-wrap gap-2 border-t-2 border-[#E9DED2] pt-4">
-                      <button
-                        type="button"
+                    <div className="covie-record-actions">
+                      <CovieButton
+                        tone="neutral"
                         disabled={busy}
                         onClick={() => openEdit(expense)}
-                        className="covie-action-secondary inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs disabled:opacity-50"
+                        className="px-3 text-xs"
                       >
                         <Pencil className="h-3.5 w-3.5" aria-hidden="true" /> Edit
-                      </button>
+                      </CovieButton>
                       {(() => {
                         const myShare = expense.shares.find(
                           (share) => share.participantId === data.currentParticipantId,
@@ -944,7 +954,7 @@ export function ExpensesShell({
                             </div>
                             <p className="mt-3 text-xs font-bold text-[#243139]">Add payment</p>
                             <div className="mt-2 flex items-center gap-2">
-                              <div className="flex min-h-10 min-w-0 flex-1 items-center rounded-xl border-2 border-[#9FD7CE] bg-white px-3 focus-within:border-[#19A897]">
+                              <div className="covie-input-shell min-w-0 flex-1">
                                 <span className="mr-2 text-xs text-slate-500">NZ$</span>
                                 <input
                                   inputMode="decimal"
@@ -959,15 +969,15 @@ export function ExpensesShell({
                                   className="min-w-0 flex-1 border-0 bg-transparent text-sm font-semibold text-[#243139] outline-none"
                                 />
                               </div>
-                              <button
-                                type="button"
+                              <CovieButton
+                                tone="teal"
                                 disabled={busy}
                                 onClick={() => void updateSettlement(expense)}
-                                className="covie-action-teal inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs disabled:opacity-50"
+                                className="px-3 text-xs"
                               >
                                 <CircleDollarSign className="h-3.5 w-3.5" aria-hidden="true" />
                                 Add
-                              </button>
+                              </CovieButton>
                             </div>
                             <p className="mt-2 text-[11px] font-medium text-[#43535A]">
                               Paid {money(myShare.paidCents)} of {money(myShare.shareCents)}. Add another payment of up to {money(Math.max(0, myShare.shareCents - myShare.paidCents))}.
@@ -975,17 +985,17 @@ export function ExpensesShell({
                           </div>
                         );
                       })()}
-                      <button
-                        type="button"
+                      <CovieButton
+                        tone="danger"
                         disabled={busy}
                         onClick={() => setExpenseToRemove(expense)}
-                        className="inline-flex min-h-10 items-center gap-2 rounded-xl border-2 border-[#FFB5AE] bg-[#FFF3F1] px-3 text-xs font-bold text-[#A73E36] hover:bg-[#FFE6E2] disabled:opacity-50"
+                        className="px-3 text-xs"
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Remove
-                      </button>
+                      </CovieButton>
                     </div>
                   ) : null}
-                </article>
+                </CovieRecordCard>
               );
             })}
           </div>
