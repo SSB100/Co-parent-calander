@@ -135,3 +135,7 @@ export const staffShiftIdSchema = z.string().uuid();
 export const staffRosterWeekSchema = z.object({
   weekStart: z.iso.date(),
 });
+
+export const copyStaffRosterWeekSchema = z.object({
+  weekStart: z.iso.date(),
+});
