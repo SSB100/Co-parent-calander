@@ -34,7 +34,8 @@ test("signup and login preserve a shared invite into onboarding", async () => {
 
   assert.match(actions, /onboardingDestination/);
   assert.match(actions, /normalizeInviteCode/);
-  assert.match(actions, /redirect\(onboardingDestination\(formData\)\)/);
+  assert.match(actions, /redirect\(invite \? onboardingDestination\(formData\) : "\/"\)/);
+  assert.match(actions, /redirect\(verificationDestination\(formData\)\)/);
   assert.match(page, /searchParams/);
   assert.match(page, /inviteCode/);
   assert.match(form, /name="invite"/);
