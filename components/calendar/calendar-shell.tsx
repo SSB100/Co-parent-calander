@@ -226,18 +226,8 @@ type TileEvent = {
 };
 
 function TileEventStack({ events }: { events: TileEvent[] }) {
-  const handover = events.find((event) => event.category === "handover") ?? null;
-  const regularEvents = events.filter((event) => event.category !== "handover");
-  const visibleEvents = handover
-    ? [...regularEvents.slice(0, 2), handover]
-    : regularEvents.slice(0, 3);
+  const visibleEvents = events.slice(0, 3);
   const hiddenCount = Math.max(0, events.length - visibleEvents.length);
-  const overflowIndex =
-    hiddenCount > 0
-      ? handover && visibleEvents.length > 1
-        ? visibleEvents.length - 2
-        : visibleEvents.length - 1
-      : -1;
 
   if (visibleEvents.length === 0) return null;
 
@@ -248,13 +238,11 @@ function TileEventStack({ events }: { events: TileEvent[] }) {
           key={`${event.category}-${event.title}-${index}`}
           className={`flex h-[18px] min-w-0 items-center gap-1 overflow-hidden px-1 text-[9px] font-bold sm:h-6 sm:px-2 sm:text-[11px] ${eventCategoryBarClass(event.category ?? "other")}`}
         >
-          {event.category !== "handover" ? (
-            <span className="hidden shrink-0 sm:inline-flex" aria-hidden="true">
-              {eventIcon(event.category ?? "other")}
-            </span>
-          ) : null}
+          <span className="hidden shrink-0 sm:inline-flex" aria-hidden="true">
+            {eventIcon(event.category ?? "other")}
+          </span>
           <span className="min-w-0 flex-1 truncate">{event.title}</span>
-          {index === overflowIndex ? (
+          {index === visibleEvents.length - 1 && hiddenCount > 0 ? (
             <span className="shrink-0">+{hiddenCount}</span>
           ) : null}
         </div>
@@ -381,19 +369,7 @@ function SwipeMonthPreview({
           assignment?.morning && assignment.morning === assignment.afternoon
             ? assignment.morning
             : null;
-        const splitDay = Boolean(
-          assignment?.morning &&
-            assignment.afternoon &&
-            assignment.morning !== "mixed" &&
-            assignment.afternoon !== "mixed" &&
-            assignment.morning !== assignment.afternoon,
-        );
-        const tileEvents = [
-          ...(splitDay
-            ? [{ title: "Handover", category: "handover" }]
-            : []),
-          ...(eventsByDate[dateKey] ?? []),
-        ];
+        const tileEvents = eventsByDate[dateKey] ?? [];
 
         return (
           <div
@@ -816,16 +792,9 @@ export function CalendarShell({
   const them = participants.find((participant) => participant.id !== me?.id) ?? null;
 
   const detailMarkers = useMemo(() => {
-    const markers: Record<string, { handover: boolean; note: boolean }> = {};
+    const markers: Record<string, { note: boolean }> = {};
     for (const assignment of calendarData?.assignments ?? []) {
-      const marker = markers[assignment.date] ?? { handover: false, note: false };
-      marker.handover ||= Boolean(
-        assignment.handoverTime ||
-          assignment.handoverLocation ||
-          (assignment.morningParentId &&
-            assignment.afternoonParentId &&
-            assignment.morningParentId !== assignment.afternoonParentId),
-      );
+      const marker = markers[assignment.date] ?? { note: false };
       marker.note ||= Boolean(assignment.note);
       markers[assignment.date] = marker;
     }
@@ -1244,17 +1213,7 @@ export function CalendarShell({
               const morningStyle = ownerStyle(assignment?.morning);
               const afternoonStyle = ownerStyle(assignment?.afternoon);
               const fullDayOwner = assignment?.morning && assignment.morning === assignment.afternoon ? assignment.morning : null;
-              const splitDay = Boolean(
-                assignment?.morning &&
-                  assignment.afternoon &&
-                  assignment.morning !== "mixed" &&
-                  assignment.afternoon !== "mixed" &&
-                  assignment.morning !== assignment.afternoon,
-              );
-              const tileEvents = [
-                ...(splitDay ? [{ id: `handover-${key}`, title: "Handover", category: "handover" }] : []),
-                ...dayEvents,
-              ];
+              const tileEvents = dayEvents;
 
               return (
                 <button
