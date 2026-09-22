@@ -49,7 +49,7 @@ async function findPublishedShiftForClockIn(
   memberId: string,
   now: Date,
 ) {
-  const today = localDateInTimeZone(now, session.calendarTimezone);
+  const today = localDateInTimeZone(session.calendarTimezone, now);
   const rows = await getDb()
     .select({
       id: staffRosterPublishedShifts.id,
