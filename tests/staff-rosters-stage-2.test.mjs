@@ -46,26 +46,23 @@ test("all calendars support archive restore and permanent deletion through Covie
   assert.doesNotMatch(lifecycle, /window\.confirm/);
 });
 
-test("new Staff Rosters calendars enter setup before the roster", async () => {
+test("new Staff Rosters calendars open directly into the calendar", async () => {
   const [actions, route, setup] = await Promise.all([
     source("app/calendar/actions.ts"),
     source("app/calendar-types/staff-rosters/setup/page.tsx"),
     source("components/staff-rosters/setup-page.tsx"),
   ]);
 
-  assert.match(
+  assert.doesNotMatch(
     actions,
     /calendarType === "staff_rosters"[\s\S]*calendar-types\/staff-rosters\/setup/,
   );
+  assert.match(actions, /redirect\(calendarPathForType\(parsed\.data\.calendarType\)\)/);
   assert.match(route, /session\.calendarType !== "staff_rosters"/);
   assert.match(setup, /Set up your roster/);
   assert.match(setup, /Roles & locations/);
   assert.match(setup, /Team/);
   assert.match(setup, /Availability/);
-  assert.match(setup, /Finish setup & open roster/);
-  assert.match(setup, /roleCount/);
-  assert.match(setup, /locationCount/);
-  assert.match(setup, /memberCount/);
 });
 
 test("Staff Rosters calendar is a real weekly roster builder", async () => {
