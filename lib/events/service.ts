@@ -1,13 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, gte, isNotNull, isNull, lte, ne, or } from "drizzle-orm";
-import {
-  ApprovalEngineError,
-  createApprovalProposal,
-} from "@/lib/approvals/engine";
-import {
-  approvalActorFromSession,
-  sharedApprovalTargetForSession,
-} from "@/lib/approvals/http";
 import type { CalendarApprovalPermission } from "@/lib/approvals/types";
 import { localDateInTimeZone } from "@/lib/calendar/time";
 import { getDb, getSql } from "@/lib/db";
@@ -61,13 +53,6 @@ async function loadExistingEvent(calendarId: string, eventId: string) {
   return rows[0] ?? null;
 }
 
-function proposalFailure(error: unknown, fallback: string): never {
-  if (error instanceof ApprovalEngineError) {
-    throw new EventServiceError(error.statusCode, error.message);
-  }
-  throw new EventServiceError(409, fallback);
-}
-
 export async function listEvents(input: {
   calendarId: string;
   calendarTimezone: string;
@@ -116,39 +101,9 @@ export async function listEvents(input: {
 export async function createEvent(input: {
   session: EventServiceSession;
   details: EventDetails;
-  reason: string | null;
 }) {
-  const { session, details, reason } = input;
+  const { session, details } = input;
   const id = randomUUID();
-
-  try {
-    const target = await sharedApprovalTargetForSession(session);
-    if (target.required && target.approverMembershipId) {
-      const result = await createApprovalProposal({
-        calendarId: session.calendarId,
-        actor: approvalActorFromSession(session),
-        entityType: "shared_event",
-        entityId: id,
-        action: "create",
-        previousState: null,
-        proposedState: {
-          kind: "shared_event" as const,
-          event: { id, ...details },
-        },
-        reason,
-        approverMembershipId: target.approverMembershipId,
-      });
-
-      return {
-        ok: true as const,
-        pending: true as const,
-        proposalId: result?.proposal.id ?? null,
-        approverName: result?.proposal.approverName ?? target.approverName,
-      };
-    }
-  } catch (error) {
-    proposalFailure(error, "The event proposal could not be saved.");
-  }
 
   const sql = getSql();
   const syncRange = expandGoogleSyncRange(
@@ -206,40 +161,10 @@ export async function updateEvent(input: {
   session: EventServiceSession;
   id: string;
   details: EventDetails;
-  reason: string | null;
 }) {
-  const { session, id, details, reason } = input;
+  const { session, id, details } = input;
   const existing = await loadExistingEvent(session.calendarId, id);
   if (!existing) throw new EventServiceError(404, "Event not found.");
-
-  try {
-    const target = await sharedApprovalTargetForSession(session);
-    if (target.required && target.approverMembershipId) {
-      const result = await createApprovalProposal({
-        calendarId: session.calendarId,
-        actor: approvalActorFromSession(session),
-        entityType: "shared_event",
-        entityId: id,
-        action: "edit",
-        previousState: { kind: "shared_event", event: existing },
-        proposedState: {
-          kind: "shared_event",
-          event: { id, ...details },
-        },
-        reason,
-        approverMembershipId: target.approverMembershipId,
-      });
-
-      return {
-        ok: true as const,
-        pending: true as const,
-        proposalId: result?.proposal.id ?? null,
-        approverName: result?.proposal.approverName ?? target.approverName,
-      };
-    }
-  } catch (error) {
-    proposalFailure(error, "The event proposal could not be saved.");
-  }
 
   const oldEnd = existing.endDate ?? existing.startDate;
   const newEnd = details.endDate ?? details.startDate;
@@ -302,37 +227,10 @@ export async function updateEvent(input: {
 export async function deleteEvent(input: {
   session: EventServiceSession;
   id: string;
-  reason: string | null;
 }) {
-  const { session, id, reason } = input;
+  const { session, id } = input;
   const existing = await loadExistingEvent(session.calendarId, id);
   if (!existing) throw new EventServiceError(404, "Event not found.");
-
-  try {
-    const target = await sharedApprovalTargetForSession(session);
-    if (target.required && target.approverMembershipId) {
-      const result = await createApprovalProposal({
-        calendarId: session.calendarId,
-        actor: approvalActorFromSession(session),
-        entityType: "shared_event",
-        entityId: id,
-        action: "delete",
-        previousState: { kind: "shared_event", event: existing },
-        proposedState: { kind: "shared_event", event: null },
-        reason,
-        approverMembershipId: target.approverMembershipId,
-      });
-
-      return {
-        ok: true as const,
-        pending: true as const,
-        proposalId: result?.proposal.id ?? null,
-        approverName: result?.proposal.approverName ?? target.approverName,
-      };
-    }
-  } catch (error) {
-    proposalFailure(error, "The event proposal could not be saved.");
-  }
 
   const syncRange = expandGoogleSyncRange(
     existing.startDate,
