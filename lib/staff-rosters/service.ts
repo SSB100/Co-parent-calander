@@ -6,9 +6,11 @@ import {
   staffRosterAvailability,
   staffRosterLocations,
   staffRosterMembers,
+  staffRosterPublishedShifts,
   staffRosterRoles,
   staffRosterSettings,
   staffRosterShifts,
+  staffRosterWeekPublications,
 } from "@/lib/db/schema";
 import { localDateInTimeZone } from "@/lib/calendar/time";
 import {
@@ -1131,6 +1133,28 @@ async function shiftConflictState(input: {
   return { overlaps, unavailable };
 }
 
+function shiftComparisonKey(input: {
+  memberId: string;
+  roleId: string | null;
+  locationId: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
+  note: string | null;
+  availabilityOverride: boolean;
+}) {
+  return JSON.stringify([
+    input.memberId,
+    input.roleId,
+    input.locationId,
+    input.date,
+    input.startTime.slice(0, 5),
+    input.endTime.slice(0, 5),
+    input.note,
+    input.availabilityOverride,
+  ]);
+}
+
 export async function getRosterWeek(input: {
   session: StaffSession;
   weekStart: string;
@@ -1147,7 +1171,15 @@ export async function getRosterWeek(input: {
     ? drizzleSql`true`
     : eq(staffRosterMembers.id, current.id);
 
-  const [members, roles, locations, shifts, setup] = await Promise.all([
+  const [
+    members,
+    roles,
+    locations,
+    liveShifts,
+    publicationRows,
+    publishedShifts,
+    setup,
+  ] = await Promise.all([
     db
       .select({
         id: staffRosterMembers.id,
@@ -1224,8 +1256,113 @@ export async function getRosterWeek(input: {
         asc(staffRosterShifts.shiftDate),
         asc(staffRosterShifts.startTime),
       ),
+    db
+      .select({
+        id: staffRosterWeekPublications.id,
+        revision: staffRosterWeekPublications.revision,
+        publishedAt: staffRosterWeekPublications.publishedAt,
+        lastSentAt: staffRosterWeekPublications.lastSentAt,
+      })
+      .from(staffRosterWeekPublications)
+      .where(
+        and(
+          eq(staffRosterWeekPublications.calendarId, input.session.calendarId),
+          eq(staffRosterWeekPublications.weekStart, input.weekStart),
+        ),
+      )
+      .limit(1),
+    db
+      .select({
+        id: staffRosterPublishedShifts.id,
+        sourceShiftId: staffRosterPublishedShifts.sourceShiftId,
+        memberId: staffRosterPublishedShifts.memberId,
+        memberName: staffRosterMembers.displayName,
+        roleId: staffRosterPublishedShifts.roleId,
+        roleName: staffRosterRoles.name,
+        locationId: staffRosterPublishedShifts.locationId,
+        locationName: staffRosterLocations.name,
+        date: staffRosterPublishedShifts.shiftDate,
+        startTime: staffRosterPublishedShifts.startTime,
+        endTime: staffRosterPublishedShifts.endTime,
+        note: staffRosterPublishedShifts.note,
+        availabilityOverride: staffRosterPublishedShifts.availabilityOverride,
+      })
+      .from(staffRosterPublishedShifts)
+      .innerJoin(
+        staffRosterWeekPublications,
+        eq(
+          staffRosterPublishedShifts.publicationId,
+          staffRosterWeekPublications.id,
+        ),
+      )
+      .innerJoin(
+        staffRosterMembers,
+        eq(staffRosterPublishedShifts.memberId, staffRosterMembers.id),
+      )
+      .leftJoin(
+        staffRosterRoles,
+        eq(staffRosterPublishedShifts.roleId, staffRosterRoles.id),
+      )
+      .leftJoin(
+        staffRosterLocations,
+        eq(staffRosterPublishedShifts.locationId, staffRosterLocations.id),
+      )
+      .where(
+        and(
+          eq(staffRosterWeekPublications.calendarId, input.session.calendarId),
+          eq(staffRosterWeekPublications.weekStart, input.weekStart),
+          capabilities.createShifts
+            ? drizzleSql`true`
+            : eq(staffRosterPublishedShifts.memberId, current.id),
+        ),
+      )
+      .orderBy(
+        asc(staffRosterPublishedShifts.shiftDate),
+        asc(staffRosterPublishedShifts.startTime),
+      ),
     getRosterSetup(input.session),
   ]);
+
+  const publication = publicationRows[0] ?? null;
+  const changedMemberIds = new Set<string>();
+
+  if (capabilities.createShifts) {
+    if (!publication) {
+      for (const shift of liveShifts) changedMemberIds.add(shift.memberId);
+    } else {
+      const liveById = new Map(
+        liveShifts.map((shift) => [
+          shift.id,
+          { memberId: shift.memberId, key: shiftComparisonKey(shift) },
+        ]),
+      );
+      const publishedById = new Map(
+        publishedShifts
+          .filter((shift) => shift.sourceShiftId)
+          .map((shift) => [
+            shift.sourceShiftId as string,
+            { memberId: shift.memberId, key: shiftComparisonKey(shift) },
+          ]),
+      );
+      const ids = new Set([...liveById.keys(), ...publishedById.keys()]);
+      for (const id of ids) {
+        const live = liveById.get(id);
+        const published = publishedById.get(id);
+        if (!live || !published || live.key !== published.key) {
+          changedMemberIds.add(live?.memberId ?? published?.memberId ?? "");
+        }
+      }
+      changedMemberIds.delete("");
+    }
+  }
+
+  const publicationStatus = !publication
+    ? "draft"
+    : capabilities.createShifts && changedMemberIds.size > 0
+      ? "changes_pending"
+      : "published";
+
+  const visibleShifts = capabilities.createShifts ? liveShifts : publishedShifts;
 
   return {
     weekStart: input.weekStart,
@@ -1234,14 +1371,167 @@ export async function getRosterWeek(input: {
     currentAccessRole: current.accessRole,
     canManageRoster: capabilities.createShifts,
     setup,
+    publication: {
+      status: publicationStatus as "draft" | "published" | "changes_pending",
+      revision: publication?.revision ?? 0,
+      publishedAt: publication?.publishedAt ?? null,
+      lastSentAt: publication?.lastSentAt ?? null,
+      affectedMemberCount: capabilities.createShifts
+        ? changedMemberIds.size
+        : 0,
+    },
     members,
     roles,
     locations,
-    shifts: shifts.map((shift) => ({
-      ...shift,
+    shifts: visibleShifts.map((shift) => ({
+      id: shift.id,
+      memberId: shift.memberId,
+      memberName: shift.memberName,
+      roleId: shift.roleId,
+      roleName: shift.roleName,
+      locationId: shift.locationId,
+      locationName: shift.locationName,
+      date: shift.date,
       startTime: shift.startTime.slice(0, 5),
       endTime: shift.endTime.slice(0, 5),
+      note: shift.note,
+      availabilityOverride: shift.availabilityOverride,
     })),
+  };
+}
+
+export async function publishRosterWeek(input: {
+  session: StaffSession;
+  weekStart: string;
+}) {
+  const actor = await ensureStaffRosterMember(input.session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
+  if (!capabilities.createShifts) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
+  const weekEnd = format(addDays(parseISO(input.weekStart), 6), "yyyy-MM-dd");
+  const existing = await getDb()
+    .select({
+      id: staffRosterWeekPublications.id,
+      revision: staffRosterWeekPublications.revision,
+    })
+    .from(staffRosterWeekPublications)
+    .where(
+      and(
+        eq(staffRosterWeekPublications.calendarId, input.session.calendarId),
+        eq(staffRosterWeekPublications.weekStart, input.weekStart),
+      ),
+    )
+    .limit(1);
+
+  const publicationId = existing[0]?.id ?? randomUUID();
+  const action = existing[0] ? "send_updates" : "publish";
+  const lockKey =
+    input.session.calendarId + ":publication:" + input.weekStart;
+  const sql = getSql();
+
+  try {
+    await sql.transaction([
+      sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`,
+      sql`
+        INSERT INTO staff_roster_week_publications (
+          id, calendar_id, week_start, revision,
+          published_at, published_by_membership_id,
+          last_sent_at, last_sent_by_membership_id,
+          created_at, updated_at
+        )
+        VALUES (
+          ${publicationId}, ${input.session.calendarId}, ${input.weekStart}, 1,
+          now(), ${input.session.membershipId},
+          now(), ${input.session.membershipId},
+          now(), now()
+        )
+        ON CONFLICT (calendar_id, week_start)
+        DO UPDATE SET
+          revision = staff_roster_week_publications.revision + 1,
+          last_sent_at = now(),
+          last_sent_by_membership_id = EXCLUDED.last_sent_by_membership_id,
+          updated_at = now()
+      `,
+      sql`
+        DELETE FROM staff_roster_published_shifts
+        WHERE publication_id = (
+          SELECT id
+          FROM staff_roster_week_publications
+          WHERE calendar_id = ${input.session.calendarId}
+            AND week_start = ${input.weekStart}
+          LIMIT 1
+        )
+      `,
+      sql`
+        INSERT INTO staff_roster_published_shifts (
+          publication_id, source_shift_id, member_id, role_id, location_id,
+          shift_date, start_time, end_time, note, availability_override
+        )
+        SELECT
+          publication.id, shift.id, shift.member_id, shift.role_id, shift.location_id,
+          shift.shift_date, shift.start_time, shift.end_time,
+          shift.note, shift.availability_override
+        FROM staff_roster_week_publications publication
+        JOIN staff_roster_shifts shift
+          ON shift.calendar_id = publication.calendar_id
+         AND shift.shift_date >= ${input.weekStart}
+         AND shift.shift_date <= ${weekEnd}
+        WHERE publication.calendar_id = ${input.session.calendarId}
+          AND publication.week_start = ${input.weekStart}
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action,
+          entity_type, entity_id, after_state
+        )
+        SELECT
+          ${input.session.calendarId}, NULL,
+          ${action === "publish"
+            ? "staff_roster.week.publish"
+            : "staff_roster.week.send_updates"},
+          'staff_roster_week_publication',
+          publication.id,
+          jsonb_build_object(
+            'weekStart', ${input.weekStart},
+            'revision', publication.revision,
+            'actorStaffMemberId', ${actor.id}
+          )
+        FROM staff_roster_week_publications publication
+        WHERE publication.calendar_id = ${input.session.calendarId}
+          AND publication.week_start = ${input.weekStart}
+      `,
+    ]);
+  } catch {
+    throw new StaffRosterServiceError(
+      409,
+      action === "publish"
+        ? "The roster could not be published."
+        : "The roster updates could not be sent.",
+    );
+  }
+
+  const rows = await getDb()
+    .select({
+      revision: staffRosterWeekPublications.revision,
+    })
+    .from(staffRosterWeekPublications)
+    .where(
+      and(
+        eq(staffRosterWeekPublications.calendarId, input.session.calendarId),
+        eq(staffRosterWeekPublications.weekStart, input.weekStart),
+      ),
+    )
+    .limit(1);
+
+  return {
+    ok: true as const,
+    action,
+    revision: rows[0]?.revision ?? 1,
   };
 }
 
