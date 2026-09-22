@@ -90,9 +90,14 @@ Production calendar pages must not contain invented people, bookings, shifts, ev
 
 ## Routes
 
-- `/calendar-types` redirects to the user's currently selected calendar
-- `/calendar-types/staff-rosters`
-- `/calendar-types/shared-facilities`
-- `/calendar-types/social-groups`
+`/calendar-types` redirects to the user's currently selected calendar.
+
+Each additional calendar has real page routes rather than hash-only shell states:
+
+- `/calendar-types/{type}` — Calendar
+- `/calendar-types/{type}/updates` — Updates
+- `/calendar-types/{type}/organiser/{tool}` — Organiser tools
+
+The Calendar page follows the established co-parenting header treatment: the calendar name is the primary header and is not followed by a redundant calendar-type label or second "Calendar" heading. Calendar types remain visible inside the calendar switcher list, where they help users distinguish calendars.
 
 Feature-specific create actions only appear once their persistence and permission rules are implemented.

@@ -28,6 +28,7 @@ test("calendar name opens typed switching creation and joining navigation", asyn
   assert.match(switcher, /Your calendars/);
   assert.match(switcher, /calendar\.name/);
   assert.match(switcher, /template\.name/);
+  assert.doesNotMatch(switcher, /currentTemplate/);
   assert.match(switcher, /Create another calendar/);
   assert.match(switcher, /What will this calendar be used for\?/);
   assert.match(switcher, /CalendarTypeChoiceGrid/);
