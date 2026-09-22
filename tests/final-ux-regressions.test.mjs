@@ -425,6 +425,68 @@ test("record-management pages share Covie metrics filters empty states and cards
   assert.match(styles, /\.covie-tool-menu > button,[\s\S]*?\.covie-tool-menu > a/);
 });
 
+test("Calendar and compact workspace controls follow the final brand consistency gate", async () => {
+  const [
+    styles,
+    calendar,
+    switcher,
+    day,
+    events,
+    recurring,
+    members,
+    settings,
+    attachments,
+    profilePhoto,
+    identity,
+    categories,
+  ] = await Promise.all([
+    source("app/globals.css"),
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/calendar/calendar-switcher.tsx"),
+    source("components/calendar/day-details-panel.tsx"),
+    source("components/calendar/event-panel.tsx"),
+    source("components/calendar/recurring-schedule-panel.tsx"),
+    source("components/calendar/members-panel.tsx"),
+    source("components/calendar/settings-panel.tsx"),
+    source("components/attachments/attachment-panel.tsx"),
+    source("components/attachments/profile-photo.tsx"),
+    source("lib/parents/identity.ts"),
+    source("components/calendar/event-category-icon.tsx"),
+  ]);
+
+  for (const text of [calendar, switcher, day, events, recurring, members, settings]) {
+    assert.doesNotMatch(text, /text-\[(?:8|9|10)px\]/);
+    assert.doesNotMatch(text, /(?:bg|text|border|ring)-blue-/);
+    assert.doesNotMatch(text, /shadow-(?:sm|md|lg|xl|2xl)/);
+    assert.doesNotMatch(text, /min-h-10/);
+  }
+
+  assert.match(calendar, /eventCategoryBarClass/);
+  assert.match(day, /eventCategorySurfaceClass/);
+  assert.match(events, /eventCategorySurfaceClass/);
+  assert.match(categories, /school[\s\S]*#DDD3FA/);
+  assert.match(categories, /sport[\s\S]*#BFEDE6/);
+  assert.match(categories, /medical[\s\S]*#FFD0CB/);
+  assert.match(categories, /birthday[\s\S]*#F7DC86/);
+
+  assert.match(calendar, /CovieStatusBadge/);
+  assert.match(calendar, /CovieNotice/);
+  assert.match(calendar, /ring-\[#765ED6\]/);
+  assert.match(switcher, /shadow-\[5px_5px_0_#F4C64E\]/);
+
+  assert.doesNotMatch(attachments, /h-8 w-8|min-h-9|min-h-10/);
+  assert.doesNotMatch(profilePhoto, /h-8 w-8|text-\[10px\]/);
+  assert.match(settings, /h-11 w-11 rounded-full/);
+  assert.match(members, /CovieStatusBadge/);
+  assert.match(identity, /Functional identity palette/);
+  assert.match(identity, /Blue is intentionally available here as an identity colour/);
+
+  assert.match(styles, /Calendar QA target widths: 320, 375, 390 and 430px/);
+  assert.match(styles, /\.workspace-mobile-actions-trigger \{[\s\S]*?height: 44px;[\s\S]*?width: 44px;/);
+  assert.doesNotMatch(styles, /font-size:\s*(?:9|10)px;/);
+  assert.match(styles, /\.covie-calendar-grid \{[\s\S]*?gap: 2px;/);
+});
+
 test("workspace dropdowns dismiss when users click elsewhere or press Escape", async () => {
   const [hook, switcher, nav, shell, coming] = await Promise.all([
     source("lib/client/use-details-dismiss.ts"),
