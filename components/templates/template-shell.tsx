@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Bell,
   CalendarDays,
   LayoutGrid,
   Settings,
@@ -23,10 +22,9 @@ import {
   CovieStrongCard,
 } from "@/components/ui/covie";
 import {
-  WorkspaceNav,
-  type WorkspaceOrganiserItem,
-  type WorkspacePrimaryItem,
-} from "@/components/workspace/workspace-nav";
+  TemplateWorkspaceNav,
+  type TemplateOrganiserNavItem,
+} from "@/components/templates/template-workspace-nav";
 import {
   getCalendarTemplateBySlug,
   type AdditionalCalendarTemplateSlug,
@@ -329,24 +327,9 @@ export function TemplateShell({
   const [previewNotice, setPreviewNotice] = useState("");
 
   const currentPath = `/calendar-types/${slug}`;
-  const primaryItems: readonly WorkspacePrimaryItem[] = [
-    {
-      key: "calendar",
-      href: currentPath,
-      label: "Calendar",
-      icon: CalendarDays,
-    },
-    {
-      key: "home",
-      href: `${currentPath}#updates`,
-      label: "Updates",
-      icon: Bell,
-    },
-  ];
-  const organiserItems: readonly WorkspaceOrganiserItem[] =
+  const organiserItems: readonly TemplateOrganiserNavItem[] =
     template.organiserTools.map((tool) => ({
       key: tool.key,
-      href: `${currentPath}#${tool.key}`,
       label: tool.label,
       description: tool.description,
       icon: organiserIconByKey[tool.icon],
@@ -361,26 +344,25 @@ export function TemplateShell({
   }
 
   return (
-    <CoviePage width="wide">
-      <CoviePageHeader
-        accent={template.accentPair[0]}
-        title={template.name}
-        context={template.coreQuestion}
-        actions={
-          <WorkspaceNav
-            active="calendar"
-            primaryItemsOverride={primaryItems}
-            organiserItemsOverride={organiserItems}
-            contextEnabled={false}
-            accountEnabled={false}
-            actions={
-              <CovieButton onClick={() => setDialogOpen(true)}>
-                {template.primaryCreateAction}
-              </CovieButton>
-            }
-          />
-        }
+    <div className="min-h-screen bg-[#FFF9F2] lg:pl-[252px]">
+      <TemplateWorkspaceNav
+        basePath={currentPath}
+        organiserItems={organiserItems}
       />
+      <CoviePage
+        width="wide"
+        className="pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6"
+      >
+        <CoviePageHeader
+          accent={template.accentPair[0]}
+          title={template.name}
+          context={template.coreQuestion}
+          actions={
+            <CovieButton onClick={() => setDialogOpen(true)}>
+              {template.primaryCreateAction}
+            </CovieButton>
+          }
+        />
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <Link
@@ -508,34 +490,35 @@ export function TemplateShell({
         </CovieNotice>
       </section>
 
-      {dialogOpen ? (
-        <form id="calendar-shell-create-form" onSubmit={submitPreview}>
-          <CovieDialog
-            id="calendar-shell-create-title"
-            title={template.primaryCreateAction}
-            description={`Preview the basic ${template.primaryScheduledEntity.toLowerCase()} form. Detailed rules come in the next feature pass.`}
-            icon={<CalendarDays aria-hidden="true" />}
-            iconTone={template.accentPair[0]}
-            onClose={() => setDialogOpen(false)}
-            footer={
-              <>
-                <CovieButton
-                  tone="neutral"
-                  type="button"
-                  onClick={() => setDialogOpen(false)}
-                >
-                  Cancel
-                </CovieButton>
-                <CovieButton type="submit" form="calendar-shell-create-form">
-                  {template.primaryCreateAction}
-                </CovieButton>
-              </>
-            }
-          >
-            <CreateShellFields templateId={template.id} />
-          </CovieDialog>
-        </form>
-      ) : null}
-    </CoviePage>
+        {dialogOpen ? (
+          <form id="calendar-shell-create-form" onSubmit={submitPreview}>
+            <CovieDialog
+              id="calendar-shell-create-title"
+              title={template.primaryCreateAction}
+              description={`Preview the basic ${template.primaryScheduledEntity.toLowerCase()} form. Detailed rules come in the next feature pass.`}
+              icon={<CalendarDays aria-hidden="true" />}
+              iconTone={template.accentPair[0]}
+              onClose={() => setDialogOpen(false)}
+              footer={
+                <>
+                  <CovieButton
+                    tone="neutral"
+                    type="button"
+                    onClick={() => setDialogOpen(false)}
+                  >
+                    Cancel
+                  </CovieButton>
+                  <CovieButton type="submit" form="calendar-shell-create-form">
+                    {template.primaryCreateAction}
+                  </CovieButton>
+                </>
+              }
+            >
+              <CreateShellFields templateId={template.id} />
+            </CovieDialog>
+          </form>
+        ) : null}
+      </CoviePage>
+    </div>
   );
 }
