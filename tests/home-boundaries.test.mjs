@@ -128,7 +128,7 @@ test("calendar management now lives in Calendar and Dashboard is only a redirect
   const [actions, dashboard, switcher] = await Promise.all([
     source("app/calendar/actions.ts"),
     source("app/dashboard/page.tsx"),
-    source("components/calendar/calendar-switcher.tsx"),
+    source("components/calendars/calendar-switcher.tsx"),
   ]);
 
   assert.match(actions, /redirect\("\/calendar"\)/);
