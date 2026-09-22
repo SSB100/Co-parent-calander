@@ -27,6 +27,7 @@ import {
 import { StaffRosterTeamPage } from "@/components/staff-rosters/team-page";
 import { StaffRosterAvailabilityPage } from "@/components/staff-rosters/availability-page";
 import { StaffRosterRolesLocationsPage } from "@/components/staff-rosters/roles-locations-page";
+import { StaffRosterCalendarPage } from "@/components/staff-rosters/roster-calendar-page";
 import {
   getCalendarTemplateBySlug,
   type AdditionalCalendarTemplateSlug,
@@ -197,7 +198,9 @@ export function TemplateShell({
         )}
 
         <section className={section === "calendar" ? "mt-3" : "mt-6"}>
-          {template.id === "staff_rosters" &&
+          {template.id === "staff_rosters" && section === "calendar" ? (
+            <StaffRosterCalendarPage />
+          ) : template.id === "staff_rosters" &&
           section === "organiser" &&
           activeToolKey === "team" ? (
             <StaffRosterTeamPage />
