@@ -26,9 +26,17 @@ export const calendarPermission = pgEnum("calendar_permission", [
   "viewer",
 ]);
 
+export const calendarType = pgEnum("calendar_type", [
+  "co_parenting",
+  "staff_rosters",
+  "shared_facilities",
+  "social_groups",
+]);
+
 export const calendars = pgTable("calendars", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
+  type: calendarType("calendar_type").notNull().default("co_parenting"),
   timezone: text("timezone").notNull().default("Pacific/Auckland"),
   shareEnabled: boolean("share_enabled").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
