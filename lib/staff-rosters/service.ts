@@ -1217,6 +1217,7 @@ export async function getRosterWeek(input: {
     liveShifts,
     publicationRows,
     publishedShifts,
+    leaveRows,
     setup,
   ] = await Promise.all([
     db
@@ -1359,6 +1360,38 @@ export async function getRosterWeek(input: {
         asc(staffRosterPublishedShifts.shiftDate),
         asc(staffRosterPublishedShifts.startTime),
       ),
+    db
+      .select({
+        id: staffRosterLeaveRequests.id,
+        memberId: staffRosterLeaveRequests.memberId,
+        memberName: staffRosterMembers.displayName,
+        startDate: staffRosterLeaveRequests.startDate,
+        endDate: staffRosterLeaveRequests.endDate,
+        allDay: staffRosterLeaveRequests.allDay,
+        startTime: staffRosterLeaveRequests.startTime,
+        endTime: staffRosterLeaveRequests.endTime,
+        status: staffRosterLeaveRequests.status,
+      })
+      .from(staffRosterLeaveRequests)
+      .innerJoin(
+        staffRosterMembers,
+        eq(staffRosterLeaveRequests.memberId, staffRosterMembers.id),
+      )
+      .where(
+        and(
+          eq(staffRosterLeaveRequests.calendarId, input.session.calendarId),
+          drizzleSql`${staffRosterLeaveRequests.startDate} <= ${weekEnd}`,
+          drizzleSql`${staffRosterLeaveRequests.endDate} >= ${input.weekStart}`,
+          drizzleSql`${staffRosterLeaveRequests.status} IN ('pending', 'approved')`,
+          capabilities.createShifts
+            ? drizzleSql`true`
+            : eq(staffRosterLeaveRequests.memberId, current.id),
+        ),
+      )
+      .orderBy(
+        asc(staffRosterLeaveRequests.startDate),
+        asc(staffRosterMembers.displayName),
+      ),
     getRosterSetup(input.session),
   ]);
 
@@ -1422,6 +1455,11 @@ export async function getRosterWeek(input: {
     members,
     roles,
     locations,
+    leave: leaveRows.map((leave) => ({
+      ...leave,
+      startTime: leave.startTime?.slice(0, 5) ?? null,
+      endTime: leave.endTime?.slice(0, 5) ?? null,
+    })),
     shifts: visibleShifts.map((shift) => ({
       id: shift.id,
       memberId: shift.memberId,
@@ -1797,7 +1835,9 @@ export async function createShift(input: {
             roleId: input.roleId,
             locationId: input.locationId,
             note: input.note,
-            availabilityOverride: conflicts.unavailable.length > 0,
+            availabilityOverride:
+              conflicts.unavailable.length > 0 ||
+              conflicts.pendingLeave.length > 0,
             actorStaffMemberId: actor.id,
           })}::jsonb
         FROM created
@@ -1974,7 +2014,9 @@ export async function updateShift(input: {
             roleId: input.roleId,
             locationId: input.locationId,
             note: input.note,
-            availabilityOverride: conflicts.unavailable.length > 0,
+            availabilityOverride:
+              conflicts.unavailable.length > 0 ||
+              conflicts.pendingLeave.length > 0,
             actorStaffMemberId: actor.id,
           })}::jsonb
         FROM changed
