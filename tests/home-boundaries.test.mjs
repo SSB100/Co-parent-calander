@@ -374,7 +374,7 @@ test("Organiser menu owns Tasks Shared costs and Children across desktop and mob
   assert.match(nav, /label: "Shared costs"/);
   assert.match(nav, /label: "Children"/);
   assert.match(nav, /workspace-organiser-menu/);
-  assert.match(nav, /active && \["responsibilities", "expenses", "kids", "organiser"\]\.includes\(active\)/);
+  assert.match(nav, /activeOrganiserItems\.some\(\(item\) => item\.key === active\)/);
   assert.match(organiserRoute, /redirect\("\/responsibilities"\)/);
   assert.match(styles, /\.workspace-organiser-options[\s\S]*bottom: calc\(100% \+ 10px\)/);
   assert.match(taskPage, /title: "Tasks"/);
