@@ -45,7 +45,7 @@ const DayDetailsPanel = dynamic(
       <div className="covie-dialog-backdrop">
         <div
           role="status"
-          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 shadow-sm"
+          className="rounded-xl border-2 border-[#243139] bg-[#FFF9F2] px-4 py-3 text-sm font-semibold text-[#526168] shadow-[5px_5px_0_#DDD3FA]"
         >
           Opening day…
         </div>
@@ -81,9 +81,10 @@ const CalendarSettingsMenu = dynamic(
     ),
   },
 );
-import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
+import { EventCategoryIcon, eventCategoryBarClass } from "@/components/calendar/event-category-icon";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { CovieMark } from "@/components/workspace/covie-brand";
+import { CovieNotice, CovieStatusBadge } from "@/components/ui/covie";
 import { ownershipForChoice, type OwnershipChoice } from "@/lib/assignments/ownership";
 import { useDismissibleDetails } from "@/lib/client/use-details-dismiss";
 import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
@@ -374,15 +375,15 @@ function SwipeMonthPreview({
 
             {assignment ? (
               fullDayOwner ? (
-                <div className="absolute inset-x-1 top-1 z-10 truncate text-center text-[9px] font-bold text-slate-800 sm:text-[11px]">
+                <div className="absolute inset-x-1 top-1 z-10 truncate text-center text-[11px] font-bold leading-none text-slate-800">
                   {previewOwnerName(participants, fullDayOwner)}
                 </div>
               ) : (
                 <>
-                  <div className="absolute left-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[8px] font-bold text-slate-800 sm:text-[10px]">
+                  <div className="absolute left-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[11px] font-bold leading-none text-slate-800">
                     {previewOwnerName(participants, assignment.morning)}
                   </div>
-                  <div className="absolute right-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[8px] font-bold text-slate-800 sm:text-[10px]">
+                  <div className="absolute right-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[11px] font-bold leading-none text-slate-800">
                     {previewOwnerName(participants, assignment.afternoon)}
                   </div>
                 </>
@@ -391,7 +392,7 @@ function SwipeMonthPreview({
 
             <span
               className={
-                "absolute right-1 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white text-xs font-bold shadow-sm sm:right-2 sm:h-7 sm:w-7 sm:text-sm " +
+                "absolute right-1 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white text-xs font-bold sm:right-2 sm:h-7 sm:w-7 sm:text-sm " +
                 (dayIsToday
                   ? "ring-2 ring-slate-900 text-slate-950"
                   : inMonth
@@ -403,7 +404,7 @@ function SwipeMonthPreview({
             </span>
 
             {tileEvents.length > 0 ? (
-              <div className="absolute inset-x-0 bottom-0 z-20 flex h-5 items-center gap-1 truncate bg-[#F4C64E] px-1.5 text-[8px] font-bold text-[#243139] sm:h-7 sm:px-2 sm:text-[10px]">
+              <div className={`absolute inset-x-0 bottom-0 z-20 flex h-6 items-center gap-1 truncate px-1.5 text-[11px] font-bold sm:h-7 sm:px-2 ${eventCategoryBarClass(tileEvents[0]?.category ?? "other")}`}>
                 {tileEvents[0]?.category !== "handover" ? (
                   <span aria-hidden="true">
                     {eventIcon(tileEvents[0]?.category ?? "other")}
@@ -1003,15 +1004,25 @@ export function CalendarShell({
                 defaultName={defaultName}
               />
               {accessMode === "checking" ? (
-                <span role="status" aria-live="polite" className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"><LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />Checking access</span>
+                <CovieStatusBadge tone="neutral" className="gap-1.5" role="status" aria-live="polite">
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  Checking access
+                </CovieStatusBadge>
               ) : accessMode === "editor" ? (
-                <span className="hidden items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 sm:inline-flex"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />{currentEditor ? `${currentEditor.displayName} editing` : "Editor access"}</span>
+                <CovieStatusBadge tone="teal" className="hidden gap-1.5 sm:inline-flex">
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  {currentEditor ? `${currentEditor.displayName} editing` : "Editor access"}
+                </CovieStatusBadge>
               ) : accessMode === "viewer" ? (
-                <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">View only</span>
+                <CovieStatusBadge tone="violet">View only</CovieStatusBadge>
               ) : (
-                <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">Calendar unavailable</span>
+                <CovieStatusBadge tone="danger">Calendar unavailable</CovieStatusBadge>
               )}
-              {calendarData?.recurringScheduleActive ? <span className="hidden rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 sm:inline-flex">Repeating schedule on</span> : null}
+              {calendarData?.recurringScheduleActive ? (
+                <CovieStatusBadge tone="violet" className="hidden sm:inline-flex">
+                  Repeating schedule on
+                </CovieStatusBadge>
+              ) : null}
             </div>
           </div>
 
@@ -1032,7 +1043,7 @@ export function CalendarShell({
                       >
                       <summary className="covie-menu-trigger covie-action-violet"><span><span className="hidden sm:inline">Calendar </span>Tools</span><ChevronDown size={16} aria-hidden="true" /></summary>
                         <div className="covie-menu covie-tool-menu">
-                          <Link href="/responsibilities" className="covie-action-teal inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm">
+                          <Link href="/responsibilities" className="covie-menu-item">
                             <CheckSquare2 className="h-4 w-4" aria-hidden="true" />
                             Tasks
                           </Link>
@@ -1077,11 +1088,17 @@ export function CalendarShell({
       </header>
 
       {message ? (
-        <div role={accessMode === "error" ? "alert" : "status"} aria-live={accessMode === "error" ? "assertive" : "polite"} className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">{message}</div>
+        <CovieNotice
+          tone={accessMode === "error" ? "danger" : "teal"}
+          role={accessMode === "error" ? "alert" : "status"}
+          className="mb-4"
+        >
+          {message}
+        </CovieNotice>
       ) : null}
 
       <div className="covie-calendar-content flex min-h-0 flex-1">
-      <section className="covie-calendar-board flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+      <section className="covie-calendar-board flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#E6DBCF] bg-white">
         <div className="shrink-0 flex flex-col gap-2 border-b border-slate-200 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-3">
           <div className="flex items-center justify-between gap-2 sm:justify-start">
             <button type="button" aria-label="Previous month" onClick={() => moveMonth("previous")} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"><ChevronLeft className="h-5 w-5" aria-hidden="true" /></button>
@@ -1101,7 +1118,7 @@ export function CalendarShell({
                 <CheckSquare2 className="h-4 w-4" aria-hidden="true" />{selectionMode ? "Cancel select" : "Select days"}
               </button>
             ) : null}
-            <button type="button" onClick={goToday} className="covie-action-teal inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm"><RotateCcw className="h-4 w-4" aria-hidden="true" />Today</button>
+            <button type="button" onClick={goToday} className="covie-action-teal inline-flex min-h-11 items-center gap-2 rounded-[10px] px-3 text-sm"><RotateCcw className="h-4 w-4" aria-hidden="true" />Today</button>
           </div>
         </div>
 
@@ -1134,7 +1151,7 @@ export function CalendarShell({
                 type="button"
                 disabled={saving}
                 onClick={() => setBulkEditorOpen(true)}
-                className="covie-primary-action inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl px-4 text-sm"
+                className="covie-primary-action inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl px-4 text-sm"
               >
                 Assign days
               </button>
@@ -1227,7 +1244,7 @@ export function CalendarShell({
                   aria-current={isToday ? "date" : undefined}
                   aria-label={`${format(day, "EEEE d MMMM")}, ${assignmentLabel(assignment)}${tileEvents.length ? `, ${tileEvents.length} event${tileEvents.length === 1 ? "" : "s"}` : ""}${responsibilityMarker?.count ? `, ${responsibilityMarker.count} responsibilit${responsibilityMarker.count === 1 ? "y" : "ies"}` : ""}${expenseMarker?.count ? `, ${expenseMarker.count} shared cost${expenseMarker.count === 1 ? "" : "s"}` : ""}${responsibilityMarker?.pendingCount ? `, ${responsibilityMarker.pendingCount} pending responsibility change${responsibilityMarker.pendingCount === 1 ? "" : "s"}` : ""}${dayPending.length ? `, ${dayPending.length} pending calendar change${dayPending.length === 1 ? "" : "s"}` : ""}`}
                   onClick={() => handleDayClick(day)}
-                  className={`relative h-full min-h-0 overflow-hidden rounded-lg border bg-white p-1 text-left transition sm:rounded-xl ${inMonth ? "border-slate-200 hover:ring-1 hover:ring-slate-300" : "border-slate-300"} ${selected ? "ring-2 ring-blue-500 ring-offset-1" : ""} ${selectionMode ? "cursor-pointer" : ""}`}
+                  className={`relative h-full min-h-0 overflow-hidden rounded-lg border bg-white p-1 text-left transition sm:rounded-xl ${inMonth ? "border-slate-200 hover:ring-1 hover:ring-slate-300" : "border-slate-300"} ${selected ? "ring-2 ring-[#765ED6] ring-offset-1" : ""} ${selectionMode ? "cursor-pointer" : ""}`}
                 >
                   <span className="pointer-events-none absolute inset-0" aria-hidden="true">
                     <span className={`absolute inset-y-0 left-0 w-1/2 ${morningStyle?.slot ?? "bg-white"}`} />
@@ -1237,15 +1254,15 @@ export function CalendarShell({
 
                   {assignment ? (
                     fullDayOwner ? (
-                      <div className="pointer-events-none absolute inset-x-1 top-1 z-10 truncate text-center text-[9px] font-bold text-slate-800 sm:text-[11px]" title={parentTileName(fullDayOwner)}>
+                      <div className="pointer-events-none absolute inset-x-1 top-1 z-10 truncate text-center text-[11px] font-bold leading-none text-slate-800" title={parentTileName(fullDayOwner)}>
                         {parentTileName(fullDayOwner)}
                       </div>
                     ) : (
                       <>
-                        <div className="pointer-events-none absolute left-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[8px] font-bold text-slate-800 sm:text-[10px]" title={parentTileName(assignment.morning)}>
+                        <div className="pointer-events-none absolute left-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[11px] font-bold leading-none text-slate-800" title={parentTileName(assignment.morning)}>
                           {parentTileName(assignment.morning)}
                         </div>
-                        <div className="pointer-events-none absolute right-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[8px] font-bold text-slate-800 sm:text-[10px]" title={parentTileName(assignment.afternoon)}>
+                        <div className="pointer-events-none absolute right-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[11px] font-bold leading-none text-slate-800" title={parentTileName(assignment.afternoon)}>
                           {parentTileName(assignment.afternoon)}
                         </div>
                       </>
@@ -1253,15 +1270,15 @@ export function CalendarShell({
                   ) : null}
 
                   <span
-                    className={`absolute right-1 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white text-xs font-bold shadow-sm sm:right-2 sm:h-7 sm:w-7 sm:text-sm ${isToday ? "ring-2 ring-slate-900 text-slate-950" : inMonth ? "text-slate-700" : "text-slate-500"}`}
+                    className={`absolute right-1 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white text-xs font-bold sm:right-2 sm:h-7 sm:w-7 sm:text-sm ${isToday ? "ring-2 ring-slate-900 text-slate-950" : inMonth ? "text-slate-700" : "text-slate-500"}`}
                   >
                     {format(day, "d")}
                   </span>
 
-                  {selected ? <span className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full border border-[#243139] bg-[#FF6B5F] px-1.5 py-0.5 text-[9px] font-bold text-[#243139]" aria-hidden="true">✓</span> : null}
+                  {selected ? <span className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full border border-[#243139] bg-[#FF6B5F] px-1.5 py-0.5 text-[11px] font-bold text-[#243139]" aria-hidden="true">✓</span> : null}
 
                   {tileEvents.length > 0 ? (
-                    <div className="absolute inset-x-0 bottom-0 z-20 flex h-5 items-center gap-1 truncate bg-[#F4C64E] px-1.5 text-[8px] font-bold text-[#243139] sm:h-7 sm:px-2 sm:text-[10px]">
+                    <div className={`absolute inset-x-0 bottom-0 z-20 flex h-6 items-center gap-1 truncate px-1.5 text-[11px] font-bold sm:h-7 sm:px-2 ${eventCategoryBarClass(tileEvents[0]?.category ?? "other")}`}>
                       {tileEvents[0]?.category !== "handover" ? <span aria-hidden="true">{eventIcon(tileEvents[0]?.category ?? "other")}</span> : <Clock3 className="h-3 w-3 shrink-0" aria-hidden="true" />}
                       <span className="truncate">{tileEvents[0]?.title}</span>
                       {tileEvents.length > 1 ? <span className="ml-auto shrink-0">+{tileEvents.length - 1}</span> : null}
@@ -1324,7 +1341,7 @@ export function CalendarShell({
                         (marker?.handover || marker?.note ? 1 : 0) >
                       3 ? (
                         <span
-                          className="text-[9px] font-bold text-slate-500"
+                          className="text-[11px] font-bold text-slate-500"
                           aria-label={
                             (dayPending.length > 0 ? 1 : 0) +
                               (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) +
@@ -1355,11 +1372,11 @@ export function CalendarShell({
       </div>
 
       {accessMode === "editor" && selectionMode && selectedDays.length > 0 ? (
-        <div className="sticky bottom-3 z-20 mx-auto mt-4 hidden max-w-4xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur sm:flex">
+        <div className="sticky bottom-3 z-20 mx-auto mt-4 hidden max-w-4xl flex-col gap-3 rounded-2xl border-2 border-[#243139] bg-[#FFF9F2]/95 p-3 shadow-[5px_5px_0_#DDD3FA] backdrop-blur sm:flex">
           <div className="flex items-center justify-between gap-3">
             <div className="px-1">
               <p className="font-semibold text-slate-900" role="status" aria-live="polite" aria-atomic="true">{selectedDays.length} {selectedDays.length === 1 ? "day" : "days"} selected</p>
-              <button type="button" disabled={saving} onClick={() => setSelectedDays([])} className="min-h-10 text-sm font-medium text-slate-500 hover:underline disabled:opacity-50">Clear selection</button>
+              <button type="button" disabled={saving} onClick={() => setSelectedDays([])} className="min-h-11 text-sm font-medium text-slate-500 hover:underline disabled:opacity-50">Clear selection</button>
             </div>
             <span className="text-xs text-slate-500">Choose one state</span>
           </div>
@@ -1374,7 +1391,7 @@ export function CalendarShell({
               disabled={saving}
               placeholder="e.g. Family event"
               onChange={(event) => setBulkReason(event.target.value)}
-              className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
+              className="covie-input mt-1 disabled:opacity-60"
             />
           </label>
           <div className="grid gap-2 sm:grid-cols-5">
@@ -1447,7 +1464,7 @@ export function CalendarShell({
                     type="button"
                     disabled={saving || (item.value !== "unassigned" && (!me || !them))}
                     onClick={() => void applySelected(item.value)}
-                    className={`min-h-12 rounded-xl px-3 text-sm font-semibold transition disabled:opacity-40 ${item.className}`}
+                    className={`min-h-12 rounded-[10px] px-3 text-sm font-semibold transition disabled:opacity-40 ${item.className}`}
                   >
                     {saving ? "Saving…" : item.label}
                   </button>

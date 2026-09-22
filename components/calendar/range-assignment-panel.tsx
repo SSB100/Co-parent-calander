@@ -180,7 +180,7 @@ export function RangeAssignmentPanel({ onChanged }: RangeAssignmentPanelProps) {
       <button
         type="button"
         onClick={() => void openPanel()}
-        className="covie-action-teal inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm transition"
+        className="covie-action-teal inline-flex min-h-11 items-center gap-2 rounded-[10px] px-3 text-sm transition"
       >
         <CalendarRange className="h-4 w-4" aria-hidden="true" />
         Assign range

@@ -69,9 +69,9 @@ function statusFor(schedule: SavedSchedule) {
 }
 
 function statusClasses(status: ReturnType<typeof statusFor>) {
-  if (status === "current") return "bg-emerald-100 text-emerald-800";
-  if (status === "upcoming") return "bg-blue-100 text-blue-800";
-  return "bg-slate-100 text-slate-600";
+  if (status === "current") return "bg-[#EAF8F5] text-[#0B665C]";
+  if (status === "upcoming") return "bg-[#F4F1FF] text-[#6651B7]";
+  return "bg-[#F7EFE5] text-[#526168]";
 }
 
 function scheduleRangeLabel(schedule: SavedSchedule) {
@@ -374,7 +374,7 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
 
   return (
     <>
-      <button type="button" onClick={() => void openPanel()} className="covie-action-violet inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm transition">
+      <button type="button" onClick={() => void openPanel()} className="covie-action-violet inline-flex min-h-11 items-center gap-2 rounded-[10px] px-3 text-sm transition">
         <Repeat2 className="h-4 w-4" aria-hidden="true" /><span>Schedules</span>
       </button>
 
@@ -432,7 +432,7 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
                             <p className="mt-1 text-xs text-slate-500">{assignedDays} of 14 fortnight days assigned</p>
                           </div>
                           <div className="flex gap-2">
-                            <button type="button" disabled={saving} onClick={() => editSchedule(schedule)} className="covie-action-violet inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm disabled:opacity-50"><Pencil className="h-4 w-4" aria-hidden="true" />Edit</button>
+                            <button type="button" disabled={saving} onClick={() => editSchedule(schedule)} className="covie-action-violet inline-flex min-h-11 items-center gap-2 rounded-[10px] px-3 text-sm disabled:opacity-50"><Pencil className="h-4 w-4" aria-hidden="true" />Edit</button>
                             <button type="button" disabled={saving} onClick={() => startDeleteSchedule(schedule)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"><Trash2 className="h-4 w-4" aria-hidden="true" />Delete</button>
                           </div>
                         </div>
@@ -488,7 +488,7 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
                     <p className="text-sm font-semibold text-slate-900">{editingScheduleId ? "Edit schedule" : "New schedule"}</p>
                     <p className="mt-1 text-xs leading-5 text-slate-500">Tap each day to cycle: Full day You → Full day Them → You → Them → Them → You → Unassigned. Manual calendar changes still take priority.</p>
                   </div>
-                  <button type="button" disabled={saving} onClick={() => setEditorOpen(false)} className="min-h-10 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 sm:w-auto sm:border-0">Back to schedules</button>
+                  <button type="button" disabled={saving} onClick={() => setEditorOpen(false)} className="min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 sm:w-auto sm:border-0">Back to schedules</button>
                 </div>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -548,15 +548,15 @@ export function RecurringSchedulePanel({ onChanged }: { onChanged?: () => void }
                   </summary>
                   <div className="border-t border-slate-200 p-3 sm:p-4">
                   <div className="flex flex-wrap items-end justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Schedule preview</p><p className="mt-1 text-sm font-semibold text-slate-900">First four weeks</p></div><p className="text-xs text-slate-500">{endDate ? `Stops after ${format(parseISO(endDate), "d MMM yyyy")}` : "Repeats until you end or delete it"}</p></div>
-                  <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase text-slate-400 sm:text-xs">{weekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
+                  <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase text-slate-400 sm:text-xs">{weekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
                   <div className="mt-1 space-y-1.5">
                     {previewWeeks.map((week, weekIndex) => (
                       <div key={weekIndex} className="grid grid-cols-7 gap-1">
                         {week.map((item) => (
                           <div key={format(item.date, "yyyy-MM-dd")} className={`relative min-h-14 overflow-hidden rounded-lg border px-1 py-1.5 text-center sm:min-h-16 ${item.ended ? "border-slate-200 bg-slate-100 text-slate-400" : "border-slate-200 bg-white text-slate-700"}`}>
                             {!item.ended ? <><span className={`pointer-events-none absolute inset-y-0 left-0 w-1/2 ${slotColor(participants, item.slot.morningParentId)}`} aria-hidden="true" /><span className={`pointer-events-none absolute inset-y-0 right-0 w-1/2 ${slotColor(participants, item.slot.afternoonParentId)}`} aria-hidden="true" />{item.slot.morningParentId !== item.slot.afternoonParentId ? <span className="pointer-events-none absolute inset-y-0 left-1/2 border-l border-white/90" aria-hidden="true" /> : null}</> : null}
-                            <span className="relative z-10 block text-[10px] font-semibold opacity-70 sm:text-xs">{format(item.date, "d MMM")}</span>
-                            <span className="relative z-10 mt-1 block text-[8px] font-semibold leading-3 sm:text-[10px]">{item.ended ? "Ended" : slotLabel(item.slot)}</span>
+                            <span className="relative z-10 block text-[11px] font-semibold opacity-70 sm:text-xs">{format(item.date, "d MMM")}</span>
+                            <span className="relative z-10 mt-1 block text-[11px] font-semibold leading-3 sm:text-[11px]">{item.ended ? "Ended" : slotLabel(item.slot)}</span>
                           </div>
                         ))}
                       </div>

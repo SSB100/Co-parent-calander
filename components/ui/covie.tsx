@@ -301,15 +301,15 @@ export function CovieStatusBadge({
   children,
   tone = "neutral",
   className,
-}: {
-  children: ReactNode;
+  ...props
+}: HTMLAttributes<HTMLSpanElement> & {
   tone?: Tone;
-  className?: string;
 }) {
   return (
     <span
       className={classes("covie-status-badge", className)}
       data-tone={tone}
+      {...props}
     >
       {children}
     </span>
