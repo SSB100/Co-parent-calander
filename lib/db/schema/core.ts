@@ -39,6 +39,7 @@ export const calendars = pgTable("calendars", {
   type: calendarType("calendar_type").notNull().default("co_parenting"),
   timezone: text("timezone").notNull().default("Pacific/Auckland"),
   shareEnabled: boolean("share_enabled").notNull().default(false),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
