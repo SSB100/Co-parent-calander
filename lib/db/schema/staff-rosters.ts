@@ -285,3 +285,161 @@ export const staffRosterPublishedShifts = pgTable(
   ],
 );
 
+export const staffRosterCorrectionStatus = pgEnum(
+  "staff_roster_correction_status",
+  ["pending", "approved", "declined", "cancelled"],
+);
+
+export const staffRosterLeaveStatus = pgEnum(
+  "staff_roster_leave_status",
+  ["pending", "approved", "declined", "cancelled"],
+);
+
+export const staffRosterClockSessions = pgTable(
+  "staff_roster_clock_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    calendarId: uuid("calendar_id")
+      .notNull()
+      .references(() => calendars.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => staffRosterMembers.id, { onDelete: "restrict" }),
+    publishedShiftId: uuid("published_shift_id").references(
+      () => staffRosterPublishedShifts.id,
+      { onDelete: "set null" },
+    ),
+    scheduledDate: date("scheduled_date", { mode: "string" }),
+    scheduledStartTime: time("scheduled_start_time", {
+      withTimezone: false,
+      precision: 0,
+    }),
+    scheduledEndTime: time("scheduled_end_time", {
+      withTimezone: false,
+      precision: 0,
+    }),
+    clockInAt: timestamp("clock_in_at", { withTimezone: true }).notNull(),
+    clockOutAt: timestamp("clock_out_at", { withTimezone: true }),
+    unrostered: boolean("unrostered").notNull().default(false),
+    correctedAt: timestamp("corrected_at", { withTimezone: true }),
+    correctedByMembershipId: uuid("corrected_by_membership_id").references(
+      () => calendarMemberships.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    check(
+      "staff_roster_clock_sessions_time_valid",
+      sql`${table.clockOutAt} IS NULL OR ${table.clockOutAt} > ${table.clockInAt}`,
+    ),
+    check(
+      "staff_roster_clock_sessions_schedule_pair_valid",
+      sql`(${table.scheduledStartTime} IS NULL AND ${table.scheduledEndTime} IS NULL)
+        OR
+        (${table.scheduledStartTime} IS NOT NULL AND ${table.scheduledEndTime} IS NOT NULL AND ${table.scheduledEndTime} > ${table.scheduledStartTime})`,
+    ),
+    uniqueIndex("staff_roster_clock_sessions_member_active_unique")
+      .on(table.memberId)
+      .where(sql`${table.clockOutAt} IS NULL`),
+    index("staff_roster_clock_sessions_calendar_clock_in_idx").on(
+      table.calendarId,
+      table.clockInAt,
+    ),
+    index("staff_roster_clock_sessions_member_clock_in_idx").on(
+      table.memberId,
+      table.clockInAt,
+    ),
+  ],
+);
+
+export const staffRosterTimesheetCorrections = pgTable(
+  "staff_roster_timesheet_corrections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    calendarId: uuid("calendar_id")
+      .notNull()
+      .references(() => calendars.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => staffRosterMembers.id, { onDelete: "restrict" }),
+    clockSessionId: uuid("clock_session_id")
+      .notNull()
+      .references(() => staffRosterClockSessions.id, { onDelete: "cascade" }),
+    requestedClockInAt: timestamp("requested_clock_in_at", { withTimezone: true }),
+    requestedClockOutAt: timestamp("requested_clock_out_at", { withTimezone: true }),
+    reason: text("reason").notNull(),
+    status: staffRosterCorrectionStatus("status").notNull().default("pending"),
+    reviewedByMembershipId: uuid("reviewed_by_membership_id").references(
+      () => calendarMemberships.id,
+      { onDelete: "set null" },
+    ),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    check(
+      "staff_roster_timesheet_corrections_requested_time_valid",
+      sql`${table.requestedClockInAt} IS NOT NULL OR ${table.requestedClockOutAt} IS NOT NULL`,
+    ),
+    index("staff_roster_timesheet_corrections_calendar_status_idx").on(
+      table.calendarId,
+      table.status,
+    ),
+    index("staff_roster_timesheet_corrections_member_created_idx").on(
+      table.memberId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const staffRosterLeaveRequests = pgTable(
+  "staff_roster_leave_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    calendarId: uuid("calendar_id")
+      .notNull()
+      .references(() => calendars.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => staffRosterMembers.id, { onDelete: "restrict" }),
+    startDate: date("start_date", { mode: "string" }).notNull(),
+    endDate: date("end_date", { mode: "string" }).notNull(),
+    allDay: boolean("all_day").notNull().default(true),
+    startTime: time("start_time", { withTimezone: false, precision: 0 }),
+    endTime: time("end_time", { withTimezone: false, precision: 0 }),
+    note: text("note"),
+    status: staffRosterLeaveStatus("status").notNull().default("pending"),
+    reviewedByMembershipId: uuid("reviewed_by_membership_id").references(
+      () => calendarMemberships.id,
+      { onDelete: "set null" },
+    ),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    check(
+      "staff_roster_leave_requests_date_valid",
+      sql`${table.endDate} >= ${table.startDate}`,
+    ),
+    check(
+      "staff_roster_leave_requests_time_valid",
+      sql`(${table.allDay} = true AND ${table.startTime} IS NULL AND ${table.endTime} IS NULL)
+        OR
+        (${table.allDay} = false AND ${table.startTime} IS NOT NULL AND ${table.endTime} IS NOT NULL AND ${table.endTime} > ${table.startTime})`,
+    ),
+    index("staff_roster_leave_requests_calendar_status_idx").on(
+      table.calendarId,
+      table.status,
+    ),
+    index("staff_roster_leave_requests_member_date_idx").on(
+      table.memberId,
+      table.startDate,
+      table.endDate,
+    ),
+  ],
+);
+
