@@ -13,7 +13,6 @@ import {
   Ruler,
   School,
   Trash2,
-  X,
 } from "lucide-react";
 import Link from "next/link";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
