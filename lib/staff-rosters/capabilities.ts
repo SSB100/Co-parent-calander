@@ -11,12 +11,17 @@ export function staffRosterCapabilities(input: {
 
   return {
     viewRoster: true,
-    editOwnAvailability: canWrite,
+    editOwnAvailability: true,
     manageAllAvailability: canWrite && isManager,
     manageTeam: canWrite && isManager,
     manageManagers: canWrite && input.accessRole === "owner",
     manageStructure: canWrite && isManager,
     createShifts: canWrite && isManager,
     publishRoster: canWrite && isManager,
+    clockOwnTime: true,
+    requestOwnTimesheetCorrection: true,
+    requestOwnLeave: true,
+    reviewTimesheets: canWrite && isManager,
+    reviewLeave: canWrite && isManager,
   } as const;
 }
