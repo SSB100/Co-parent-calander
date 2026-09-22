@@ -10,7 +10,10 @@ import {
   normalizeInviteCode,
 } from "@/lib/security/invites";
 import { getCalendarSession } from "@/lib/security/session";
-import { listCalendarNavigationOptions } from "@/lib/calendars/navigation";
+import {
+  listArchivedCalendarNavigationOptions,
+  listCalendarNavigationOptions,
+} from "@/lib/calendars/navigation";
 import { calendarPathForType } from "@/lib/templates/calendar-templates";
 
 export const dynamic = "force-dynamic";
@@ -30,11 +33,13 @@ export default async function CalendarPage({
   const params = await searchParams;
   const initialToday = localDateInTimeZone(session.calendarTimezone);
   const initialRange = calendarRangeForDate(initialToday);
-  const [calendarOptions, initialData, cookieStore] = await Promise.all([
-    listCalendarNavigationOptions(session.userId),
-    loadCalendarData(session, initialRange),
-    cookies(),
-  ]);
+  const [calendarOptions, archivedCalendarOptions, initialData, cookieStore] =
+    await Promise.all([
+      listCalendarNavigationOptions(session.userId),
+      listArchivedCalendarNavigationOptions(session.userId),
+      loadCalendarData(session, initialRange),
+      cookies(),
+    ]);
 
   const inviteCode =
     params.welcome === "created"
@@ -49,6 +54,7 @@ export default async function CalendarPage({
       <CalendarShell
         key={session.calendarId}
         calendars={calendarOptions}
+        archivedCalendars={archivedCalendarOptions}
         currentCalendarId={session.calendarId}
         defaultName={session.userName}
         initialMonth={initialRange.month}

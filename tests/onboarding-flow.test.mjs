@@ -18,8 +18,9 @@ test("new accounts enter onboarding while existing calendar sessions bypass it",
   ]);
 
   assert.match(home, /calendar \? "\/calendar" : "\/onboarding"/);
-  assert.match(onboarding, /calendar_memberships/);
-  assert.match(onboarding, /memberships\.length > 0 && !inviteCode/);
+  assert.match(onboarding, /listCalendarNavigationOptions/);
+  assert.match(onboarding, /listArchivedCalendarNavigationOptions/);
+  assert.match(onboarding, /activeCalendars\.length > 0 && !inviteCode/);
   assert.match(onboarding, /redirect\("\/calendar"\)/);
   assert.match(calendar, /redirect\("\/onboarding"\)/);
   assert.match(proxy, /\/onboarding\/\:path\*/);
@@ -47,6 +48,8 @@ test("onboarding offers one clear create or join choice", async () => {
 
   assert.match(shell, /Create a Covie calendar/);
   assert.match(shell, /Join a Covie calendar/);
+  assert.match(shell, /Archived calendars/);
+  assert.match(shell, /restoreCalendar/);
   assert.match(shell, /name="flow" value="onboarding"/);
   assert.match(shell, /CalendarTypeChoiceGrid/);
   assert.match(shell, /name="calendarType"/);

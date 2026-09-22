@@ -33,15 +33,20 @@ export const calendarType = pgEnum("calendar_type", [
   "social_groups",
 ]);
 
-export const calendars = pgTable("calendars", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  name: text("name").notNull(),
-  type: calendarType("calendar_type").notNull().default("co_parenting"),
-  timezone: text("timezone").notNull().default("Pacific/Auckland"),
-  shareEnabled: boolean("share_enabled").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const calendars = pgTable(
+  "calendars",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    type: calendarType("calendar_type").notNull().default("co_parenting"),
+    timezone: text("timezone").notNull().default("Pacific/Auckland"),
+    shareEnabled: boolean("share_enabled").notNull().default(false),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("calendars_archived_at_idx").on(table.archivedAt)],
+);
 
 export const participants = pgTable(
   "participants",

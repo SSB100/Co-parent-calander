@@ -422,6 +422,7 @@ function SwipeMonthPreview({
 
 export function CalendarShell({
   calendars,
+  archivedCalendars,
   currentCalendarId,
   defaultName,
   initialMonth,
@@ -430,6 +431,7 @@ export function CalendarShell({
   initialData,
 }: {
   calendars: CalendarOption[];
+  archivedCalendars: CalendarOption[];
   currentCalendarId: string;
   defaultName: string;
   initialMonth: string;
@@ -994,6 +996,7 @@ export function CalendarShell({
             <div className="flex flex-wrap items-center gap-2">
               <CalendarSwitcher
                 calendars={calendars}
+                archivedCalendars={archivedCalendars}
                 currentCalendarId={currentCalendarId}
                 defaultName={defaultName}
               />

@@ -117,4 +117,19 @@ The migration must be qualified on a temporary Neon branch before Production app
 
 Migration `0023_staff_roster_foundation.sql` introduces Staff Rosters domain storage for team members, job roles, work locations and availability. It is isolated from the co-parenting schema and does not alter parenting, children, shared-cost, responsibility or approval tables.
 
-The migration has been qualified successfully on a temporary Neon branch cloned from Production. Production must remain on `0022` until the Staff Rosters Stage 1 release is explicitly approved.
+The migration was qualified successfully on temporary Neon branches cloned from Production and applied to Production after explicit approval on 22 September 2026. A rollback branch, `backup-before-0023-staff-rosters`, was created immediately before release. Production now records `0023`.
+
+
+## 0024 calendar lifecycle and Staff roster setup/shifts
+
+Migration `0024_calendar_lifecycle_staff_shifts.sql` is the Stage 2 migration.
+
+It adds the Covie Core calendar lifecycle field `calendars.archived_at`, plus Staff Rosters setup and one-off shift storage:
+
+- `staff_roster_settings`
+- `staff_roster_shifts`
+- `staff_roster_shifts_time_valid`
+
+Archive is reversible; permanent delete remains a separate owner-only action and relies on existing calendar-scoped cascade rules. Staff shifts are kept inside the Staff Rosters domain and do not alter parenting, child, Shared Costs, Tasks or approval tables.
+
+Migration `0024` is not yet applied to Production. It must be qualified against a fresh Production clone before release. Neon is currently at its project branch limit, so an obsolete preview branch must be explicitly approved for deletion before the final qualification branch can be created.

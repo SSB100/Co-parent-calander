@@ -92,3 +92,46 @@ export const staffAvailabilityRangeSchema = z
   );
 
 export const staffAvailabilityIdSchema = z.string().uuid();
+
+
+const shiftTimeValue = z
+  .string()
+  .trim()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a valid shift time.");
+
+export const staffShiftSchema = z
+  .object({
+    memberId: z.string().uuid(),
+    date: z.iso.date(),
+    startTime: shiftTimeValue,
+    endTime: shiftTimeValue,
+    roleId: optionalUuid.optional().default(null),
+    locationId: optionalUuid.optional().default(null),
+    note: z
+      .string()
+      .trim()
+      .max(500, "Keep the shift note under 500 characters.")
+      .transform((value) => value || null)
+      .optional()
+      .default(null),
+    overrideAvailabilityConflict: z.boolean().optional().default(false),
+  })
+  .superRefine((value, context) => {
+    if (value.endTime <= value.startTime) {
+      context.addIssue({
+        code: "custom",
+        path: ["endTime"],
+        message: "Shift end time must be after the start time.",
+      });
+    }
+  });
+
+export const updateStaffShiftSchema = staffShiftSchema.safeExtend({
+  shiftId: z.string().uuid(),
+});
+
+export const staffShiftIdSchema = z.string().uuid();
+
+export const staffRosterWeekSchema = z.object({
+  weekStart: z.iso.date(),
+});

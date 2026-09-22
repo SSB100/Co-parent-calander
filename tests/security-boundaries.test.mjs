@@ -48,6 +48,11 @@ const sameOriginMutationRoutes = [
     file: "app/api/staff-roster/availability/route.ts",
     methods: ["POST", "DELETE"],
   },
+  { file: "app/api/staff-roster/setup/route.ts", methods: ["POST"] },
+  {
+    file: "app/api/staff-roster/shifts/route.ts",
+    methods: ["POST", "PATCH", "DELETE"],
+  },
 ];
 
 test("every calendar mutation requires an editor session", async () => {
