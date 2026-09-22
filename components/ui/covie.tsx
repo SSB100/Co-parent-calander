@@ -286,6 +286,8 @@ export function CovieDialog({
   dialogRef,
   closeButtonRef,
   describedBy,
+  dismissOnEscape = true,
+  dismissOnBackdrop = true,
 }: {
   id: string;
   title: ReactNode;
@@ -301,9 +303,22 @@ export function CovieDialog({
   dialogRef?: Ref<HTMLElement>;
   closeButtonRef?: Ref<HTMLButtonElement>;
   describedBy?: string;
+  dismissOnEscape?: boolean;
+  dismissOnBackdrop?: boolean;
 }) {
   return (
-    <div className="covie-dialog-backdrop">
+    <div
+      className="covie-dialog-backdrop"
+      onMouseDown={(event) => {
+        if (
+          dismissOnBackdrop &&
+          !busy &&
+          event.target === event.currentTarget
+        ) {
+          onClose();
+        }
+      }}
+    >
       <section
         ref={dialogRef}
         role="dialog"
@@ -312,6 +327,12 @@ export function CovieDialog({
         aria-describedby={describedBy}
         aria-busy={busy || undefined}
         tabIndex={-1}
+        onKeyDown={(event) => {
+          if (dismissOnEscape && !busy && event.key === "Escape") {
+            event.preventDefault();
+            onClose();
+          }
+        }}
         className={classes(
           "covie-dialog",
           `covie-dialog-${size}`,
