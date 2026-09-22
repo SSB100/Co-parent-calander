@@ -8,7 +8,7 @@ Production uses:
 - Vercel project: `co-parent-calander`
 - Neon project: `delicate-sunset-36051658`
 - Production Neon branch: `main` (`br-quiet-sea-a7duq4r3`)
-- Production schema: migrations `0000` through `0016`
+- Production schema before the calendar-type release: migrations `0000` through `0021`
 
 ## Product model
 
@@ -89,9 +89,9 @@ SQL migrations live in `drizzle/`:
 - `0013_parenting_schedules.sql`
 - `0014_retire_legacy_auth.sql` — non-destructive; legacy credential records are retained for recovery
 - `0015_parent_profile_identity.sql`
-- `0016_retention_foundation.sql`
+- `0016_retention_foundation.sql`\n- `0017_remove_retired_schema.sql`\n- `0018_expense_share_payment_confirmation.sql`\n- `0019_expense_share_partial_payments.sql`\n- `0020_expense_share_payment_history.sql`\n- `0021_recurring_shared_costs.sql`\n- `0022_calendar_template_types.sql` — first-class calendar template identity
 
-Production has migrations through `0016` applied. The `covie_schema_migrations` ledger is authoritative: historical migrations `0000`–`0011` are baselined and `0012`–`0016` are recorded as normal applied migrations.
+Production has migrations through `0021` applied before the calendar-type release. The `covie_schema_migrations` ledger is authoritative: historical migrations `0000`–`0011` are baselined and `0012`–`0016` are recorded as normal applied migrations.
 
 Do not replay migrations already recorded in `covie_schema_migrations`.
 
