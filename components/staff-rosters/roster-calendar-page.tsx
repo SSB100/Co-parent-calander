@@ -1865,7 +1865,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                                 className="pointer-events-none absolute inset-x-0 border-t border-[#EFE8E0]"
                                 style={{
                                   top:
-                                    ((hour * 60 - visibleStartMinute) / 60) *
+                                    ((minute - visibleStartMinute) / 60) *
                                     hourHeight,
                                 }}
                                 aria-hidden="true"
