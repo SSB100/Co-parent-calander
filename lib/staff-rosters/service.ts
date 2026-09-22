@@ -570,6 +570,46 @@ export async function archiveRoleOrLocation(input: {
     throw new StaffRosterServiceError(403, "Manager access is required.");
   }
 
+  const db = getDb();
+  const existing =
+    input.kind === "role"
+      ? (
+          await db
+            .select({ id: staffRosterRoles.id, name: staffRosterRoles.name })
+            .from(staffRosterRoles)
+            .where(
+              and(
+                eq(staffRosterRoles.id, input.id),
+                eq(staffRosterRoles.calendarId, input.session.calendarId),
+                eq(staffRosterRoles.active, true),
+              ),
+            )
+            .limit(1)
+        )[0]
+      : (
+          await db
+            .select({
+              id: staffRosterLocations.id,
+              name: staffRosterLocations.name,
+            })
+            .from(staffRosterLocations)
+            .where(
+              and(
+                eq(staffRosterLocations.id, input.id),
+                eq(staffRosterLocations.calendarId, input.session.calendarId),
+                eq(staffRosterLocations.active, true),
+              ),
+            )
+            .limit(1)
+        )[0];
+
+  if (!existing) {
+    throw new StaffRosterServiceError(
+      404,
+      input.kind === "role" ? "Role not found." : "Location not found.",
+    );
+  }
+
   const sql = getSql();
 
   try {
@@ -587,6 +627,22 @@ export async function archiveRoleOrLocation(input: {
           WHERE id = ${input.id}
             AND calendar_id = ${input.session.calendarId}
         `,
+        sql`
+          INSERT INTO audit_log (
+            calendar_id, actor_participant_id, action,
+            entity_type, entity_id, before_state, after_state
+          )
+          VALUES (
+            ${input.session.calendarId}, NULL, 'staff_roster.role.archive',
+            'staff_roster_role', ${input.id},
+            ${JSON.stringify({ name: existing.name, active: true })}::jsonb,
+            ${JSON.stringify({
+              name: existing.name,
+              active: false,
+              actorStaffMemberId: actor.id,
+            })}::jsonb
+          )
+        `,
       ]);
     } else {
       await sql.transaction([
@@ -601,6 +657,22 @@ export async function archiveRoleOrLocation(input: {
           SET active = false, updated_at = now()
           WHERE id = ${input.id}
             AND calendar_id = ${input.session.calendarId}
+        `,
+        sql`
+          INSERT INTO audit_log (
+            calendar_id, actor_participant_id, action,
+            entity_type, entity_id, before_state, after_state
+          )
+          VALUES (
+            ${input.session.calendarId}, NULL, 'staff_roster.location.archive',
+            'staff_roster_location', ${input.id},
+            ${JSON.stringify({ name: existing.name, active: true })}::jsonb,
+            ${JSON.stringify({
+              name: existing.name,
+              active: false,
+              actorStaffMemberId: actor.id,
+            })}::jsonb
+          )
         `,
       ]);
     }
@@ -736,18 +808,42 @@ export async function createAvailability(input: {
   }
 
   const id = randomUUID();
+  const sql = getSql();
   try {
-    await getDb().insert(staffRosterAvailability).values({
-      id,
-      calendarId: input.session.calendarId,
-      memberId: input.memberId,
-      availabilityDate: input.date,
-      startTime: input.startTime,
-      endTime: input.endTime,
-      status: input.status,
-      note: input.note,
-      createdByMembershipId: input.session.membershipId,
-    });
+    await sql.transaction([
+      sql`
+        INSERT INTO staff_roster_availability (
+          id, calendar_id, member_id, availability_date,
+          start_time, end_time, status, note, created_by_membership_id
+        )
+        VALUES (
+          ${id}, ${input.session.calendarId}, ${input.memberId}, ${input.date},
+          ${input.startTime}, ${input.endTime},
+          ${input.status}::staff_roster_availability_status,
+          ${input.note}, ${input.session.membershipId}
+        )
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action,
+          entity_type, entity_id, after_state
+        )
+        VALUES (
+          ${input.session.calendarId}, NULL,
+          'staff_roster.availability.create',
+          'staff_roster_availability', ${id},
+          ${JSON.stringify({
+            memberId: input.memberId,
+            date: input.date,
+            startTime: input.startTime,
+            endTime: input.endTime,
+            status: input.status,
+            note: input.note,
+            actorStaffMemberId: actor.id,
+          })}::jsonb
+        )
+      `,
+    ]);
   } catch {
     throw new StaffRosterServiceError(
       409,
@@ -767,6 +863,11 @@ export async function deleteAvailability(input: {
     .select({
       id: staffRosterAvailability.id,
       memberId: staffRosterAvailability.memberId,
+      date: staffRosterAvailability.availabilityDate,
+      startTime: staffRosterAvailability.startTime,
+      endTime: staffRosterAvailability.endTime,
+      status: staffRosterAvailability.status,
+      note: staffRosterAvailability.note,
     })
     .from(staffRosterAvailability)
     .where(
@@ -797,14 +898,41 @@ export async function deleteAvailability(input: {
     );
   }
 
-  await getDb()
-    .delete(staffRosterAvailability)
-    .where(
-      and(
-        eq(staffRosterAvailability.id, input.availabilityId),
-        eq(staffRosterAvailability.calendarId, input.session.calendarId),
-      ),
+  const sql = getSql();
+  try {
+    await sql.transaction([
+      sql`
+        DELETE FROM staff_roster_availability
+        WHERE id = ${input.availabilityId}
+          AND calendar_id = ${input.session.calendarId}
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action,
+          entity_type, entity_id, before_state, after_state
+        )
+        VALUES (
+          ${input.session.calendarId}, NULL,
+          'staff_roster.availability.delete',
+          'staff_roster_availability', ${input.availabilityId},
+          ${JSON.stringify({
+            memberId: entry.memberId,
+            date: entry.date,
+            startTime: entry.startTime,
+            endTime: entry.endTime,
+            status: entry.status,
+            note: entry.note,
+          })}::jsonb,
+          ${JSON.stringify({ actorStaffMemberId: actor.id, deleted: true })}::jsonb
+        )
+      `,
+    ]);
+  } catch {
+    throw new StaffRosterServiceError(
+      409,
+      "Availability could not be removed.",
     );
+  }
 
   return { ok: true as const };
 }
