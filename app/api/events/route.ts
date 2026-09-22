@@ -78,10 +78,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { reason, ...details } = parsed.data;
   try {
-    const result = await createEvent({ session, details, reason });
-    return NextResponse.json(result, { status: result.pending ? 202 : 200 });
+    const result = await createEvent({ session, details: parsed.data });
+    return NextResponse.json(result);
   } catch (error) {
     return eventServiceError(error);
   }
@@ -111,10 +110,10 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const { id, reason, ...details } = parsed.data;
+  const { id, ...details } = parsed.data;
   try {
-    const result = await updateEvent({ session, id, details, reason });
-    return NextResponse.json(result, { status: result.pending ? 202 : 200 });
+    const result = await updateEvent({ session, id, details });
+    return NextResponse.json(result);
   } catch (error) {
     return eventServiceError(error);
   }
@@ -148,9 +147,8 @@ export async function DELETE(request: NextRequest) {
     const result = await deleteEvent({
       session,
       id: parsed.data.id,
-      reason: parsed.data.reason,
     });
-    return NextResponse.json(result, { status: result.pending ? 202 : 200 });
+    return NextResponse.json(result);
   } catch (error) {
     return eventServiceError(error);
   }
