@@ -7,6 +7,7 @@ import { useActionState, useState } from "react";
 import {
   createCalendar,
   joinCalendar,
+  restoreCalendar,
   type CalendarActionState,
 } from "@/app/calendar/actions";
 import { CalendarTypeChoiceGrid } from "@/components/calendars/calendar-type-choice-grid";
@@ -16,6 +17,7 @@ import {
   calendarTemplateManifests,
   type CalendarTemplateId,
 } from "@/lib/templates/calendar-templates";
+import type { CalendarNavigationOption } from "@/lib/calendars/navigation";
 
 const initialState: CalendarActionState = { error: null };
 const inputClass =
@@ -40,10 +42,12 @@ export function OnboardingShell({
   defaultName,
   initialInviteCode,
   hasExistingCalendar,
+  archivedCalendars,
 }: {
   defaultName: string;
   initialInviteCode: string;
   hasExistingCalendar: boolean;
+  archivedCalendars: CalendarNavigationOption[];
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(initialInviteCode ? "join" : "choose");
@@ -153,6 +157,46 @@ export function OnboardingShell({
                 </p>
               </button>
             </div>
+
+            {archivedCalendars.length > 0 ? (
+              <section className="mt-8 rounded-xl border border-[#E6DBCF] bg-white p-4">
+                <h2 className="text-base font-extrabold text-[#243139]">
+                  Archived calendars
+                </h2>
+                <p className="mt-1 text-sm text-[#526168]">
+                  Restore a calendar to put it back into your normal navigation.
+                </p>
+                <div className="mt-3 space-y-2">
+                  {archivedCalendars.map((calendar) => (
+                    <form
+                      key={calendar.id}
+                      action={restoreCalendar}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-[#E6DBCF] bg-[#FFF9F2] p-3"
+                    >
+                      <input
+                        type="hidden"
+                        name="calendarId"
+                        value={calendar.id}
+                      />
+                      <span className="min-w-0">
+                        <strong className="block truncate text-sm text-[#243139]">
+                          {calendar.name}
+                        </strong>
+                        <span className="block truncate text-xs text-[#66747A]">
+                          {calendarTemplateManifests[calendar.calendarType].name}
+                        </span>
+                      </span>
+                      <button
+                        type="submit"
+                        className="min-h-11 rounded-[10px] border border-[#E6DBCF] bg-white px-3 text-sm font-extrabold text-[#243139]"
+                      >
+                        Restore
+                      </button>
+                    </form>
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </>
         ) : null}
 
