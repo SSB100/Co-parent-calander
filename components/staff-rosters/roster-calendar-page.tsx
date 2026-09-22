@@ -749,6 +749,8 @@ export function StaffRosterCalendarPage() {
             overlapSkipped?: number;
             availabilitySkipped?: number;
             leaveSkipped?: number;
+            inactiveStaffSkipped?: number;
+            staleReferenceAdjusted?: number;
             error?: string;
           }
         | null;
@@ -762,6 +764,8 @@ export function StaffRosterCalendarPage() {
       const availabilitySkipped = body?.availabilitySkipped ?? 0;
       const overlapSkipped = body?.overlapSkipped ?? 0;
       const leaveSkipped = body?.leaveSkipped ?? 0;
+      const inactiveStaffSkipped = body?.inactiveStaffSkipped ?? 0;
+      const staleReferenceAdjusted = body?.staleReferenceAdjusted ?? 0;
 
       if (copied === 0 && skipped === 0) {
         setCopyNotice({
@@ -775,6 +779,9 @@ export function StaffRosterCalendarPage() {
             : null,
           overlapSkipped > 0 ? overlapSkipped + " overlapping" : null,
           leaveSkipped > 0 ? leaveSkipped + " leave conflicts" : null,
+          inactiveStaffSkipped > 0
+            ? inactiveStaffSkipped + " inactive staff"
+            : null,
         ]
           .filter(Boolean)
           .join(" · ");
@@ -788,17 +795,29 @@ export function StaffRosterCalendarPage() {
             (copied === 1 ? "" : "s") +
             ". Skipped " +
             skipped +
-            (reasons ? " (" + reasons + ")." : "."),
+            (reasons ? " (" + reasons + ")." : ".") +
+            (staleReferenceAdjusted > 0
+              ? " Removed outdated role/location details from " +
+                staleReferenceAdjusted +
+                " copied shift" +
+                (staleReferenceAdjusted === 1 ? "." : "s.")
+              : ""),
         });
       } else {
         setCopyNotice({
-          tone: "teal",
+          tone: staleReferenceAdjusted > 0 ? "sunshine" : "teal",
           text:
             "Copied " +
             copied +
             " shift" +
             (copied === 1 ? "" : "s") +
-            " from the previous week.",
+            " from the previous week." +
+            (staleReferenceAdjusted > 0
+              ? " Removed outdated role/location details from " +
+                staleReferenceAdjusted +
+                " copied shift" +
+                (staleReferenceAdjusted === 1 ? "." : "s.")
+              : ""),
         });
       }
 
