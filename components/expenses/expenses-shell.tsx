@@ -19,7 +19,7 @@ import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
-import { CoviePage, CoviePageHeader } from "@/components/ui/covie";
+import { CovieDialog, CoviePage, CoviePageHeader } from "@/components/ui/covie";
 import { RecordFocus } from "@/components/workspace/record-focus";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
@@ -993,27 +993,38 @@ export function ExpensesShell({
       </section>
 
       {formOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#243139]/35 sm:items-center sm:p-4">
-          <section role="dialog" aria-modal="true" aria-labelledby="expense-form-title" className="max-h-[94vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border-2 border-[#243139] bg-white p-5 shadow-[7px_7px_0_#F4C64E] sm:rounded-3xl sm:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Shared cost</p>
-                <h2 id="expense-form-title" className="mt-1 text-2xl font-semibold text-slate-950">
-                  {form.id ? "Edit shared cost" : "Add shared cost"}
-                </h2>
-              </div>
+        <CovieDialog
+          id="expense-form-title"
+          title={form.id ? "Edit shared cost" : "Add shared cost"}
+          description="Record what was paid, who paid it and how the cost should be shared."
+          icon={<ReceiptText aria-hidden="true" />}
+          iconTone="sunshine"
+          size="md"
+          busy={busy}
+          onClose={() => setFormOpen(false)}
+          footer={
+            <>
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => setFormOpen(false)}
-                aria-label="Close shared cost form"
-                className="covie-icon-button flex h-10 w-10 items-center justify-center rounded-xl disabled:opacity-50"
+                className="covie-dialog-secondary"
               >
-                <X className="h-5 w-5" aria-hidden="true" />
+                Cancel
               </button>
-            </div>
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void saveExpense()}
+                className="covie-dialog-primary"
+              >
+                {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                {form.id ? "Save change" : "Add shared cost"}
+              </button>
+            </>
+          }
+        >
+            <div className="grid gap-4 sm:grid-cols-2">
               <label className="sm:col-span-2">
                 <span className="text-sm font-semibold text-slate-800">What was it for?</span>
                 <input
@@ -1022,7 +1033,7 @@ export function ExpensesShell({
                   value={form.title}
                   onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
                   placeholder="e.g. School shoes"
-                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 px-4 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="covie-input mt-2 text-base"
                 />
               </label>
 
@@ -1030,14 +1041,14 @@ export function ExpensesShell({
                 <span className="text-sm font-semibold text-slate-800">
                   {form.splitMode === "reimbursement" ? "Amount to reimburse" : "Total amount"}
                 </span>
-                <div className="mt-2 flex min-h-12 items-center rounded-xl border border-slate-300 bg-white px-4 focus-within:border-slate-500 focus-within:ring-2 focus-within:ring-slate-200">
+                <div className="covie-input-shell mt-2">
                   <span className="mr-2 text-slate-500">NZ$</span>
                   <input
                     inputMode="decimal"
                     value={form.amount}
                     onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
                     placeholder="0.00"
-                    className="min-w-0 flex-1 border-0 bg-transparent text-base outline-none"
+                    className="text-base"
                   />
                 </div>
               </label>
@@ -1047,7 +1058,7 @@ export function ExpensesShell({
                 <select
                   value={form.category}
                   onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as Expense["category"] }))}
-                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="covie-input mt-2 text-base"
                 >
                   {Object.entries(categoryLabels).map(([value, label]) => (
                     <option key={value} value={value}>{label}</option>
@@ -1061,7 +1072,7 @@ export function ExpensesShell({
                   type="date"
                   value={form.expenseDate}
                   onChange={(event) => setForm((current) => ({ ...current, expenseDate: event.target.value }))}
-                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="covie-input mt-2 text-base"
                 />
               </label>
 
@@ -1070,7 +1081,7 @@ export function ExpensesShell({
                 <select
                   value={form.childId}
                   onChange={(event) => setForm((current) => ({ ...current, childId: event.target.value }))}
-                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="covie-input mt-2 text-base"
                 >
                   <option value="">General / all children</option>
                   {children.map((child) => <option key={child.id} value={child.id}>{child.displayName}</option>)}
@@ -1082,7 +1093,7 @@ export function ExpensesShell({
                 <select
                   value={form.paidByParticipantId}
                   onChange={(event) => setForm((current) => ({ ...current, paidByParticipantId: event.target.value }))}
-                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="covie-input mt-2 text-base"
                 >
                   {participants.map((participant) => (
                     <option key={participant.id} value={participant.id}>{participant.displayName}</option>
@@ -1096,7 +1107,7 @@ export function ExpensesShell({
                   type="date"
                   value={form.dueDate}
                   onChange={(event) => setForm((current) => ({ ...current, dueDate: event.target.value }))}
-                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="covie-input mt-2 text-base"
                 />
               </label>
             </div>
@@ -1127,7 +1138,7 @@ export function ExpensesShell({
                             event.target.value as ExpenseFormState["recurrenceFrequency"],
                         }))
                       }
-                      className="mt-1 min-h-11 w-full rounded-xl border-2 border-[#C9BDF1] bg-white px-3 text-sm font-semibold text-[#243139] outline-none focus:border-[#765ED6]"
+                      className="covie-input mt-1 font-semibold"
                     >
                       <option value="none">One-off</option>
                       <option value="weekly">Weekly</option>
@@ -1152,7 +1163,7 @@ export function ExpensesShell({
                             recurrenceEndDate: event.target.value,
                           }))
                         }
-                        className="mt-1 min-h-11 w-full rounded-xl border-2 border-[#C9BDF1] bg-white px-3 text-sm font-semibold text-[#243139] outline-none focus:border-[#765ED6]"
+                        className="covie-input mt-1 font-semibold"
                       />
                     </label>
                   ) : null}
@@ -1276,7 +1287,7 @@ export function ExpensesShell({
                           <span className="text-xs font-semibold text-slate-600">
                             {participant.displayName}&apos;s share
                           </span>
-                          <div className="mt-1 flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-3">
+                          <div className="covie-input-shell mt-1">
                             <span className="mr-2 text-sm text-slate-500">NZ$</span>
                             <input
                               inputMode="decimal"
@@ -1291,7 +1302,7 @@ export function ExpensesShell({
                                 }))
                               }
                               placeholder="0.00"
-                              className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none"
+                              className="text-sm"
                             />
                           </div>
                         </label>
@@ -1310,7 +1321,7 @@ export function ExpensesShell({
                 value={form.note}
                 onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))}
                 placeholder="Short practical detail, reference or context"
-                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                className="covie-textarea mt-2 text-base"
               />
             </label>
 
@@ -1322,31 +1333,11 @@ export function ExpensesShell({
                 value={form.reason}
                 onChange={(event) => setForm((current) => ({ ...current, reason: event.target.value }))}
                 placeholder="Only used if the other parent needs to approve this"
-                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                className="covie-textarea mt-2 text-base"
               />
             </label>
 
-            <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => setFormOpen(false)}
-                className="covie-action-secondary min-h-12 rounded-xl px-4 text-sm disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void saveExpense()}
-                className="covie-primary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm disabled:opacity-50"
-              >
-                {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-                {form.id ? "Save change" : "Add shared cost"}
-              </button>
-            </div>
-          </section>
-        </div>
+        </CovieDialog>
       ) : null}
 
       {!editable && data ? (
