@@ -96,6 +96,9 @@ test("Staff Rosters calendar is a calendar-first weekly roster builder", async (
   assert.match(roster, /Publish roster/);
   assert.match(roster, /Send updates/);
   assert.match(roster, /Changes pending/);
+  assert.match(roster, /Start your roster/);
+  assert.match(roster, /changedShiftCount/);
+  assert.match(roster, /sendUpdatesConfirmOpen/);
   assert.match(roster, /md:hidden/);
   assert.match(roster, /availability_conflict/);
   assert.match(roster, /pending_leave_conflict/);
@@ -146,6 +149,7 @@ test("Staff roster publication keeps live drafts separate from Staff-visible sna
   assert.match(service, /staffRosterPublishedShifts/);
   assert.match(service, /visibleShifts = capabilities\.createShifts \? liveShifts : publishedShifts/);
   assert.match(service, /publicationStatus/);
+  assert.match(service, /changedShiftCount/);
   assert.match(service, /changes_pending/);
   assert.match(service, /export async function publishRosterWeek/);
   assert.match(service, /pg_advisory_xact_lock/);
