@@ -178,6 +178,14 @@ async function assertReferenceBelongsToCalendar(input: {
 
 export async function getTeam(session: StaffSession) {
   const current = await ensureStaffRosterMember(session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: current.accessRole,
+    permission: session.permission,
+  });
+  if (!capabilities.manageTeam) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
   const db = getDb();
 
   const members = await db
@@ -231,11 +239,6 @@ export async function getTeam(session: StaffSession) {
       )
       .orderBy(asc(staffRosterLocations.name)),
   ]);
-
-  const capabilities = staffRosterCapabilities({
-    accessRole: current.accessRole,
-    permission: session.permission,
-  });
 
   return {
     currentMemberId: current.id,
@@ -439,6 +442,14 @@ export async function updateTeamMember(input: {
 
 export async function getRolesAndLocations(session: StaffSession) {
   const current = await ensureStaffRosterMember(session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: current.accessRole,
+    permission: session.permission,
+  });
+  if (!capabilities.manageStructure) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
   const db = getDb();
 
   const [roles, locations] = await Promise.all([
@@ -462,13 +473,8 @@ export async function getRolesAndLocations(session: StaffSession) {
       .orderBy(asc(staffRosterLocations.name)),
   ]);
 
-  const capabilities = staffRosterCapabilities({
-    accessRole: current.accessRole,
-    permission: session.permission,
-  });
-
   return {
-    canManage: capabilities.manageStructure,
+    canManage: true,
     roles,
     locations,
   };
