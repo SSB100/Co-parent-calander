@@ -249,7 +249,7 @@ export function StaffRosterTeamPage() {
               {activeMembers.length} {activeMembers.length === 1 ? "person" : "people"}
             </p>
             {data.canManageTeam ? (
-              <CovieButton tone="teal" onClick={openCreate}>
+              <CovieButton onClick={openCreate}>
                 <UserPlus className="h-4 w-4" aria-hidden="true" />
                 Add team member
               </CovieButton>
@@ -263,7 +263,7 @@ export function StaffRosterTeamPage() {
               description="Add the people who will appear on this roster."
               action={
                 data.canManageTeam ? (
-                  <CovieButton tone="teal" onClick={openCreate}>
+                  <CovieButton onClick={openCreate}>
                     Add team member
                   </CovieButton>
                 ) : undefined
@@ -297,7 +297,7 @@ export function StaffRosterTeamPage() {
                             </CovieStatusBadge>
                           ) : null}
                           {member.isCurrentUser ? (
-                            <CovieStatusBadge tone="teal">You</CovieStatusBadge>
+                            <CovieStatusBadge tone="neutral">You</CovieStatusBadge>
                           ) : null}
                         </div>
                       </div>
