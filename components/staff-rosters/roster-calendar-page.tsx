@@ -1647,8 +1647,12 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
             </div>
           ) : (
             <>
-              <div className="hidden overflow-hidden rounded-2xl border border-[#E6DBCF] bg-white md:grid md:grid-cols-[190px_minmax(0,1fr)]">
-                <aside className="border-r border-[#E6DBCF] bg-[#FFF9F2]">
+              <div
+                ref={weekBoardRef}
+                className="hidden overflow-hidden rounded-2xl border border-[#E6DBCF] bg-white md:grid md:grid-cols-[190px_minmax(0,1fr)]"
+                style={{ height: weekBoardHeight }}
+              >
+                <aside className="min-h-0 overflow-y-auto border-r border-[#E6DBCF] bg-[#FFF9F2]">
                   <div className="flex min-h-[54px] items-center justify-between border-b border-[#E6DBCF] px-3">
                     <span className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#66747A]">
                       Staff
@@ -1681,6 +1685,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                               memberId: member.id,
                             })
                           }
+                          onDragEnd={clearDragState}
                           onClick={() =>
                             data.canManageRoster
                               ? openCreate(member.id, selectedMobileDay)
@@ -1733,7 +1738,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                   ) : null}
                 </aside>
 
-                <div className="min-w-0 overflow-x-auto">
+                <div className="min-h-0 min-w-0 overflow-auto">
                   <div className="min-w-[900px]">
                     <div className="grid grid-cols-[48px_repeat(7,minmax(118px,1fr))] border-b border-[#E6DBCF] bg-[#FFF9F2]">
                       <div aria-hidden="true" />
@@ -1797,7 +1802,11 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                           <span
                             key={hour}
                             className="absolute right-2 -translate-y-1/2 text-[10px] font-bold text-[#8B7D70]"
-                            style={{ top: index * HOUR_HEIGHT }}
+                            style={{
+                              top:
+                                ((hour * 60 - visibleStartMinute) / 60) *
+                                hourHeight,
+                            }}
                           >
                             {hour === 24
                               ? ""
@@ -1817,11 +1826,27 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                         return (
                           <div
                             key={day}
-                            className="relative border-l border-[#E6DBCF] bg-white"
-                            onDragOver={(event) => {
-                              if (data.canManageRoster) {
-                                event.preventDefault();
-                                event.dataTransfer.dropEffect = "move";
+                            className={
+                              "relative border-l border-[#E6DBCF] transition-colors " +
+                              (dropPreview?.date === day
+                                ? "bg-[#F0FBF8]"
+                                : "bg-white")
+                            }
+                            onDragEnter={(event) =>
+                              handleTimelineDragOver(event, day)
+                            }
+                            onDragOver={(event) =>
+                              handleTimelineDragOver(event, day)
+                            }
+                            onDragLeave={(event) => {
+                              if (
+                                !event.currentTarget.contains(
+                                  event.relatedTarget as Node | null,
+                                )
+                              ) {
+                                setDropPreview((current) =>
+                                  current?.date === day ? null : current,
+                                );
                               }
                             }}
                             onDrop={(event) => handleTimelineDrop(event, day)}
@@ -1830,19 +1855,54 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                               <span
                                 key={hour}
                                 className="pointer-events-none absolute inset-x-0 border-t border-[#EFE8E0]"
-                                style={{ top: index * HOUR_HEIGHT }}
+                                style={{
+                                  top:
+                                    ((hour * 60 - visibleStartMinute) / 60) *
+                                    hourHeight,
+                                }}
                                 aria-hidden="true"
                               />
                             ))}
 
+                            {dropPreview?.date === day ? (
+                              <div
+                                className="pointer-events-none absolute inset-x-0 z-30 border-t-2 border-[#19A897]"
+                                style={{
+                                  top:
+                                    ((dropPreview.minute -
+                                      visibleStartMinute) /
+                                      60) *
+                                    hourHeight,
+                                }}
+                              >
+                                <span className="absolute left-1 top-0 -translate-y-1/2 rounded-md bg-[#19A897] px-1.5 py-0.5 text-[10px] font-extrabold text-[#243139] shadow-sm">
+                                  {compactMinuteLabel(dropPreview.minute)}
+                                </span>
+                              </div>
+                            ) : null}
+
                             {positioned.map(({ shift, lane, laneCount }) => {
                               const start = minutesFromTime(shift.startTime);
                               const end = minutesFromTime(shift.endTime);
+                              const visibleShiftStart = Math.max(
+                                start,
+                                visibleStartMinute,
+                              );
+                              const visibleShiftEnd = Math.min(
+                                end,
+                                visibleEndMinute,
+                              );
+                              if (visibleShiftEnd <= visibleShiftStart) {
+                                return null;
+                              }
+
                               const top =
-                                ((start - DAY_START_MINUTE) / 60) * HOUR_HEIGHT;
+                                ((visibleShiftStart - visibleStartMinute) / 60) *
+                                hourHeight;
                               const height = Math.max(
-                                38,
-                                ((end - start) / 60) * HOUR_HEIGHT,
+                                32,
+                                ((visibleShiftEnd - visibleShiftStart) / 60) *
+                                  hourHeight,
                               );
                               const leftPercent = (lane / laneCount) * 100;
                               const widthPercent = 100 / laneCount;
@@ -1851,12 +1911,21 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                                 <div
                                   key={shift.id}
                                   draggable={data.canManageRoster}
-                                  onDragStart={(event) =>
+                                  onDragStart={(event) => {
+                                    if (
+                                      (event.target as HTMLElement).closest(
+                                        "[data-resize-handle]",
+                                      )
+                                    ) {
+                                      event.preventDefault();
+                                      return;
+                                    }
                                     setDragPayload(event, {
                                       kind: "shift",
                                       shiftId: shift.id,
-                                    })
-                                  }
+                                    });
+                                  }}
+                                  onDragEnd={clearDragState}
                                   className="absolute z-10 overflow-hidden rounded-[10px] border border-[#8BDDD0] bg-[#EAF8F5] shadow-sm"
                                   style={{
                                     top: top + 2,
@@ -1876,7 +1945,8 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                                       onPointerDown={(event) =>
                                         beginResize(event, shift, "start")
                                       }
-                                      className="absolute inset-x-0 top-0 z-20 h-3 cursor-ns-resize bg-transparent"
+                                      data-resize-handle
+                                      className="absolute inset-x-0 top-0 z-20 h-3 cursor-ns-resize bg-[#19A897]/10 hover:bg-[#19A897]/30"
                                       aria-hidden="true"
                                     />
                                   ) : null}
@@ -1917,7 +1987,8 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                                       onPointerDown={(event) =>
                                         beginResize(event, shift, "end")
                                       }
-                                      className="absolute inset-x-0 bottom-0 z-20 h-3 cursor-ns-resize bg-transparent"
+                                      data-resize-handle
+                                      className="absolute inset-x-0 bottom-0 z-20 h-3 cursor-ns-resize bg-[#19A897]/10 hover:bg-[#19A897]/30"
                                       aria-hidden="true"
                                     />
                                   ) : null}
