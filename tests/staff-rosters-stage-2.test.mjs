@@ -232,6 +232,17 @@ test("approved leave blocks rostering while pending leave is an explicit warning
   assert.match(service, /conflicts\.pendingLeave\.length > 0/);
 });
 
+test("archiving linked Staff revokes access but preserves upcoming shift safety", async () => {
+  const service = await source("lib/staff-rosters/service.ts");
+
+  assert.match(service, /upcoming_shifts/);
+  assert.match(service, /Remove or reassign this person’s upcoming shifts/);
+  assert.match(service, /UPDATE staff_roster_invites/);
+  assert.match(service, /DELETE FROM calendar_memberships/);
+  assert.match(service, /accountAccessRevoked/);
+});
+
+
 test("Staff invitations link existing team profiles without co-parent participants", async () => {
   const [service, join, team, schema] = await Promise.all([
     source("lib/staff-rosters/invitations-service.ts"),
