@@ -377,6 +377,54 @@ test("calendar modal save controls stay outside the scrolling dialog body", asyn
 });
 
 
+test("record-management pages share Covie metrics filters empty states and cards", async () => {
+  const [ui, styles, expenses, responsibilities, kids, proposalCard, proposalStatus] =
+    await Promise.all([
+      source("components/ui/covie.tsx"),
+      source("app/globals.css"),
+      source("components/expenses/expenses-shell.tsx"),
+      source("components/responsibilities/responsibilities-shell.tsx"),
+      source("components/children/kids-shell.tsx"),
+      source("components/approvals/proposal-card.tsx"),
+      source("components/approvals/proposal-status-chip.tsx"),
+    ]);
+
+  for (const primitive of [
+    "CovieMetricGrid",
+    "CovieMetricCard",
+    "CovieSectionHeader",
+    "CovieSegmentedControl",
+    "CovieRecordCard",
+    "CovieEmptyState",
+  ]) {
+    assert.match(ui, new RegExp(`export function ${primitive}`));
+  }
+
+  for (const page of [expenses, responsibilities]) {
+    assert.match(page, /CovieMetricGrid/);
+    assert.match(page, /CovieSectionHeader/);
+    assert.match(page, /CovieSegmentedControl/);
+    assert.match(page, /CovieRecordCard/);
+    assert.match(page, /CovieEmptyState/);
+    assert.doesNotMatch(page, /(?:bg|text|border)-sky-/);
+    assert.doesNotMatch(page, /(?:bg|text|border)-blue-/);
+  }
+
+  assert.match(kids, /CovieEmptyState/);
+  assert.doesNotMatch(kids, /index % 3/);
+  assert.match(kids, /bg-white/);
+  assert.match(kids, /hover:border-\[#765ED6\]/);
+
+  assert.match(proposalCard, /CovieStrongCard/);
+  assert.match(proposalStatus, /CovieStatusBadge/);
+  assert.doesNotMatch(proposalCard, /text-\[10px\]/);
+
+  assert.match(styles, /\.covie-metric-grid/);
+  assert.match(styles, /\.covie-segmented-control/);
+  assert.match(styles, /\.covie-record-card/);
+  assert.match(styles, /\.covie-tool-menu > button,[\s\S]*?\.covie-tool-menu > a/);
+});
+
 test("workspace dropdowns dismiss when users click elsewhere or press Escape", async () => {
   const [hook, switcher, nav, shell, coming] = await Promise.all([
     source("lib/client/use-details-dismiss.ts"),
