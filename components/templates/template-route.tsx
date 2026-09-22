@@ -1,5 +1,8 @@
 import { notFound, redirect } from "next/navigation";
-import { listCalendarNavigationOptions } from "@/lib/calendars/navigation";
+import {
+  listArchivedCalendarNavigationOptions,
+  listCalendarNavigationOptions,
+} from "@/lib/calendars/navigation";
 import { getCalendarSession } from "@/lib/security/session";
 import {
   calendarPathForType,
@@ -38,12 +41,16 @@ export async function TemplateRoute({
     notFound();
   }
 
-  const calendars = await listCalendarNavigationOptions(session.userId);
+  const [calendars, archivedCalendars] = await Promise.all([
+    listCalendarNavigationOptions(session.userId),
+    listArchivedCalendarNavigationOptions(session.userId),
+  ]);
 
   return (
     <TemplateShell
       slug={template}
       calendars={calendars}
+      archivedCalendars={archivedCalendars}
       currentCalendarId={session.calendarId}
       defaultName={session.userName}
       section={section}
