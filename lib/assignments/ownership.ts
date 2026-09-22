@@ -41,6 +41,60 @@ export type AssignmentProposalRow = {
   note: string | null;
 };
 
+
+function custodySlotChangeRequiresApproval(
+  beforeParentId: string | null,
+  afterParentId: string | null,
+) {
+  return beforeParentId !== null && beforeParentId !== afterParentId;
+}
+
+export function ownershipChangeRequiresApproval(
+  before: DirectOwnership,
+  after: DirectOwnership,
+) {
+  return (
+    custodySlotChangeRequiresApproval(
+      before.morningParentId,
+      after.morningParentId,
+    ) ||
+    custodySlotChangeRequiresApproval(
+      before.afternoonParentId,
+      after.afternoonParentId,
+    )
+  );
+}
+
+export function assignmentCustodyChangeRequiresApproval(
+  before: AssignmentProposalRow[],
+  after: AssignmentProposalRow[],
+) {
+  const afterByKey = new Map(
+    after.map((assignment) => [
+      `${assignment.childId}:${assignment.date}`,
+      assignment,
+    ]),
+  );
+
+  return before.some((assignment) => {
+    const proposed = afterByKey.get(
+      `${assignment.childId}:${assignment.date}`,
+    );
+    if (!proposed) return true;
+
+    return ownershipChangeRequiresApproval(
+      {
+        morningParentId: assignment.morningParentId,
+        afternoonParentId: assignment.afternoonParentId,
+      },
+      {
+        morningParentId: proposed.morningParentId,
+        afternoonParentId: proposed.afternoonParentId,
+      },
+    );
+  });
+}
+
 export function assignmentProposalRowsEqual(
   before: AssignmentProposalRow[],
   after: AssignmentProposalRow[],
