@@ -210,6 +210,10 @@ export async function createCalendar(
     redirect("/calendar?welcome=created");
   }
 
+  if (parsed.data.calendarType === "staff_rosters") {
+    redirect("/calendar-types/staff-rosters/setup");
+  }
+
   redirect(calendarPathForType(parsed.data.calendarType));
 }
 
@@ -453,6 +457,7 @@ export async function openCalendar(formData: FormData) {
     JOIN calendars calendar ON calendar.id = membership.calendar_id
     WHERE membership.calendar_id = ${calendarId.data}
       AND membership.user_id = ${user.id}
+      AND calendar.archived_at IS NULL
     LIMIT 1
   `) as Array<{ calendar_type: string }>;
 
@@ -468,4 +473,194 @@ export async function openCalendar(formData: FormData) {
     calendarCookieOptions(),
   );
   redirect(calendarPathForType(calendarType));
+}
+
+
+export type CalendarLifecycleState = { error: string | null };
+
+async function nextActiveCalendar(userId: string, excludedCalendarId?: string) {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT calendar.id, calendar.calendar_type
+    FROM calendar_memberships membership
+    JOIN calendars calendar ON calendar.id = membership.calendar_id
+    WHERE membership.user_id = ${userId}
+      AND calendar.archived_at IS NULL
+      AND (${excludedCalendarId ?? null}::uuid IS NULL OR calendar.id <> ${excludedCalendarId ?? null})
+    ORDER BY membership.created_at ASC
+    LIMIT 1
+  `) as Array<{ id: string; calendar_type: CalendarTemplateId }>;
+
+  return rows[0] ?? null;
+}
+
+async function selectFallbackCalendar(userId: string, excludedCalendarId?: string) {
+  const fallback = await nextActiveCalendar(userId, excludedCalendarId);
+  const cookieStore = await cookies();
+
+  if (!fallback) {
+    cookieStore.delete(SELECTED_CALENDAR_COOKIE_NAME);
+    redirect("/onboarding");
+  }
+
+  cookieStore.set(
+    SELECTED_CALENDAR_COOKIE_NAME,
+    fallback.id,
+    calendarCookieOptions(),
+  );
+  redirect(calendarPathForType(fallback.calendar_type));
+}
+
+export async function archiveCalendar(
+  _previous: CalendarLifecycleState,
+  formData: FormData,
+): Promise<CalendarLifecycleState> {
+  const user = await requireAccount();
+  if (!user) return { error: "Log in again to continue." };
+
+  const calendarId = z.string().uuid().safeParse(formData.get("calendarId"));
+  if (!calendarId.success) return { error: "Choose a valid calendar." };
+
+  const sql = getSql();
+  const owned = (await sql`
+    SELECT calendar.id, membership.participant_id
+    FROM calendars calendar
+    JOIN calendar_memberships membership ON membership.calendar_id = calendar.id
+    WHERE calendar.id = ${calendarId.data}
+      AND membership.user_id = ${user.id}
+      AND membership.permission = 'owner'
+      AND calendar.archived_at IS NULL
+    LIMIT 1
+  `) as Array<{ id: string; participant_id: string | null }>;
+
+  if (!owned[0]) {
+    return { error: "Only the calendar owner can archive this calendar." };
+  }
+
+  try {
+    await sql.transaction([
+      sql`
+        UPDATE calendars
+        SET archived_at = now(), updated_at = now()
+        WHERE id = ${calendarId.data}
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action, entity_type, entity_id, after_state
+        )
+        VALUES (
+          ${calendarId.data},
+          ${owned[0].participant_id},
+          'calendar.archive',
+          'calendar',
+          ${calendarId.data},
+          ${JSON.stringify({ archived: true, actorUserId: user.id })}::jsonb
+        )
+      `,
+    ]);
+  } catch {
+    return { error: "The calendar could not be archived." };
+  }
+
+  return selectFallbackCalendar(user.id, calendarId.data);
+}
+
+export async function restoreCalendar(formData: FormData) {
+  const user = await requireAccount();
+  if (!user) redirect("/auth/sign-in");
+
+  const calendarId = z.string().uuid().safeParse(formData.get("calendarId"));
+  if (!calendarId.success) redirect("/onboarding");
+
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE calendars calendar
+    SET archived_at = NULL, updated_at = now()
+    FROM calendar_memberships membership
+    WHERE calendar.id = ${calendarId.data}
+      AND membership.calendar_id = calendar.id
+      AND membership.user_id = ${user.id}
+      AND membership.permission = 'owner'
+      AND calendar.archived_at IS NOT NULL
+    RETURNING calendar.id, calendar.calendar_type
+  `) as Array<{ id: string; calendar_type: CalendarTemplateId }>;
+
+  const restored = rows[0];
+  if (!restored) redirect("/onboarding");
+
+  const cookieStore = await cookies();
+  cookieStore.set(
+    SELECTED_CALENDAR_COOKIE_NAME,
+    restored.id,
+    calendarCookieOptions(),
+  );
+  redirect(calendarPathForType(restored.calendar_type));
+}
+
+export async function deleteCalendar(
+  _previous: CalendarLifecycleState,
+  formData: FormData,
+): Promise<CalendarLifecycleState> {
+  const user = await requireAccount();
+  if (!user) return { error: "Log in again to continue." };
+
+  const parsed = z
+    .object({
+      calendarId: z.string().uuid(),
+      calendarName: z.string().trim().min(1),
+    })
+    .safeParse({
+      calendarId: formData.get("calendarId"),
+      calendarName: formData.get("calendarName"),
+    });
+
+  if (!parsed.success) {
+    return { error: "Type the calendar name to confirm deletion." };
+  }
+
+  const sql = getSql();
+  const owned = (await sql`
+    SELECT calendar.id, calendar.name
+    FROM calendars calendar
+    JOIN calendar_memberships membership ON membership.calendar_id = calendar.id
+    WHERE calendar.id = ${parsed.data.calendarId}
+      AND membership.user_id = ${user.id}
+      AND membership.permission = 'owner'
+    LIMIT 1
+  `) as Array<{ id: string; name: string }>;
+
+  const calendar = owned[0];
+  if (!calendar) {
+    return { error: "Only the calendar owner can delete this calendar." };
+  }
+  if (parsed.data.calendarName !== calendar.name) {
+    return { error: "The calendar name does not match." };
+  }
+
+  const fallback = await nextActiveCalendar(user.id, calendar.id);
+
+  try {
+    await sql`
+      DELETE FROM calendars
+      WHERE id = ${calendar.id}
+    `;
+  } catch {
+    return {
+      error:
+        "The calendar could not be deleted. Archive it instead and try again later.",
+    };
+  }
+
+  const cookieStore = await cookies();
+  if (!fallback) {
+    cookieStore.delete(SELECTED_CALENDAR_COOKIE_NAME);
+    redirect("/onboarding");
+  }
+
+  cookieStore.set(
+    SELECTED_CALENDAR_COOKIE_NAME,
+    fallback.id,
+    calendarCookieOptions(),
+  );
+  redirect(calendarPathForType(fallback.calendar_type));
 }
