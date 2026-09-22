@@ -483,15 +483,16 @@ test("Calendar and compact workspace controls follow the final brand consistency
   assert.match(calendar, /eventCategoryBarClass/);
   assert.match(day, /eventCategorySurfaceClass/);
   assert.match(events, /eventCategorySurfaceClass/);
-  assert.match(categories, /school[\s\S]*#DDD3FA/);
-  assert.match(categories, /sport[\s\S]*#BFEDE6/);
-  assert.match(categories, /medical[\s\S]*#FFD0CB/);
-  assert.match(categories, /birthday[\s\S]*#F7DC86/);
-  assert.match(categories, /holiday[\s\S]*#C3DCF7/);
-  assert.match(categories, /activity[\s\S]*#D7F2EC/);
-  assert.match(categories, /handover[\s\S]*#19A897/);
+  assert.match(categories, /school[\s\S]*#765ED6/);
+  assert.match(categories, /sport[\s\S]*#19A897/);
+  assert.match(categories, /medical[\s\S]*#FF6B5F/);
+  assert.match(categories, /birthday[\s\S]*#F4C64E/);
+  assert.match(categories, /holiday[\s\S]*#3B73AE/);
+  assert.match(categories, /activity[\s\S]*#0D7A6D/);
+  assert.match(categories, /handover[\s\S]*#243139/);
   assert.doesNotMatch(categories, /birthday" \|\| category === "holiday"/);
   assert.doesNotMatch(categories, /sport" \|\| category === "activity"/);
+  assert.doesNotMatch(categories, /bg-\[#(?:DDD3FA|BFEDE6|FFD0CB|F7DC86|C3DCF7|D7F2EC|F4F1FF|EAF8F5|FFF3F1|FFF9DF|EEF5FC|F0FBF8)\]/);
 
   assert.match(calendar, /CovieStatusBadge/);
   assert.match(calendar, /CovieNotice/);
