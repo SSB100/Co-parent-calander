@@ -16,6 +16,7 @@ import {
   type CalendarActionState,
 } from "@/app/calendar/actions";
 import { CalendarTypeChoiceGrid } from "@/components/calendars/calendar-type-choice-grid";
+import { CalendarLifecycleControls } from "@/components/calendars/calendar-lifecycle-controls";
 import {
   calendarTemplateManifests,
   type CalendarTemplateId,
@@ -50,10 +51,12 @@ function calendarNamePlaceholder(type: CalendarTemplateId) {
 
 export function CalendarSwitcher({
   calendars,
+  archivedCalendars = [],
   currentCalendarId,
   defaultName,
 }: {
   calendars: CalendarOption[];
+  archivedCalendars?: CalendarOption[];
   currentCalendarId: string;
   defaultName: string;
 }) {
@@ -280,6 +283,11 @@ export function CalendarSwitcher({
             </button>
           </form>
         </details>
+
+        <CalendarLifecycleControls
+          current={current}
+          archivedCalendars={archivedCalendars}
+        />
       </div>
     </details>
   );
