@@ -1443,7 +1443,7 @@ export async function getRosterWeek(input: {
     currentMemberId: current.id,
     currentAccessRole: current.accessRole,
     canManageRoster: capabilities.createShifts,
-    setup,
+    setup: capabilities.createShifts ? setup : null,
     publication: {
       status: publicationStatus as "draft" | "published" | "changes_pending",
       revision: publication?.revision ?? 0,
@@ -1454,8 +1454,8 @@ export async function getRosterWeek(input: {
         : 0,
     },
     members,
-    roles,
-    locations,
+    roles: capabilities.createShifts ? roles : [],
+    locations: capabilities.createShifts ? locations : [],
     leave: leaveRows.map((leave) => ({
       ...leave,
       startTime: leave.startTime?.slice(0, 5) ?? null,
