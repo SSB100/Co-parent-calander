@@ -11,7 +11,6 @@ import {
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 import {
   CalendarSwitcher,
   type CalendarOption,
@@ -32,6 +31,8 @@ import {
   type TemplateIconKey,
 } from "@/lib/templates/calendar-templates";
 
+export type TemplateSection = "calendar" | "updates" | "organiser";
+
 const organiserIconByKey = {
   people: UsersRound,
   calendar: CalendarDays,
@@ -42,8 +43,6 @@ const organiserIconByKey = {
 const calendarViewByType: Record<
   Exclude<CalendarTemplateId, "co_parenting">,
   {
-    title: string;
-    context: string;
     emptyTitle: string;
     emptyDescription: string;
     icon: LucideIcon;
@@ -51,24 +50,18 @@ const calendarViewByType: Record<
   }
 > = {
   staff_rosters: {
-    title: "Roster",
-    context: "Shifts and availability for your team.",
     emptyTitle: "No shifts yet",
     emptyDescription: "Shifts will appear here when the roster is built.",
     icon: BriefcaseBusiness,
     iconClassName: "text-[#19A897]",
   },
   shared_facilities: {
-    title: "Bookings",
-    context: "Resource availability and bookings.",
     emptyTitle: "No bookings yet",
     emptyDescription: "Bookings will appear here when a resource is reserved.",
     icon: Building2,
     iconClassName: "text-[#765ED6]",
   },
   social_groups: {
-    title: "Events",
-    context: "Group events and attendance.",
     emptyTitle: "No events yet",
     emptyDescription: "Events will appear here when the group starts planning.",
     icon: CalendarHeart,
@@ -115,15 +108,17 @@ export function TemplateShell({
   calendars,
   currentCalendarId,
   defaultName,
+  section,
+  activeToolKey,
 }: {
   slug: AdditionalCalendarTemplateSlug;
   calendars: CalendarOption[];
   currentCalendarId: string;
   defaultName: string;
+  section: TemplateSection;
+  activeToolKey?: string;
 }) {
   const template = getCalendarTemplateBySlug(slug);
-  const [activeSection, setActiveSection] = useState("calendar");
-
   const currentPath = `/calendar-types/${slug}`;
   const organiserItems: readonly TemplateOrganiserNavItem[] =
     template.organiserTools.map((tool) => ({
@@ -133,41 +128,27 @@ export function TemplateShell({
       icon: organiserIconByKey[tool.icon],
     }));
 
-  useEffect(() => {
-    function syncSection() {
-      const hash = window.location.hash.replace(/^#/, "");
-      setActiveSection(hash || "calendar");
-    }
-
-    syncSection();
-    window.addEventListener("hashchange", syncSection);
-    return () => window.removeEventListener("hashchange", syncSection);
-  }, []);
-
   const calendarView =
     calendarViewByType[
       template.id as Exclude<CalendarTemplateId, "co_parenting">
     ];
+  const activeTool = organiserItems.find((item) => item.key === activeToolKey);
 
-  const activeTool = organiserItems.find(
-    (item) => item.key === activeSection,
-  );
-
-  let title = calendarView.title;
-  let context = calendarView.context;
+  let title = "";
+  let context = "";
   let emptyTitle = calendarView.emptyTitle;
   let emptyDescription = calendarView.emptyDescription;
   let EmptyIcon = calendarView.icon;
   let emptyIconClassName = calendarView.iconClassName;
 
-  if (activeSection === "updates") {
+  if (section === "updates") {
     title = "Updates";
     context = "Changes to this calendar will appear here.";
     emptyTitle = "No updates yet";
     emptyDescription = "There are no calendar changes to show.";
     EmptyIcon = Bell;
     emptyIconClassName = "text-[#765ED6]";
-  } else if (activeTool) {
+  } else if (section === "organiser" && activeTool) {
     const copy = organiserEmptyCopy[activeTool.key] ?? {
       title: `No ${activeTool.label.toLowerCase()} yet`,
       description: `${activeTool.label} for this calendar will appear here.`,
@@ -185,13 +166,15 @@ export function TemplateShell({
       <TemplateWorkspaceNav
         basePath={currentPath}
         organiserItems={organiserItems}
+        activeSection={section}
+        activeToolKey={activeToolKey}
       />
 
       <CoviePage
         width="wide"
         className="pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6"
       >
-        <div className="mb-3">
+        <div className={section === "calendar" ? "mb-5" : "mb-3"}>
           <CalendarSwitcher
             calendars={calendars}
             currentCalendarId={currentCalendarId}
@@ -199,13 +182,15 @@ export function TemplateShell({
           />
         </div>
 
-        <CoviePageHeader
-          accent={template.accentPair[0]}
-          title={title}
-          context={context}
-        />
+        {section === "calendar" ? null : (
+          <CoviePageHeader
+            accent={template.accentPair[0]}
+            title={title}
+            context={context}
+          />
+        )}
 
-        <section className="mt-6">
+        <section className={section === "calendar" ? "mt-3" : "mt-6"}>
           <CovieEmptyState
             icon={<EmptyIcon className={emptyIconClassName} aria-hidden="true" />}
             title={emptyTitle}
