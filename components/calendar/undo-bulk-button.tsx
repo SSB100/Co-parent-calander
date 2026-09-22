@@ -1,8 +1,9 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import { LoaderCircle, Undo2, X } from "lucide-react";
+import { LoaderCircle, Undo2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { CovieDialog } from "@/components/ui/covie";
 
 type UndoStatus =
   | { available: false }
@@ -155,40 +156,49 @@ export function UndoBulkButton({ onChanged }: { onChanged?: () => void }) {
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#243139]/35 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <section
-            ref={dialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="undo-title"
-            aria-describedby="undo-description"
-            aria-busy={loading || undoing}
-            tabIndex={-1}
-            className="w-full max-w-md rounded-t-3xl border-2 border-[#243139] bg-white p-5 shadow-[7px_7px_0_#F4C64E] sm:rounded-3xl sm:p-6"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                  <Undo2 className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <h2 id="undo-title" className="text-xl font-semibold text-slate-900">
-                  Undo last bulk change
-                </h2>
-                <p id="undo-description" className="mt-1 text-sm leading-6 text-slate-500">
-                  Undo is only available when the most recent schedule change was a bulk or date-range assignment.
-                </p>
-              </div>
+        <CovieDialog
+          id="undo-title"
+          title="Undo last bulk change"
+          description="Undo is only available when the most recent schedule change was a bulk or date-range assignment."
+          icon={<Undo2 aria-hidden="true" />}
+          iconTone="sunshine"
+          size="sm"
+          busy={loading || undoing}
+          onClose={() => setOpen(false)}
+          dialogRef={dialogRef}
+          closeButtonRef={closeButtonRef}
+          describedBy="undo-description"
+          footer={
+            <>
               <button
-                ref={closeButtonRef}
                 type="button"
-                aria-label="Close undo panel"
                 disabled={loading || undoing}
                 onClick={() => setOpen(false)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="covie-dialog-secondary"
               >
-                <X className="h-5 w-5" aria-hidden="true" />
+                Close
               </button>
-            </div>
+              {status?.available ? (
+                <button
+                  type="button"
+                  disabled={undoing}
+                  onClick={() => void undoLatest()}
+                  className="covie-dialog-primary"
+                >
+                  {undoing ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Undo2 className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  Undo bulk change
+                </button>
+              ) : null}
+            </>
+          }
+        >
+          <span id="undo-description" className="sr-only">
+            Undo is only available when the most recent schedule change was a bulk or date-range assignment.
+          </span>
 
             {loading ? (
               <div
@@ -232,23 +242,7 @@ export function UndoBulkButton({ onChanged }: { onChanged?: () => void }) {
               </p>
             ) : null}
 
-            {status?.available ? (
-              <button
-                type="button"
-                disabled={undoing}
-                onClick={() => void undoLatest()}
-                className="covie-action-sunshine mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm disabled:opacity-50"
-              >
-                {undoing ? (
-                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <Undo2 className="h-4 w-4" aria-hidden="true" />
-                )}
-                Undo this bulk change
-              </button>
-            ) : null}
-          </section>
-        </div>
+        </CovieDialog>
       ) : null}
     </>
   );
