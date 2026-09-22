@@ -1066,43 +1066,96 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     payload: { kind: "member"; memberId: string } | { kind: "shift"; shiftId: string },
   ) {
     const serialized = JSON.stringify(payload);
-    event.dataTransfer.effectAllowed = payload.kind === "member" ? "copy" : "move";
+    event.dataTransfer.effectAllowed =
+      payload.kind === "member" ? "copy" : "move";
     event.dataTransfer.setData(DND_TYPE, serialized);
     event.dataTransfer.setData("text/plain", serialized);
+    setDraggingPayload(payload);
+  }
+
+  function clearDragState() {
+    setDraggingPayload(null);
+    setDropPreview(null);
+  }
+
+  function minuteAtTimelinePointer(
+    event: DragEvent<HTMLDivElement>,
+  ) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const minutesPerPixel = 60 / hourHeight;
+    const rawMinutes =
+      visibleStartMinute +
+      (event.clientY - bounds.top) * minutesPerPixel;
+
+    return Math.max(
+      visibleStartMinute,
+      Math.min(
+        visibleEndMinute - SNAP_MINUTES,
+        snapMinutes(rawMinutes),
+      ),
+    );
+  }
+
+  function handleTimelineDragOver(
+    event: DragEvent<HTMLDivElement>,
+    date: string,
+  ) {
+    if (!data?.canManageRoster || busy || !draggingPayload) return;
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect =
+      draggingPayload.kind === "member" ? "copy" : "move";
+
+    const minute = minuteAtTimelinePointer(event);
+    setDropPreview((current) =>
+      current?.date === date && current.minute === minute
+        ? current
+        : { date, minute },
+    );
   }
 
   function handleTimelineDrop(event: DragEvent<HTMLDivElement>, date: string) {
     event.preventDefault();
-    if (!data?.canManageRoster || busy) return;
+    if (!data?.canManageRoster || busy) {
+      clearDragState();
+      return;
+    }
 
     const raw =
       event.dataTransfer.getData(DND_TYPE) ||
       event.dataTransfer.getData("text/plain");
-    if (!raw) return;
 
-    let payload:
-      | { kind: "member"; memberId: string }
-      | { kind: "shift"; shiftId: string };
-    try {
-      payload = JSON.parse(raw) as typeof payload;
-    } catch {
+    let payload = draggingPayload;
+    if (raw) {
+      try {
+        payload = JSON.parse(raw) as
+          | { kind: "member"; memberId: string }
+          | { kind: "shift"; shiftId: string };
+      } catch {
+        // Use the in-memory drag payload as a browser-safe fallback.
+      }
+    }
+
+    if (!payload) {
+      clearDragState();
       return;
     }
 
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const minutesPerPixel = 60 / HOUR_HEIGHT;
-    const rawMinutes =
-      DAY_START_MINUTE + (event.clientY - bounds.top) * minutesPerPixel;
-    const startMinute = Math.max(
-      DAY_START_MINUTE,
-      Math.min(DAY_END_MINUTE - SNAP_MINUTES, snapMinutes(rawMinutes)),
-    );
+    const startMinute = minuteAtTimelinePointer(event);
+    clearDragState();
 
     if (payload.kind === "member") {
-      const endMinute = Math.min(
+      const latestEnd = Math.min(
+        visibleEndMinute,
         23 * 60 + 45,
-        startMinute + DEFAULT_SHIFT_MINUTES,
       );
+      const endMinute = Math.min(
+        latestEnd,
+        startMinute + DROP_SHIFT_MINUTES,
+      );
+
+      if (endMinute <= startMinute) return;
+
       void createShiftFromDrop(
         payload.memberId,
         date,
@@ -1114,12 +1167,18 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
 
     const shift = data.shifts.find((item) => item.id === payload.shiftId);
     if (!shift) return;
+
     const duration = shiftDuration(shift);
+    const latestEnd = Math.min(
+      visibleEndMinute,
+      23 * 60 + 45,
+    );
     const latestStart = Math.max(
-      DAY_START_MINUTE,
-      23 * 60 + 45 - duration,
+      visibleStartMinute,
+      latestEnd - duration,
     );
     const adjustedStart = Math.min(startMinute, latestStart);
+
     void moveShift(
       shift,
       date,
@@ -1148,19 +1207,19 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
 
     const onMove = (moveEvent: PointerEvent) => {
       const deltaMinutes = snapMinutes(
-        (moveEvent.clientY - originY) * (60 / HOUR_HEIGHT),
+        (moveEvent.clientY - originY) * (60 / hourHeight),
       );
 
       if (edge === "start") {
         finalStart = Math.max(
-          DAY_START_MINUTE,
+          visibleStartMinute,
           Math.min(originEnd - SNAP_MINUTES, originStart + deltaMinutes),
         );
         finalEnd = originEnd;
       } else {
         finalStart = originStart;
         finalEnd = Math.min(
-          23 * 60 + 45,
+          Math.min(visibleEndMinute, 23 * 60 + 45),
           Math.max(originStart + SNAP_MINUTES, originEnd + deltaMinutes),
         );
       }
