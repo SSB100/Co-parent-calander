@@ -1317,16 +1317,18 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     availableTimelineHeight / visibleDurationHours,
   );
   const timelineHeight = visibleDurationHours * hourHeight;
-  const firstHour = Math.floor(visibleStartMinute / 60);
-  const lastHour = Math.ceil(visibleEndMinute / 60);
-  const hourMarks = Array.from(
-    { length: lastHour - firstHour + 1 },
-    (_, index) => firstHour + index,
-  ).filter(
-    (hour) =>
-      hour * 60 >= visibleStartMinute &&
-      hour * 60 <= visibleEndMinute,
-  );
+  const firstHour = Math.ceil(visibleStartMinute / 60);
+  const lastHour = Math.floor(visibleEndMinute / 60);
+  const hourMarks = [
+    ...new Set([
+      visibleStartMinute,
+      ...Array.from(
+        { length: Math.max(0, lastHour - firstHour + 1) },
+        (_, index) => (firstHour + index) * 60,
+      ),
+      visibleEndMinute,
+    ]),
+  ].sort((a, b) => a - b);
   const operationalHoursLabel =
     visibleStartMinute === DAY_START_MINUTE &&
     visibleEndMinute === DAY_END_MINUTE
@@ -1806,21 +1808,19 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                       style={{ height: timelineHeight }}
                     >
                       <div className="relative bg-[#FFF9F2]">
-                        {hourMarks.map((hour) => (
+                        {hourMarks.map((minute) => (
                           <span
-                            key={hour}
+                            key={minute}
                             className="absolute right-2 -translate-y-1/2 text-[10px] font-bold text-[#8B7D70]"
                             style={{
                               top:
-                                ((hour * 60 - visibleStartMinute) / 60) *
+                                ((minute - visibleStartMinute) / 60) *
                                 hourHeight,
                             }}
                           >
-                            {hour === 24
+                            {minute === DAY_END_MINUTE
                               ? ""
-                              : compactTime(
-                                  String(hour).padStart(2, "0") + ":00",
-                                )}
+                              : compactMinuteLabel(minute)}
                           </span>
                         ))}
                       </div>
@@ -1859,9 +1859,9 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                             }}
                             onDrop={(event) => handleTimelineDrop(event, day)}
                           >
-                            {hourMarks.map((hour) => (
+                            {hourMarks.map((minute) => (
                               <span
-                                key={hour}
+                                key={minute}
                                 className="pointer-events-none absolute inset-x-0 border-t border-[#EFE8E0]"
                                 style={{
                                   top:
