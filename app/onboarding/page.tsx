@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { OnboardingShell } from "@/components/onboarding/onboarding-shell";
 import { auth } from "@/lib/auth/server";
-import { getSql } from "@/lib/db";
 import { normalizeInviteCode } from "@/lib/security/invites";
+import {
+  listArchivedCalendarNavigationOptions,
+  listCalendarNavigationOptions,
+} from "@/lib/calendars/navigation";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Get started" };
@@ -18,18 +21,12 @@ export default async function OnboardingPage({
 
   const params = await searchParams;
   const inviteCode = params.invite ? normalizeInviteCode(params.invite) : "";
-  const sql = getSql();
-  const memberships = (await sql`
-    SELECT membership.calendar_id
-    FROM calendar_memberships membership
-    JOIN calendars calendar ON calendar.id = membership.calendar_id
-    WHERE membership.user_id = ${session.user.id}
-      AND calendar.archived_at IS NULL
-    ORDER BY membership.created_at ASC
-    LIMIT 1
-  `) as Array<{ calendar_id: string }>;
+  const [activeCalendars, archivedCalendars] = await Promise.all([
+    listCalendarNavigationOptions(session.user.id),
+    listArchivedCalendarNavigationOptions(session.user.id),
+  ]);
 
-  if (memberships.length > 0 && !inviteCode) {
+  if (activeCalendars.length > 0 && !inviteCode) {
     redirect("/calendar");
   }
 
@@ -37,7 +34,8 @@ export default async function OnboardingPage({
     <OnboardingShell
       defaultName={session.user.name}
       initialInviteCode={inviteCode}
-      hasExistingCalendar={memberships.length > 0}
+      hasExistingCalendar={activeCalendars.length > 0}
+      archivedCalendars={archivedCalendars}
     />
   );
 }
