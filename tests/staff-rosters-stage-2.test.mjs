@@ -129,7 +129,8 @@ test("archived calendars are excluded from onboarding and active switching", asy
     source("lib/calendars/navigation.ts"),
   ]);
 
-  assert.match(onboarding, /calendar\.archived_at IS NULL/);
+  assert.match(onboarding, /listCalendarNavigationOptions/);
+  assert.match(onboarding, /listArchivedCalendarNavigationOptions/);
   assert.match(openAction, /calendar\.archived_at IS NULL/);
   assert.match(navigation, /isNull\(calendars\.archivedAt\)/);
 });
