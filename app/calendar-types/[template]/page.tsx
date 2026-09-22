@@ -1,20 +1,12 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
 import { TemplateShell } from "@/components/templates/template-shell";
-import { listCalendarNavigationOptions } from "@/lib/calendars/navigation";
-import { getCalendarSession } from "@/lib/security/session";
+import { loadTemplatePage } from "@/lib/templates/load-template-page";
 import {
-  additionalCalendarTemplateSlugs,
-  calendarPathForType,
   getCalendarTemplateBySlug,
   isAdditionalCalendarTemplateSlug,
 } from "@/lib/templates/calendar-templates";
 
 export const dynamic = "force-dynamic";
-
-export function generateStaticParams() {
-  return additionalCalendarTemplateSlugs.map((template) => ({ template }));
-}
 
 export async function generateMetadata({
   params,
@@ -23,36 +15,27 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { template } = await params;
   if (!isAdditionalCalendarTemplateSlug(template)) {
-    return { title: "Calendar type" };
+    return { title: "Calendar" };
   }
 
   return { title: getCalendarTemplateBySlug(template).name };
 }
 
-export default async function CalendarTypeShellPage({
+export default async function CalendarTypePage({
   params,
 }: {
   params: Promise<{ template: string }>;
 }) {
   const { template } = await params;
-  if (!isAdditionalCalendarTemplateSlug(template)) notFound();
-
-  const session = await getCalendarSession();
-  if (!session) redirect("/onboarding");
-
-  const manifest = getCalendarTemplateBySlug(template);
-  if (session.calendarType !== manifest.id) {
-    redirect(calendarPathForType(session.calendarType));
-  }
-
-  const calendars = await listCalendarNavigationOptions(session.userId);
+  const { slug, session, calendars } = await loadTemplatePage(template);
 
   return (
     <TemplateShell
-      slug={template}
+      slug={slug}
       calendars={calendars}
       currentCalendarId={session.calendarId}
       defaultName={session.userName}
+      activeSection="calendar"
     />
   );
 }
