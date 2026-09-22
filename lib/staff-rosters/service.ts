@@ -330,6 +330,7 @@ export async function createTeamMember(input: {
   session: StaffSession;
   displayName: string;
   accessRole: "manager" | "staff";
+  roleIds: string[];
   defaultRoleId: string | null;
   defaultLocationId: string | null;
 }) {
@@ -348,17 +349,28 @@ export async function createTeamMember(input: {
     );
   }
 
-  await assertReferenceBelongsToCalendar({
-    calendarId: input.session.calendarId,
-    roleId: input.defaultRoleId,
-    locationId: input.defaultLocationId,
-  });
+  const roleIds = normalizedMemberRoleIds(
+    input.roleIds,
+    input.defaultRoleId,
+  );
+  const defaultRoleId =
+    input.defaultRoleId && roleIds.includes(input.defaultRoleId)
+      ? input.defaultRoleId
+      : (roleIds[0] ?? null);
+
+  await Promise.all([
+    assertStaffRolesBelongToCalendar(input.session.calendarId, roleIds),
+    assertReferenceBelongsToCalendar({
+      calendarId: input.session.calendarId,
+      locationId: input.defaultLocationId,
+    }),
+  ]);
 
   const id = randomUUID();
   const sql = getSql();
 
   try {
-    await sql.transaction([
+    const statements = [
       sql`
         INSERT INTO staff_roster_members (
           id, calendar_id, display_name, access_role,
@@ -367,9 +379,19 @@ export async function createTeamMember(input: {
         VALUES (
           ${id}, ${input.session.calendarId}, ${input.displayName},
           ${input.accessRole}::staff_roster_access_role,
-          ${input.defaultRoleId}, ${input.defaultLocationId}, true
+          ${defaultRoleId}, ${input.defaultLocationId}, true
         )
       `,
+      ...roleIds.map(
+        (roleId) => sql`
+          INSERT INTO staff_roster_member_roles (
+            calendar_id, member_id, role_id
+          )
+          VALUES (
+            ${input.session.calendarId}, ${id}, ${roleId}
+          )
+        `,
+      ),
       sql`
         INSERT INTO audit_log (
           calendar_id, actor_participant_id, action,
@@ -381,11 +403,15 @@ export async function createTeamMember(input: {
           ${JSON.stringify({
             displayName: input.displayName,
             accessRole: input.accessRole,
+            roleIds,
+            defaultRoleId,
             actorStaffMemberId: actor.id,
           })}::jsonb
         )
       `,
-    ]);
+    ];
+
+    await sql.transaction(statements);
   } catch {
     throw new StaffRosterServiceError(
       409,
