@@ -7,6 +7,10 @@ import {
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
+import {
+  CalendarSwitcher,
+  type CalendarOption,
+} from "@/components/calendars/calendar-switcher";
 import { useState, type FormEvent } from "react";
 import {
   CovieButton,
@@ -319,8 +323,14 @@ function ScheduleSurface({ templateId }: { templateId: CalendarTemplateId }) {
 
 export function TemplateShell({
   slug,
+  calendars,
+  currentCalendarId,
+  defaultName,
 }: {
   slug: AdditionalCalendarTemplateSlug;
+  calendars: CalendarOption[];
+  currentCalendarId: string;
+  defaultName: string;
 }) {
   const template = getCalendarTemplateBySlug(slug);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -355,6 +365,13 @@ export function TemplateShell({
       >
         <CoviePageHeader
           accent={template.accentPair[0]}
+          leading={
+            <CalendarSwitcher
+              calendars={calendars}
+              currentCalendarId={currentCalendarId}
+              defaultName={defaultName}
+            />
+          }
           title={template.name}
           context={template.coreQuestion}
           actions={
