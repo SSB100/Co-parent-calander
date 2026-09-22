@@ -196,22 +196,22 @@ export function TemplateShell({
         width="wide"
         className="pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6"
       >
-        <div
-          className={
-            section === "calendar"
-              ? compactStaffRosterCalendar
-                ? "mb-2"
-                : "mb-5"
-              : "mb-3"
-          }
-        >
-          <CalendarSwitcher
-            calendars={calendars}
-            archivedCalendars={archivedCalendars}
-            currentCalendarId={currentCalendarId}
-            defaultName={defaultName}
-          />
-        </div>
+        {compactStaffRosterCalendar ? null : (
+          <div
+            className={
+              section === "calendar"
+                ? "mb-5"
+                : "mb-3"
+            }
+          >
+            <CalendarSwitcher
+              calendars={calendars}
+              archivedCalendars={archivedCalendars}
+              currentCalendarId={currentCalendarId}
+              defaultName={defaultName}
+            />
+          </div>
+        )}
 
         {section === "calendar" ? null : (
           <CoviePageHeader
@@ -231,7 +231,20 @@ export function TemplateShell({
           }
         >
           {template.id === "staff_rosters" && section === "calendar" ? (
-            staffMode ? <StaffMyRosterPage /> : <StaffRosterCalendarPage />
+            staffMode ? (
+              <StaffMyRosterPage />
+            ) : (
+              <StaffRosterCalendarPage
+                header={
+                  <CalendarSwitcher
+                    calendars={calendars}
+                    archivedCalendars={archivedCalendars}
+                    currentCalendarId={currentCalendarId}
+                    defaultName={defaultName}
+                  />
+                }
+              />
+            )
           ) : template.id === "staff_rosters" && section === "updates" ? (
             <StaffRosterUpdatesPage />
           ) : template.id === "staff_rosters" &&
