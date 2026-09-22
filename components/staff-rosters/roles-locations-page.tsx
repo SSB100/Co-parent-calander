@@ -157,7 +157,7 @@ export function StaffRosterRolesLocationsPage() {
           description={emptyDescription}
           action={
             data?.canManage ? (
-              <CovieButton tone="teal" onClick={() => setDialogKind(kind)}>
+              <CovieButton onClick={() => setDialogKind(kind)}>
                 Add {kind}
               </CovieButton>
             ) : undefined
@@ -217,7 +217,7 @@ export function StaffRosterRolesLocationsPage() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-lg font-extrabold text-[#243139]">Roles</h2>
               {data.canManage && activeRoles.length > 0 ? (
-                <CovieButton tone="teal" onClick={() => setDialogKind("role")}>
+                <CovieButton onClick={() => setDialogKind("role")}>
                   <Plus className="h-4 w-4" aria-hidden="true" />
                   Add role
                 </CovieButton>
@@ -236,7 +236,7 @@ export function StaffRosterRolesLocationsPage() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-lg font-extrabold text-[#243139]">Locations</h2>
               {data.canManage && activeLocations.length > 0 ? (
-                <CovieButton tone="teal" onClick={() => setDialogKind("location")}>
+                <CovieButton onClick={() => setDialogKind("location")}>
                   <Plus className="h-4 w-4" aria-hidden="true" />
                   Add location
                 </CovieButton>
