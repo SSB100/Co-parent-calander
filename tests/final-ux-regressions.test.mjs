@@ -158,19 +158,24 @@ test("Calendar fills the viewport and adjacent month days remain interactive", a
   assert.match(styles, /overflow: hidden/);
 });
 
-test("Calendar day tiles use parent names and semantic full-width event strips", async () => {
+test("Calendar day tiles centre the date, place custody below it, and stack up to three events", async () => {
   const [shell, categories] = await Promise.all([
     source("components/calendar/calendar-shell.tsx"),
     source("components/calendar/event-category-icon.tsx"),
   ]);
 
   assert.match(shell, /parentTileName/);
-  assert.match(shell, /inset-x-1 top-1/);
-  assert.match(shell, /right-1 top-1\/2/);
+  assert.match(shell, /left-1\/2 top-1/);
+  assert.match(shell, /top-8/);
+  assert.doesNotMatch(shell, /right-1 top-1\/2/);
+  assert.match(shell, /function TileEventStack/);
+  assert.match(shell, /events\.slice\(0, 3\)/);
+  assert.match(shell, /hiddenCount/);
   assert.match(shell, /inset-x-0 bottom-0/);
   assert.match(shell, /eventCategoryBarClass/);
   assert.match(categories, /eventCategoryBarClass/);
   assert.match(shell, /title: "Handover"/);
+  assert.doesNotMatch(shell, /\+\{tileEvents\.length - 1\}/);
   assert.doesNotMatch(shell, /shortOwnerLabel\(assignment\.morning\).*→.*shortOwnerLabel\(assignment\.afternoon\)/);
 });
 
@@ -246,7 +251,7 @@ test("Calendar removes the redundant next handover summary row", async () => {
   assert.doesNotMatch(shell, /nextHandoverOwner|nextHandoverWhen/);
 });
 
-test("day details put events before custody and expose approval-aware event deletion", async () => {
+test("day details put events before custody and delete events immediately", async () => {
   const panel = await source("components/calendar/day-details-panel.tsx");
 
   const eventsIndex = panel.indexOf("Shared plans recorded for this day");
@@ -256,7 +261,8 @@ test("day details put events before custody and expose approval-aware event dele
   assert.ok(eventsIndex < custodyIndex);
   assert.match(panel, /Delete event/);
   assert.match(panel, /method: "DELETE"/);
-  assert.match(panel, /Event cancellation sent to/);
+  assert.match(panel, /Event removed/);
+  assert.doesNotMatch(panel, /Event cancellation sent to/);
   assert.match(panel, /all of its repeated occurrences/);
   assert.match(panel, /onEventChanged/);
 });

@@ -220,6 +220,47 @@ function aggregateAssignments(data: CalendarPayload): AssignmentMap {
 
 function eventIcon(category: string) { return <EventCategoryIcon category={category} />; }
 
+type TileEvent = {
+  title: string;
+  category: string;
+};
+
+function TileEventStack({ events }: { events: TileEvent[] }) {
+  const visibleEvents = events.slice(0, 3);
+  const hiddenCount = Math.max(0, events.length - visibleEvents.length);
+
+  if (visibleEvents.length === 0) return null;
+
+  return (
+    <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-px">
+      {visibleEvents.map((event, index) => (
+        <div
+          key={`${event.category}-${event.title}-${index}`}
+          className={`flex h-[18px] min-w-0 items-center gap-1 overflow-hidden px-1 text-[9px] font-bold sm:h-6 sm:px-2 sm:text-[11px] ${eventCategoryBarClass(event.category ?? "other")}`}
+        >
+          {event.category !== "handover" ? (
+            <span className="hidden shrink-0 sm:inline-flex" aria-hidden="true">
+              {eventIcon(event.category ?? "other")}
+            </span>
+          ) : null}
+          <span className="min-w-0 flex-1 truncate">{event.title}</span>
+          {index === visibleEvents.length - 1 && hiddenCount > 0 ? (
+            <span className="shrink-0">+{hiddenCount}</span>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function tileMarkerBottomClass(eventCount: number) {
+  const visibleCount = Math.min(eventCount, 3);
+  if (visibleCount === 3) return "bottom-[58px] sm:bottom-[76px]";
+  if (visibleCount === 2) return "bottom-[39px] sm:bottom-[51px]";
+  if (visibleCount === 1) return "bottom-[20px] sm:bottom-[27px]";
+  return "bottom-1 sm:bottom-2";
+}
+
 type SwipeDirection = "previous" | "next";
 type SwipePreview = {
   direction: SwipeDirection;
@@ -370,26 +411,9 @@ function SwipeMonthPreview({
               ) : null}
             </span>
 
-            {assignment ? (
-              fullDayOwner ? (
-                <div className="absolute inset-x-1 top-1 z-10 truncate text-center text-[11px] font-bold leading-none text-slate-800">
-                  {previewOwnerName(participants, fullDayOwner)}
-                </div>
-              ) : (
-                <>
-                  <div className="absolute left-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[11px] font-bold leading-none text-slate-800">
-                    {previewOwnerName(participants, assignment.morning)}
-                  </div>
-                  <div className="absolute right-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[11px] font-bold leading-none text-slate-800">
-                    {previewOwnerName(participants, assignment.afternoon)}
-                  </div>
-                </>
-              )
-            ) : null}
-
             <span
               className={
-                "absolute right-1 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white text-xs font-bold sm:right-2 sm:h-7 sm:w-7 sm:text-sm " +
+                "absolute left-1/2 top-1 z-10 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full bg-white text-xs font-bold sm:h-7 sm:w-7 sm:text-sm " +
                 (dayIsToday
                   ? "ring-2 ring-slate-900 text-slate-950"
                   : inMonth
@@ -400,19 +424,24 @@ function SwipeMonthPreview({
               {format(day, "d")}
             </span>
 
-            {tileEvents.length > 0 ? (
-              <div className={`absolute inset-x-0 bottom-0 z-20 flex h-6 items-center gap-1 truncate px-1.5 text-[11px] font-bold sm:h-7 sm:px-2 ${eventCategoryBarClass(tileEvents[0]?.category ?? "other")}`}>
-                {tileEvents[0]?.category !== "handover" ? (
-                  <span aria-hidden="true">
-                    {eventIcon(tileEvents[0]?.category ?? "other")}
-                  </span>
-                ) : null}
-                <span className="truncate">{tileEvents[0]?.title}</span>
-                {tileEvents.length > 1 ? (
-                  <span className="ml-auto shrink-0">+{tileEvents.length - 1}</span>
-                ) : null}
-              </div>
+            {assignment ? (
+              fullDayOwner ? (
+                <div className="absolute inset-x-1 top-8 z-10 truncate text-center text-[10px] font-bold leading-none text-slate-800 sm:text-[11px]">
+                  {previewOwnerName(participants, fullDayOwner)}
+                </div>
+              ) : (
+                <>
+                  <div className="absolute left-0 top-8 z-10 w-1/2 truncate px-0.5 text-center text-[10px] font-bold leading-none text-slate-800 sm:text-[11px]">
+                    {previewOwnerName(participants, assignment.morning)}
+                  </div>
+                  <div className="absolute right-0 top-8 z-10 w-1/2 truncate px-0.5 text-center text-[10px] font-bold leading-none text-slate-800 sm:text-[11px]">
+                    {previewOwnerName(participants, assignment.afternoon)}
+                  </div>
+                </>
+              )
             ) : null}
+
+            <TileEventStack events={tileEvents} />
           </div>
         );
       })}
@@ -1235,47 +1264,39 @@ export function CalendarShell({
                     {assignment?.morning !== assignment?.afternoon ? <span className="absolute inset-y-0 left-1/2 border-l border-white/80" /> : null}
                   </span>
 
+                  <span
+                    className={`absolute left-1/2 top-1 z-10 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full bg-white text-xs font-bold sm:h-7 sm:w-7 sm:text-sm ${isToday ? "ring-2 ring-slate-900 text-slate-950" : inMonth ? "text-slate-700" : "text-slate-500"}`}
+                  >
+                    {format(day, "d")}
+                  </span>
+
                   {assignment ? (
                     fullDayOwner ? (
-                      <div className="pointer-events-none absolute inset-x-1 top-1 z-10 truncate text-center text-[11px] font-bold leading-none text-slate-800" title={parentTileName(fullDayOwner)}>
+                      <div className="pointer-events-none absolute inset-x-1 top-8 z-10 truncate text-center text-[10px] font-bold leading-none text-slate-800 sm:text-[11px]" title={parentTileName(fullDayOwner)}>
                         {parentTileName(fullDayOwner)}
                       </div>
                     ) : (
                       <>
-                        <div className="pointer-events-none absolute left-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[11px] font-bold leading-none text-slate-800" title={parentTileName(assignment.morning)}>
+                        <div className="pointer-events-none absolute left-0 top-8 z-10 w-1/2 truncate px-0.5 text-center text-[10px] font-bold leading-none text-slate-800 sm:text-[11px]" title={parentTileName(assignment.morning)}>
                           {parentTileName(assignment.morning)}
                         </div>
-                        <div className="pointer-events-none absolute right-0 top-1 z-10 w-1/2 truncate px-0.5 text-center text-[11px] font-bold leading-none text-slate-800" title={parentTileName(assignment.afternoon)}>
+                        <div className="pointer-events-none absolute right-0 top-8 z-10 w-1/2 truncate px-0.5 text-center text-[10px] font-bold leading-none text-slate-800 sm:text-[11px]" title={parentTileName(assignment.afternoon)}>
                           {parentTileName(assignment.afternoon)}
                         </div>
                       </>
                     )
                   ) : null}
 
-                  <span
-                    className={`absolute right-1 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white text-xs font-bold sm:right-2 sm:h-7 sm:w-7 sm:text-sm ${isToday ? "ring-2 ring-slate-900 text-slate-950" : inMonth ? "text-slate-700" : "text-slate-500"}`}
-                  >
-                    {format(day, "d")}
-                  </span>
-
                   {selected ? <span className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full border border-[#243139] bg-[#FF6B5F] px-1.5 py-0.5 text-[11px] font-bold text-[#243139]" aria-hidden="true">✓</span> : null}
 
-                  {tileEvents.length > 0 ? (
-                    <div className={`absolute inset-x-0 bottom-0 z-20 flex h-6 items-center gap-1 truncate px-1.5 text-[11px] font-bold sm:h-7 sm:px-2 ${eventCategoryBarClass(tileEvents[0]?.category ?? "other")}`}>
-                      {tileEvents[0]?.category !== "handover" ? (
-                        <span aria-hidden="true">{eventIcon(tileEvents[0]?.category ?? "other")}</span>
-                      ) : null}
-                      <span className="truncate">{tileEvents[0]?.title}</span>
-                      {tileEvents.length > 1 ? <span className="ml-auto shrink-0">+{tileEvents.length - 1}</span> : null}
-                    </div>
-                  ) : null}
+                  <TileEventStack events={tileEvents} />
 
                   {(marker?.note ||
                     dayPending.length > 0 ||
                     responsibilityMarker?.count ||
                     responsibilityMarker?.pendingCount ||
                     expenseMarker?.count) ? (
-                    <div className={`absolute right-1 z-10 flex items-center gap-1 rounded-full bg-white px-1 text-slate-500 ${tileEvents.length ? "bottom-6 sm:bottom-8" : "bottom-1 sm:bottom-2"}`}>
+                    <div className={`absolute right-1 z-10 flex items-center gap-1 rounded-full bg-white px-1 text-slate-500 ${tileMarkerBottomClass(tileEvents.length)}`}>
                       {dayPending.length > 0 ? (
                         <Hourglass
                           className="h-3.5 w-3.5 text-amber-600"
