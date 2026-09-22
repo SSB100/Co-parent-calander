@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Bell,
   BriefcaseBusiness,
@@ -11,7 +9,6 @@ import {
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 import {
   CalendarSwitcher,
   type CalendarOption,
@@ -115,15 +112,15 @@ export function TemplateShell({
   calendars,
   currentCalendarId,
   defaultName,
+  activeSection = "calendar",
 }: {
   slug: AdditionalCalendarTemplateSlug;
   calendars: CalendarOption[];
   currentCalendarId: string;
   defaultName: string;
+  activeSection?: string;
 }) {
   const template = getCalendarTemplateBySlug(slug);
-  const [activeSection, setActiveSection] = useState("calendar");
-
   const currentPath = `/calendar-types/${slug}`;
   const organiserItems: readonly TemplateOrganiserNavItem[] =
     template.organiserTools.map((tool) => ({
@@ -132,17 +129,6 @@ export function TemplateShell({
       description: tool.description,
       icon: organiserIconByKey[tool.icon],
     }));
-
-  useEffect(() => {
-    function syncSection() {
-      const hash = window.location.hash.replace(/^#/, "");
-      setActiveSection(hash || "calendar");
-    }
-
-    syncSection();
-    window.addEventListener("hashchange", syncSection);
-    return () => window.removeEventListener("hashchange", syncSection);
-  }, []);
 
   const calendarView =
     calendarViewByType[
@@ -185,6 +171,7 @@ export function TemplateShell({
       <TemplateWorkspaceNav
         basePath={currentPath}
         organiserItems={organiserItems}
+        activeSection={activeSection}
       />
 
       <CoviePage
