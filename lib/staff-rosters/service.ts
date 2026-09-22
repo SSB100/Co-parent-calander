@@ -392,7 +392,7 @@ export async function updateTeamMember(input: {
 
   const sql = getSql();
   try {
-    await sql.transaction([
+    const statements = [
       sql`
         UPDATE staff_roster_members
         SET
@@ -405,32 +405,56 @@ export async function updateTeamMember(input: {
         WHERE id = ${input.memberId}
           AND calendar_id = ${input.session.calendarId}
       `,
-      sql`
-        INSERT INTO audit_log (
-          calendar_id, actor_participant_id, action,
-          entity_type, entity_id, before_state, after_state
-        )
-        VALUES (
-          ${input.session.calendarId}, NULL, 'staff_roster.member.update',
-          'staff_roster_member', ${input.memberId},
-          ${JSON.stringify({
-            displayName: target.displayName,
-            accessRole: target.accessRole,
-            defaultRoleId: target.defaultRoleId,
-            defaultLocationId: target.defaultLocationId,
-            active: target.active,
-          })}::jsonb,
-          ${JSON.stringify({
-            displayName: input.displayName,
-            accessRole: input.accessRole,
-            defaultRoleId: input.defaultRoleId,
-            defaultLocationId: input.defaultLocationId,
-            active: input.active,
-            actorStaffMemberId: actor.id,
-          })}::jsonb
-        )
-      `,
-    ]);
+    ];
+
+    if (!input.active) {
+      statements.push(sql`
+        UPDATE staff_roster_invites
+        SET revoked_at = now()
+        WHERE calendar_id = ${input.session.calendarId}
+          AND member_id = ${input.memberId}
+          AND redeemed_at IS NULL
+          AND revoked_at IS NULL
+      `);
+
+      if (target.membershipId) {
+        statements.push(sql`
+          DELETE FROM calendar_memberships
+          WHERE id = ${target.membershipId}
+            AND calendar_id = ${input.session.calendarId}
+            AND permission <> 'owner'
+        `);
+      }
+    }
+
+    statements.push(sql`
+      INSERT INTO audit_log (
+        calendar_id, actor_participant_id, action,
+        entity_type, entity_id, before_state, after_state
+      )
+      VALUES (
+        ${input.session.calendarId}, NULL, 'staff_roster.member.update',
+        'staff_roster_member', ${input.memberId},
+        ${JSON.stringify({
+          displayName: target.displayName,
+          accessRole: target.accessRole,
+          defaultRoleId: target.defaultRoleId,
+          defaultLocationId: target.defaultLocationId,
+          active: target.active,
+        })}::jsonb,
+        ${JSON.stringify({
+          displayName: input.displayName,
+          accessRole: input.accessRole,
+          defaultRoleId: input.defaultRoleId,
+          defaultLocationId: input.defaultLocationId,
+          active: input.active,
+          accountAccessRevoked: !input.active && Boolean(target.membershipId),
+          actorStaffMemberId: actor.id,
+        })}::jsonb
+      )
+    `);
+
+    await sql.transaction(statements);
   } catch {
     throw new StaffRosterServiceError(
       409,
