@@ -22,6 +22,12 @@ test("all calendars support archive restore and permanent deletion through Covie
   assert.match(actions, /export async function restoreCalendar/);
   assert.match(actions, /export async function deleteCalendar/);
   assert.match(actions, /membership\.permission = 'owner'/);
+  assert.match(actions, /DELETE FROM parenting_schedules/);
+  assert.match(actions, /DELETE FROM parenting_assignments/);
+  assert.match(actions, /DELETE FROM responsibilities/);
+  assert.match(actions, /DELETE FROM expenses/);
+  assert.match(actions, /DELETE FROM expense_recurring_series/);
+  assert.match(actions, /DELETE FROM staff_roster_shifts/);
   assert.match(actions, /DELETE FROM calendars/);
   assert.match(actions, /calendar\.archived_at IS NULL/);
   assert.match(actions, /calendarName !== calendar\.name/);
