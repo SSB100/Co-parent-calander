@@ -9,6 +9,7 @@ import {
   getCalendarTemplateBySlug,
   isAdditionalCalendarTemplateSlug,
 } from "@/lib/templates/calendar-templates";
+import { ensureStaffRosterMember } from "@/lib/staff-rosters/service";
 import {
   TemplateShell,
   type TemplateSection,
@@ -41,6 +42,12 @@ export async function TemplateRoute({
     notFound();
   }
 
+  let staffAccessRole: "owner" | "manager" | "staff" | null = null;
+  if (manifest.id === "staff_rosters") {
+    const staffMember = await ensureStaffRosterMember(session);
+    staffAccessRole = staffMember.accessRole;
+  }
+
   const [calendars, archivedCalendars] = await Promise.all([
     listCalendarNavigationOptions(session.userId),
     listArchivedCalendarNavigationOptions(session.userId),
@@ -55,6 +62,7 @@ export async function TemplateRoute({
       defaultName={session.userName}
       section={section}
       activeToolKey={activeToolKey}
+      staffAccessRole={staffAccessRole}
     />
   );
 }
