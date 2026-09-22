@@ -81,9 +81,14 @@ export const staffAvailabilitySchema = z
     }
   });
 
-export const staffAvailabilityRangeSchema = z.object({
-  from: z.iso.date().optional(),
-  to: z.iso.date().optional(),
-});
+export const staffAvailabilityRangeSchema = z
+  .object({
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+  })
+  .refine(
+    (value) => !value.from || !value.to || value.to >= value.from,
+    "Availability range end must be on or after the start.",
+  );
 
 export const staffAvailabilityIdSchema = z.string().uuid();
