@@ -51,14 +51,21 @@ test("Staff Rosters access roles are separate from job roles", async () => {
 });
 
 test("Staff Rosters managers can manage structure while staff availability is ownership bounded", async () => {
-  const service = await source("lib/staff-rosters/service.ts");
+  const [service, capabilities] = await Promise.all([
+    source("lib/staff-rosters/service.ts"),
+    source("lib/staff-rosters/capabilities.ts"),
+  ]);
 
-  assert.match(service, /function canManageTeam/);
-  assert.match(service, /role === "owner" || role === "manager"/);
-  assert.match(service, /function canManageStructure/);
-  assert.match(service, /function canManageAllAvailability/);
+  assert.match(capabilities, /accessRole === "owner" \|\| input\.accessRole === "manager"/);
+  assert.match(capabilities, /manageTeam: canWrite && isManager/);
+  assert.match(capabilities, /manageManagers: canWrite && input\.accessRole === "owner"/);
+  assert.match(capabilities, /manageStructure: canWrite && isManager/);
+  assert.match(capabilities, /manageAllAvailability: canWrite && isManager/);
+  assert.match(capabilities, /editOwnAvailability: canWrite/);
+
+  assert.match(service, /staffRosterCapabilities/);
   assert.match(service, /You can only change your own availability/);
-  assert.match(service, /session.calendarType !== "staff_rosters"/);
+  assert.match(service, /session\.calendarType !== "staff_rosters"/);
 });
 
 test("Staff Rosters APIs use current selected calendar session and same-origin mutation protection", async () => {
