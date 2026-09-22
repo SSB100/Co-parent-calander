@@ -29,6 +29,7 @@ import { StaffRosterAvailabilityPage } from "@/components/staff-rosters/availabi
 import { StaffRosterRolesLocationsPage } from "@/components/staff-rosters/roles-locations-page";
 import { StaffRosterCalendarPage } from "@/components/staff-rosters/roster-calendar-page";
 import { StaffMyRosterPage } from "@/components/staff-rosters/my-roster-page";
+import { StaffRosterTimesheetsPage } from "@/components/staff-rosters/timesheets-page";
 import {
   getCalendarTemplateBySlug,
   type AdditionalCalendarTemplateSlug,
@@ -89,6 +90,10 @@ const organiserEmptyCopy: Record<
   "roles-locations": {
     title: "No roles or locations yet",
     description: "Roster roles and work locations will appear here.",
+  },
+  timesheets: {
+    title: "No timesheets yet",
+    description: "Clocked work and timesheet exceptions will appear here.",
   },
   resources: {
     title: "No resources yet",
@@ -218,6 +223,10 @@ export function TemplateShell({
             section === "organiser" &&
             activeToolKey === "roles-locations" ? (
             <StaffRosterRolesLocationsPage />
+          ) : template.id === "staff_rosters" &&
+            section === "organiser" &&
+            activeToolKey === "timesheets" ? (
+            <StaffRosterTimesheetsPage />
           ) : (
             <CovieEmptyState
               icon={
