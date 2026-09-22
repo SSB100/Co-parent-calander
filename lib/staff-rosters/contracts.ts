@@ -1,0 +1,89 @@
+import { z } from "zod";
+
+export const staffAccessRoleSchema = z.enum(["owner", "manager", "staff"]);
+
+const optionalUuid = z
+  .union([z.string().uuid(), z.literal(""), z.null()])
+  .transform((value) => (value ? value : null));
+
+export const createStaffMemberSchema = z.object({
+  displayName: z.string().trim().min(1, "Add the staff member's name.").max(80),
+  accessRole: z.enum(["manager", "staff"]).default("staff"),
+  defaultRoleId: optionalUuid.optional().default(null),
+  defaultLocationId: optionalUuid.optional().default(null),
+});
+
+export const updateStaffMemberSchema = z.object({
+  memberId: z.string().uuid(),
+  displayName: z.string().trim().min(1).max(80),
+  accessRole: z.enum(["manager", "staff"]),
+  defaultRoleId: optionalUuid.optional().default(null),
+  defaultLocationId: optionalUuid.optional().default(null),
+  active: z.boolean().default(true),
+});
+
+export const staffStructureKindSchema = z.enum(["role", "location"]);
+
+export const createStaffStructureSchema = z.object({
+  kind: staffStructureKindSchema,
+  name: z.string().trim().min(1, "Add a name.").max(100),
+});
+
+export const archiveStaffStructureSchema = z.object({
+  kind: staffStructureKindSchema,
+  id: z.string().uuid(),
+});
+
+const timeValue = z
+  .string()
+  .trim()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a valid time.")
+  .nullable();
+
+export const staffAvailabilitySchema = z
+  .object({
+    memberId: z.string().uuid(),
+    date: z.iso.date(),
+    status: z.enum(["available", "unavailable"]),
+    startTime: z
+      .union([timeValue, z.literal("")])
+      .transform((value) => (value ? value : null)),
+    endTime: z
+      .union([timeValue, z.literal("")])
+      .transform((value) => (value ? value : null)),
+    note: z
+      .string()
+      .trim()
+      .max(240, "Keep the note under 240 characters.")
+      .transform((value) => value || null)
+      .optional()
+      .default(null),
+  })
+  .superRefine((value, context) => {
+    const hasStart = Boolean(value.startTime);
+    const hasEnd = Boolean(value.endTime);
+
+    if (hasStart !== hasEnd) {
+      context.addIssue({
+        code: "custom",
+        path: [hasStart ? "endTime" : "startTime"],
+        message: "Add both a start and end time, or leave both blank for all day.",
+      });
+      return;
+    }
+
+    if (value.startTime && value.endTime && value.endTime <= value.startTime) {
+      context.addIssue({
+        code: "custom",
+        path: ["endTime"],
+        message: "End time must be after start time.",
+      });
+    }
+  });
+
+export const staffAvailabilityRangeSchema = z.object({
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+});
+
+export const staffAvailabilityIdSchema = z.string().uuid();
