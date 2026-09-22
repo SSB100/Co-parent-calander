@@ -9,6 +9,7 @@ const optionalUuid = z
 export const createStaffMemberSchema = z.object({
   displayName: z.string().trim().min(1, "Add the staff member's name.").max(80),
   accessRole: z.enum(["manager", "staff"]).default("staff"),
+  roleIds: z.array(z.string().uuid()).max(20).optional().default([]),
   defaultRoleId: optionalUuid.optional().default(null),
   defaultLocationId: optionalUuid.optional().default(null),
 });
@@ -17,6 +18,7 @@ export const updateStaffMemberSchema = z.object({
   memberId: z.string().uuid(),
   displayName: z.string().trim().min(1).max(80),
   accessRole: z.enum(["manager", "staff"]),
+  roleIds: z.array(z.string().uuid()).max(20).optional().default([]),
   defaultRoleId: optionalUuid.optional().default(null),
   defaultLocationId: optionalUuid.optional().default(null),
   active: z.boolean().default(true),
