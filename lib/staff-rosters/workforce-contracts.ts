@@ -26,6 +26,19 @@ export const staffTimesheetCorrectionReviewSchema = z.object({
   decision: z.enum(["approved", "declined"]),
 });
 
+export const staffTimesheetManagerCorrectionSchema = z.object({
+  clockSessionId: z.string().uuid(),
+  clockInAt: z.iso.datetime({ offset: true }),
+  clockOutAt: z.iso.datetime({ offset: true }),
+  reason: z
+    .string()
+    .trim()
+    .max(500, "Keep the correction note under 500 characters.")
+    .transform((value) => value || null)
+    .optional()
+    .default(null),
+});
+
 const optionalTime = z
   .union([
     z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a valid time."),
