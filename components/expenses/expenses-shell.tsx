@@ -18,7 +18,7 @@ import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
-import { CovieDialog, CoviePage, CoviePageHeader } from "@/components/ui/covie";
+import { CovieConfirmDialog, CovieDialog, CoviePage, CoviePageHeader } from "@/components/ui/covie";
 import { RecordFocus } from "@/components/workspace/record-focus";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
@@ -263,6 +263,7 @@ export function ExpensesShell({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paymentAmounts, setPaymentAmounts] = useState<Record<string, string>>({});
+  const [expenseToRemove, setExpenseToRemove] = useState<Expense | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -510,6 +511,7 @@ export function ExpensesShell({
       if (!response.ok) throw new Error(body?.error ?? "The shared cost could not be saved.");
 
       setFormOpen(false);
+      setExpenseToRemove(null);
       setMessage(
         body?.pending
           ? body.approverName
@@ -529,7 +531,6 @@ export function ExpensesShell({
 
   async function deleteExpense(expense: Expense) {
     if (!editable || busy) return;
-    if (!window.confirm(`Remove “${expense.title}” from shared costs?`)) return;
 
     setBusy(true);
     setError(null);
@@ -977,7 +978,7 @@ export function ExpensesShell({
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() => void deleteExpense(expense)}
+                        onClick={() => setExpenseToRemove(expense)}
                         className="inline-flex min-h-10 items-center gap-2 rounded-xl border-2 border-[#FFB5AE] bg-[#FFF3F1] px-3 text-xs font-bold text-[#A73E36] hover:bg-[#FFE6E2] disabled:opacity-50"
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Remove
@@ -990,6 +991,26 @@ export function ExpensesShell({
           </div>
         )}
       </section>
+
+      <CovieConfirmDialog
+        open={Boolean(expenseToRemove)}
+        id="remove-shared-cost-title"
+        title="Remove shared cost?"
+        description={
+          expenseToRemove
+            ? <>Remove “{expenseToRemove.title}” from shared costs?</>
+            : "Remove this shared cost?"
+        }
+        confirmLabel="Remove shared cost"
+        busy={busy}
+        icon={<Trash2 aria-hidden="true" />}
+        onCancel={() => {
+          if (!busy) setExpenseToRemove(null);
+        }}
+        onConfirm={() => {
+          if (expenseToRemove) void deleteExpense(expenseToRemove);
+        }}
+      />
 
       {formOpen ? (
         <CovieDialog
