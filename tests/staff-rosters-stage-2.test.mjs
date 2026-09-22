@@ -97,6 +97,10 @@ test("Staff Rosters calendar is a calendar-first weekly roster builder", async (
   assert.match(roster, /Copy previous week/);
   assert.match(roster, /inactive staff/);
   assert.match(roster, /outdated role\/location details/);
+  assert.match(roster, /All staff/);
+  assert.match(roster, /All roles/);
+  assert.match(roster, /All locations/);
+  assert.match(roster, /member\.roleIds\.includes\(roleFilter\)/);
   assert.match(roster, /Publish roster/);
   assert.match(roster, /Send updates/);
   assert.match(roster, /Changes pending/);
@@ -141,9 +145,31 @@ test("shift service blocks overlaps and requires explicit unavailability overrid
 
   assert.match(contracts, /Shift end time must be after the start time/);
   assert.match(contracts, /copyStaffRosterWeekSchema/);
+  assert.match(contracts, /roleIds: z\.array/);
   assert.match(contracts, /overrideAvailabilityConflict/);
   assert.match(schema, /staffRosterShifts/);
+  assert.match(schema, /staffRosterMemberRoles/);
   assert.match(schema, /staff_roster_shifts_time_valid/);
+});
+
+
+test("Staff team records support multiple reusable roles with one usual role", async () => {
+  const [service, team, schema] = await Promise.all([
+    source("lib/staff-rosters/service.ts"),
+    source("components/staff-rosters/team-page.tsx"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  assert.match(service, /normalizedMemberRoleIds/);
+  assert.match(service, /assertStaffRolesBelongToCalendar/);
+  assert.match(service, /INSERT INTO staff_roster_member_roles/);
+  assert.match(service, /DELETE FROM staff_roster_member_roles/);
+  assert.match(service, /roleNames/);
+  assert.match(team, /roleIds: string\[\]/);
+  assert.match(team, /toggleRole/);
+  assert.match(team, /Usual role for new shifts/);
+  assert.match(team, /member\.roleNames\.join/);
+  assert.match(schema, /staffRosterMemberRoles/);
 });
 
 
