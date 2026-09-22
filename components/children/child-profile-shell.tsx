@@ -18,7 +18,7 @@ import Link from "next/link";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { ProfilePhoto } from "@/components/attachments/profile-photo";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
-import { CovieDialog, CoviePage, CoviePageHeader } from "@/components/ui/covie";
+import { CovieConfirmDialog, CovieDialog, CoviePage, CoviePageHeader } from "@/components/ui/covie";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -255,6 +255,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
   const [activityOpen, setActivityOpen] = useState(false);
   const [activityForm, setActivityForm] = useState<ActivityForm>(blankActivity);
   const [busy, setBusy] = useState(false);
+  const [activityToRemove, setActivityToRemove] = useState<ChildActivity | null>(null);
 
   const refresh = useCallback(async () => {
     const response = await fetch(`/api/children/${childId}`, { cache: "no-store" });
@@ -386,7 +387,6 @@ export function ChildProfileShell({ childId }: { childId: string }) {
 
   async function removeActivity(activity: ChildActivity) {
     if (!editable || busy) return;
-    if (!window.confirm(`Remove “${activity.activityName}” from this child profile?`)) return;
 
     setBusy(true);
     setError(null);
@@ -399,6 +399,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
       });
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) throw new Error(body?.error ?? "The activity could not be removed.");
+      setActivityToRemove(null);
       setMessage("Activity removed.");
       await refresh();
     } catch (caught) {
@@ -710,7 +711,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
                           <button
                             type="button"
                             disabled={busy}
-                            onClick={() => void removeActivity(item)}
+                            onClick={() => setActivityToRemove(item)}
                             aria-label={`Remove ${item.activityName}`}
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50"
                           >
@@ -789,6 +790,26 @@ export function ChildProfileShell({ childId }: { childId: string }) {
           </div>
         </details>
       </section>
+
+      <CovieConfirmDialog
+        open={Boolean(activityToRemove)}
+        id="remove-child-activity-title"
+        title="Remove activity?"
+        description={
+          activityToRemove
+            ? <>Remove “{activityToRemove.activityName}” from this child profile?</>
+            : "Remove this activity?"
+        }
+        confirmLabel="Remove activity"
+        busy={busy}
+        icon={<Trash2 aria-hidden="true" />}
+        onCancel={() => {
+          if (!busy) setActivityToRemove(null);
+        }}
+        onConfirm={() => {
+          if (activityToRemove) void removeActivity(activityToRemove);
+        }}
+      />
 
       {profileOpen && profileForm ? (
         <CovieDialog
