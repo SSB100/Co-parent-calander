@@ -390,6 +390,52 @@ export async function updateTeamMember(input: {
     locationId: input.defaultLocationId,
   });
 
+  if (!input.active) {
+    const today = localDateInTimeZone(input.session.calendarTimezone);
+    const [liveUpcoming, publishedUpcoming] = await Promise.all([
+      db
+        .select({ id: staffRosterShifts.id })
+        .from(staffRosterShifts)
+        .where(
+          and(
+            eq(staffRosterShifts.calendarId, input.session.calendarId),
+            eq(staffRosterShifts.memberId, input.memberId),
+            drizzleSql`${staffRosterShifts.shiftDate} >= ${today}`,
+          ),
+        )
+        .limit(1),
+      db
+        .select({ id: staffRosterPublishedShifts.id })
+        .from(staffRosterPublishedShifts)
+        .innerJoin(
+          staffRosterWeekPublications,
+          eq(
+            staffRosterPublishedShifts.publicationId,
+            staffRosterWeekPublications.id,
+          ),
+        )
+        .where(
+          and(
+            eq(
+              staffRosterWeekPublications.calendarId,
+              input.session.calendarId,
+            ),
+            eq(staffRosterPublishedShifts.memberId, input.memberId),
+            drizzleSql`${staffRosterPublishedShifts.shiftDate} >= ${today}`,
+          ),
+        )
+        .limit(1),
+    ]);
+
+    if (liveUpcoming[0] || publishedUpcoming[0]) {
+      throw new StaffRosterServiceError(
+        409,
+        "Remove or reassign this person’s upcoming shifts and send any pending roster updates before archiving them.",
+        "upcoming_shifts",
+      );
+    }
+  }
+
   const sql = getSql();
   try {
     const statements = [
