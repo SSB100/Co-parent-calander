@@ -1817,6 +1817,7 @@ export async function copyPreviousRosterWeek(input: {
   let copied = 0;
   let overlapSkipped = 0;
   let availabilitySkipped = 0;
+  let leaveSkipped = 0;
 
   for (const shift of sourceShifts) {
     const targetDate = format(
@@ -1847,6 +1848,14 @@ export async function copyPreviousRosterWeek(input: {
       }
       if (
         error instanceof StaffRosterServiceError &&
+        (error.code === "pending_leave_conflict" ||
+          error.code === "approved_leave_conflict")
+      ) {
+        leaveSkipped += 1;
+        continue;
+      }
+      if (
+        error instanceof StaffRosterServiceError &&
         error.code === "shift_overlap"
       ) {
         overlapSkipped += 1;
@@ -1856,13 +1865,14 @@ export async function copyPreviousRosterWeek(input: {
     }
   }
 
-  const skipped = overlapSkipped + availabilitySkipped;
+  const skipped = overlapSkipped + availabilitySkipped + leaveSkipped;
   return {
     ok: true as const,
     copied,
     skipped,
     overlapSkipped,
     availabilitySkipped,
+    leaveSkipped,
     sourceWeekStart,
     targetWeekStart: input.targetWeekStart,
   };
