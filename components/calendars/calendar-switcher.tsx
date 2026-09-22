@@ -284,10 +284,12 @@ export function CalendarSwitcher({
           </form>
         </details>
 
-        <CalendarLifecycleControls
-          current={current}
-          archivedCalendars={archivedCalendars}
-        />
+        {current ? (
+          <CalendarLifecycleControls
+            current={current}
+            archivedCalendars={archivedCalendars}
+          />
+        ) : null}
       </div>
     </details>
   );
