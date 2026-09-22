@@ -255,7 +255,7 @@ export async function getTeam(session: StaffSession) {
     )
     .orderBy(asc(staffRosterMembers.createdAt));
 
-  const [roles, locations] = await Promise.all([
+  const [roles, locations, memberRoleRows] = await Promise.all([
     db
       .select({ id: staffRosterRoles.id, name: staffRosterRoles.name })
       .from(staffRosterRoles)
@@ -276,18 +276,51 @@ export async function getTeam(session: StaffSession) {
         ),
       )
       .orderBy(asc(staffRosterLocations.name)),
+    db
+      .select({
+        memberId: staffRosterMemberRoles.memberId,
+        roleId: staffRosterMemberRoles.roleId,
+        roleName: staffRosterRoles.name,
+      })
+      .from(staffRosterMemberRoles)
+      .innerJoin(
+        staffRosterRoles,
+        eq(staffRosterMemberRoles.roleId, staffRosterRoles.id),
+      )
+      .where(
+        and(
+          eq(staffRosterMemberRoles.calendarId, session.calendarId),
+          eq(staffRosterRoles.active, true),
+        ),
+      )
+      .orderBy(asc(staffRosterRoles.name)),
   ]);
+
+  const rolesByMember = new Map<
+    string,
+    Array<{ id: string; name: string }>
+  >();
+  for (const row of memberRoleRows) {
+    const assigned = rolesByMember.get(row.memberId) ?? [];
+    assigned.push({ id: row.roleId, name: row.roleName });
+    rolesByMember.set(row.memberId, assigned);
+  }
 
   return {
     currentMemberId: current.id,
     currentAccessRole: current.accessRole,
     canManageTeam: capabilities.manageTeam,
     canManageManagers: capabilities.manageManagers,
-    members: members.map((member) => ({
-      ...member,
-      hasAccount: Boolean(member.membershipId),
-      isCurrentUser: member.id === current.id,
-    })),
+    members: members.map((member) => {
+      const assignedRoles = rolesByMember.get(member.id) ?? [];
+      return {
+        ...member,
+        roleIds: assignedRoles.map((role) => role.id),
+        roleNames: assignedRoles.map((role) => role.name),
+        hasAccount: Boolean(member.membershipId),
+        isCurrentUser: member.id === current.id,
+      };
+    }),
     roles,
     locations,
   };
