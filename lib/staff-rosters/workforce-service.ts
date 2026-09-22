@@ -644,6 +644,102 @@ export async function reviewTimesheetCorrection(input: {
   return { ok: true as const };
 }
 
+export async function correctTimesheetSession(input: {
+  session: StaffSession;
+  clockSessionId: string;
+  clockInAt: string;
+  clockOutAt: string;
+  reason: string | null;
+}) {
+  const actor = await ensureStaffRosterMember(input.session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
+  if (!capabilities.reviewTimesheets) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
+  const rows = await getDb()
+    .select({
+      id: staffRosterClockSessions.id,
+      memberId: staffRosterClockSessions.memberId,
+      clockInAt: staffRosterClockSessions.clockInAt,
+      clockOutAt: staffRosterClockSessions.clockOutAt,
+    })
+    .from(staffRosterClockSessions)
+    .where(
+      and(
+        eq(staffRosterClockSessions.id, input.clockSessionId),
+        eq(staffRosterClockSessions.calendarId, input.session.calendarId),
+      ),
+    )
+    .limit(1);
+
+  const entry = rows[0];
+  if (!entry) {
+    throw new StaffRosterServiceError(404, "Timesheet entry not found.");
+  }
+
+  const correctedIn = new Date(input.clockInAt);
+  const correctedOut = new Date(input.clockOutAt);
+  if (correctedOut <= correctedIn) {
+    throw new StaffRosterServiceError(
+      400,
+      "The corrected finish time must be after the start time.",
+    );
+  }
+
+  const sql = getSql();
+  await sql.transaction([
+    sql`
+      UPDATE staff_roster_clock_sessions
+      SET clock_in_at = ${correctedIn},
+          clock_out_at = ${correctedOut},
+          corrected_at = now(),
+          corrected_by_membership_id = ${input.session.membershipId},
+          updated_at = now()
+      WHERE id = ${input.clockSessionId}
+        AND calendar_id = ${input.session.calendarId}
+    `,
+    sql`
+      UPDATE staff_roster_timesheet_corrections
+      SET status = 'cancelled',
+          reviewed_by_membership_id = ${input.session.membershipId},
+          reviewed_at = now(),
+          updated_at = now()
+      WHERE calendar_id = ${input.session.calendarId}
+        AND clock_session_id = ${input.clockSessionId}
+        AND status = 'pending'
+    `,
+    sql`
+      INSERT INTO audit_log (
+        calendar_id, actor_participant_id, action,
+        entity_type, entity_id, before_state, after_state
+      )
+      VALUES (
+        ${input.session.calendarId}, NULL,
+        'staff_roster.timesheet.manager_correct',
+        'staff_roster_clock_session', ${input.clockSessionId},
+        ${JSON.stringify({
+          memberId: entry.memberId,
+          clockInAt: entry.clockInAt,
+          clockOutAt: entry.clockOutAt,
+        })}::jsonb,
+        ${JSON.stringify({
+          memberId: entry.memberId,
+          clockInAt: input.clockInAt,
+          clockOutAt: input.clockOutAt,
+          reason: input.reason,
+          actorStaffMemberId: actor.id,
+        })}::jsonb
+      )
+    `,
+  ]);
+
+  return { ok: true as const };
+}
+
 export async function getLeaveRequests(input: {
   session: StaffSession;
   from: string;
