@@ -842,6 +842,11 @@ export async function archiveRoleOrLocation(input: {
             AND default_role_id = ${input.id}
         `,
         sql`
+          DELETE FROM staff_roster_member_roles
+          WHERE calendar_id = ${input.session.calendarId}
+            AND role_id = ${input.id}
+        `,
+        sql`
           UPDATE staff_roster_roles
           SET active = false, updated_at = now()
           WHERE id = ${input.id}
