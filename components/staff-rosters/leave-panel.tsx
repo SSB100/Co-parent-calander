@@ -237,7 +237,7 @@ export function StaffRosterLeavePanel() {
     data?.requests.filter((request) => request.status === "pending") ?? [];
 
   return (
-    <section className="mt-6 border-t-2 border-[#243139] pt-6">
+    <section className="mb-6">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#0D7A6D]">
