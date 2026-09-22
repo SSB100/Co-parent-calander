@@ -1329,6 +1329,61 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
 
   return (
     <>
+      {header ? (
+        <div className="mb-2 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0 shrink-0">{header}</div>
+          {data?.canManageRoster ? (
+            <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:ml-4 xl:max-w-[760px]">
+              <CovieSelect
+                aria-label="Filter roster by staff"
+                value={staffFilter}
+                onChange={(event) => setStaffFilter(event.target.value)}
+              >
+                <option value="">All staff</option>
+                {data.members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.displayName}
+                  </option>
+                ))}
+              </CovieSelect>
+              <CovieSelect
+                aria-label="Filter roster by role"
+                value={roleFilter}
+                onChange={(event) => setRoleFilter(event.target.value)}
+              >
+                <option value="">All roles</option>
+                {data.roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </CovieSelect>
+              <CovieSelect
+                aria-label="Filter roster by location"
+                value={locationFilter}
+                onChange={(event) => setLocationFilter(event.target.value)}
+              >
+                <option value="">All locations</option>
+                {data.locations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </CovieSelect>
+              <CovieButton
+                tone="neutral"
+                disabled={busy}
+                onClick={() => setOperationalHoursOpen(true)}
+                className="justify-center whitespace-nowrap"
+              >
+                <Clock3 className="h-4 w-4" aria-hidden="true" />
+                Hours: {operationalHoursLabel}
+              </CovieButton>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {error ? (
         <CovieNotice tone="danger" role="alert" className="mb-4">
           {error}
@@ -1423,47 +1478,6 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                 </div>
               ) : null}
             </div>
-
-            {data.canManageRoster ? (
-              <div className="mt-2 grid gap-2 border-t border-[#EFE5DA] pt-2 sm:grid-cols-3">
-                <CovieSelect
-                  aria-label="Filter roster by staff"
-                  value={staffFilter}
-                  onChange={(event) => setStaffFilter(event.target.value)}
-                >
-                  <option value="">All staff</option>
-                  {data.members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.displayName}
-                    </option>
-                  ))}
-                </CovieSelect>
-                <CovieSelect
-                  aria-label="Filter roster by role"
-                  value={roleFilter}
-                  onChange={(event) => setRoleFilter(event.target.value)}
-                >
-                  <option value="">All roles</option>
-                  {data.roles.map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {role.name}
-                    </option>
-                  ))}
-                </CovieSelect>
-                <CovieSelect
-                  aria-label="Filter roster by location"
-                  value={locationFilter}
-                  onChange={(event) => setLocationFilter(event.target.value)}
-                >
-                  <option value="">All locations</option>
-                  {data.locations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.name}
-                    </option>
-                  ))}
-                </CovieSelect>
-              </div>
-            ) : null}
 
             {view === "week" ? (
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[#EFE5DA] pt-2 text-xs font-bold text-[#66747A]">
