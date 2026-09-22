@@ -443,3 +443,42 @@ export const staffRosterLeaveRequests = pgTable(
   ],
 );
 
+export const staffRosterInvites = pgTable(
+  "staff_roster_invites",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    calendarId: uuid("calendar_id")
+      .notNull()
+      .references(() => calendars.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => staffRosterMembers.id, { onDelete: "cascade" }),
+    codeHash: varchar("code_hash", { length: 64 }).notNull(),
+    codeHint: varchar("code_hint", { length: 8 }).notNull(),
+    createdByMembershipId: uuid("created_by_membership_id").references(
+      () => calendarMemberships.id,
+      { onDelete: "set null" },
+    ),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    redeemedByMembershipId: uuid("redeemed_by_membership_id").references(
+      () => calendarMemberships.id,
+      { onDelete: "set null" },
+    ),
+    redeemedAt: timestamp("redeemed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("staff_roster_invites_code_hash_unique").on(table.codeHash),
+    index("staff_roster_invites_calendar_member_idx").on(
+      table.calendarId,
+      table.memberId,
+    ),
+    index("staff_roster_invites_calendar_active_idx").on(
+      table.calendarId,
+      table.revokedAt,
+      table.redeemedAt,
+    ),
+  ],
+);
+
