@@ -104,6 +104,7 @@ type RosterPayload = {
     publishedAt: string | null;
     lastSentAt: string | null;
     affectedMemberCount: number;
+    changedShiftCount: number;
   };
   members: Member[];
   roles: Option[];
@@ -339,6 +340,7 @@ export function StaffRosterCalendarPage() {
     text: string;
   } | null>(null);
   const [publicationNotice, setPublicationNotice] = useState<string | null>(null);
+  const [sendUpdatesConfirmOpen, setSendUpdatesConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Shift | null>(null);
   const [resizePreview, setResizePreview] = useState<{
     shiftId: string;
@@ -679,6 +681,7 @@ export function StaffRosterCalendarPage() {
   async function publishCurrentWeek() {
     if (busy || !data?.canManageRoster) return;
 
+    setSendUpdatesConfirmOpen(false);
     setBusy(true);
     setError(null);
     setPublicationNotice(null);
@@ -1063,7 +1066,11 @@ export function StaffRosterCalendarPage() {
                       {data.publication.status !== "published" ? (
                         <CovieButton
                           disabled={busy}
-                          onClick={() => void publishCurrentWeek()}
+                          onClick={() =>
+                            data.publication.status === "changes_pending"
+                              ? setSendUpdatesConfirmOpen(true)
+                              : void publishCurrentWeek()
+                          }
                         >
                           {data.publication.status === "draft"
                             ? "Publish roster"
@@ -1112,6 +1119,42 @@ export function StaffRosterCalendarPage() {
               </div>
             ) : null}
           </div>
+
+          {data.canManageRoster &&
+          data.setup &&
+          data.setup.memberCount <= 1 ? (
+            <div className="mb-4 rounded-2xl border-2 border-[#243139] bg-[#FFF9F2] p-4 shadow-[4px_4px_0_#BFEDE6]">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="max-w-2xl">
+                  <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#0D7A6D]">
+                    Start your roster
+                  </p>
+                  <h2 className="mt-1 font-[family-name:var(--font-fraunces)] text-xl font-bold text-[#243139]">
+                    Add your first staff member, then roster straight from the calendar.
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-[#526168]">
+                    Roles and locations are optional. Add them only if they make
+                    the weekly roster clearer.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href="/calendar-types/staff-rosters/organiser/team"
+                    className="inline-flex min-h-11 items-center rounded-[10px] bg-[#FF6B5F] px-4 text-sm font-extrabold text-[#243139]"
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                    Add staff
+                  </Link>
+                  <Link
+                    href="/calendar-types/staff-rosters/organiser/roles-locations"
+                    className="inline-flex min-h-11 items-center rounded-[10px] border border-[#E6DBCF] bg-white px-4 text-sm font-extrabold text-[#243139]"
+                  >
+                    Roles & locations
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {copyNotice ? (
             <CovieNotice tone={copyNotice.tone} className="mb-4">
@@ -1845,6 +1888,30 @@ export function StaffRosterCalendarPage() {
           ) : null}
         </CovieDialog>
       ) : null}
+
+      <CovieConfirmDialog
+        open={sendUpdatesConfirmOpen}
+        id="send-staff-roster-updates-title"
+        title="Send roster updates?"
+        description={
+          data
+            ? data.publication.changedShiftCount +
+              " shift" +
+              (data.publication.changedShiftCount === 1 ? "" : "s") +
+              " changed across " +
+              data.publication.affectedMemberCount +
+              " staff member" +
+              (data.publication.affectedMemberCount === 1 ? "" : "s") +
+              ". Staff will see the new published roster and these changes in Updates."
+            : ""
+        }
+        confirmLabel="Send updates"
+        destructive={false}
+        busy={busy}
+        icon={<CalendarDays aria-hidden="true" />}
+        onCancel={() => setSendUpdatesConfirmOpen(false)}
+        onConfirm={() => void publishCurrentWeek()}
+      />
 
       <CovieConfirmDialog
         open={Boolean(deleteTarget)}
