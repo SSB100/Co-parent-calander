@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { addDays, format, parseISO } from "date-fns";
+import { addDays, format, parseISO, subDays } from "date-fns";
 import { and, asc, eq, sql as drizzleSql } from "drizzle-orm";
 import { getDb, getSql } from "@/lib/db";
 import {
@@ -1242,6 +1242,105 @@ export async function getRosterWeek(input: {
       startTime: shift.startTime.slice(0, 5),
       endTime: shift.endTime.slice(0, 5),
     })),
+  };
+}
+
+export async function copyPreviousRosterWeek(input: {
+  session: StaffSession;
+  targetWeekStart: string;
+}) {
+  const actor = await ensureStaffRosterMember(input.session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
+  if (!capabilities.createShifts) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
+  const sourceWeekStart = format(
+    subDays(parseISO(input.targetWeekStart), 7),
+    "yyyy-MM-dd",
+  );
+  const sourceWeekEnd = format(
+    addDays(parseISO(sourceWeekStart), 6),
+    "yyyy-MM-dd",
+  );
+
+  const sourceShifts = await getDb()
+    .select({
+      memberId: staffRosterShifts.memberId,
+      roleId: staffRosterShifts.roleId,
+      locationId: staffRosterShifts.locationId,
+      date: staffRosterShifts.shiftDate,
+      startTime: staffRosterShifts.startTime,
+      endTime: staffRosterShifts.endTime,
+      note: staffRosterShifts.note,
+    })
+    .from(staffRosterShifts)
+    .where(
+      and(
+        eq(staffRosterShifts.calendarId, input.session.calendarId),
+        drizzleSql`${staffRosterShifts.shiftDate} >= ${sourceWeekStart}`,
+        drizzleSql`${staffRosterShifts.shiftDate} <= ${sourceWeekEnd}`,
+      ),
+    )
+    .orderBy(
+      asc(staffRosterShifts.shiftDate),
+      asc(staffRosterShifts.startTime),
+    );
+
+  let copied = 0;
+  let overlapSkipped = 0;
+  let availabilitySkipped = 0;
+
+  for (const shift of sourceShifts) {
+    const targetDate = format(
+      addDays(parseISO(shift.date), 7),
+      "yyyy-MM-dd",
+    );
+
+    try {
+      await createShift({
+        session: input.session,
+        memberId: shift.memberId,
+        date: targetDate,
+        startTime: shift.startTime.slice(0, 5),
+        endTime: shift.endTime.slice(0, 5),
+        roleId: shift.roleId,
+        locationId: shift.locationId,
+        note: shift.note,
+        overrideAvailabilityConflict: false,
+      });
+      copied += 1;
+    } catch (error) {
+      if (
+        error instanceof StaffRosterServiceError &&
+        error.code === "availability_conflict"
+      ) {
+        availabilitySkipped += 1;
+        continue;
+      }
+      if (
+        error instanceof StaffRosterServiceError &&
+        error.code === "shift_overlap"
+      ) {
+        overlapSkipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  const skipped = overlapSkipped + availabilitySkipped;
+  return {
+    ok: true as const,
+    copied,
+    skipped,
+    overlapSkipped,
+    availabilitySkipped,
+    sourceWeekStart,
+    targetWeekStart: input.targetWeekStart,
   };
 }
 
