@@ -169,15 +169,14 @@ test("Calendar day tiles centre the date, place custody below it, and stack up t
   assert.match(shell, /top-8/);
   assert.doesNotMatch(shell, /right-1 top-1\/2/);
   assert.match(shell, /function TileEventStack/);
-  assert.match(shell, /events\.find\(\(event\) => event\.category === "handover"\)/);
-  assert.match(shell, /regularEvents\.slice\(0, 2\)/);
-  assert.match(shell, /regularEvents\.slice\(0, 3\)/);
-  assert.match(shell, /\.\.\.regularEvents\.slice\(0, 2\), handover/);
+  assert.match(shell, /events\.slice\(0, 3\)/);
+  assert.doesNotMatch(shell, /category === "handover"/);
+  assert.doesNotMatch(shell, /title: "Handover"/);
   assert.match(shell, /hiddenCount/);
   assert.match(shell, /inset-x-0 bottom-0/);
   assert.match(shell, /eventCategoryBarClass/);
   assert.match(categories, /eventCategoryBarClass/);
-  assert.match(shell, /title: "Handover"/);
+  assert.doesNotMatch(shell, /title: "Handover"/);
   assert.doesNotMatch(shell, /\+\{tileEvents\.length - 1\}/);
   assert.doesNotMatch(shell, /shortOwnerLabel\(assignment\.morning\).*→.*shortOwnerLabel\(assignment\.afternoon\)/);
 });
@@ -238,13 +237,20 @@ test("workspace rail prioritises organiser context and caps Your Events at three
   assert.doesNotMatch(shell, /ComingUp variant=/);
 });
 
-test("Calendar day cards show handover text without clock icons", async () => {
-  const shell = await source("components/calendar/calendar-shell.tsx");
+test("Calendar day cards do not synthesize Handover events while day details retain handover fields", async () => {
+  const [shell, day] = await Promise.all([
+    source("components/calendar/calendar-shell.tsx"),
+    source("components/calendar/day-details-panel.tsx"),
+  ]);
 
-  assert.match(shell, /title: "Handover"/);
-  assert.doesNotMatch(shell, /Clock3/);
-  assert.doesNotMatch(shell, /aria-label="Handover"/);
-  assert.doesNotMatch(shell, /marker\?\.handover \|\| marker\?\.note/);
+  assert.doesNotMatch(shell, /title: "Handover"/);
+  assert.doesNotMatch(shell, /category: "handover"/);
+  assert.doesNotMatch(shell, /handover-\$\{key\}/);
+  assert.doesNotMatch(shell, /marker\.handover/);
+  assert.match(day, /Handover time/);
+  assert.match(day, /Handover location/);
+  assert.match(day, /handoverTime/);
+  assert.match(day, /handoverLocation/);
 });
 
 test("Calendar removes the redundant next handover summary row", async () => {
@@ -492,8 +498,7 @@ test("Calendar and compact workspace controls follow the final brand consistency
   assert.match(categories, /birthday[\s\S]*#F4C64E/);
   assert.match(categories, /holiday[\s\S]*#3B73AE/);
   assert.match(categories, /activity[\s\S]*#0D7A6D/);
-  assert.match(categories, /handover[\s\S]*#FF5A8A/);
-  assert.doesNotMatch(categories, /handover[\s\S]*bg-\[#243139\]/);
+  assert.doesNotMatch(categories, /category === "handover"/);
   assert.doesNotMatch(categories, /birthday" \|\| category === "holiday"/);
   assert.doesNotMatch(categories, /sport" \|\| category === "activity"/);
   assert.doesNotMatch(categories, /bg-\[#(?:DDD3FA|BFEDE6|FFD0CB|F7DC86|C3DCF7|D7F2EC|F4F1FF|EAF8F5|FFF3F1|FFF9DF|EEF5FC|F0FBF8)\]/);
