@@ -11,6 +11,13 @@ import { ComingUp, type ComingUpPayload } from "./coming-up";
 import { CovieBrand } from "./covie-brand";
 
 export type WorkspaceSection = "home" | "calendar" | "expenses" | "responsibilities" | "kids" | "organiser";
+export type WorkspacePrimaryItem = {
+  key: string;
+  href: string;
+  label: string;
+  icon: LucideIcon;
+};
+
 export type WorkspaceOrganiserItem = {
   key: string;
   href: string;
@@ -45,7 +52,7 @@ export const organiserItems = [
 const items = [
   { key: "calendar", href: "/calendar", label: "Calendar", icon: CalendarDays },
   { key: "home", href: "/home", label: "Updates", icon: Bell },
-] as const;
+] as const satisfies readonly WorkspacePrimaryItem[];
 
 type WorkspaceSummaryResponse = {
   notificationCount?: number;
@@ -55,12 +62,14 @@ type WorkspaceSummaryResponse = {
 export function WorkspaceNav({
   active,
   actions,
+  primaryItemsOverride,
   organiserItemsOverride,
   contextEnabled = true,
   accountEnabled = true,
 }: {
   active?: WorkspaceSection | string;
   actions?: ReactNode;
+  primaryItemsOverride?: readonly WorkspacePrimaryItem[];
   organiserItemsOverride?: readonly WorkspaceOrganiserItem[];
   contextEnabled?: boolean;
   accountEnabled?: boolean;
@@ -79,6 +88,7 @@ export function WorkspaceNav({
   const summaryControllerRef = useRef<AbortController | null>(null);
   useDismissibleDetails(accountRef);
   useDismissibleDetails(organiserRef);
+  const activePrimaryItems = primaryItemsOverride ?? items;
   const activeOrganiserItems = organiserItemsOverride ?? organiserItems;
   const section =
     active === "organiser" ||
@@ -217,7 +227,7 @@ export function WorkspaceNav({
     <nav className="workspace-nav" aria-label="Main navigation">
       <Link href="/calendar" className="workspace-brand"><CovieBrand /></Link>
       <div className="workspace-destinations">
-        {items.map(({ key, href, label, icon: Icon }) => (
+        {activePrimaryItems.map(({ key, href, label, icon: Icon }) => (
           <Link key={key} href={href} aria-current={section === key ? "page" : undefined}>
             <Icon size={20} aria-hidden="true" />
             <span>{label}</span>
