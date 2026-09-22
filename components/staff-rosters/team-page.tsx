@@ -2,6 +2,7 @@
 
 import {
   BriefcaseBusiness,
+  Copy,
   LoaderCircle,
   Pencil,
   UserPlus,
@@ -75,6 +76,12 @@ export function StaffRosterTeamPage() {
   const [form, setForm] = useState<MemberForm>(emptyForm);
   const [busy, setBusy] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<TeamMember | null>(null);
+  const [invite, setInvite] = useState<{
+    code: string;
+    displayName: string;
+    expiresAt: string;
+  } | null>(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/staff-roster/team", { cache: "no-store" });
@@ -172,6 +179,47 @@ export function StaffRosterTeamPage() {
         caught instanceof Error
           ? caught.message
           : "The team member could not be saved.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function inviteMember(member: TeamMember) {
+    if (busy || member.hasAccount) return;
+    setBusy(true);
+    setError(null);
+    setInviteCopied(false);
+
+    try {
+      const response = await fetch("/api/staff-roster/invitations", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ memberId: member.id }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | {
+            code?: string;
+            displayName?: string;
+            expiresAt?: string;
+            error?: string;
+          }
+        | null;
+
+      if (!response.ok || !body?.code || !body.displayName || !body.expiresAt) {
+        throw new Error(body?.error ?? "The invitation could not be created.");
+      }
+
+      setInvite({
+        code: body.code,
+        displayName: body.displayName,
+        expiresAt: body.expiresAt,
+      });
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "The invitation could not be created.",
       );
     } finally {
       setBusy(false);
@@ -315,6 +363,22 @@ export function StaffRosterTeamPage() {
                       ) : null}
                     </div>
 
+                    {!member.hasAccount &&
+                    member.accessRole !== "owner" &&
+                    (member.accessRole === "staff"
+                      ? data.canManageTeam
+                      : data.canManageManagers) ? (
+                      <CovieButton
+                        tone="neutral"
+                        className="mt-4 w-full"
+                        disabled={busy}
+                        onClick={() => void inviteMember(member)}
+                      >
+                        <UserPlus className="h-4 w-4" aria-hidden="true" />
+                        Invite to Covie
+                      </CovieButton>
+                    ) : null}
+
                     <dl className="mt-4 grid gap-2 text-sm">
                       <div className="flex items-center justify-between gap-3">
                         <dt className="text-[#66747A]">Role</dt>
@@ -453,6 +517,51 @@ export function StaffRosterTeamPage() {
               </CovieSelect>
             </label>
           </div>
+        </CovieDialog>
+      ) : null}
+
+      {invite ? (
+        <CovieDialog
+          id="staff-invite-dialog-title"
+          title={"Invite " + invite.displayName + " to Covie"}
+          description="They can use this code from Covie's Join flow. It links their account to this existing team profile."
+          icon={<UserPlus aria-hidden="true" />}
+          iconTone="teal"
+          size="sm"
+          onClose={() => setInvite(null)}
+          footer={
+            <CovieButton onClick={() => setInvite(null)}>Done</CovieButton>
+          }
+        >
+          <div className="rounded-xl border-2 border-[#243139] bg-[#FFF9F2] p-4 text-center">
+            <span className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#66747A]">
+              Invite code
+            </span>
+            <strong className="mt-2 block font-mono text-2xl tracking-[0.12em] text-[#243139]">
+              {invite.code}
+            </strong>
+            <CovieButton
+              tone="neutral"
+              className="mt-3"
+              onClick={() => {
+                void navigator.clipboard.writeText(invite.code).then(() => {
+                  setInviteCopied(true);
+                });
+              }}
+            >
+              <Copy className="h-4 w-4" aria-hidden="true" />
+              {inviteCopied ? "Copied" : "Copy code"}
+            </CovieButton>
+          </div>
+          <p className="mt-3 text-xs text-[#66747A]">
+            Expires{" "}
+            {new Intl.DateTimeFormat("en-NZ", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            }).format(new Date(invite.expiresAt))}
+            .
+          </p>
         </CovieDialog>
       ) : null}
 
