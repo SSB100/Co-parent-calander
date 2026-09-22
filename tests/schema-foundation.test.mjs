@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0022", async () => {
+test("schema migrations are sequential through 0023", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 23 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 24 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -225,6 +225,33 @@ test("0022 adds calendar template identity without changing existing calendars",
   assert.match(migration, /'0022', 'Calendar template types and navigation'/);
   assert.match(core, /calendarType = pgEnum\("calendar_type"/);
   assert.match(core, /type: calendarType\("calendar_type"\)\.notNull\(\)\.default\("co_parenting"\)/);
+});
+
+
+test("0023 adds isolated Staff Rosters team roles locations and availability", async () => {
+  const [migration, schema] = await Promise.all([
+    source("drizzle/0023_staff_roster_foundation.sql"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  for (const token of [
+    "staff_roster_access_role",
+    "staff_roster_availability_status",
+    "staff_roster_roles",
+    "staff_roster_locations",
+    "staff_roster_members",
+    "staff_roster_availability",
+    "staff_roster_availability_time_pair_valid",
+  ]) {
+    assert.match(migration, new RegExp(token));
+    assert.match(schema, new RegExp(token));
+  }
+
+  assert.match(
+    migration,
+    /'0023', 'Staff roster team roles locations and availability foundation'/,
+  );
+  assert.doesNotMatch(migration, /ALTER TABLE "participants"|ALTER TABLE "children"/);
 });
 
 

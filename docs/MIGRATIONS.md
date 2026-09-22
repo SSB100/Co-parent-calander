@@ -111,3 +111,10 @@ Existing calendars are preserved as `co_parenting` through the column default. N
 The application uses this type only for calendar navigation, routing and template selection at this stage. It does not retrofit roster, booking or social data into the co-parenting schema.
 
 The migration must be qualified on a temporary Neon branch before Production application and recorded as `0022` in `covie_schema_migrations`.
+
+
+## 0023 Staff Rosters foundation
+
+Migration `0023_staff_roster_foundation.sql` introduces Staff Rosters domain storage for team members, job roles, work locations and availability. It is isolated from the co-parenting schema and does not alter parenting, children, shared-cost, responsibility or approval tables.
+
+The migration has been qualified successfully on a temporary Neon branch cloned from Production. Production must remain on `0022` until the Staff Rosters Stage 1 release is explicitly approved.
