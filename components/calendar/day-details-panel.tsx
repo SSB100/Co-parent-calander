@@ -541,6 +541,7 @@ export function DayDetailsPanel({
         dialogRef={dialogRef}
         closeButtonRef={closeButtonRef}
         describedBy={error ? "day-details-error" : undefined}
+        dismissOnEscape={false}
         footer={
           <>
             <button
