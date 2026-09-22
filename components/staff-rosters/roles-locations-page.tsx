@@ -283,7 +283,6 @@ export function StaffRosterRolesLocationsPage() {
                 Cancel
               </CovieButton>
               <CovieButton
-                tone="teal"
                 disabled={busy || !name.trim()}
                 onClick={() => void createItem()}
               >
