@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0025", async () => {
+test("schema migrations are sequential through 0026", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 26 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 27 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -306,6 +306,34 @@ test("0025 adds Staff roster published week snapshots without changing live shif
     /'0025', 'Staff roster published week snapshots'/,
   );
   assert.doesNotMatch(migration, /ALTER TABLE "staff_roster_shifts"/);
+});
+
+
+test("0026 adds Staff attendance corrections and leave without payroll scope", async () => {
+  const [migration, staff] = await Promise.all([
+    source("drizzle/0026_staff_roster_attendance_leave.sql"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  for (const token of [
+    "staff_roster_clock_sessions",
+    "staff_roster_timesheet_corrections",
+    "staff_roster_leave_requests",
+    "staff_roster_clock_sessions_member_active_unique",
+    "staff_roster_correction_status",
+    "staff_roster_leave_status",
+  ]) {
+    assert.match(migration, new RegExp(token));
+    assert.match(staff, new RegExp(token));
+  }
+
+  assert.match(
+    migration,
+    /'0026', 'Staff roster attendance corrections and leave'/,
+  );
+  for (const excluded of ["payroll", "wage", "paye", "kiwisaver", "gps"]) {
+    assert.doesNotMatch(migration.toLowerCase(), new RegExp(excluded));
+  }
 });
 
 
