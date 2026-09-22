@@ -26,12 +26,22 @@ test("additional calendar templates keep explicit Brand Bible manifests", async 
 });
 
 test("new calendar pages use Covie Core but remain separate from co-parenting workspace code", async () => {
-  const [shell, templateNav, coParentNav, indexPage, route] = await Promise.all([
+  const [
+    shell,
+    templateNav,
+    coParentNav,
+    indexPage,
+    calendarRoute,
+    updatesRoute,
+    organiserRoute,
+  ] = await Promise.all([
     source("components/templates/template-shell.tsx"),
     source("components/templates/template-workspace-nav.tsx"),
     source("components/workspace/workspace-nav.tsx"),
     source("app/calendar-types/page.tsx"),
     source("app/calendar-types/[template]/page.tsx"),
+    source("app/calendar-types/[template]/updates/page.tsx"),
+    source("app/calendar-types/[template]/organiser/[tool]/page.tsx"),
   ]);
 
   for (const primitive of [
@@ -61,7 +71,13 @@ test("new calendar pages use Covie Core but remain separate from co-parenting wo
 
   assert.match(indexPage, /redirect\(calendarPathForType\(session\.calendarType\)\)/);
   assert.doesNotMatch(indexPage, /Calendar type shells|Open shell/);
-  assert.match(route, /session\.calendarType !== manifest\.id/);
+
+  assert.match(calendarRoute, /loadTemplatePage\(template\)/);
+  assert.match(calendarRoute, /activeSection="calendar"/);
+  assert.match(updatesRoute, /loadTemplatePage\(template\)/);
+  assert.match(updatesRoute, /activeSection="updates"/);
+  assert.match(organiserRoute, /manifest\.organiserTools\.find/);
+  assert.match(organiserRoute, /activeSection=\{item\.key\}/);
 });
 
 test("new calendar pages contain no mock records, demo controls or preview copy", async () => {
@@ -111,21 +127,32 @@ test("each calendar type has a simple unique production empty state", async () =
 });
 
 test("template shells remain bound to selected typed calendars", async () => {
-  const [route, shell, navigation, migration, core] = await Promise.all([
-    source("app/calendar-types/[template]/page.tsx"),
+  const [loader, shell, navigation, migration, core] = await Promise.all([
+    source("lib/templates/load-template-page.ts"),
     source("components/templates/template-shell.tsx"),
     source("lib/calendars/navigation.ts"),
     source("drizzle/0022_calendar_template_types.sql"),
     source("lib/db/schema/core.ts"),
   ]);
 
-  assert.match(route, /getCalendarSession/);
-  assert.match(route, /session\.calendarType !== manifest\.id/);
-  assert.match(route, /listCalendarNavigationOptions/);
+  assert.match(loader, /getCalendarSession/);
+  assert.match(loader, /session\.calendarType !== manifest\.id/);
+  assert.match(loader, /listCalendarNavigationOptions/);
   assert.match(shell, /currentCalendarId/);
   assert.match(navigation, /calendarType: calendars\.type/);
   assert.match(migration, /CREATE TYPE "calendar_type"/);
   assert.match(migration, /DEFAULT 'co_parenting'/);
   assert.match(core, /export const calendarType = pgEnum/);
   assert.match(core, /type: calendarType\("calendar_type"\)/);
+});
+
+
+test("template navigation uses real routes instead of hash-only shell sections", async () => {
+  const nav = await source("components/templates/template-workspace-nav.tsx");
+
+  assert.match(nav, /\/updates/);
+  assert.match(nav, /\/organiser\//);
+  assert.doesNotMatch(nav, /#updates|hashchange|window\.location\.hash/);
+  assert.match(nav, /activeSection === "calendar"/);
+  assert.match(nav, /activeSection === "updates"/);
 });
