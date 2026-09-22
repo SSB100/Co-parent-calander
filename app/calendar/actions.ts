@@ -15,6 +15,8 @@ import {
 } from "@/lib/security/invites";
 import { SELECTED_CALENDAR_COOKIE_NAME } from "@/lib/security/session";
 import { hashToken } from "@/lib/security/tokens";
+import { acceptStaffRosterInviteCode } from "@/lib/staff-rosters/invitations-service";
+import { StaffRosterServiceError } from "@/lib/staff-rosters/service";
 import {
   calendarPathForType,
   calendarTemplateIds,
@@ -234,6 +236,29 @@ export async function joinCalendar(
     });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the calendar code." };
+  }
+
+  let staffInvite: Awaited<ReturnType<typeof acceptStaffRosterInviteCode>> = null;
+  try {
+    staffInvite = await acceptStaffRosterInviteCode({
+      userId: user.id,
+      code: parsed.data.code,
+    });
+  } catch (error) {
+    if (error instanceof StaffRosterServiceError) {
+      return { error: error.message };
+    }
+    return { error: "This Staff Roster invitation could not be accepted." };
+  }
+
+  if (staffInvite) {
+    const cookieStore = await cookies();
+    cookieStore.set(
+      SELECTED_CALENDAR_COOKIE_NAME,
+      staffInvite.calendarId,
+      calendarCookieOptions(),
+    );
+    redirect(calendarPathForType("staff_rosters"));
   }
 
   const sql = getSql();
