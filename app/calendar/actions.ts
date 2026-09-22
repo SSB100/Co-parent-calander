@@ -643,10 +643,36 @@ export async function deleteCalendar(
   const fallback = await nextActiveCalendar(user.id, calendar.id);
 
   try {
-    await sql`
-      DELETE FROM calendars
-      WHERE id = ${calendar.id}
-    `;
+    await sql.transaction([
+      sql`
+        DELETE FROM parenting_schedules
+        WHERE calendar_id = ${calendar.id}
+      `,
+      sql`
+        DELETE FROM parenting_assignments
+        WHERE calendar_id = ${calendar.id}
+      `,
+      sql`
+        DELETE FROM responsibilities
+        WHERE calendar_id = ${calendar.id}
+      `,
+      sql`
+        DELETE FROM expenses
+        WHERE calendar_id = ${calendar.id}
+      `,
+      sql`
+        DELETE FROM expense_recurring_series
+        WHERE calendar_id = ${calendar.id}
+      `,
+      sql`
+        DELETE FROM staff_roster_shifts
+        WHERE calendar_id = ${calendar.id}
+      `,
+      sql`
+        DELETE FROM calendars
+        WHERE id = ${calendar.id}
+      `,
+    ]);
   } catch {
     return {
       error:
