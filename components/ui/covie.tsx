@@ -311,6 +311,7 @@ export function CovieDialog({
         aria-labelledby={id}
         aria-describedby={describedBy}
         aria-busy={busy || undefined}
+        tabIndex={-1}
         className={classes(
           "covie-dialog",
           `covie-dialog-${size}`,
