@@ -75,8 +75,9 @@ test("new Staff Rosters calendars open directly into the calendar", async () => 
 });
 
 test("Staff Rosters calendar is a calendar-first weekly roster builder", async () => {
-  const [shell, roster] = await Promise.all([
+  const [shell, nav, roster] = await Promise.all([
     source("components/templates/template-shell.tsx"),
+    source("components/templates/template-workspace-nav.tsx"),
     source("components/staff-rosters/roster-calendar-page.tsx"),
   ]);
 
@@ -88,9 +89,13 @@ test("Staff Rosters calendar is a calendar-first weekly roster builder", async (
   assert.match(roster, /Week/);
   assert.match(roster, /Month/);
   assert.match(roster, /Drag onto calendar/);
-  assert.match(roster, /grid-cols-\[210px_minmax\(0,1fr\)\]/);
+  assert.match(roster, /grid-cols-\[190px_minmax\(0,1fr\)\]/);
   assert.match(roster, /layoutOverlappingShifts/);
   assert.match(roster, /handleTimelineDrop/);
+  assert.match(roster, /createShiftFromDrop/);
+  assert.match(roster, /void createShiftFromDrop/);
+  assert.match(roster, /setData\("text\/plain"/);
+  assert.match(roster, /HOUR_HEIGHT = 26/);
   assert.match(roster, /beginResize/);
   assert.match(roster, /SNAP_MINUTES = 15/);
   assert.match(roster, /weeklyMinutesByMember/);
@@ -104,7 +109,9 @@ test("Staff Rosters calendar is a calendar-first weekly roster builder", async (
   assert.match(roster, /Publish roster/);
   assert.match(roster, /Send updates/);
   assert.match(roster, /Changes pending/);
-  assert.match(roster, /Start your roster/);
+  assert.match(nav, /Start your roster/);
+  assert.match(nav, /drag them straight onto the calendar/);
+  assert.doesNotMatch(roster, /Start your roster/);
   assert.match(roster, /changedShiftCount/);
   assert.match(roster, /sendUpdatesConfirmOpen/);
   assert.match(roster, /md:hidden/);

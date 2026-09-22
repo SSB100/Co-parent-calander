@@ -137,6 +137,9 @@ export function TemplateShell({
   const currentPath = `/calendar-types/${slug}`;
   const staffMode =
     template.id === "staff_rosters" && staffAccessRole === "staff";
+  const compactStaffRosterCalendar =
+    template.id === "staff_rosters" && section === "calendar" && !staffMode;
+
   const organiserItems: readonly TemplateOrganiserNavItem[] =
     template.organiserTools.map((tool) => ({
       key: tool.key,
@@ -186,13 +189,22 @@ export function TemplateShell({
         activeSection={section}
         activeToolKey={activeToolKey}
         staffMode={staffMode}
+        showStaffRosterGuide={compactStaffRosterCalendar}
       />
 
       <CoviePage
         width="wide"
         className="pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6"
       >
-        <div className={section === "calendar" ? "mb-5" : "mb-3"}>
+        <div
+          className={
+            section === "calendar"
+              ? compactStaffRosterCalendar
+                ? "mb-2"
+                : "mb-5"
+              : "mb-3"
+          }
+        >
           <CalendarSwitcher
             calendars={calendars}
             archivedCalendars={archivedCalendars}
@@ -209,7 +221,15 @@ export function TemplateShell({
           />
         )}
 
-        <section className={section === "calendar" ? "mt-3" : "mt-6"}>
+        <section
+          className={
+            section === "calendar"
+              ? compactStaffRosterCalendar
+                ? "mt-1"
+                : "mt-3"
+              : "mt-6"
+          }
+        >
           {template.id === "staff_rosters" && section === "calendar" ? (
             staffMode ? <StaffMyRosterPage /> : <StaffRosterCalendarPage />
           ) : template.id === "staff_rosters" && section === "updates" ? (

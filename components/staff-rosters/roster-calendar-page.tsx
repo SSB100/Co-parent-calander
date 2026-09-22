@@ -41,6 +41,7 @@ import {
   CovieEmptyState,
   CovieInput,
   CovieNotice,
+  CovieSegmentedControl,
   CovieSelect,
   CovieStatusBadge,
   CovieTextarea,
@@ -136,7 +137,7 @@ const SNAP_MINUTES = 15;
 const DEFAULT_SHIFT_MINUTES = 8 * 60;
 const DAY_START_MINUTE = 6 * 60;
 const DAY_END_MINUTE = 24 * 60;
-const HOUR_HEIGHT = 64;
+const HOUR_HEIGHT = 26;
 const DND_TYPE = "application/x-covie-roster";
 
 function todayValue() {
@@ -553,6 +554,79 @@ export function StaffRosterCalendarPage() {
     }));
   }
 
+  async function createShiftFromDrop(
+    memberId: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+  ) {
+    if (busy || !data?.canManageRoster) return;
+
+    const member = data.members.find((item) => item.id === memberId);
+    if (!member) return;
+
+    setBusy(true);
+    setError(null);
+    setConflictMessage(null);
+
+    try {
+      const response = await fetch("/api/staff-roster/shifts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          memberId,
+          date,
+          startTime,
+          endTime,
+          roleId: member.defaultRoleId ?? "",
+          locationId: member.defaultLocationId ?? "",
+          note: "",
+          overrideAvailabilityConflict: false,
+        }),
+      });
+
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; code?: string | null }
+        | null;
+
+      if (!response.ok) {
+        if (
+          body?.code === "availability_conflict" ||
+          body?.code === "pending_leave_conflict"
+        ) {
+          setForm({
+            shiftId: null,
+            memberId,
+            date,
+            startTime,
+            endTime,
+            roleId: member.defaultRoleId ?? "",
+            locationId: member.defaultLocationId ?? "",
+            note: "",
+          });
+          setConflictMessage(
+            body.error ??
+              "This person is marked unavailable during the selected time.",
+          );
+          setDialogOpen(true);
+          return;
+        }
+
+        throw new Error(body?.error ?? "The shift could not be created.");
+      }
+
+      await refresh(anchorDate, view);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "The shift could not be created.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveShift(overrideAvailabilityConflict = false) {
     if (
       busy ||
@@ -873,15 +947,19 @@ export function StaffRosterCalendarPage() {
     event: DragEvent<HTMLElement>,
     payload: { kind: "member"; memberId: string } | { kind: "shift"; shiftId: string },
   ) {
+    const serialized = JSON.stringify(payload);
     event.dataTransfer.effectAllowed = payload.kind === "member" ? "copy" : "move";
-    event.dataTransfer.setData(DND_TYPE, JSON.stringify(payload));
+    event.dataTransfer.setData(DND_TYPE, serialized);
+    event.dataTransfer.setData("text/plain", serialized);
   }
 
   function handleTimelineDrop(event: DragEvent<HTMLDivElement>, date: string) {
     event.preventDefault();
     if (!data?.canManageRoster || busy) return;
 
-    const raw = event.dataTransfer.getData(DND_TYPE);
+    const raw =
+      event.dataTransfer.getData(DND_TYPE) ||
+      event.dataTransfer.getData("text/plain");
     if (!raw) return;
 
     let payload:
@@ -907,7 +985,7 @@ export function StaffRosterCalendarPage() {
         23 * 60 + 45,
         startMinute + DEFAULT_SHIFT_MINUTES,
       );
-      openCreate(
+      void createShiftFromDrop(
         payload.memberId,
         date,
         timeFromMinutes(startMinute),
@@ -1063,25 +1141,19 @@ export function StaffRosterCalendarPage() {
 
       {data ? (
         <>
-          <div className="mb-4 rounded-2xl border border-[#E6DBCF] bg-white p-3 sm:p-4">
+          <div className="mb-3 rounded-2xl border border-[#E6DBCF] bg-white p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="inline-flex rounded-[12px] border border-[#E6DBCF] bg-[#FFF9F2] p-1">
-                {(["week", "month"] as const).map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setView(option)}
-                    className={
-                      "min-h-10 rounded-[9px] px-4 text-sm font-extrabold transition " +
-                      (view === option
-                        ? "bg-white text-[#243139] shadow-sm"
-                        : "text-[#66747A] hover:text-[#243139]")
-                    }
-                  >
-                    {option === "week" ? "Week" : "Month"}
-                  </button>
-                ))}
-              </div>
+              <CovieSegmentedControl
+                value={view}
+                options={[
+                  { value: "week", label: "Week" },
+                  { value: "month", label: "Month" },
+                ]}
+                onChange={setView}
+                tone="teal"
+                ariaLabel="Roster view"
+                className="shrink-0"
+              />
 
               <div className="flex items-center gap-2">
                 <CovieButton
@@ -1103,7 +1175,7 @@ export function StaffRosterCalendarPage() {
                 </CovieButton>
               </div>
 
-              <strong className="order-first w-full text-center font-[family-name:var(--font-fraunces)] text-xl text-[#243139] sm:order-none sm:w-auto">
+              <strong className="covie-display order-first w-full text-center text-xl font-semibold text-[#243139] sm:order-none sm:w-auto">
                 {view === "week"
                   ? weekLabel(weekStart, days[6])
                   : monthLabel(anchorDate)}
@@ -1150,7 +1222,7 @@ export function StaffRosterCalendarPage() {
             </div>
 
             {data.canManageRoster ? (
-              <div className="mt-3 grid gap-2 border-t border-[#EFE5DA] pt-3 sm:grid-cols-3">
+              <div className="mt-2 grid gap-2 border-t border-[#EFE5DA] pt-2 sm:grid-cols-3">
                 <CovieSelect
                   aria-label="Filter roster by staff"
                   value={staffFilter}
@@ -1191,7 +1263,7 @@ export function StaffRosterCalendarPage() {
             ) : null}
 
             {view === "week" ? (
-              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#EFE5DA] pt-3 text-xs font-bold text-[#66747A]">
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[#EFE5DA] pt-2 text-xs font-bold text-[#66747A]">
                 <CovieStatusBadge
                   tone={
                     data.publication.status === "published"
@@ -1218,42 +1290,6 @@ export function StaffRosterCalendarPage() {
               </div>
             ) : null}
           </div>
-
-          {data.canManageRoster &&
-          data.setup &&
-          data.setup.memberCount <= 1 ? (
-            <div className="mb-4 rounded-2xl border-2 border-[#243139] bg-[#FFF9F2] p-4 shadow-[4px_4px_0_#BFEDE6]">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="max-w-2xl">
-                  <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#0D7A6D]">
-                    Start your roster
-                  </p>
-                  <h2 className="mt-1 font-[family-name:var(--font-fraunces)] text-xl font-bold text-[#243139]">
-                    Add your first staff member, then roster straight from the calendar.
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-[#526168]">
-                    Roles and locations are optional. Add them only if they make
-                    the weekly roster clearer.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Link
-                    href="/calendar-types/staff-rosters/organiser/team"
-                    className="inline-flex min-h-11 items-center rounded-[10px] bg-[#FF6B5F] px-4 text-sm font-extrabold text-[#243139]"
-                  >
-                    <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                    Add staff
-                  </Link>
-                  <Link
-                    href="/calendar-types/staff-rosters/organiser/roles-locations"
-                    className="inline-flex min-h-11 items-center rounded-[10px] border border-[#E6DBCF] bg-white px-4 text-sm font-extrabold text-[#243139]"
-                  >
-                    Roles & locations
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ) : null}
 
           {copyNotice ? (
             <CovieNotice tone={copyNotice.tone} className="mb-4">
@@ -1289,7 +1325,7 @@ export function StaffRosterCalendarPage() {
               }
             />
           ) : view === "month" ? (
-            <div className="overflow-hidden rounded-2xl border-2 border-[#243139] bg-white">
+            <div className="overflow-hidden rounded-2xl border border-[#E6DBCF] bg-white">
               <div className="grid grid-cols-7 border-b border-[#E6DBCF] bg-[#FFF9F2]">
                 {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => (
                   <div
@@ -1394,8 +1430,8 @@ export function StaffRosterCalendarPage() {
             </div>
           ) : (
             <>
-              <div className="hidden overflow-hidden rounded-2xl border-2 border-[#243139] bg-white md:grid md:grid-cols-[210px_minmax(0,1fr)]">
-                <aside className="border-r-2 border-[#243139] bg-[#FFF9F2]">
+              <div className="hidden overflow-hidden rounded-2xl border border-[#E6DBCF] bg-white md:grid md:grid-cols-[190px_minmax(0,1fr)]">
+                <aside className="border-r border-[#E6DBCF] bg-[#FFF9F2]">
                   <div className="flex min-h-[54px] items-center justify-between border-b border-[#E6DBCF] px-3">
                     <span className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#66747A]">
                       Staff
@@ -1416,10 +1452,12 @@ export function StaffRosterCalendarPage() {
                         ? locationById.get(member.defaultLocationId)
                         : null;
                       return (
-                        <button
+                        <div
                           key={member.id}
-                          type="button"
+                          role="button"
+                          tabIndex={0}
                           draggable={data.canManageRoster}
+                          title="Drag onto a day and time to create a shift"
                           onDragStart={(event) =>
                             setDragPayload(event, {
                               kind: "member",
@@ -1431,7 +1469,16 @@ export function StaffRosterCalendarPage() {
                               ? openCreate(member.id, selectedMobileDay)
                               : undefined
                           }
-                          className="group flex min-h-14 w-full items-center gap-2 rounded-xl border border-[#D8CEC3] bg-white p-2 text-left transition hover:border-[#19A897]"
+                          onKeyDown={(event) => {
+                            if (
+                              data.canManageRoster &&
+                              (event.key === "Enter" || event.key === " ")
+                            ) {
+                              event.preventDefault();
+                              openCreate(member.id, selectedMobileDay);
+                            }
+                          }}
+                          className="group flex min-h-14 w-full cursor-grab select-none items-center gap-2 rounded-xl border border-[#D8CEC3] bg-white p-2 text-left transition hover:border-[#19A897] active:cursor-grabbing"
                         >
                           {data.canManageRoster ? (
                             <GripVertical
@@ -1452,7 +1499,7 @@ export function StaffRosterCalendarPage() {
                           <span className="shrink-0 rounded-lg bg-[#EAF8F5] px-2 py-1 text-xs font-extrabold text-[#0D7A6D]">
                             {hoursText(weeklyMinutesByMember.get(member.id) ?? 0)}
                           </span>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -1470,8 +1517,8 @@ export function StaffRosterCalendarPage() {
                 </aside>
 
                 <div className="min-w-0 overflow-x-auto">
-                  <div className="min-w-[980px]">
-                    <div className="grid grid-cols-[54px_repeat(7,minmax(128px,1fr))] border-b border-[#E6DBCF] bg-[#FFF9F2]">
+                  <div className="min-w-[900px]">
+                    <div className="grid grid-cols-[48px_repeat(7,minmax(118px,1fr))] border-b border-[#E6DBCF] bg-[#FFF9F2]">
                       <div aria-hidden="true" />
                       {days.map((day) => {
                         const dayLeave = data.leave.filter((leave) =>
@@ -1480,7 +1527,7 @@ export function StaffRosterCalendarPage() {
                         return (
                           <div
                             key={day}
-                            className="min-h-[70px] border-l border-[#E6DBCF] px-2 py-2 text-center"
+                            className="min-h-[50px] border-l border-[#E6DBCF] px-2 py-2 text-center"
                           >
                             <span className="text-sm font-extrabold text-[#243139]">
                               {dayLabel(day)}
@@ -1525,7 +1572,7 @@ export function StaffRosterCalendarPage() {
                     </div>
 
                     <div
-                      className="grid grid-cols-[54px_repeat(7,minmax(128px,1fr))]"
+                      className="grid grid-cols-[48px_repeat(7,minmax(118px,1fr))]"
                       style={{ height: timelineHeight }}
                     >
                       <div className="relative bg-[#FFF9F2]">
