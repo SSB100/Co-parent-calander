@@ -4,6 +4,7 @@ import { and, asc, eq, sql as drizzleSql } from "drizzle-orm";
 import { getDb, getSql } from "@/lib/db";
 import {
   staffRosterAvailability,
+  staffRosterLeaveRequests,
   staffRosterLocations,
   staffRosterMembers,
   staffRosterPublishedShifts,
@@ -1093,7 +1094,7 @@ async function shiftConflictState(input: {
     );
   }
 
-  const [overlaps, unavailable] = await Promise.all([
+  const [overlaps, unavailable, leave] = await Promise.all([
     db
       .select({
         id: staffRosterShifts.id,
@@ -1128,9 +1129,41 @@ async function shiftConflictState(input: {
         ),
       )
       .limit(10),
+    db
+      .select({
+        id: staffRosterLeaveRequests.id,
+        status: staffRosterLeaveRequests.status,
+        allDay: staffRosterLeaveRequests.allDay,
+        startTime: staffRosterLeaveRequests.startTime,
+        endTime: staffRosterLeaveRequests.endTime,
+      })
+      .from(staffRosterLeaveRequests)
+      .where(
+        and(
+          eq(staffRosterLeaveRequests.calendarId, input.calendarId),
+          eq(staffRosterLeaveRequests.memberId, input.memberId),
+          drizzleSql`${staffRosterLeaveRequests.startDate} <= ${input.date}`,
+          drizzleSql`${staffRosterLeaveRequests.endDate} >= ${input.date}`,
+          drizzleSql`${staffRosterLeaveRequests.status} IN ('pending', 'approved')`,
+          drizzleSql`(
+            ${staffRosterLeaveRequests.allDay} = true
+            OR
+            (
+              ${staffRosterLeaveRequests.startTime} < ${input.endTime}
+              AND ${staffRosterLeaveRequests.endTime} > ${input.startTime}
+            )
+          )`,
+        ),
+      )
+      .limit(10),
   ]);
 
-  return { overlaps, unavailable };
+  return {
+    overlaps,
+    unavailable,
+    approvedLeave: leave.filter((item) => item.status === "approved"),
+    pendingLeave: leave.filter((item) => item.status === "pending"),
+  };
 }
 
 function shiftComparisonKey(input: {
@@ -1682,15 +1715,27 @@ export async function createShift(input: {
     );
   }
 
-  if (
-    conflicts.unavailable.length > 0 &&
-    !input.overrideAvailabilityConflict
-  ) {
+  if (conflicts.approvedLeave.length > 0) {
     throw new StaffRosterServiceError(
       409,
-      member.displayName + " is marked unavailable during this shift.",
-      "availability_conflict",
-      conflicts.unavailable,
+      member.displayName + " is on approved leave during this shift.",
+      "approved_leave_conflict",
+      conflicts.approvedLeave,
+    );
+  }
+
+  if (
+    (conflicts.unavailable.length > 0 || conflicts.pendingLeave.length > 0) &&
+    !input.overrideAvailabilityConflict
+  ) {
+    const pendingLeave = conflicts.pendingLeave.length > 0;
+    throw new StaffRosterServiceError(
+      409,
+      pendingLeave
+        ? member.displayName + " has a pending leave request during this shift."
+        : member.displayName + " is marked unavailable during this shift.",
+      pendingLeave ? "pending_leave_conflict" : "availability_conflict",
+      pendingLeave ? conflicts.pendingLeave : conflicts.unavailable,
     );
   }
 
@@ -1715,7 +1760,7 @@ export async function createShift(input: {
           ${id}, ${input.session.calendarId}, ${input.memberId},
           ${input.roleId}, ${input.locationId},
           ${input.date}, ${input.startTime}, ${input.endTime}, ${input.note},
-          ${conflicts.unavailable.length > 0}, ${input.session.membershipId}
+          ${conflicts.unavailable.length > 0 || conflicts.pendingLeave.length > 0}, ${input.session.membershipId}
         FROM locked
         WHERE NOT EXISTS (
           SELECT 1
@@ -1843,15 +1888,27 @@ export async function updateShift(input: {
     );
   }
 
-  if (
-    conflicts.unavailable.length > 0 &&
-    !input.overrideAvailabilityConflict
-  ) {
+  if (conflicts.approvedLeave.length > 0) {
     throw new StaffRosterServiceError(
       409,
-      member.displayName + " is marked unavailable during this shift.",
-      "availability_conflict",
-      conflicts.unavailable,
+      member.displayName + " is on approved leave during this shift.",
+      "approved_leave_conflict",
+      conflicts.approvedLeave,
+    );
+  }
+
+  if (
+    (conflicts.unavailable.length > 0 || conflicts.pendingLeave.length > 0) &&
+    !input.overrideAvailabilityConflict
+  ) {
+    const pendingLeave = conflicts.pendingLeave.length > 0;
+    throw new StaffRosterServiceError(
+      409,
+      pendingLeave
+        ? member.displayName + " has a pending leave request during this shift."
+        : member.displayName + " is marked unavailable during this shift.",
+      pendingLeave ? "pending_leave_conflict" : "availability_conflict",
+      pendingLeave ? conflicts.pendingLeave : conflicts.unavailable,
     );
   }
 
@@ -1875,7 +1932,7 @@ export async function updateShift(input: {
           start_time = ${input.startTime},
           end_time = ${input.endTime},
           note = ${input.note},
-          availability_override = ${conflicts.unavailable.length > 0},
+          availability_override = ${conflicts.unavailable.length > 0 || conflicts.pendingLeave.length > 0},
           updated_at = now()
         FROM locked
         WHERE shift.id = ${input.shiftId}
