@@ -126,7 +126,7 @@ export const staffShiftSchema = z
     }
   });
 
-export const updateStaffShiftSchema = staffShiftSchema.extend({
+export const updateStaffShiftSchema = staffShiftSchema.safeExtend({
   shiftId: z.string().uuid(),
 });
 
