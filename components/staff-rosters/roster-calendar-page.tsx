@@ -1294,12 +1294,38 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
   const selectedMobileLeave = filteredLeave.filter((leave) =>
     leaveAppliesToDay(leave, selectedMobileDay),
   );
-  const timelineHeight =
-    ((DAY_END_MINUTE - DAY_START_MINUTE) / 60) * HOUR_HEIGHT;
-  const hourMarks = Array.from(
-    { length: (DAY_END_MINUTE - DAY_START_MINUTE) / 60 + 1 },
-    (_, index) => DAY_START_MINUTE / 60 + index,
+  const visibleStartMinute =
+    data?.setup?.operationalStartMinute ?? DAY_START_MINUTE;
+  const visibleEndMinute =
+    data?.setup?.operationalEndMinute ?? DAY_END_MINUTE;
+  const visibleDurationHours =
+    (visibleEndMinute - visibleStartMinute) / 60;
+  const availableTimelineHeight = Math.max(
+    1,
+    weekBoardHeight - DAY_HEADER_HEIGHT,
   );
+  const hourHeight = Math.max(
+    MIN_HOUR_HEIGHT,
+    availableTimelineHeight / visibleDurationHours,
+  );
+  const timelineHeight = visibleDurationHours * hourHeight;
+  const firstHour = Math.floor(visibleStartMinute / 60);
+  const lastHour = Math.ceil(visibleEndMinute / 60);
+  const hourMarks = Array.from(
+    { length: lastHour - firstHour + 1 },
+    (_, index) => firstHour + index,
+  ).filter(
+    (hour) =>
+      hour * 60 >= visibleStartMinute &&
+      hour * 60 <= visibleEndMinute,
+  );
+  const operationalHoursLabel =
+    visibleStartMinute === DAY_START_MINUTE &&
+    visibleEndMinute === DAY_END_MINUTE
+      ? "24 hours"
+      : compactMinuteLabel(visibleStartMinute) +
+        "–" +
+        compactMinuteLabel(visibleEndMinute);
 
   return (
     <>
