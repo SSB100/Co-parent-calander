@@ -742,6 +742,7 @@ export function StaffRosterCalendarPage() {
             skipped?: number;
             overlapSkipped?: number;
             availabilitySkipped?: number;
+            leaveSkipped?: number;
             error?: string;
           }
         | null;
@@ -754,6 +755,7 @@ export function StaffRosterCalendarPage() {
       const skipped = body?.skipped ?? 0;
       const availabilitySkipped = body?.availabilitySkipped ?? 0;
       const overlapSkipped = body?.overlapSkipped ?? 0;
+      const leaveSkipped = body?.leaveSkipped ?? 0;
 
       if (copied === 0 && skipped === 0) {
         setCopyNotice({
@@ -766,6 +768,7 @@ export function StaffRosterCalendarPage() {
             ? availabilitySkipped + " unavailable"
             : null,
           overlapSkipped > 0 ? overlapSkipped + " overlapping" : null,
+          leaveSkipped > 0 ? leaveSkipped + " leave conflicts" : null,
         ]
           .filter(Boolean)
           .join(" · ");
