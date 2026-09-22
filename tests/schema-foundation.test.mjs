@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0029", async () => {
+test("schema migrations are sequential through 0030", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 30 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 31 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -407,6 +407,29 @@ test("0029 adds reusable multi-role assignments and backfills existing defaults"
   );
 });
 
+
+test("0030 adds Staff roster operational hours with a bounded day range", async () => {
+  const [migration, staff] = await Promise.all([
+    source("drizzle/0030_staff_roster_operational_hours.sql"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  for (const token of [
+    "operational_start_minute",
+    "operational_end_minute",
+    "staff_roster_settings_operational_hours_valid",
+  ]) {
+    assert.match(migration, new RegExp(token));
+    assert.match(staff, new RegExp(token.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())));
+  }
+
+  assert.match(migration, /DEFAULT 0/);
+  assert.match(migration, /DEFAULT 1440/);
+  assert.match(
+    migration,
+    /'0030', 'Staff roster operational hours'/,
+  );
+});
 
 test("schema barrel stays small while feature modules own table definitions", async () => {
   const [barrel, modules] = await Promise.all([
