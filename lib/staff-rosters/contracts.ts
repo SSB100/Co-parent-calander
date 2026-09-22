@@ -139,3 +139,7 @@ export const staffRosterWeekSchema = z.object({
 export const copyStaffRosterWeekSchema = z.object({
   weekStart: z.iso.date(),
 });
+
+export const staffRosterPublicationSchema = z.object({
+  weekStart: z.iso.date(),
+});
