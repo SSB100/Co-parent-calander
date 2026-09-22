@@ -281,7 +281,7 @@ test("performance stage 5 keeps heavy closed Calendar panels behind interaction-
   assert.match(shell, /settingsMenuOpen/);
   assert.match(shell, /onToggle=\{\(event\)/);
   assert.match(shell, /<EventPanel includeRangeTools=\{false\}/);
-  assert.match(shell, /href="\/responsibilities"/);
+  assert.doesNotMatch(shell, /href="\/responsibilities"/);
   assert.match(shell, /calendarData\?\.permission === "owner"/);
   assert.match(shell, /readOnly=\{accessMode === "viewer"\}/);
 
