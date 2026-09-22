@@ -457,6 +457,47 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [anchorDate, refresh, view]);
 
+  useEffect(() => {
+    if (!data?.setup) return;
+    setOperationalStartDraft(data.setup.operationalStartMinute);
+    setOperationalEndDraft(data.setup.operationalEndMinute);
+  }, [
+    data?.setup?.operationalEndMinute,
+    data?.setup?.operationalStartMinute,
+  ]);
+
+  useEffect(() => {
+    if (view !== "week" || !data) return;
+
+    let frame = 0;
+    const measure = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const board = weekBoardRef.current;
+        if (!board) return;
+        const top = board.getBoundingClientRect().top;
+        const available = Math.floor(window.innerHeight - top - 18);
+        setWeekBoardHeight(Math.max(430, available));
+      });
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(measure);
+    if (observer && weekBoardRef.current) {
+      observer.observe(weekBoardRef.current.parentElement ?? weekBoardRef.current);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+    };
+  }, [data, view]);
+
   const roleById = useMemo(
     () => new Map(data?.roles.map((role) => [role.id, role.name]) ?? []),
     [data?.roles],
