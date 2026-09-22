@@ -7,8 +7,29 @@ import { GoogleGMark, googleActionClassName } from "@/components/google/google-b
 type Connection = {
   status: "initial_sync" | "active" | "reconnect_required" | "error";
   pendingOrFailedCount: number;
+  lastSuccessfulSyncAt: string | null;
 };
 type Payload = { configured: boolean; connection: Connection | null };
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function readGoogleCalendarStatus() {
+  const response = await fetch("/api/google-calendar", { cache: "no-store" });
+  const body = (await response.json().catch(() => null)) as
+    | Payload
+    | { error?: string }
+    | null;
+  if (!response.ok || !body || !("configured" in body)) {
+    throw new Error(
+      body && "error" in body
+        ? body.error
+        : "Google Calendar status could not be checked.",
+    );
+  }
+  return body;
+}
 
 export function GoogleCalendarQuickAction() {
   const [payload, setPayload] = useState<Payload | null>(null);
@@ -48,16 +69,65 @@ export function GoogleCalendarQuickAction() {
   }
 
   async function syncNow() {
+    if (!payload?.connection || syncing) return;
+
+    const previousSuccess = payload.connection.lastSuccessfulSyncAt;
     setSyncing(true);
-    setMessage(null);
+    setMessage("Syncing with Google Calendar…");
+
     try {
-      const response = await fetch("/api/google-calendar/reconcile", { method: "POST" });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (!response.ok) throw new Error(body?.error ?? "Google Calendar could not be synced.");
-      setMessage("Google Calendar sync requested.");
-      window.setTimeout(() => setMessage(null), 2400);
+      const response = await fetch("/api/google-calendar/reconcile", {
+        method: "POST",
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Google Calendar could not be synced.");
+      }
+
+      const deadline = Date.now() + 90_000;
+      while (Date.now() < deadline) {
+        await wait(1500);
+        const next = await readGoogleCalendarStatus();
+        setPayload(next);
+
+        const connection = next.connection;
+        if (!connection) {
+          throw new Error("Google Calendar is no longer connected.");
+        }
+        if (connection.status === "reconnect_required") {
+          throw new Error("Reconnect Google Calendar before syncing again.");
+        }
+
+        const completed =
+          connection.lastSuccessfulSyncAt !== null &&
+          connection.lastSuccessfulSyncAt !== previousSuccess &&
+          connection.pendingOrFailedCount === 0;
+
+        if (completed) {
+          setMessage("Google Calendar is up to date.");
+          window.setTimeout(() => setMessage(null), 5000);
+          return;
+        }
+
+        if (
+          connection.status === "error" &&
+          connection.pendingOrFailedCount === 0
+        ) {
+          throw new Error("Google Calendar sync did not complete.");
+        }
+      }
+
+      setMessage(
+        "Google Calendar is still syncing in the background. You can keep using Covie.",
+      );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Google Calendar could not be synced.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Google Calendar could not be synced.",
+      );
     } finally {
       setSyncing(false);
     }
@@ -76,8 +146,10 @@ export function GoogleCalendarQuickAction() {
         ) : (
           <GoogleGMark className="h-4.5 w-4.5" />
         )}
-        <span className="hidden sm:inline">Sync Google Calendar</span>
-        <span className="sm:hidden">Sync to Google</span>
+        <span className="hidden sm:inline">
+          {syncing ? "Syncing Google Calendar…" : "Sync Google Calendar"}
+        </span>
+        <span className="sm:hidden">{syncing ? "Syncing…" : "Sync to Google"}</span>
         {payload.connection.pendingOrFailedCount > 0 ? (
           <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
             {payload.connection.pendingOrFailedCount}
