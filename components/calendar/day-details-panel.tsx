@@ -4,7 +4,7 @@ import { CalendarDays, Clock3, LoaderCircle, MapPin, StickyNote, Trash2 } from "
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
-import { EventCategoryIcon } from "@/components/calendar/event-category-icon";
+import { EventCategoryIcon, eventCategorySurfaceClass } from "@/components/calendar/event-category-icon";
 import { EventPanel } from "@/components/calendar/event-panel";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
@@ -616,7 +616,7 @@ export function DayDetailsPanel({
               </p>
             ) : (
               dayEvents.map((event) => (
-                <div key={event.id} className="rounded-xl border border-[#F4C64E] bg-[#FFF9DF] px-4 py-3">
+                <div key={event.id} className={`rounded-xl border px-4 py-3 ${eventCategorySurfaceClass(event.category)}`}>
                   <div className="flex items-start gap-3">
                     <span className="text-lg" aria-hidden="true">
                       <EventCategoryIcon category={event.category} />
@@ -650,7 +650,7 @@ export function DayDetailsPanel({
                             type="button"
                             onClick={() => setEventToDelete(event)}
                             disabled={submitting || Boolean(deletingEventId)}
-                            className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                            className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-[10px] px-3 text-xs font-semibold text-[#A23F39] hover:bg-[#FBECE8] disabled:opacity-50"
                           >
                             {deletingEventId === event.id ? (
                               <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
