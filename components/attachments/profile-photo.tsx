@@ -266,7 +266,7 @@ export function ProfilePhoto({
             disabled={busy}
             onClick={() => inputRef.current?.click()}
             aria-label={hasPhoto ? "Replace profile photo" : "Add profile photo"}
-            className="covie-icon-button flex h-8 w-8 items-center justify-center rounded-lg disabled:opacity-50"
+            className="covie-icon-button flex h-11 w-11 items-center justify-center rounded-[10px] disabled:opacity-50"
           >
             <Camera className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -276,7 +276,7 @@ export function ProfilePhoto({
               disabled={busy}
               onClick={() => setRemoveOpen(true)}
               aria-label="Remove profile photo"
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 bg-[#FBECE8] text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+              className="flex h-11 w-11 items-center justify-center rounded-[10px] border border-[#A23F39] bg-[#FBECE8] text-[#A23F39] hover:bg-[#F7D8D2] disabled:opacity-50"
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -299,7 +299,7 @@ export function ProfilePhoto({
       />
 
       {error ? (
-        <span className="max-w-40 text-center text-[10px] leading-4 text-rose-600">
+        <span className="max-w-40 text-center text-[11px] leading-4 text-[#A23F39]">
           {error}
         </span>
       ) : null}
