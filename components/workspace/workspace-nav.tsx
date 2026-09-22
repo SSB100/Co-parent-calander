@@ -1,5 +1,5 @@
 "use client";
-import { CalendarDays, Bell, CheckSquare2, LayoutGrid, LogOut, UsersRound, WalletCards, ChevronDown, Download, Eye, type LucideIcon } from "lucide-react";
+import { CalendarDays, Bell, CheckSquare2, LayoutGrid, LogOut, UsersRound, WalletCards, ChevronDown, Download, Eye } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -11,21 +11,6 @@ import { ComingUp, type ComingUpPayload } from "./coming-up";
 import { CovieBrand } from "./covie-brand";
 
 export type WorkspaceSection = "home" | "calendar" | "expenses" | "responsibilities" | "kids" | "organiser";
-export type WorkspacePrimaryItem = {
-  key: string;
-  href: string;
-  label: string;
-  icon: LucideIcon;
-};
-
-export type WorkspaceOrganiserItem = {
-  key: string;
-  href: string;
-  label: string;
-  description: string;
-  icon: LucideIcon;
-};
-
 export const organiserItems = [
   {
     key: "responsibilities",
@@ -48,32 +33,18 @@ export const organiserItems = [
     description: "Profiles, activities and useful information.",
     icon: UsersRound,
   },
-] as const satisfies readonly WorkspaceOrganiserItem[];
+] as const;
 const items = [
   { key: "calendar", href: "/calendar", label: "Calendar", icon: CalendarDays },
   { key: "home", href: "/home", label: "Updates", icon: Bell },
-] as const satisfies readonly WorkspacePrimaryItem[];
+] as const;
 
 type WorkspaceSummaryResponse = {
   notificationCount?: number;
   context?: ComingUpPayload;
   error?: string;
 };
-export function WorkspaceNav({
-  active,
-  actions,
-  primaryItemsOverride,
-  organiserItemsOverride,
-  contextEnabled = true,
-  accountEnabled = true,
-}: {
-  active?: WorkspaceSection | string;
-  actions?: ReactNode;
-  primaryItemsOverride?: readonly WorkspacePrimaryItem[];
-  organiserItemsOverride?: readonly WorkspaceOrganiserItem[];
-  contextEnabled?: boolean;
-  accountEnabled?: boolean;
-}) {
+export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; actions?: ReactNode }) {
   const router = useRouter();
   const [signOutError, setSignOutError] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -88,11 +59,8 @@ export function WorkspaceNav({
   const summaryControllerRef = useRef<AbortController | null>(null);
   useDismissibleDetails(accountRef);
   useDismissibleDetails(organiserRef);
-  const activePrimaryItems = primaryItemsOverride ?? items;
-  const activeOrganiserItems = organiserItemsOverride ?? organiserItems;
   const section =
-    active === "organiser" ||
-    (active && activeOrganiserItems.some((item) => item.key === active))
+    active && ["responsibilities", "expenses", "kids", "organiser"].includes(active)
       ? "organiser"
       : active;
 
@@ -144,8 +112,6 @@ export function WorkspaceNav({
   }, []);
 
   useEffect(() => {
-    if (!contextEnabled) return;
-
     const desktopQuery = window.matchMedia("(min-width: 1024px)");
 
     function refresh() {
@@ -167,7 +133,7 @@ export function WorkspaceNav({
       window.removeEventListener("focus", refresh);
       window.removeEventListener("covie-records-updated", refresh);
     };
-  }, [contextEnabled, refreshWorkspace]);
+  }, [refreshWorkspace]);
 
   useEffect(() => {
     if (!mobileActionsOpen) return;
@@ -227,11 +193,11 @@ export function WorkspaceNav({
     <nav className="workspace-nav" aria-label="Main navigation">
       <Link href="/calendar" className="workspace-brand"><CovieBrand /></Link>
       <div className="workspace-destinations">
-        {activePrimaryItems.map(({ key, href, label, icon: Icon }) => (
+        {items.map(({ key, href, label, icon: Icon }) => (
           <Link key={key} href={href} aria-current={section === key ? "page" : undefined}>
             <Icon size={20} aria-hidden="true" />
             <span>{label}</span>
-            {contextEnabled && key === "home" && notificationCount > 0 ? (
+            {key === "home" && notificationCount > 0 ? (
               <span
                 className="workspace-notification-badge"
                 aria-label={`${notificationCount} update${notificationCount === 1 ? "" : "s"} need review`}
@@ -255,7 +221,7 @@ export function WorkspaceNav({
             <ChevronDown className="workspace-organiser-chevron" size={16} aria-hidden="true" />
           </summary>
           <div className="workspace-organiser-options">
-            {activeOrganiserItems.map(({ key, href, label, description, icon: Icon }) => (
+            {organiserItems.map(({ key, href, label, description, icon: Icon }) => (
               <Link
                 key={href}
                 href={href}
@@ -274,21 +240,17 @@ export function WorkspaceNav({
           </div>
         </details>
       </div>
-      {contextEnabled ? (
-        <div className="desktop-coming-up">
-          <ComingUp
-            data={workspaceContext}
-            error={contextError}
-          />
-        </div>
-      ) : null}
+      <div className="desktop-coming-up">
+        <ComingUp
+          data={workspaceContext}
+          error={contextError}
+        />
+      </div>
     </nav>
 
-    {actions || accountEnabled ? (
-      <div className="workspace-actions">
+    <div className="workspace-actions">
       {actions ? <div className="workspace-page-actions">{actions}</div> : null}
 
-      {accountEnabled ? (
       <div
         ref={mobileActionsRef}
         className={`workspace-mobile-actions relative${mobileActionsOpen ? " is-open" : ""}`}
@@ -334,9 +296,7 @@ export function WorkspaceNav({
           ) : null}
         </div>
       </div>
-      ) : null}
 
-      {accountEnabled ? (
       <details ref={accountRef} className="workspace-account relative">
         <summary className="covie-menu-trigger">Account <ChevronDown size={16} aria-hidden="true" /></summary>
         <div className="covie-menu">
@@ -346,9 +306,7 @@ export function WorkspaceNav({
           {signOutError && <p role="alert" className="px-3 text-sm text-rose-700">Could not log out. Please try again.</p>}
         </div>
       </details>
-      ) : null}
     </div>
-    ) : null}
-    {accountEnabled ? <InstallApp /> : null}
+    <InstallApp />
   </>;
 }
