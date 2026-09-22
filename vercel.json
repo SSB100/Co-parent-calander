@@ -11,8 +11,7 @@
   "git": {
     "deploymentEnabled": {
       "**": false,
-      "main": true,
-      "feature/calendar-template-shells": true
+      "main": true
     }
   },
   "regions": [
