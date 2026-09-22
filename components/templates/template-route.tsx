@@ -46,6 +46,15 @@ export async function TemplateRoute({
   if (manifest.id === "staff_rosters") {
     const staffMember = await ensureStaffRosterMember(session);
     staffAccessRole = staffMember.accessRole;
+
+    if (
+      staffAccessRole === "staff" &&
+      section === "organiser" &&
+      activeToolKey !== "availability" &&
+      activeToolKey !== "timesheets"
+    ) {
+      redirect("/calendar-types/staff-rosters");
+    }
   }
 
   const [calendars, archivedCalendars] = await Promise.all([
