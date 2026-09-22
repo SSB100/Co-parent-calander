@@ -2,8 +2,10 @@
 
 import {
   Bell,
+  CalendarCheck2,
   CalendarDays,
   ChevronDown,
+  Clock3,
   LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
@@ -24,11 +26,13 @@ export function TemplateWorkspaceNav({
   organiserItems,
   activeSection,
   activeToolKey,
+  staffMode = false,
 }: {
   basePath: string;
   organiserItems: readonly TemplateOrganiserNavItem[];
   activeSection: "calendar" | "updates" | "organiser";
   activeToolKey?: string;
+  staffMode?: boolean;
 }) {
   const organiserRef = useRef<HTMLDetailsElement>(null);
   useDismissibleDetails(organiserRef);
@@ -58,8 +62,45 @@ export function TemplateWorkspaceNav({
           }`}
         >
           <CalendarDays size={20} aria-hidden="true" />
-          <span>Calendar</span>
+          <span>{staffMode ? "My roster" : "Calendar"}</span>
         </Link>
+
+        {staffMode ? (
+          <>
+            <Link
+              href={`${basePath}/organiser/timesheets`}
+              aria-current={
+                activeSection === "organiser" && activeToolKey === "timesheets"
+                  ? "page"
+                  : undefined
+              }
+              className={`${destinationClass} ${
+                activeSection === "organiser" && activeToolKey === "timesheets"
+                  ? "bg-[#FF6B5F] text-[#243139]"
+                  : ""
+              }`}
+            >
+              <Clock3 size={20} aria-hidden="true" />
+              <span>Timesheet</span>
+            </Link>
+            <Link
+              href={`${basePath}/organiser/availability`}
+              aria-current={
+                activeSection === "organiser" && activeToolKey === "availability"
+                  ? "page"
+                  : undefined
+              }
+              className={`${destinationClass} ${
+                activeSection === "organiser" && activeToolKey === "availability"
+                  ? "bg-[#FF6B5F] text-[#243139]"
+                  : ""
+              }`}
+            >
+              <CalendarCheck2 size={20} aria-hidden="true" />
+              <span>Leave</span>
+            </Link>
+          </>
+        ) : null}
 
         <Link
           href={`${basePath}/updates`}
@@ -74,7 +115,8 @@ export function TemplateWorkspaceNav({
           <span>Updates</span>
         </Link>
 
-        <details
+        {!staffMode ? (
+          <details
           ref={organiserRef}
           className="relative flex-1 lg:flex-none"
         >
@@ -115,6 +157,7 @@ export function TemplateWorkspaceNav({
             ))}
           </div>
         </details>
+        ) : null}
       </div>
     </nav>
   );
