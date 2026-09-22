@@ -1,6 +1,6 @@
 # Covie calendar template shells
 
-This stage establishes the shell architecture for Covie's additional calendar types before deeper domain behaviour is built.
+This stage establishes the production shell architecture for Covie's additional calendar types before deeper domain behaviour is built.
 
 ## Authority
 
@@ -9,7 +9,7 @@ This stage establishes the shell architecture for Covie's additional calendar ty
 3. The manifests in `lib/templates/calendar-templates.ts` translate those sources into implementation data.
 4. Feature-specific behaviour must stay inside those boundaries.
 
-Calendar navigation now adds one shared Core field, `calendars.calendar_type`, so Covie can route each selected calendar to the correct template. Existing calendars are backfilled safely as `co_parenting`. The new template-specific schedules still have no persistent shift, booking or social-event records at this stage.
+Calendar navigation now adds one shared Core field, `calendars.calendar_type`, so Covie can route each selected calendar to the correct template. Existing calendars are backfilled safely as `co_parenting`. The new template-specific schedules still have no persistent shift, booking or social-event records at this stage. Until those domain models exist, the production UI shows honest empty states rather than sample records, demo data or non-functional create controls.
 
 ## Architecture boundary
 
@@ -76,23 +76,23 @@ These are shell baselines, not a hidden expansion of the product specification. 
 
 ## Shared Covie Core used
 
-The additional calendar shells reuse canonical Covie primitives:
+The additional calendars reuse canonical Covie primitives:
 
 - `CoviePage`
 - `CoviePageHeader`
-- `CovieCard` / `CovieStrongCard`
-- `CovieStatusBadge` / `CovieNotice`
-- `CovieDialog`
-- `CovieInput` / `CovieSelect`
-- Covie typography, palette, focus, spacing and mobile keyboard rules
+- `CovieEmptyState`
+- the shared calendar switcher
+- Covie typography, palette, focus, spacing and responsive navigation rules
 
 Their app chrome and template behaviour remain isolated in `components/templates`.
 
+Production calendar pages must not contain invented people, bookings, shifts, events, explanatory preview badges, product-boundary notices or forms that cannot save. A newly created calendar should look intentionally empty until the user creates real data through an implemented feature.
+
 ## Routes
 
-- `/calendar-types`
+- `/calendar-types` redirects to the user's currently selected calendar
 - `/calendar-types/staff-rosters`
 - `/calendar-types/shared-facilities`
 - `/calendar-types/social-groups`
 
-The create dialogs are intentionally non-persistent in this shell stage. They demonstrate the form geometry and interaction pattern only. Persistence, permissions and domain rules come in the detailed template passes.
+Feature-specific create actions only appear once their persistence and permission rules are implemented.
