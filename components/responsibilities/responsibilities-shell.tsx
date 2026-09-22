@@ -14,7 +14,6 @@ import {
   RotateCcw,
   Trash2,
   UserRound,
-  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { localDateInTimeZone } from "@/lib/calendar/time";
