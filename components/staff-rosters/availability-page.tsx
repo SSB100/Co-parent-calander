@@ -305,7 +305,6 @@ export function StaffRosterAvailabilityPage() {
                 Cancel
               </CovieButton>
               <CovieButton
-                tone="teal"
                 disabled={busy || !memberId || !date}
                 onClick={() => void saveAvailability()}
               >
