@@ -19,6 +19,7 @@ async function membershipForUser(userId: string, calendarId?: string) {
       membershipId: calendarMemberships.id,
       calendarId: calendarMemberships.calendarId,
       calendarName: calendars.name,
+      calendarType: calendars.type,
       calendarTimezone: calendars.timezone,
       participantId: calendarMemberships.participantId,
       permission: calendarMemberships.permission,
