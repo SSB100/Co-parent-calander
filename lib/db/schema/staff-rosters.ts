@@ -482,3 +482,34 @@ export const staffRosterInvites = pgTable(
   ],
 );
 
+export const staffRosterUpdates = pgTable(
+  "staff_roster_updates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    calendarId: uuid("calendar_id")
+      .notNull()
+      .references(() => calendars.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => staffRosterMembers.id, { onDelete: "cascade" }),
+    publicationId: uuid("publication_id")
+      .notNull()
+      .references(() => staffRosterWeekPublications.id, { onDelete: "cascade" }),
+    kind: varchar("kind", { length: 32 }).notNull(),
+    title: varchar("title", { length: 160 }).notNull(),
+    beforeSummary: text("before_summary"),
+    afterSummary: text("after_summary"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("staff_roster_updates_calendar_created_idx").on(
+      table.calendarId,
+      table.createdAt,
+    ),
+    index("staff_roster_updates_member_created_idx").on(
+      table.memberId,
+      table.createdAt,
+    ),
+  ],
+);
+
