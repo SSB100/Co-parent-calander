@@ -27,6 +27,8 @@ type TeamMember = {
   displayName: string;
   accessRole: StaffAccessRole;
   active: boolean;
+  roleIds: string[];
+  roleNames: string[];
   defaultRoleId: string | null;
   defaultRoleName: string | null;
   defaultLocationId: string | null;
@@ -51,6 +53,7 @@ type MemberForm = {
   memberId: string | null;
   displayName: string;
   accessRole: "manager" | "staff";
+  roleIds: string[];
   defaultRoleId: string;
   defaultLocationId: string;
 };
@@ -59,6 +62,7 @@ const emptyForm: MemberForm = {
   memberId: null,
   displayName: "",
   accessRole: "staff",
+  roleIds: [],
   defaultRoleId: "",
   defaultLocationId: "",
 };
@@ -130,10 +134,26 @@ export function StaffRosterTeamPage() {
       memberId: member.id,
       displayName: member.displayName,
       accessRole: member.accessRole === "manager" ? "manager" : "staff",
-      defaultRoleId: member.defaultRoleId ?? "",
+      roleIds: member.roleIds,
+      defaultRoleId: member.defaultRoleId ?? member.roleIds[0] ?? "",
       defaultLocationId: member.defaultLocationId ?? "",
     });
     setDialogOpen(true);
+  }
+
+  function toggleRole(roleId: string) {
+    setForm((current) => {
+      const selected = current.roleIds.includes(roleId);
+      const roleIds = selected
+        ? current.roleIds.filter((id) => id !== roleId)
+        : [...current.roleIds, roleId];
+      const defaultRoleId =
+        current.defaultRoleId && roleIds.includes(current.defaultRoleId)
+          ? current.defaultRoleId
+          : (roleIds[0] ?? "");
+
+      return { ...current, roleIds, defaultRoleId };
+    });
   }
 
   async function saveMember() {
@@ -151,14 +171,22 @@ export function StaffRosterTeamPage() {
                 memberId: form.memberId,
                 displayName: form.displayName,
                 accessRole: form.accessRole,
-                defaultRoleId: form.defaultRoleId,
+                roleIds: form.roleIds,
+                defaultRoleId:
+                  form.defaultRoleId && form.roleIds.includes(form.defaultRoleId)
+                    ? form.defaultRoleId
+                    : (form.roleIds[0] ?? ""),
                 defaultLocationId: form.defaultLocationId,
                 active: true,
               }
             : {
                 displayName: form.displayName,
                 accessRole: form.accessRole,
-                defaultRoleId: form.defaultRoleId,
+                roleIds: form.roleIds,
+                defaultRoleId:
+                  form.defaultRoleId && form.roleIds.includes(form.defaultRoleId)
+                    ? form.defaultRoleId
+                    : (form.roleIds[0] ?? ""),
                 defaultLocationId: form.defaultLocationId,
               },
         ),
@@ -240,7 +268,8 @@ export function StaffRosterTeamPage() {
           displayName: archiveTarget.displayName,
           accessRole:
             archiveTarget.accessRole === "manager" ? "manager" : "staff",
-          defaultRoleId: archiveTarget.defaultRoleId ?? "",
+          roleIds: archiveTarget.roleIds,
+          defaultRoleId: archiveTarget.defaultRoleId ?? archiveTarget.roleIds[0] ?? "",
           defaultLocationId: archiveTarget.defaultLocationId ?? "",
           active: false,
         }),
@@ -381,9 +410,11 @@ export function StaffRosterTeamPage() {
 
                     <dl className="mt-4 grid gap-2 text-sm">
                       <div className="flex items-center justify-between gap-3">
-                        <dt className="text-[#66747A]">Role</dt>
-                        <dd className="text-right font-bold text-[#243139]">
-                          {member.defaultRoleName ?? "Not set"}
+                        <dt className="text-[#66747A]">Roles</dt>
+                        <dd className="max-w-[65%] text-right font-bold text-[#243139]">
+                          {member.roleNames.length > 0
+                            ? member.roleNames.join(", ")
+                            : "Not set"}
                         </dd>
                       </div>
                       <div className="flex items-center justify-between gap-3">
@@ -405,7 +436,7 @@ export function StaffRosterTeamPage() {
         <CovieDialog
           id="staff-member-dialog-title"
           title={form.memberId ? "Edit team member" : "Add team member"}
-          description="Roster access controls what someone can manage. Role and location describe their usual work."
+          description="Roster access controls what someone can manage. Add one or more work roles and an optional usual location."
           icon={<BriefcaseBusiness aria-hidden="true" />}
           iconTone="teal"
           size="sm"
@@ -475,26 +506,66 @@ export function StaffRosterTeamPage() {
               </CovieSelect>
             </label>
 
-            <label>
-              <span className="mb-1.5 block text-sm font-bold">Default role</span>
-              <CovieSelect
-                value={form.defaultRoleId}
-                disabled={busy}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    defaultRoleId: event.target.value,
-                  }))
-                }
-              >
-                <option value="">Not set</option>
-                {data.roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
-                  </option>
-                ))}
-              </CovieSelect>
-            </label>
+            <fieldset>
+              <legend className="mb-1.5 block text-sm font-bold">Roles</legend>
+              {data.roles.length === 0 ? (
+                <p className="rounded-xl bg-[#FFF9F2] p-3 text-sm text-[#66747A]">
+                  No roles have been added yet.
+                </p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {data.roles.map((role) => {
+                    const checked = form.roleIds.includes(role.id);
+                    return (
+                      <label
+                        key={role.id}
+                        className={
+                          "flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold " +
+                          (checked
+                            ? "border-[#19A897] bg-[#EAF8F5] text-[#243139]"
+                            : "border-[#E6DBCF] bg-white text-[#526168]")
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={busy}
+                          onChange={() => toggleRole(role.id)}
+                          className="h-4 w-4 accent-[#19A897]"
+                        />
+                        <span>{role.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </fieldset>
+
+            {form.roleIds.length > 1 ? (
+              <label>
+                <span className="mb-1.5 block text-sm font-bold">
+                  Usual role for new shifts
+                </span>
+                <CovieSelect
+                  value={form.defaultRoleId}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      defaultRoleId: event.target.value,
+                    }))
+                  }
+                >
+                  {data.roles
+                    .filter((role) => form.roleIds.includes(role.id))
+                    .map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
+                    ))}
+                </CovieSelect>
+              </label>
+            ) : null}
 
             <label>
               <span className="mb-1.5 block text-sm font-bold">Default location</span>
