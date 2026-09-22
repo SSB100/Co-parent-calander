@@ -39,7 +39,7 @@ test("Staff Rosters access roles are separate from job roles", async () => {
   ]);
 
   assert.match(schema, /staff_roster_access_role/);
-  assert.match(schema, /"owner",[sS]*"manager",[sS]*"staff"/);
+  assert.match(schema, /"owner",[\s\S]*"manager",[\s\S]*"staff"/);
   assert.match(schema, /defaultRoleId/);
   assert.match(schema, /defaultLocationId/);
 
