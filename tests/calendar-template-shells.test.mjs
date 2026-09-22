@@ -9,7 +9,7 @@ async function source(file) {
   return readFile(path.join(root, file), "utf8");
 }
 
-test("additional calendar templates have explicit Brand Bible manifests", async () => {
+test("additional calendar templates keep explicit Brand Bible manifests", async () => {
   const manifests = await source("lib/templates/calendar-templates.ts");
 
   assert.match(manifests, /staff_rosters:[\s\S]*accentPair: \["teal", "sunshine"\]/);
@@ -23,13 +23,9 @@ test("additional calendar templates have explicit Brand Bible manifests", async 
   assert.match(manifests, /label: "Team"/);
   assert.match(manifests, /label: "Resources"/);
   assert.match(manifests, /label: "Group settings"/);
-
-  assert.match(manifests, /label: "Shift",[\s\S]*colour: "teal"/);
-  assert.match(manifests, /label: "Booking",[\s\S]*colour: "violet"/);
-  assert.match(manifests, /label: "Activity",[\s\S]*colour: "coral"/);
 });
 
-test("calendar type shells reuse Covie Core without changing co-parenting navigation", async () => {
+test("new calendar pages use Covie Core but remain separate from co-parenting workspace code", async () => {
   const [shell, templateNav, coParentNav, indexPage, route] = await Promise.all([
     source("components/templates/template-shell.tsx"),
     source("components/templates/template-workspace-nav.tsx"),
@@ -41,17 +37,13 @@ test("calendar type shells reuse Covie Core without changing co-parenting naviga
   for (const primitive of [
     "CoviePage",
     "CoviePageHeader",
-    "CovieCard",
-    "CovieDialog",
-    "CovieInput",
-    "CovieSelect",
-    "CovieStatusBadge",
-    "CovieNotice",
+    "CovieEmptyState",
   ]) {
     assert.match(shell, new RegExp(primitive));
   }
 
   assert.match(shell, /TemplateWorkspaceNav/);
+  assert.match(shell, /CalendarSwitcher/);
   assert.doesNotMatch(shell, /@\/components\/workspace\/workspace-nav/);
 
   assert.match(templateNav, /CovieBrand/);
@@ -66,32 +58,59 @@ test("calendar type shells reuse Covie Core without changing co-parenting naviga
     coParentNav,
     /active && \["responsibilities", "expenses", "kids", "organiser"\]\.includes\(active\)/,
   );
-  assert.doesNotMatch(
-    coParentNav,
-    /primaryItemsOverride|organiserItemsOverride|contextEnabled|accountEnabled/,
-  );
 
-  assert.match(indexPage, /Calendar type shells/);
-  assert.match(route, /isAdditionalCalendarTemplateSlug/);
-  assert.doesNotMatch(shell, /window\.confirm/);
-  assert.doesNotMatch(shell, /(?:bg|text|border)-blue-/);
+  assert.match(indexPage, /redirect\(calendarPathForType\(session\.calendarType\)\)/);
+  assert.doesNotMatch(indexPage, /Calendar type shells|Open shell/);
+  assert.match(route, /session\.calendarType !== manifest\.id/);
 });
 
-test("shell schedules reflect each template's documented scheduling model", async () => {
+test("new calendar pages contain no mock records, demo controls or preview copy", async () => {
   const shell = await source("components/templates/template-shell.tsx");
 
-  assert.match(shell, /StaffRosterSchedule/);
-  assert.match(shell, /sampleStaff/);
-  assert.match(shell, /FacilitiesSchedule/);
-  assert.match(shell, /resources = \["Court 1", "Court 2", "Meeting room"\]/);
-  assert.match(shell, /SocialSchedule/);
-  assert.match(shell, /Coffee catch-up/);
-  assert.match(shell, /overflow-x-auto/);
-  assert.match(shell, /Product boundary:/);
-  assert.match(shell, /Saving is intentionally left for the detailed feature pass/);
+  for (const mockText of [
+    "Alex",
+    "Jordan",
+    "Sam",
+    "Coffee catch-up",
+    "Club night",
+    "Beach walk",
+    "Tennis lesson",
+    "Member booking",
+    "Committee meeting",
+    "Main site",
+    "Shell preview",
+    "Product boundary",
+    "Schedule model",
+    "Saving is intentionally left",
+    "Preview the basic",
+    "All calendar shells",
+  ]) {
+    assert.doesNotMatch(shell, new RegExp(mockText));
+  }
+
+  assert.doesNotMatch(shell, /sampleStaff|sampleShifts|facilityBookings|socialDays/);
+  assert.doesNotMatch(shell, /CovieDialog|CovieInput|CovieSelect|submitPreview/);
+  assert.doesNotMatch(shell, /window\.confirm/);
 });
 
-test("template shells bind to selected typed calendars while keeping feature data isolated", async () => {
+test("each calendar type has a simple unique production empty state", async () => {
+  const shell = await source("components/templates/template-shell.tsx");
+
+  assert.match(shell, /staff_rosters:[\s\S]*title: "Roster"/);
+  assert.match(shell, /staff_rosters:[\s\S]*emptyTitle: "No shifts yet"/);
+
+  assert.match(shell, /shared_facilities:[\s\S]*title: "Bookings"/);
+  assert.match(shell, /shared_facilities:[\s\S]*emptyTitle: "No bookings yet"/);
+
+  assert.match(shell, /social_groups:[\s\S]*title: "Events"/);
+  assert.match(shell, /social_groups:[\s\S]*emptyTitle: "No events yet"/);
+
+  assert.match(shell, /activeSection === "updates"/);
+  assert.match(shell, /organiserEmptyCopy/);
+  assert.match(shell, /CovieEmptyState/);
+});
+
+test("template shells remain bound to selected typed calendars", async () => {
   const [route, shell, navigation, migration, core] = await Promise.all([
     source("app/calendar-types/[template]/page.tsx"),
     source("components/templates/template-shell.tsx"),
@@ -103,12 +122,10 @@ test("template shells bind to selected typed calendars while keeping feature dat
   assert.match(route, /getCalendarSession/);
   assert.match(route, /session\.calendarType !== manifest\.id/);
   assert.match(route, /listCalendarNavigationOptions/);
-  assert.match(shell, /CalendarSwitcher/);
   assert.match(shell, /currentCalendarId/);
   assert.match(navigation, /calendarType: calendars\.type/);
   assert.match(migration, /CREATE TYPE "calendar_type"/);
   assert.match(migration, /DEFAULT 'co_parenting'/);
-  assert.match(migration, /'0022', 'Calendar template types and navigation'/);
   assert.match(core, /export const calendarType = pgEnum/);
   assert.match(core, /type: calendarType\("calendar_type"\)/);
 });

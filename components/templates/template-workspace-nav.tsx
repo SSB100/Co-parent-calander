@@ -107,13 +107,13 @@ export function TemplateWorkspaceNav({
 
           <div className="absolute z-[55] flex w-[284px] flex-col gap-1.5 rounded-xl border-2 border-[#243139] bg-[#FFF9F2] p-2 shadow-[5px_5px_0_#F4C64E] lg:left-0 lg:top-[calc(100%+8px)] max-lg:right-0 max-lg:bottom-[calc(100%+10px)] max-lg:max-h-[min(60dvh,420px)] max-lg:w-[min(300px,calc(100vw-16px))] max-lg:overflow-y-auto">
             {organiserItems.map(
-              ({ key, label, description, icon: Icon }) => (
+              ({ key, label, icon: Icon }) => (
                 <Link
                   key={key}
                   href={`${basePath}#${key}`}
                   onClick={() => selectHash(key)}
                   aria-current={activeHash === key ? "page" : undefined}
-                  className={`flex min-h-14 items-center gap-2.5 rounded-lg px-2.5 py-2 text-[#243139] hover:bg-[#F7EFE5] ${
+                  className={`flex min-h-12 items-center gap-2.5 rounded-lg px-2.5 py-2 text-[#243139] hover:bg-[#F7EFE5] ${
                     activeHash === key
                       ? "outline-2 outline-offset-[-2px] outline-[#765ED6]"
                       : ""
@@ -122,14 +122,9 @@ export function TemplateWorkspaceNav({
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] border border-[#E6DBCF] bg-white">
                     <Icon size={18} aria-hidden="true" />
                   </span>
-                  <span className="min-w-0">
-                    <strong className="block text-sm font-extrabold">
-                      {label}
-                    </strong>
-                    <span className="mt-px block text-[11px] leading-[1.35] text-[#66747A]">
-                      {description}
-                    </span>
-                  </span>
+                  <strong className="min-w-0 truncate text-sm font-extrabold">
+                    {label}
+                  </strong>
                 </Link>
               ),
             )}
