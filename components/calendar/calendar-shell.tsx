@@ -14,7 +14,6 @@ import {
   subMonths,
 } from "date-fns";
 import {
-  CheckCircle2,
   CheckSquare2,
   CircleDollarSign,
   ChevronLeft,
@@ -29,7 +28,6 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { flushSync } from "react-dom";
-import Link from "next/link";
 import dynamic from "next/dynamic";
 import { CalendarSwitcher, type CalendarOption } from "@/components/calendar/calendar-switcher";
 import { GoogleCalendarQuickAction } from "@/components/calendar/google-calendar-quick-action";
@@ -841,7 +839,6 @@ export function CalendarShell({
   }, [calendarData]);
 
   const today = parseISO(initialToday);
-  const currentEditor = calendarData?.participants.find((participant) => participant.id === calendarData.currentParticipantId);
 
   function ownerLabel(owner: SlotOwnership | undefined) {
     if (!owner) return "Unassigned";
@@ -1008,20 +1005,10 @@ export function CalendarShell({
                   <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                   Checking access
                 </CovieStatusBadge>
-              ) : accessMode === "editor" ? (
-                <CovieStatusBadge tone="teal" className="hidden gap-1.5 sm:inline-flex">
-                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  {currentEditor ? `${currentEditor.displayName} editing` : "Editor access"}
-                </CovieStatusBadge>
               ) : accessMode === "viewer" ? (
                 <CovieStatusBadge tone="violet">View only</CovieStatusBadge>
-              ) : (
+              ) : accessMode === "error" ? (
                 <CovieStatusBadge tone="danger">Calendar unavailable</CovieStatusBadge>
-              )}
-              {calendarData?.recurringScheduleActive ? (
-                <CovieStatusBadge tone="violet" className="hidden sm:inline-flex">
-                  Repeating schedule on
-                </CovieStatusBadge>
               ) : null}
             </div>
           </div>
@@ -1043,10 +1030,6 @@ export function CalendarShell({
                       >
                       <summary className="covie-menu-trigger covie-action-violet"><span><span className="hidden sm:inline">Calendar </span>Tools</span><ChevronDown size={16} aria-hidden="true" /></summary>
                         <div className="covie-menu covie-tool-menu">
-                          <Link href="/responsibilities" className="covie-menu-item">
-                            <CheckSquare2 className="h-4 w-4" aria-hidden="true" />
-                            Tasks
-                          </Link>
                           {toolsMenuOpen ? (
                             <CalendarToolsMenu
                               onChanged={() =>
