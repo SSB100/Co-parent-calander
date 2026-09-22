@@ -783,8 +783,9 @@ export async function cancelLeaveRequest(input: {
     throw new StaffRosterServiceError(409, "This leave request cannot be cancelled.");
   }
 
-  await getSql().transaction([
-    getSql()`
+  const sql = getSql();
+  await sql.transaction([
+    sql`
       UPDATE staff_roster_leave_requests
       SET status = 'cancelled', updated_at = now()
       WHERE id = ${input.leaveRequestId}
@@ -792,7 +793,7 @@ export async function cancelLeaveRequest(input: {
         AND member_id = ${current.id}
         AND status IN ('pending', 'approved')
     `,
-    getSql()`
+    sql`
       INSERT INTO audit_log (
         calendar_id, actor_participant_id, action,
         entity_type, entity_id, after_state
