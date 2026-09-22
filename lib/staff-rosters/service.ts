@@ -9,6 +9,10 @@ import {
   staffRosterRoles,
 } from "@/lib/db/schema";
 import { localDateInTimeZone } from "@/lib/calendar/time";
+import {
+  staffRosterCapabilities,
+  type StaffRosterAccessRole,
+} from "@/lib/staff-rosters/capabilities";
 
 export class StaffRosterServiceError extends Error {
   constructor(
@@ -29,7 +33,6 @@ type StaffSession = {
   userEmail: string;
 };
 
-type StaffAccessRole = "owner" | "manager" | "staff";
 
 function assertStaffCalendar(session: StaffSession) {
   if (session.calendarType !== "staff_rosters") {
@@ -57,7 +60,15 @@ export async function ensureStaffRosterMember(session: StaffSession) {
     )
     .limit(1);
 
-  if (existing[0]) return existing[0];
+  if (existing[0]) {
+    if (!existing[0].active) {
+      throw new StaffRosterServiceError(
+        403,
+        "Your staff profile is inactive for this roster.",
+      );
+    }
+    return existing[0];
+  }
 
   if (session.permission !== "owner") {
     throw new StaffRosterServiceError(
@@ -93,7 +104,15 @@ export async function ensureStaffRosterMember(session: StaffSession) {
       .where(eq(staffRosterMembers.membershipId, session.membershipId))
       .limit(1);
 
-    if (concurrent[0]) return concurrent[0];
+    if (concurrent[0]) {
+      if (!concurrent[0].active) {
+        throw new StaffRosterServiceError(
+          403,
+          "Your staff profile is inactive for this roster.",
+        );
+      }
+      return concurrent[0];
+    }
     throw new StaffRosterServiceError(
       409,
       "Your roster profile could not be prepared. Refresh and try again.",
@@ -106,18 +125,6 @@ export async function ensureStaffRosterMember(session: StaffSession) {
     accessRole: "owner" as const,
     active: true,
   };
-}
-
-function canManageTeam(role: StaffAccessRole) {
-  return role === "owner" || role === "manager";
-}
-
-function canManageStructure(role: StaffAccessRole) {
-  return role === "owner" || role === "manager";
-}
-
-function canManageAllAvailability(role: StaffAccessRole) {
-  return role === "owner" || role === "manager";
 }
 
 async function assertReferenceBelongsToCalendar(input: {
@@ -218,11 +225,16 @@ export async function getTeam(session: StaffSession) {
       .orderBy(asc(staffRosterLocations.name)),
   ]);
 
+  const capabilities = staffRosterCapabilities({
+    accessRole: current.accessRole,
+    permission: session.permission,
+  });
+
   return {
     currentMemberId: current.id,
     currentAccessRole: current.accessRole,
-    canManageTeam: canManageTeam(current.accessRole),
-    canManageManagers: current.accessRole === "owner",
+    canManageTeam: capabilities.manageTeam,
+    canManageManagers: capabilities.manageManagers,
     members: members.map((member) => ({
       ...member,
       hasAccount: Boolean(member.membershipId),
@@ -241,10 +253,14 @@ export async function createTeamMember(input: {
   defaultLocationId: string | null;
 }) {
   const actor = await ensureStaffRosterMember(input.session);
-  if (!canManageTeam(actor.accessRole) || input.session.permission === "viewer") {
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
+  if (!capabilities.manageTeam) {
     throw new StaffRosterServiceError(403, "Manager access is required.");
   }
-  if (input.accessRole === "manager" && actor.accessRole !== "owner") {
+  if (input.accessRole === "manager" && !capabilities.manageManagers) {
     throw new StaffRosterServiceError(
       403,
       "Only the calendar owner can add another manager.",
@@ -309,7 +325,11 @@ export async function updateTeamMember(input: {
   active: boolean;
 }) {
   const actor = await ensureStaffRosterMember(input.session);
-  if (!canManageTeam(actor.accessRole) || input.session.permission === "viewer") {
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
+  if (!capabilities.manageTeam) {
     throw new StaffRosterServiceError(403, "Manager access is required.");
   }
 
@@ -340,7 +360,7 @@ export async function updateTeamMember(input: {
     );
   }
   if (
-    actor.accessRole !== "owner" &&
+    !capabilities.manageManagers &&
     (target.accessRole === "manager" || input.accessRole === "manager")
   ) {
     throw new StaffRosterServiceError(
@@ -407,8 +427,13 @@ export async function getRolesAndLocations(session: StaffSession) {
       .orderBy(asc(staffRosterLocations.name)),
   ]);
 
+  const capabilities = staffRosterCapabilities({
+    accessRole: current.accessRole,
+    permission: session.permission,
+  });
+
   return {
-    canManage: canManageStructure(current.accessRole) && session.permission !== "viewer",
+    canManage: capabilities.manageStructure,
     roles,
     locations,
   };
@@ -420,7 +445,11 @@ export async function createRoleOrLocation(input: {
   name: string;
 }) {
   const actor = await ensureStaffRosterMember(input.session);
-  if (!canManageStructure(actor.accessRole) || input.session.permission === "viewer") {
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
+  if (!capabilities.manageStructure) {
     throw new StaffRosterServiceError(403, "Manager access is required.");
   }
 
@@ -488,7 +517,11 @@ export async function archiveRoleOrLocation(input: {
   id: string;
 }) {
   const actor = await ensureStaffRosterMember(input.session);
-  if (!canManageStructure(actor.accessRole) || input.session.permission === "viewer") {
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
+  if (!capabilities.manageStructure) {
     throw new StaffRosterServiceError(403, "Manager access is required.");
   }
 
@@ -547,6 +580,10 @@ export async function getAvailability(input: {
   const to =
     input.to ?? format(addDays(parseISO(today), 30), "yyyy-MM-dd");
   const db = getDb();
+  const capabilities = staffRosterCapabilities({
+    accessRole: current.accessRole,
+    permission: input.session.permission,
+  });
 
   const rows = await db
     .select({
@@ -569,7 +606,7 @@ export async function getAvailability(input: {
         eq(staffRosterAvailability.calendarId, input.session.calendarId),
         drizzleSql`${staffRosterAvailability.availabilityDate} >= ${from}`,
         drizzleSql`${staffRosterAvailability.availabilityDate} <= ${to}`,
-        canManageAllAvailability(current.accessRole)
+        capabilities.manageAllAvailability
           ? drizzleSql`true`
           : eq(staffRosterAvailability.memberId, current.id),
       ),
@@ -579,7 +616,7 @@ export async function getAvailability(input: {
       asc(staffRosterAvailability.startTime),
     );
 
-  const team = canManageAllAvailability(current.accessRole)
+  const team = capabilities.manageAllAvailability
     ? await db
         .select({
           id: staffRosterMembers.id,
@@ -598,7 +635,7 @@ export async function getAvailability(input: {
   return {
     currentMemberId: current.id,
     currentAccessRole: current.accessRole,
-    canManageAll: canManageAllAvailability(current.accessRole),
+    canManageAll: capabilities.manageAllAvailability,
     from,
     to,
     members: team,
@@ -607,8 +644,7 @@ export async function getAvailability(input: {
       startTime: row.startTime?.slice(0, 5) ?? null,
       endTime: row.endTime?.slice(0, 5) ?? null,
       canDelete:
-        canManageAllAvailability(current.accessRole) ||
-        row.memberId === current.id,
+        capabilities.manageAllAvailability || row.memberId === current.id,
     })),
   };
 }
@@ -623,11 +659,14 @@ export async function createAvailability(input: {
   note: string | null;
 }) {
   const actor = await ensureStaffRosterMember(input.session);
-  const managesAll = canManageAllAvailability(actor.accessRole);
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
 
   if (
-    input.session.permission === "viewer" ||
-    (!managesAll && input.memberId !== actor.id)
+    !capabilities.editOwnAvailability ||
+    (!capabilities.manageAllAvailability && input.memberId !== actor.id)
   ) {
     throw new StaffRosterServiceError(
       403,
@@ -698,10 +737,14 @@ export async function deleteAvailability(input: {
     throw new StaffRosterServiceError(404, "Availability entry not found.");
   }
 
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
+
   if (
-    input.session.permission === "viewer" ||
-    (!canManageAllAvailability(actor.accessRole) &&
-      entry.memberId !== actor.id)
+    !capabilities.editOwnAvailability ||
+    (!capabilities.manageAllAvailability && entry.memberId !== actor.id)
   ) {
     throw new StaffRosterServiceError(
       403,
