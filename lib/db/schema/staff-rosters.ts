@@ -111,6 +111,31 @@ export const staffRosterMembers = pgTable(
   ],
 );
 
+export const staffRosterMemberRoles = pgTable(
+  "staff_roster_member_roles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    calendarId: uuid("calendar_id")
+      .notNull()
+      .references(() => calendars.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => staffRosterMembers.id, { onDelete: "cascade" }),
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => staffRosterRoles.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("staff_roster_member_roles_member_role_unique").on(
+      table.memberId,
+      table.roleId,
+    ),
+    index("staff_roster_member_roles_calendar_idx").on(table.calendarId),
+    index("staff_roster_member_roles_member_idx").on(table.memberId),
+  ],
+);
+
 export const staffRosterAvailability = pgTable(
   "staff_roster_availability",
   {
