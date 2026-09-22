@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { addDays, format, parseISO, subDays } from "date-fns";
-import { and, asc, eq, sql as drizzleSql } from "drizzle-orm";
+import { and, asc, desc, eq, sql as drizzleSql } from "drizzle-orm";
 import { getDb, getSql } from "@/lib/db";
 import {
   staffRosterAvailability,
@@ -11,6 +11,7 @@ import {
   staffRosterRoles,
   staffRosterSettings,
   staffRosterShifts,
+  staffRosterUpdates,
   staffRosterWeekPublications,
 } from "@/lib/db/schema";
 import { localDateInTimeZone } from "@/lib/calendar/time";
@@ -1535,6 +1536,115 @@ export async function publishRosterWeek(input: {
           updated_at = now()
       `,
       sql`
+        WITH publication AS (
+          SELECT id, calendar_id
+          FROM staff_roster_week_publications
+          WHERE calendar_id = ${input.session.calendarId}
+            AND week_start = ${input.weekStart}
+          LIMIT 1
+        ),
+        live AS (
+          SELECT
+            shift.id,
+            shift.member_id,
+            shift.shift_date,
+            shift.start_time,
+            shift.end_time,
+            shift.role_id,
+            shift.location_id,
+            shift.note,
+            shift.availability_override
+          FROM staff_roster_shifts shift
+          WHERE shift.calendar_id = ${input.session.calendarId}
+            AND shift.shift_date >= ${input.weekStart}
+            AND shift.shift_date <= ${weekEnd}
+        ),
+        previous AS (
+          SELECT
+            published.source_shift_id,
+            published.member_id,
+            published.shift_date,
+            published.start_time,
+            published.end_time,
+            published.role_id,
+            published.location_id,
+            published.note,
+            published.availability_override
+          FROM staff_roster_published_shifts published
+          JOIN publication ON publication.id = published.publication_id
+        ),
+        changed AS (
+          SELECT
+            COALESCE(live.member_id, previous.member_id) AS member_id,
+            COALESCE(live.shift_date, previous.shift_date) AS shift_date,
+            CASE
+              WHEN previous.source_shift_id IS NULL THEN 'shift_added'
+              WHEN live.id IS NULL THEN 'shift_removed'
+              ELSE 'shift_changed'
+            END AS kind,
+            CASE
+              WHEN previous.source_shift_id IS NULL THEN NULL
+              ELSE CONCAT(
+                previous.shift_date::text, ' ',
+                LEFT(previous.start_time::text, 5), '–',
+                LEFT(previous.end_time::text, 5)
+              )
+            END AS before_summary,
+            CASE
+              WHEN live.id IS NULL THEN NULL
+              ELSE CONCAT(
+                live.shift_date::text, ' ',
+                LEFT(live.start_time::text, 5), '–',
+                LEFT(live.end_time::text, 5)
+              )
+            END AS after_summary
+          FROM live
+          FULL OUTER JOIN previous
+            ON previous.source_shift_id = live.id
+          WHERE ${action} = 'send_updates'
+            AND (
+              previous.source_shift_id IS NULL
+              OR live.id IS NULL
+              OR live.member_id IS DISTINCT FROM previous.member_id
+              OR live.shift_date IS DISTINCT FROM previous.shift_date
+              OR live.start_time IS DISTINCT FROM previous.start_time
+              OR live.end_time IS DISTINCT FROM previous.end_time
+              OR live.role_id IS DISTINCT FROM previous.role_id
+              OR live.location_id IS DISTINCT FROM previous.location_id
+              OR live.note IS DISTINCT FROM previous.note
+              OR live.availability_override IS DISTINCT FROM previous.availability_override
+            )
+        )
+        INSERT INTO staff_roster_updates (
+          id, calendar_id, member_id, publication_id,
+          kind, title, before_summary, after_summary
+        )
+        SELECT
+          gen_random_uuid(), publication.calendar_id, live.member_id,
+          publication.id, 'published',
+          'Your roster was published',
+          NULL,
+          COUNT(*)::text || CASE WHEN COUNT(*) = 1 THEN ' shift' ELSE ' shifts' END
+        FROM publication
+        JOIN live ON true
+        WHERE ${action} = 'publish'
+        GROUP BY publication.id, publication.calendar_id, live.member_id
+        UNION ALL
+        SELECT
+          gen_random_uuid(), publication.calendar_id, changed.member_id,
+          publication.id, changed.kind,
+          TRIM(TO_CHAR(changed.shift_date, 'FMDay')) ||
+            CASE changed.kind
+              WHEN 'shift_added' THEN ' shift added'
+              WHEN 'shift_removed' THEN ' shift removed'
+              ELSE ' shift changed'
+            END,
+          changed.before_summary,
+          changed.after_summary
+        FROM publication
+        JOIN changed ON true
+      `,
+      sql`
         DELETE FROM staff_roster_published_shifts
         WHERE publication_id = (
           SELECT id
@@ -1609,6 +1719,53 @@ export async function publishRosterWeek(input: {
     ok: true as const,
     action,
     revision: rows[0]?.revision ?? 1,
+  };
+}
+
+export async function getRosterUpdates(session: StaffSession) {
+  const current = await ensureStaffRosterMember(session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: current.accessRole,
+    permission: session.permission,
+  });
+
+  const rows = await getDb()
+    .select({
+      id: staffRosterUpdates.id,
+      memberId: staffRosterUpdates.memberId,
+      memberName: staffRosterMembers.displayName,
+      kind: staffRosterUpdates.kind,
+      title: staffRosterUpdates.title,
+      beforeSummary: staffRosterUpdates.beforeSummary,
+      afterSummary: staffRosterUpdates.afterSummary,
+      createdAt: staffRosterUpdates.createdAt,
+      weekStart: staffRosterWeekPublications.weekStart,
+    })
+    .from(staffRosterUpdates)
+    .innerJoin(
+      staffRosterMembers,
+      eq(staffRosterUpdates.memberId, staffRosterMembers.id),
+    )
+    .innerJoin(
+      staffRosterWeekPublications,
+      eq(staffRosterUpdates.publicationId, staffRosterWeekPublications.id),
+    )
+    .where(
+      and(
+        eq(staffRosterUpdates.calendarId, session.calendarId),
+        capabilities.createShifts
+          ? drizzleSql`true`
+          : eq(staffRosterUpdates.memberId, current.id),
+      ),
+    )
+    .orderBy(desc(staffRosterUpdates.createdAt))
+    .limit(50);
+
+  return {
+    currentMemberId: current.id,
+    currentAccessRole: current.accessRole,
+    canManageRoster: capabilities.createShifts,
+    updates: rows,
   };
 }
 
