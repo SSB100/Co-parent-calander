@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0024", async () => {
+test("schema migrations are sequential through 0025", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 25 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 26 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -280,6 +280,32 @@ test("0024 adds calendar lifecycle plus Staff roster setup and shifts", async ()
     /'0024', 'Calendar lifecycle and Staff roster setup and shifts'/,
   );
   assert.doesNotMatch(migration, /ALTER TABLE "participants"|ALTER TABLE "children"/);
+});
+
+
+test("0025 adds Staff roster published week snapshots without changing live shifts", async () => {
+  const [migration, staff] = await Promise.all([
+    source("drizzle/0025_staff_roster_publication.sql"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  for (const token of [
+    "staff_roster_week_publications",
+    "staff_roster_published_shifts",
+    "staff_roster_week_publications_calendar_week_unique",
+    "staff_roster_published_shifts_time_valid",
+    "published_by_membership_id",
+    "last_sent_by_membership_id",
+  ]) {
+    assert.match(migration, new RegExp(token));
+    assert.match(staff, new RegExp(token));
+  }
+
+  assert.match(
+    migration,
+    /'0025', 'Staff roster published week snapshots'/,
+  );
+  assert.doesNotMatch(migration, /ALTER TABLE "staff_roster_shifts"/);
 });
 
 
