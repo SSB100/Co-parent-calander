@@ -2060,6 +2060,88 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
         </>
       ) : null}
 
+      {operationalHoursOpen && data?.canManageRoster ? (
+        <CovieDialog
+          id="staff-operational-hours-title"
+          title="Operational hours"
+          description="Choose the hours managers normally need to see. The roster still supports the full 24-hour day."
+          icon={<Clock3 aria-hidden="true" />}
+          iconTone="teal"
+          size="sm"
+          busy={busy}
+          onClose={() => setOperationalHoursOpen(false)}
+          footer={
+            <>
+              <CovieButton
+                tone="neutral"
+                disabled={busy}
+                onClick={() => setOperationalHoursOpen(false)}
+              >
+                Cancel
+              </CovieButton>
+              <CovieButton
+                disabled={
+                  busy ||
+                  operationalEndDraft <= operationalStartDraft
+                }
+                onClick={() => void saveOperationalHours()}
+              >
+                {busy ? "Saving…" : "Save hours"}
+              </CovieButton>
+            </>
+          }
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label>
+              <span className="mb-1.5 block text-sm font-bold text-[#243139]">
+                Opens
+              </span>
+              <CovieSelect
+                value={String(operationalStartDraft)}
+                disabled={busy}
+                onChange={(event) =>
+                  setOperationalStartDraft(Number(event.target.value))
+                }
+              >
+                {operationalHourOptions
+                  .filter((minute) => minute < DAY_END_MINUTE)
+                  .map((minute) => (
+                    <option key={minute} value={minute}>
+                      {compactMinuteLabel(minute)}
+                    </option>
+                  ))}
+              </CovieSelect>
+            </label>
+            <label>
+              <span className="mb-1.5 block text-sm font-bold text-[#243139]">
+                Closes
+              </span>
+              <CovieSelect
+                value={String(operationalEndDraft)}
+                disabled={busy}
+                onChange={(event) =>
+                  setOperationalEndDraft(Number(event.target.value))
+                }
+              >
+                {operationalHourOptions
+                  .filter((minute) => minute > 0)
+                  .map((minute) => (
+                    <option key={minute} value={minute}>
+                      {minute === DAY_END_MINUTE
+                        ? "12am (next day)"
+                        : compactMinuteLabel(minute)}
+                    </option>
+                  ))}
+              </CovieSelect>
+            </label>
+          </div>
+          <CovieNotice tone="teal" className="mt-4">
+            Operational hours only crop the weekly view. Shift data remains on
+            a full 24-hour clock.
+          </CovieNotice>
+        </CovieDialog>
+      ) : null}
+
       {dialogOpen && data ? (
         <CovieDialog
           id="staff-shift-dialog-title"
