@@ -145,7 +145,7 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
         type="button"
         aria-label="Settings"
         onClick={() => void openPanel()}
-        className="covie-action-teal inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm"
+        className="covie-action-teal inline-flex min-h-11 items-center gap-2 rounded-[10px] px-3 text-sm"
       >
         <Settings2 className="h-4 w-4" aria-hidden="true" />
         <span>Calendar settings</span>
@@ -264,7 +264,7 @@ export function SettingsPanel({ readOnly = false, onChanged }: { readOnly?: bool
                                       ),
                                     })
                                   }
-                                  className={`h-8 w-8 rounded-full border-2 transition ${parent.colorKey === option.key ? "border-slate-950 ring-2 ring-slate-300 ring-offset-1" : "border-white"} disabled:cursor-not-allowed disabled:opacity-25`}
+                                  className={`h-11 w-11 rounded-full border-2 transition ${parent.colorKey === option.key ? "border-[#243139] ring-2 ring-[#765ED6] ring-offset-2" : "border-white"} disabled:cursor-not-allowed disabled:opacity-25`}
                                   style={{ backgroundColor: option.hex }}
                                 />
                               );
