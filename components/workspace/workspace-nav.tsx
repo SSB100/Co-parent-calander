@@ -1,5 +1,5 @@
 "use client";
-import { CalendarDays, Bell, CheckSquare2, LayoutGrid, LogOut, UsersRound, WalletCards, ChevronDown, Download, Eye } from "lucide-react";
+import { CalendarDays, Bell, CheckSquare2, LayoutGrid, LogOut, UsersRound, WalletCards, ChevronDown, Download, Eye, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -11,6 +11,14 @@ import { ComingUp, type ComingUpPayload } from "./coming-up";
 import { CovieBrand } from "./covie-brand";
 
 export type WorkspaceSection = "home" | "calendar" | "expenses" | "responsibilities" | "kids" | "organiser";
+export type WorkspaceOrganiserItem = {
+  key: string;
+  href: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+};
+
 export const organiserItems = [
   {
     key: "responsibilities",
@@ -33,7 +41,7 @@ export const organiserItems = [
     description: "Profiles, activities and useful information.",
     icon: UsersRound,
   },
-] as const;
+] as const satisfies readonly WorkspaceOrganiserItem[];
 const items = [
   { key: "calendar", href: "/calendar", label: "Calendar", icon: CalendarDays },
   { key: "home", href: "/home", label: "Updates", icon: Bell },
@@ -44,7 +52,19 @@ type WorkspaceSummaryResponse = {
   context?: ComingUpPayload;
   error?: string;
 };
-export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; actions?: ReactNode }) {
+export function WorkspaceNav({
+  active,
+  actions,
+  organiserItemsOverride,
+  contextEnabled = true,
+  accountEnabled = true,
+}: {
+  active?: WorkspaceSection | string;
+  actions?: ReactNode;
+  organiserItemsOverride?: readonly WorkspaceOrganiserItem[];
+  contextEnabled?: boolean;
+  accountEnabled?: boolean;
+}) {
   const router = useRouter();
   const [signOutError, setSignOutError] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -59,8 +79,10 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
   const summaryControllerRef = useRef<AbortController | null>(null);
   useDismissibleDetails(accountRef);
   useDismissibleDetails(organiserRef);
+  const activeOrganiserItems = organiserItemsOverride ?? organiserItems;
   const section =
-    active && ["responsibilities", "expenses", "kids", "organiser"].includes(active)
+    active === "organiser" ||
+    (active && activeOrganiserItems.some((item) => item.key === active))
       ? "organiser"
       : active;
 
@@ -112,6 +134,8 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
   }, []);
 
   useEffect(() => {
+    if (!contextEnabled) return;
+
     const desktopQuery = window.matchMedia("(min-width: 1024px)");
 
     function refresh() {
@@ -133,7 +157,7 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
       window.removeEventListener("focus", refresh);
       window.removeEventListener("covie-records-updated", refresh);
     };
-  }, [refreshWorkspace]);
+  }, [contextEnabled, refreshWorkspace]);
 
   useEffect(() => {
     if (!mobileActionsOpen) return;
@@ -197,7 +221,7 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
           <Link key={key} href={href} aria-current={section === key ? "page" : undefined}>
             <Icon size={20} aria-hidden="true" />
             <span>{label}</span>
-            {key === "home" && notificationCount > 0 ? (
+            {contextEnabled && key === "home" && notificationCount > 0 ? (
               <span
                 className="workspace-notification-badge"
                 aria-label={`${notificationCount} update${notificationCount === 1 ? "" : "s"} need review`}
@@ -221,7 +245,7 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
             <ChevronDown className="workspace-organiser-chevron" size={16} aria-hidden="true" />
           </summary>
           <div className="workspace-organiser-options">
-            {organiserItems.map(({ key, href, label, description, icon: Icon }) => (
+            {activeOrganiserItems.map(({ key, href, label, description, icon: Icon }) => (
               <Link
                 key={href}
                 href={href}
@@ -240,17 +264,21 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
           </div>
         </details>
       </div>
-      <div className="desktop-coming-up">
-        <ComingUp
-          data={workspaceContext}
-          error={contextError}
-        />
-      </div>
+      {contextEnabled ? (
+        <div className="desktop-coming-up">
+          <ComingUp
+            data={workspaceContext}
+            error={contextError}
+          />
+        </div>
+      ) : null}
     </nav>
 
-    <div className="workspace-actions">
+    {actions || accountEnabled ? (
+      <div className="workspace-actions">
       {actions ? <div className="workspace-page-actions">{actions}</div> : null}
 
+      {accountEnabled ? (
       <div
         ref={mobileActionsRef}
         className={`workspace-mobile-actions relative${mobileActionsOpen ? " is-open" : ""}`}
@@ -296,7 +324,9 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
           ) : null}
         </div>
       </div>
+      ) : null}
 
+      {accountEnabled ? (
       <details ref={accountRef} className="workspace-account relative">
         <summary className="covie-menu-trigger">Account <ChevronDown size={16} aria-hidden="true" /></summary>
         <div className="covie-menu">
@@ -306,7 +336,9 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
           {signOutError && <p role="alert" className="px-3 text-sm text-rose-700">Could not log out. Please try again.</p>}
         </div>
       </details>
+      ) : null}
     </div>
-    <InstallApp />
+    ) : null}
+    {accountEnabled ? <InstallApp /> : null}
   </>;
 }
