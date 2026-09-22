@@ -18,25 +18,25 @@ const icons = {
 };
 
 export function eventCategoryBarClass(category: string) {
-  if (category === "school") return "bg-[#DDD3FA] text-[#243139]";
-  if (category === "sport") return "bg-[#BFEDE6] text-[#243139]";
-  if (category === "medical") return "bg-[#FFD0CB] text-[#243139]";
-  if (category === "birthday") return "bg-[#F7DC86] text-[#243139]";
-  if (category === "holiday") return "bg-[#C3DCF7] text-[#243139]";
-  if (category === "activity") return "bg-[#D7F2EC] text-[#243139]";
-  if (category === "handover") return "bg-[#19A897] text-[#243139]";
-  return "bg-[#E6DBCF] text-[#243139]";
+  if (category === "school") return "bg-[#765ED6] text-white";
+  if (category === "sport") return "bg-[#19A897] text-[#243139]";
+  if (category === "medical") return "bg-[#FF6B5F] text-[#243139]";
+  if (category === "birthday") return "bg-[#F4C64E] text-[#243139]";
+  if (category === "holiday") return "bg-[#3B73AE] text-white";
+  if (category === "activity") return "bg-[#0D7A6D] text-white";
+  if (category === "handover") return "bg-[#243139] text-white";
+  return "bg-[#66747A] text-white";
 }
 
 export function eventCategorySurfaceClass(category: string) {
-  if (category === "school") return "border-[#C9BDF1] bg-[#F4F1FF]";
-  if (category === "sport") return "border-[#9FD7CE] bg-[#EAF8F5]";
-  if (category === "medical") return "border-[#FFB5AE] bg-[#FFF3F1]";
-  if (category === "birthday") return "border-[#E8C969] bg-[#FFF9DF]";
-  if (category === "holiday") return "border-[#9FC7EF] bg-[#EEF5FC]";
-  if (category === "activity") return "border-[#B8E5DB] bg-[#F0FBF8]";
-  if (category === "handover") return "border-[#19A897] bg-[#D7F2EC]";
-  return "border-[#D8CEC3] bg-[#F7EFE5]";
+  if (category === "school") return "border-[#6651B7] bg-[#765ED6] text-white";
+  if (category === "sport") return "border-[#128B7D] bg-[#19A897] text-[#243139]";
+  if (category === "medical") return "border-[#D94D43] bg-[#FF6B5F] text-[#243139]";
+  if (category === "birthday") return "border-[#9C7310] bg-[#F4C64E] text-[#243139]";
+  if (category === "holiday") return "border-[#315F91] bg-[#3B73AE] text-white";
+  if (category === "activity") return "border-[#0B665C] bg-[#0D7A6D] text-white";
+  if (category === "handover") return "border-[#243139] bg-[#243139] text-white";
+  return "border-[#526168] bg-[#66747A] text-white";
 }
 
 export function EventCategoryIcon({ category }: { category: string }) {
