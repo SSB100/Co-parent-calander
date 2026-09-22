@@ -256,7 +256,7 @@ button:disabled { cursor: not-allowed; }
 
   html[data-covie-keyboard-open="true"] .workspace-mobile-actions,
   html[data-covie-keyboard-open="true"] .workspace-account {
-    display: none !important;
+    display: none;
   }
 
   html[data-covie-keyboard-open="true"] .covie-calendar-page {
