@@ -142,15 +142,24 @@ test("Google Calendar actions use the shared official Google visual treatment", 
 });
 
 
-test("Google Calendar quick action sits before Create event and is explicit in the mobile menu", async () => {
-  const [shell, quick] = await Promise.all([
+test("Google Calendar quick action sits before Create event and shows actual sync progress", async () => {
+  const [shell, quick, reconcile] = await Promise.all([
     readFile(path.join(root, "components/calendar/calendar-shell.tsx"), "utf8"),
     readFile(path.join(root, "components/calendar/google-calendar-quick-action.tsx"), "utf8"),
+    readFile(path.join(root, "app/api/google-calendar/reconcile/route.ts"), "utf8"),
   ]);
 
   assert.ok(shell.indexOf("<GoogleCalendarQuickAction") < shell.indexOf("<EventPanel"));
   assert.match(quick, /Sync to Google/);
   assert.match(quick, /GoogleGMark/);
-  assert.match(quick, /hidden sm:inline">Sync Google Calendar/);
+  assert.match(quick, /Syncing Google Calendar/);
+  assert.match(quick, /readGoogleCalendarStatus/);
+  assert.match(quick, /lastSuccessfulSyncAt/);
+  assert.match(quick, /Google Calendar is up to date/);
+  assert.match(quick, /90_000/);
   assert.match(quick, /google-calendar-quick-action/);
+
+  assert.match(reconcile, /calendarSyncJobs/);
+  assert.match(reconcile, /alreadyQueued/);
+  assert.match(reconcile, /"pending", "processing", "retry"/);
 });
