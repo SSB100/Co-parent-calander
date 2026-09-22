@@ -567,10 +567,10 @@ export async function getAvailability(input: {
     .where(
       and(
         eq(staffRosterAvailability.calendarId, input.session.calendarId),
-        sql`${staffRosterAvailability.availabilityDate} >= ${from}`,
-        sql`${staffRosterAvailability.availabilityDate} <= ${to}`,
+        drizzleSql`${staffRosterAvailability.availabilityDate} >= ${from}`,
+        drizzleSql`${staffRosterAvailability.availabilityDate} <= ${to}`,
         canManageAllAvailability(current.accessRole)
-          ? sql`true`
+          ? drizzleSql`true`
           : eq(staffRosterAvailability.memberId, current.id),
       ),
     )
