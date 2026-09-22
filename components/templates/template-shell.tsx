@@ -109,6 +109,7 @@ const organiserEmptyCopy: Record<
 export function TemplateShell({
   slug,
   calendars,
+  archivedCalendars,
   currentCalendarId,
   defaultName,
   section,
@@ -116,6 +117,7 @@ export function TemplateShell({
 }: {
   slug: AdditionalCalendarTemplateSlug;
   calendars: CalendarOption[];
+  archivedCalendars: CalendarOption[];
   currentCalendarId: string;
   defaultName: string;
   section: TemplateSection;
@@ -180,6 +182,7 @@ export function TemplateShell({
         <div className={section === "calendar" ? "mb-5" : "mb-3"}>
           <CalendarSwitcher
             calendars={calendars}
+            archivedCalendars={archivedCalendars}
             currentCalendarId={currentCalendarId}
             defaultName={defaultName}
           />
