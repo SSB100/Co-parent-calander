@@ -337,8 +337,12 @@ export async function updateTeamMember(input: {
   const targetRows = await db
     .select({
       id: staffRosterMembers.id,
+      displayName: staffRosterMembers.displayName,
       accessRole: staffRosterMembers.accessRole,
       membershipId: staffRosterMembers.membershipId,
+      defaultRoleId: staffRosterMembers.defaultRoleId,
+      defaultLocationId: staffRosterMembers.defaultLocationId,
+      active: staffRosterMembers.active,
     })
     .from(staffRosterMembers)
     .where(
@@ -375,23 +379,47 @@ export async function updateTeamMember(input: {
     locationId: input.defaultLocationId,
   });
 
+  const sql = getSql();
   try {
-    await db
-      .update(staffRosterMembers)
-      .set({
-        displayName: input.displayName,
-        accessRole: input.accessRole,
-        defaultRoleId: input.defaultRoleId,
-        defaultLocationId: input.defaultLocationId,
-        active: input.active,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(staffRosterMembers.id, input.memberId),
-          eq(staffRosterMembers.calendarId, input.session.calendarId),
-        ),
-      );
+    await sql.transaction([
+      sql`
+        UPDATE staff_roster_members
+        SET
+          display_name = ${input.displayName},
+          access_role = ${input.accessRole}::staff_roster_access_role,
+          default_role_id = ${input.defaultRoleId},
+          default_location_id = ${input.defaultLocationId},
+          active = ${input.active},
+          updated_at = now()
+        WHERE id = ${input.memberId}
+          AND calendar_id = ${input.session.calendarId}
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action,
+          entity_type, entity_id, before_state, after_state
+        )
+        VALUES (
+          ${input.session.calendarId}, NULL, 'staff_roster.member.update',
+          'staff_roster_member', ${input.memberId},
+          ${JSON.stringify({
+            displayName: target.displayName,
+            accessRole: target.accessRole,
+            defaultRoleId: target.defaultRoleId,
+            defaultLocationId: target.defaultLocationId,
+            active: target.active,
+          })}::jsonb,
+          ${JSON.stringify({
+            displayName: input.displayName,
+            accessRole: input.accessRole,
+            defaultRoleId: input.defaultRoleId,
+            defaultLocationId: input.defaultLocationId,
+            active: input.active,
+            actorStaffMemberId: actor.id,
+          })}::jsonb
+        )
+      `,
+    ]);
   } catch {
     throw new StaffRosterServiceError(
       409,
@@ -487,20 +515,37 @@ export async function createRoleOrLocation(input: {
   }
 
   const id = randomUUID();
+  const sql = getSql();
   try {
-    if (input.kind === "role") {
-      await getDb().insert(staffRosterRoles).values({
-        id,
-        calendarId: input.session.calendarId,
-        name: input.name,
-      });
-    } else {
-      await getDb().insert(staffRosterLocations).values({
-        id,
-        calendarId: input.session.calendarId,
-        name: input.name,
-      });
-    }
+    const insert =
+      input.kind === "role"
+        ? sql`
+            INSERT INTO staff_roster_roles (id, calendar_id, name, active)
+            VALUES (${id}, ${input.session.calendarId}, ${input.name}, true)
+          `
+        : sql`
+            INSERT INTO staff_roster_locations (id, calendar_id, name, active)
+            VALUES (${id}, ${input.session.calendarId}, ${input.name}, true)
+          `;
+
+    await sql.transaction([
+      insert,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action,
+          entity_type, entity_id, after_state
+        )
+        VALUES (
+          ${input.session.calendarId}, NULL,
+          ${"staff_roster." + input.kind + ".create"},
+          ${"staff_roster_" + input.kind}, ${id},
+          ${JSON.stringify({
+            name: input.name,
+            actorStaffMemberId: actor.id,
+          })}::jsonb
+        )
+      `,
+    ]);
   } catch {
     throw new StaffRosterServiceError(
       409,
