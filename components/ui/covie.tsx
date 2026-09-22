@@ -140,6 +140,99 @@ export function CovieMetricCard({
   );
 }
 
+
+export function CovieMetricGrid({
+  children,
+  columns = 3,
+  className,
+}: {
+  children: ReactNode;
+  columns?: 3 | 4;
+  className?: string;
+}) {
+  return (
+    <section
+      className={classes("covie-metric-grid", className)}
+      data-columns={columns}
+    >
+      {children}
+    </section>
+  );
+}
+
+export function CovieSectionHeader({
+  title,
+  description,
+  actions,
+  className,
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={classes("covie-section-header", className)}>
+      <div className="min-w-0">
+        <h2 className="covie-section-title">{title}</h2>
+        {description ? (
+          <div className="covie-section-description">{description}</div>
+        ) : null}
+      </div>
+      {actions ? <div className="covie-section-actions">{actions}</div> : null}
+    </div>
+  );
+}
+
+export function CovieSegmentedControl<T extends string>({
+  value,
+  options,
+  onChange,
+  tone = "violet",
+  ariaLabel,
+  className,
+}: {
+  value: T;
+  options: ReadonlyArray<{ value: T; label: ReactNode }>;
+  onChange: (value: T) => void;
+  tone?: Accent;
+  ariaLabel: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={classes("covie-segmented-control", className)}
+      role="group"
+      aria-label={ariaLabel}
+      data-tone={tone}
+    >
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          aria-pressed={value === option.value}
+          onClick={() => onChange(option.value)}
+          className="covie-segmented-option"
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function CovieRecordCard({
+  children,
+  className,
+  ...props
+}: HTMLAttributes<HTMLElement>) {
+  return (
+    <article className={classes("covie-record-card", className)} {...props}>
+      {children}
+    </article>
+  );
+}
+
 const buttonClassByTone: Record<Tone, string> = {
   coral: "covie-primary-action",
   teal: "covie-action-teal",
