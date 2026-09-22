@@ -302,6 +302,59 @@ test("calendar tool dialogs use the shared branded responsive shell", async () =
   assert.match(settings, /<details[\s\S]*Google Calendar/);
 });
 
+test("core workspace editors and destructive confirmations use canonical Covie dialogs", async () => {
+  const [
+    ui,
+    styles,
+    expenses,
+    responsibilities,
+    childProfile,
+    dayDetails,
+    undoBulk,
+    attachments,
+    profilePhoto,
+  ] = await Promise.all([
+    source("components/ui/covie.tsx"),
+    source("app/globals.css"),
+    source("components/expenses/expenses-shell.tsx"),
+    source("components/responsibilities/responsibilities-shell.tsx"),
+    source("components/children/child-profile-shell.tsx"),
+    source("components/calendar/day-details-panel.tsx"),
+    source("components/calendar/undo-bulk-button.tsx"),
+    source("components/attachments/attachment-panel.tsx"),
+    source("components/attachments/profile-photo.tsx"),
+  ]);
+
+  assert.match(ui, /export function CovieDialog/);
+  assert.match(ui, /export function CovieConfirmDialog/);
+  assert.match(ui, /covie-dialog-footer/);
+  assert.match(styles, /\.covie-input-shell/);
+  assert.match(styles, /\.covie-dialog-close \{[\s\S]*?height: 44px;[\s\S]*?width: 44px;/);
+
+  for (const editor of [expenses, responsibilities, childProfile, dayDetails, undoBulk]) {
+    assert.match(editor, /CovieDialog/);
+    assert.match(editor, /footer=\{/);
+    assert.doesNotMatch(editor, /fixed inset-0 z-50/);
+  }
+
+  for (const destructiveSurface of [
+    expenses,
+    responsibilities,
+    childProfile,
+    dayDetails,
+    attachments,
+    profilePhoto,
+  ]) {
+    assert.match(destructiveSurface, /CovieConfirmDialog/);
+    assert.doesNotMatch(destructiveSurface, /window\.confirm/);
+  }
+
+  assert.match(expenses, /covie-input/);
+  assert.match(responsibilities, /covie-input/);
+  assert.match(childProfile, /covie-input/);
+  assert.match(dayDetails, /covie-input/);
+});
+
 test("calendar modal save controls stay outside the scrolling dialog body", async () => {
   const [range, schedules, events, settings] = await Promise.all([
     source("components/calendar/range-assignment-panel.tsx"),
