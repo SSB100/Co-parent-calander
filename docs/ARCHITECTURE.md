@@ -4,7 +4,7 @@ Last reviewed: 19 September 2026.
 
 ## System boundaries
 
-Covie is organised around one selected family calendar.
+Covie is organised around one selected calendar. Each calendar has a first-class template type: Co-parenting, Staff Rosters, Shared Facilities or Social Groups.
 
 Account identity comes from Managed Neon Auth. Application access is represented by `calendar_memberships`. Parent profiles in `participants` are domain records and can exist without an account. Legacy token/session authentication is retired from application runtime and recorded in migration `0014`; legacy credential tables are temporarily retained as recovery evidence until legacy-only calendars are recovered or explicitly archived.
 
@@ -101,7 +101,7 @@ Production Neon:
 
 - project: `delicate-sunset-36051658`
 - branch: `br-quiet-sea-a7duq4r3`
-- schema migrations applied in Production: `0000` through `0016`
+- schema migrations applied in Production before this release: `0000` through `0021`\n- migration `0022` adds first-class calendar template identity and is applied only after its production migration gate
 - `covie_schema_migrations` is the authoritative migration ledger from `0012` onward
 - legacy `access_tokens`, `sessions` and `access_token_type` remain temporarily retained as recovery data after non-destructive migration `0014`
 

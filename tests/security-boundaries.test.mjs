@@ -111,6 +111,7 @@ test("account routes use managed Neon auth and protect the signed-in workspace",
   assert.match(proxy, /auth\.middleware/);
   assert.match(proxy, /\/dashboard\/\:path\*/);
   assert.match(proxy, /\/calendar\/\:path\*/);
+  assert.match(proxy, /\/calendar-types\/\:path\*/);
   assert.match(proxy, /\/home\/\:path\*/);
   assert.match(proxy, /\/expenses\/\:path\*/);
   assert.match(proxy, /\/responsibilities\/\:path\*/);
@@ -137,6 +138,7 @@ test("global browser headers reduce common web attack surface and APIs are never
   assert.match(config, /destination: `https:\/\/\$\{process\.env\.VERCEL_PROJECT_PRODUCTION_URL\}\/\:path\*`/);
   assert.match(config, /private, no-store, max-age=0/);
   assert.match(config, /"\/calendar\/\:path\*"/);
+  assert.match(config, /"\/calendar-types\/\:path\*"/);
   assert.match(config, /"\/home\/\:path\*"/);
   assert.match(config, /"\/expenses\/\:path\*"/);
   assert.match(config, /"\/responsibilities\/\:path\*"/);

@@ -4,7 +4,7 @@ Covie uses ordered SQL migration files under `drizzle/`.
 
 ## Current production baseline
 
-Production contains migrations `0000` through `0016`. They must **not** be replayed.
+Production currently contains migrations `0000` through `0021`. They must **not** be replayed.
 
 Migration `0012_schema_foundation.sql` introduced the first explicit Covie migration ledger:
 
@@ -95,3 +95,19 @@ Migration `0016_retention_foundation.sql` adds `storage_cleanup_jobs` and a tran
 The matching daily worker also enforces the policy documented in `docs/RETENTION.md` for stale Pending uploads, abandoned Draft proposals, terminal proposal history and audit entries.
 
 This migration is applied in Production after `0013`, `0014` and `0015`. The release verification confirmed the queue table, cleanup function and attachment-deletion trigger are present, and a synthetic attachment deletion successfully queued a pending cleanup job on the qualification branch.
+
+
+## 0022 calendar template identity
+
+Migration `0022_calendar_template_types.sql` adds a first-class `calendar_type` enum and a non-null `calendars.calendar_type` column.
+
+Existing calendars are preserved as `co_parenting` through the column default. New calendars explicitly store one of:
+
+- `co_parenting`
+- `staff_rosters`
+- `shared_facilities`
+- `social_groups`
+
+The application uses this type only for calendar navigation, routing and template selection at this stage. It does not retrofit roster, booking or social data into the co-parenting schema.
+
+The migration must be qualified on a temporary Neon branch before Production application and recorded as `0022` in `covie_schema_migrations`.

@@ -91,14 +91,24 @@ test("shell schedules reflect each template's documented scheduling model", asyn
   assert.match(shell, /Saving is intentionally left for the detailed feature pass/);
 });
 
-test("shell stage is data-isolated and does not introduce a database migration", async () => {
-  const [docs, treeMarker] = await Promise.all([
-    source("docs/CALENDAR_TEMPLATE_SHELLS.md"),
+test("template shells bind to selected typed calendars while keeping feature data isolated", async () => {
+  const [route, shell, navigation, migration, core] = await Promise.all([
+    source("app/calendar-types/[template]/page.tsx"),
+    source("components/templates/template-shell.tsx"),
+    source("lib/calendars/navigation.ts"),
+    source("drizzle/0022_calendar_template_types.sql"),
     source("lib/db/schema/core.ts"),
   ]);
 
-  assert.match(docs, /does not add a database column, migration or live domain record/);
-  assert.match(docs, /components\/templates/);
-  assert.match(docs, /new calendars use `TemplateWorkspaceNav` rather than changing the co-parenting `WorkspaceNav`/);
-  assert.doesNotMatch(treeMarker, /calendar_template|template_type|calendar_type/);
+  assert.match(route, /getCalendarSession/);
+  assert.match(route, /session\.calendarType !== manifest\.id/);
+  assert.match(route, /listCalendarNavigationOptions/);
+  assert.match(shell, /CalendarSwitcher/);
+  assert.match(shell, /currentCalendarId/);
+  assert.match(navigation, /calendarType: calendars\.type/);
+  assert.match(migration, /CREATE TYPE "calendar_type"/);
+  assert.match(migration, /DEFAULT 'co_parenting'/);
+  assert.match(migration, /'0022', 'Calendar template types and navigation'/);
+  assert.match(core, /export const calendarType = pgEnum/);
+  assert.match(core, /type: calendarType\("calendar_type"\)/);
 });

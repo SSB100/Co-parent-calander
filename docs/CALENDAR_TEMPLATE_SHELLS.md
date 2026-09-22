@@ -9,7 +9,7 @@ This stage establishes the shell architecture for Covie's additional calendar ty
 3. The manifests in `lib/templates/calendar-templates.ts` translate those sources into implementation data.
 4. Feature-specific behaviour must stay inside those boundaries.
 
-The shell stage deliberately does not add a database column, migration or live domain record. Shipping the shell routes therefore does not alter the existing co-parenting data model.
+Calendar navigation now adds one shared Core field, `calendars.calendar_type`, so Covie can route each selected calendar to the correct template. Existing calendars are backfilled safely as `co_parenting`. The new template-specific schedules still have no persistent shift, booking or social-event records at this stage.
 
 ## Architecture boundary
 
@@ -26,7 +26,7 @@ The additional calendar families live behind their own implementation boundary:
 - `components/templates`
 - `lib/templates`
 
-The new calendars use `TemplateWorkspaceNav` rather than changing the co-parenting `WorkspaceNav`. Future work on roster, facilities and social-group navigation or shell behaviour should stay inside the template boundary.
+The new calendars use `TemplateWorkspaceNav` rather than changing the co-parenting `WorkspaceNav`. The shared calendar switcher is a Covie Core navigation component used by every template, while roster, facilities and social-group feature behaviour stays inside the template boundary.
 
 Shared Covie Core primitives are still reused deliberately. Typography, colour semantics, forms, dialogs, cards, accessibility rules and responsive interaction grammar remain common product infrastructure as required by the Brand Bible.
 

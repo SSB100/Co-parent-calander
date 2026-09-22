@@ -34,7 +34,8 @@ test("signup and login preserve a shared invite into onboarding", async () => {
 
   assert.match(actions, /onboardingDestination/);
   assert.match(actions, /normalizeInviteCode/);
-  assert.match(actions, /redirect\(onboardingDestination\(formData\)\)/);
+  assert.match(actions, /redirect\(invite \? onboardingDestination\(formData\) : "\/"\)/);
+  assert.match(actions, /redirect\(verificationDestination\(formData\)\)/);
   assert.match(page, /searchParams/);
   assert.match(page, /inviteCode/);
   assert.match(form, /name="invite"/);
@@ -47,7 +48,10 @@ test("onboarding offers one clear create or join choice", async () => {
   assert.match(shell, /Create a Covie calendar/);
   assert.match(shell, /Join a Covie calendar/);
   assert.match(shell, /name="flow" value="onboarding"/);
+  assert.match(shell, /CalendarTypeChoiceGrid/);
+  assert.match(shell, /name="calendarType"/);
   assert.match(shell, /name="calendarName"/);
+  assert.match(shell, /selectedType === "co_parenting"/);
   assert.match(shell, /name="children"/);
   assert.match(shell, /name="code"/);
   assert.doesNotMatch(shell, /membership|participant ID|database permission/i);

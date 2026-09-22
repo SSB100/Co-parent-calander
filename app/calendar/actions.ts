@@ -15,14 +15,31 @@ import {
 } from "@/lib/security/invites";
 import { SELECTED_CALENDAR_COOKIE_NAME } from "@/lib/security/session";
 import { hashToken } from "@/lib/security/tokens";
+import {
+  calendarPathForType,
+  calendarTemplateIds,
+  isCalendarTemplateId,
+  type CalendarTemplateId,
+} from "@/lib/templates/calendar-templates";
 
 export type CalendarActionState = { error: string | null };
 
-const calendarSchema = z.object({
-  calendarName: z.string().trim().min(1, "Add a calendar name.").max(80),
-  displayName: z.string().trim().min(1, "Add your name.").max(50),
-  children: z.array(z.string().trim().min(1).max(50)).min(1, "Add at least one child.").max(10),
-});
+const calendarSchema = z
+  .object({
+    calendarName: z.string().trim().min(1, "Add a calendar name.").max(80),
+    calendarType: z.enum(calendarTemplateIds),
+    displayName: z.string().trim().min(1, "Add your name.").max(50),
+    children: z.array(z.string().trim().min(1).max(50)).max(10),
+  })
+  .superRefine((value, context) => {
+    if (value.calendarType === "co_parenting" && value.children.length === 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["children"],
+        message: "Add at least one child.",
+      });
+    }
+  });
 
 function calendarCookieOptions() {
   return {
@@ -58,6 +75,7 @@ export async function createCalendar(
 
   const parsed = calendarSchema.safeParse({
     calendarName: formData.get("calendarName"),
+    calendarType: formData.get("calendarType") || "co_parenting",
     displayName: formData.get("displayName") || user.name,
     children: String(formData.get("children") ?? "")
       .split("\n")
@@ -65,49 +83,83 @@ export async function createCalendar(
       .filter(Boolean),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Check the calendar details." };
+    return {
+      error: parsed.error.issues[0]?.message ?? "Check the calendar details.",
+    };
   }
 
-  const inviteHandoff = ["onboarding", "calendar-management"].includes(String(formData.get("flow") ?? ""));
+  const isCoParenting = parsed.data.calendarType === "co_parenting";
+  const inviteHandoff =
+    isCoParenting &&
+    ["onboarding", "calendar-management"].includes(
+      String(formData.get("flow") ?? ""),
+    );
   const calendarId = randomUUID();
-  const participantId = randomUUID();
+  const participantId = isCoParenting ? randomUUID() : null;
   const inviteCode = inviteHandoff ? generateInviteCode() : null;
-  const normalizedInviteCode = inviteCode ? normalizeInviteCode(inviteCode) : null;
-  const inviteExpiresAt = inviteCode ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null;
+  const normalizedInviteCode = inviteCode
+    ? normalizeInviteCode(inviteCode)
+    : null;
+  const inviteExpiresAt = inviteCode
+    ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    : null;
   const sql = getSql();
 
   const statements = [
     sql`
-      INSERT INTO calendars (id, name, timezone, share_enabled)
-      VALUES (${calendarId}, ${parsed.data.calendarName}, ${DEFAULT_CALENDAR_TIMEZONE}, false)
+      INSERT INTO calendars (id, name, calendar_type, timezone, share_enabled)
+      VALUES (
+        ${calendarId},
+        ${parsed.data.calendarName},
+        ${parsed.data.calendarType}::calendar_type,
+        ${DEFAULT_CALENDAR_TIMEZONE},
+        false
+      )
     `,
+    ...(isCoParenting && participantId
+      ? [
+          sql`
+            INSERT INTO participants (
+              id, calendar_id, display_name, role, color_key, profile_slot, active
+            )
+            VALUES (
+              ${participantId}, ${calendarId}, ${parsed.data.displayName}, 'parent',
+              ${defaultParentColorKey("parent_one")}, 'parent_one', true
+            )
+          `,
+          ...parsed.data.children.map(
+            (displayName) => sql`
+              INSERT INTO children (id, calendar_id, display_name, active)
+              VALUES (${randomUUID()}, ${calendarId}, ${displayName}, true)
+            `,
+          ),
+        ]
+      : []),
     sql`
-      INSERT INTO participants (
-        id, calendar_id, display_name, role, color_key, profile_slot, active
+      INSERT INTO calendar_memberships (
+        calendar_id, user_id, participant_id, permission
       )
       VALUES (
-        ${participantId}, ${calendarId}, ${parsed.data.displayName}, 'parent',
-        ${defaultParentColorKey("parent_one")}, 'parent_one', true
+        ${calendarId},
+        ${user.id},
+        ${participantId},
+        'owner'
       )
     `,
-    ...parsed.data.children.map(
-      (displayName) => sql`
-        INSERT INTO children (id, calendar_id, display_name, active)
-        VALUES (${randomUUID()}, ${calendarId}, ${displayName}, true)
-      `,
-    ),
     sql`
-      INSERT INTO calendar_memberships (calendar_id, user_id, participant_id, permission)
-      VALUES (${calendarId}, ${user.id}, ${participantId}, 'owner')
-    `,
-    sql`
-      INSERT INTO audit_log (calendar_id, actor_participant_id, action, entity_type, after_state)
+      INSERT INTO audit_log (
+        calendar_id, actor_participant_id, action, entity_type, after_state
+      )
       VALUES (
         ${calendarId},
         ${participantId},
         'calendar.created',
         'calendar',
-        ${JSON.stringify({ name: parsed.data.calendarName, children: parsed.data.children })}::jsonb
+        ${JSON.stringify({
+          name: parsed.data.calendarName,
+          calendarType: parsed.data.calendarType,
+          children: parsed.data.children,
+        })}::jsonb
       )
     `,
   ];
@@ -140,7 +192,11 @@ export async function createCalendar(
   }
 
   const cookieStore = await cookies();
-  cookieStore.set(SELECTED_CALENDAR_COOKIE_NAME, calendarId, calendarCookieOptions());
+  cookieStore.set(
+    SELECTED_CALENDAR_COOKIE_NAME,
+    calendarId,
+    calendarCookieOptions(),
+  );
 
   if (inviteCode) {
     cookieStore.set(
@@ -150,7 +206,11 @@ export async function createCalendar(
     );
   }
 
-  redirect(inviteHandoff ? "/calendar?welcome=created" : "/calendar");
+  if (inviteCode) {
+    redirect("/calendar?welcome=created");
+  }
+
+  redirect(calendarPathForType(parsed.data.calendarType));
 }
 
 export async function joinCalendar(
@@ -187,9 +247,11 @@ export async function joinCalendar(
       revoked_at,
       expires_at,
       use_count,
-      max_uses
-    FROM calendar_invites
-    WHERE code_hash = ${codeHash}
+      max_uses,
+      calendar.calendar_type
+    FROM calendar_invites invite
+    JOIN calendars calendar ON calendar.id = invite.calendar_id
+    WHERE invite.code_hash = ${codeHash}
     LIMIT 1
   `) as Array<{
     calendar_id: string;
@@ -198,6 +260,7 @@ export async function joinCalendar(
     expires_at: Date | string;
     use_count: number;
     max_uses: number;
+    calendar_type: CalendarTemplateId;
   }>;
 
   const invite = inviteRows[0];
@@ -220,7 +283,7 @@ export async function joinCalendar(
       invite.calendar_id,
       calendarCookieOptions(),
     );
-    redirect("/calendar");
+    redirect(calendarPathForType(invite.calendar_type));
   }
 
   if (invite.revoked_at) {
@@ -237,6 +300,13 @@ export async function joinCalendar(
 
   if (invite.permission !== "editor" && invite.permission !== "viewer") {
     return { error: "This invitation can’t be used to join the calendar." };
+  }
+
+  if (invite.calendar_type !== "co_parenting") {
+    return {
+      error:
+        "Invitations for this calendar type are not available yet. Ask the owner to try again after sharing is added.",
+    };
   }
 
   let rows: Array<{ calendar_id: string }>;
@@ -366,7 +436,7 @@ export async function joinCalendar(
 
   const cookieStore = await cookies();
   cookieStore.set(SELECTED_CALENDAR_COOKIE_NAME, calendarId, calendarCookieOptions());
-  redirect("/calendar");
+  redirect(calendarPathForType(invite.calendar_type));
 }
 
 export async function openCalendar(formData: FormData) {
@@ -377,14 +447,25 @@ export async function openCalendar(formData: FormData) {
   if (!calendarId.success) redirect("/calendar");
 
   const sql = getSql();
-  const rows = await sql`
-    SELECT 1 FROM calendar_memberships
-    WHERE calendar_id = ${calendarId.data} AND user_id = ${user.id}
+  const rows = (await sql`
+    SELECT calendar.calendar_type
+    FROM calendar_memberships membership
+    JOIN calendars calendar ON calendar.id = membership.calendar_id
+    WHERE membership.calendar_id = ${calendarId.data}
+      AND membership.user_id = ${user.id}
     LIMIT 1
-  `;
-  if (rows.length === 0) redirect("/calendar");
+  `) as Array<{ calendar_type: string }>;
+
+  const calendarType = rows[0]?.calendar_type;
+  if (!calendarType || !isCalendarTemplateId(calendarType)) {
+    redirect("/calendar");
+  }
 
   const cookieStore = await cookies();
-  cookieStore.set(SELECTED_CALENDAR_COOKIE_NAME, calendarId.data, calendarCookieOptions());
-  redirect("/calendar");
+  cookieStore.set(
+    SELECTED_CALENDAR_COOKIE_NAME,
+    calendarId.data,
+    calendarCookieOptions(),
+  );
+  redirect(calendarPathForType(calendarType));
 }

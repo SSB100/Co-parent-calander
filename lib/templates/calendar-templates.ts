@@ -1,8 +1,11 @@
-export type CalendarTemplateId =
-  | "co_parenting"
-  | "staff_rosters"
-  | "shared_facilities"
-  | "social_groups";
+export const calendarTemplateIds = [
+  "co_parenting",
+  "staff_rosters",
+  "shared_facilities",
+  "social_groups",
+] as const;
+
+export type CalendarTemplateId = (typeof calendarTemplateIds)[number];
 
 export type CalendarTemplateSlug =
   | "co-parenting"
@@ -338,4 +341,20 @@ export function getCalendarTemplateBySlug(
   }
 
   return match;
+}
+
+
+export function isCalendarTemplateId(value: string): value is CalendarTemplateId {
+  return calendarTemplateIds.includes(value as CalendarTemplateId);
+}
+
+export function getCalendarTemplateById(
+  id: CalendarTemplateId,
+): CalendarTemplateManifest {
+  return calendarTemplateManifests[id];
+}
+
+export function calendarPathForType(id: CalendarTemplateId): string {
+  if (id === "co_parenting") return "/calendar";
+  return `/calendar-types/${calendarTemplateManifests[id].slug}`;
 }
