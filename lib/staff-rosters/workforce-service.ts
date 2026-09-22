@@ -127,6 +127,7 @@ export async function getClockState(session: StaffSession) {
 
   return {
     currentMemberId: current.id,
+    timezone: session.calendarTimezone,
     activeSession: active[0] ?? null,
     matchingShift: rosteredShift
       ? {
