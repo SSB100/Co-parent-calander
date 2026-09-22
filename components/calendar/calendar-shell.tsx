@@ -1001,14 +1001,14 @@ export function CalendarShell({
                 defaultName={defaultName}
               />
               {accessMode === "checking" ? (
-                <CovieStatusBadge tone="neutral" className="gap-1.5" role="status" aria-live="polite">
+                <CovieStatusBadge tone="neutral" className="hidden gap-1.5 sm:inline-flex" role="status" aria-live="polite">
                   <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                   Checking access
                 </CovieStatusBadge>
               ) : accessMode === "viewer" ? (
-                <CovieStatusBadge tone="violet">View only</CovieStatusBadge>
+                <CovieStatusBadge tone="violet" className="hidden sm:inline-flex">View only</CovieStatusBadge>
               ) : accessMode === "error" ? (
-                <CovieStatusBadge tone="danger">Calendar unavailable</CovieStatusBadge>
+                <CovieStatusBadge tone="danger" className="hidden sm:inline-flex">Calendar unavailable</CovieStatusBadge>
               ) : null}
             </div>
           </div>
