@@ -121,11 +121,11 @@ test("new-account onboarding has a clear escape while invited existing users can
 });
 
 test("multi-calendar controls remain bounded and accessible on smaller screens", async () => {
-  const switcher = await source("components/calendar/calendar-switcher.tsx");
+  const switcher = await source("components/calendars/calendar-switcher.tsx");
 
   assert.match(switcher, /max-h-\[72vh\]/);
   assert.match(switcher, /overflow-y-auto/);
-  assert.match(switcher, /max-w-\[calc\(100vw-9rem\)\]/);
+  assert.match(switcher, /w-\[min\(92vw,28rem\)\]/);
   assert.match(switcher, /aria-current=\{active \? "page"/);
 });
 
@@ -455,7 +455,7 @@ test("Calendar and compact workspace controls follow the final brand consistency
   ] = await Promise.all([
     source("app/globals.css"),
     source("components/calendar/calendar-shell.tsx"),
-    source("components/calendar/calendar-switcher.tsx"),
+    source("components/calendars/calendar-switcher.tsx"),
     source("components/calendar/day-details-panel.tsx"),
     source("components/calendar/event-panel.tsx"),
     source("components/calendar/recurring-schedule-panel.tsx"),
@@ -530,7 +530,7 @@ test("Calendar mobile header omits editor and repeating-schedule tags", async ()
 test("workspace dropdowns dismiss when users click elsewhere or press Escape", async () => {
   const [hook, switcher, nav, shell, coming] = await Promise.all([
     source("lib/client/use-details-dismiss.ts"),
-    source("components/calendar/calendar-switcher.tsx"),
+    source("components/calendars/calendar-switcher.tsx"),
     source("components/workspace/workspace-nav.tsx"),
     source("components/calendar/calendar-shell.tsx"),
     source("components/workspace/coming-up.tsx"),
