@@ -487,6 +487,11 @@ test("Calendar and compact workspace controls follow the final brand consistency
   assert.match(categories, /sport[\s\S]*#BFEDE6/);
   assert.match(categories, /medical[\s\S]*#FFD0CB/);
   assert.match(categories, /birthday[\s\S]*#F7DC86/);
+  assert.match(categories, /holiday[\s\S]*#C3DCF7/);
+  assert.match(categories, /activity[\s\S]*#D7F2EC/);
+  assert.match(categories, /handover[\s\S]*#19A897/);
+  assert.doesNotMatch(categories, /birthday" \|\| category === "holiday"/);
+  assert.doesNotMatch(categories, /sport" \|\| category === "activity"/);
 
   assert.match(calendar, /CovieStatusBadge/);
   assert.match(calendar, /CovieNotice/);

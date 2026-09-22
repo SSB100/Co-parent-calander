@@ -1,8 +1,11 @@
 import { after, NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDb, getSql } from "@/lib/db";
-import { googleCalendarConnections } from "@/lib/db/schema";
+import {
+  calendarSyncJobs,
+  googleCalendarConnections,
+} from "@/lib/db/schema";
 import { processDueGoogleSyncJobs } from "@/lib/google-calendar/queue";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession } from "@/lib/security/session";
@@ -30,6 +33,30 @@ export async function POST(request: NextRequest) {
       { error: "Reconnect Google Calendar before syncing again." },
       { status: 409 },
     );
+  }
+
+  const existingJobs = await getDb()
+    .select({ id: calendarSyncJobs.id })
+    .from(calendarSyncJobs)
+    .where(
+      and(
+        eq(calendarSyncJobs.connectionId, connection.id),
+        eq(calendarSyncJobs.jobType, "reconcile"),
+        inArray(calendarSyncJobs.status, ["pending", "processing", "retry"]),
+      ),
+    )
+    .limit(1);
+
+  if (existingJobs.length > 0) {
+    after(async () => {
+      try {
+        await processDueGoogleSyncJobs({
+          connectionId: connection.id,
+          limit: 4,
+        });
+      } catch {}
+    });
+    return NextResponse.json({ ok: true, alreadyQueued: true });
   }
 
   const sql = getSql();
