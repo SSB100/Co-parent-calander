@@ -66,6 +66,8 @@ test("new Staff Rosters calendars open directly into the calendar", async () => 
   );
   assert.match(actions, /redirect\(calendarPathForType\(parsed\.data\.calendarType\)\)/);
   assert.match(route, /session\.calendarType !== "staff_rosters"/);
+  assert.match(route, /staffMember\.accessRole === "staff"/);
+  assert.match(route, /redirect\("\/calendar-types\/staff-rosters"\)/);
   assert.match(setup, /Set up your roster/);
   assert.match(setup, /Roles & locations/);
   assert.match(setup, /Team/);
@@ -183,6 +185,10 @@ test("Staff gets a materially separate personal workspace and manager routes sta
   assert.match(myRoster, /Clock in/);
   assert.match(myRoster, /Clock out/);
   assert.match(service, /if \(!capabilities\.manageTeam\)/);
+  assert.match(service, /canManageSetup: false/);
+  assert.match(service, /roleCount: 0/);
+  assert.match(service, /locationCount: 0/);
+  assert.match(service, /memberCount: 0/);
   assert.match(service, /if \(!capabilities\.manageStructure\)/);
 });
 
