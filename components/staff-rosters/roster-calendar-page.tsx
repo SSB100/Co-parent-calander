@@ -59,6 +59,18 @@ type Member = {
 
 type Option = { id: string; name: string };
 
+type RosterLeave = {
+  id: string;
+  memberId: string;
+  memberName: string;
+  startDate: string;
+  endDate: string;
+  allDay: boolean;
+  startTime: string | null;
+  endTime: string | null;
+  status: "pending" | "approved";
+};
+
 type Shift = {
   id: string;
   memberId: string;
@@ -96,6 +108,7 @@ type RosterPayload = {
   members: Member[];
   roles: Option[];
   locations: Option[];
+  leave: RosterLeave[];
   shifts: Shift[];
 };
 
@@ -207,6 +220,15 @@ function snapMinutes(value: number) {
 
 function shiftDuration(shift: Pick<Shift, "startTime" | "endTime">) {
   return Math.max(0, minutesFromTime(shift.endTime) - minutesFromTime(shift.startTime));
+}
+
+function leaveAppliesToDay(leave: RosterLeave, day: string) {
+  return leave.startDate <= day && leave.endDate >= day;
+}
+
+function leaveTimeLabel(leave: RosterLeave) {
+  if (leave.allDay || !leave.startTime || !leave.endTime) return "All day";
+  return compactTime(leave.startTime) + "–" + compactTime(leave.endTime);
 }
 
 function hoursText(minutes: number) {
@@ -360,14 +382,21 @@ export function StaffRosterCalendarPage() {
     }
 
     const shifts = new Map<string, Shift>();
+    const leave = new Map<string, RosterLeave>();
     for (const payload of payloads) {
       for (const shift of payload.shifts) shifts.set(shift.id, shift);
+      for (const request of payload.leave) leave.set(request.id, request);
     }
 
     setData({
       ...first,
       weekStart: first.weekStart,
       weekEnd: last.weekEnd,
+      leave: [...leave.values()].sort((a, b) =>
+        (a.startDate + a.memberName).localeCompare(
+          b.startDate + b.memberName,
+        ),
+      ),
       shifts: [...shifts.values()].sort((a, b) =>
         (a.date + a.startTime).localeCompare(b.date + b.startTime),
       ),
@@ -519,7 +548,10 @@ export function StaffRosterCalendarPage() {
         | null;
 
       if (!response.ok) {
-        if (body?.code === "availability_conflict") {
+        if (
+          body?.code === "availability_conflict" ||
+          body?.code === "pending_leave_conflict"
+        ) {
           setConflictMessage(
             body.error ??
               "This person is marked unavailable during the selected time.",
@@ -575,7 +607,10 @@ export function StaffRosterCalendarPage() {
         | null;
 
       if (!response.ok) {
-        if (body?.code === "availability_conflict") {
+        if (
+          body?.code === "availability_conflict" ||
+          body?.code === "pending_leave_conflict"
+        ) {
           setForm({
             shiftId: shift.id,
             memberId: shift.memberId,
@@ -936,6 +971,10 @@ export function StaffRosterCalendarPage() {
     : (days[0] ?? weekStart);
   const selectedMobileShifts =
     data?.shifts.filter((shift) => shift.date === selectedMobileDay) ?? [];
+  const selectedMobileLeave =
+    data?.leave.filter((leave) =>
+      leaveAppliesToDay(leave, selectedMobileDay),
+    ) ?? [];
   const timelineHeight =
     ((DAY_END_MINUTE - DAY_START_MINUTE) / 60) * HOUR_HEIGHT;
   const hourMarks = Array.from(
@@ -1129,6 +1168,9 @@ export function StaffRosterCalendarPage() {
 
                   return values.map((day) => {
                     const dayShifts = data.shifts.filter((shift) => shift.date === day);
+                    const dayLeave = data.leave.filter((leave) =>
+                      leaveAppliesToDay(leave, day),
+                    );
                     const outsideMonth = parseISO(day).getMonth() !== month;
                     return (
                       <div
@@ -1158,7 +1200,20 @@ export function StaffRosterCalendarPage() {
                           {format(parseISO(day), "d")}
                         </button>
                         <div className="mt-1 space-y-1">
-                          {dayShifts.slice(0, 3).map((shift) => (
+                          {dayLeave.slice(0, 1).map((leave) => (
+                            <span
+                              key={"leave-" + leave.id}
+                              className={
+                                "block w-full truncate rounded-md px-1.5 py-1 text-left text-[10px] font-extrabold sm:text-xs " +
+                                (leave.status === "approved"
+                                  ? "bg-[#EAF8F5] text-[#0D7A6D]"
+                                  : "bg-[#FFF2B8] text-[#8B6714]")
+                              }
+                            >
+                              {leave.memberName} · {leave.status === "approved" ? "Leave" : "Pending"}
+                            </span>
+                          ))}
+                          {dayShifts.slice(0, dayLeave.length > 0 ? 2 : 3).map((shift) => (
                             <button
                               key={shift.id}
                               type="button"
@@ -1270,16 +1325,55 @@ export function StaffRosterCalendarPage() {
                   <div className="min-w-[980px]">
                     <div className="grid grid-cols-[54px_repeat(7,minmax(128px,1fr))] border-b border-[#E6DBCF] bg-[#FFF9F2]">
                       <div aria-hidden="true" />
-                      {days.map((day) => (
-                        <div
-                          key={day}
-                          className="flex min-h-[54px] items-center justify-center border-l border-[#E6DBCF] px-2 text-center"
-                        >
-                          <span className="text-sm font-extrabold text-[#243139]">
-                            {dayLabel(day)}
-                          </span>
-                        </div>
-                      ))}
+                      {days.map((day) => {
+                        const dayLeave = data.leave.filter((leave) =>
+                          leaveAppliesToDay(leave, day),
+                        );
+                        return (
+                          <div
+                            key={day}
+                            className="min-h-[70px] border-l border-[#E6DBCF] px-2 py-2 text-center"
+                          >
+                            <span className="text-sm font-extrabold text-[#243139]">
+                              {dayLabel(day)}
+                            </span>
+                            {dayLeave.length > 0 ? (
+                              <div className="mt-1 space-y-1">
+                                {dayLeave.slice(0, 2).map((leave) => (
+                                  <span
+                                    key={leave.id}
+                                    className={
+                                      "block truncate rounded px-1 py-0.5 text-[9px] font-extrabold " +
+                                      (leave.status === "approved"
+                                        ? "bg-[#EAF8F5] text-[#0D7A6D]"
+                                        : "bg-[#FFF2B8] text-[#8B6714]")
+                                    }
+                                    title={
+                                      leave.memberName +
+                                      " · " +
+                                      (leave.status === "approved"
+                                        ? "Approved leave"
+                                        : "Pending leave") +
+                                      " · " +
+                                      leaveTimeLabel(leave)
+                                    }
+                                  >
+                                    {leave.memberName} ·{" "}
+                                    {leave.status === "approved"
+                                      ? "Leave"
+                                      : "Pending"}
+                                  </span>
+                                ))}
+                                {dayLeave.length > 2 ? (
+                                  <span className="block text-[9px] font-bold text-[#66747A]">
+                                    +{dayLeave.length - 2} more
+                                  </span>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
 
                     <div
@@ -1457,6 +1551,9 @@ export function StaffRosterCalendarPage() {
                       </h2>
                       <p className="mt-1 text-xs font-bold text-[#66747A]">
                         {selectedMobileShifts.length} shifts
+                        {selectedMobileLeave.length > 0
+                          ? " · " + selectedMobileLeave.length + " leave"
+                          : ""}
                       </p>
                     </div>
                     {data.canManageRoster ? (
@@ -1469,6 +1566,32 @@ export function StaffRosterCalendarPage() {
                       </CovieButton>
                     ) : null}
                   </div>
+
+                  {selectedMobileLeave.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      {selectedMobileLeave.map((leave) => (
+                        <div
+                          key={leave.id}
+                          className={
+                            "rounded-xl border p-3 " +
+                            (leave.status === "approved"
+                              ? "border-[#BFEDE6] bg-[#EAF8F5]"
+                              : "border-[#E2C768] bg-[#FFF8D8]")
+                          }
+                        >
+                          <strong className="text-sm text-[#243139]">
+                            {leave.memberName}
+                          </strong>
+                          <p className="mt-1 text-xs font-bold text-[#526168]">
+                            {leave.status === "approved"
+                              ? "Approved leave"
+                              : "Pending leave"}{" "}
+                            · {leaveTimeLabel(leave)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
 
                   {selectedMobileShifts.length === 0 ? (
                     <p className="mt-4 rounded-xl bg-[#FFF9F2] p-4 text-sm text-[#66747A]">
