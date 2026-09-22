@@ -1798,7 +1798,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                       style={{ height: timelineHeight }}
                     >
                       <div className="relative bg-[#FFF9F2]">
-                        {hourMarks.map((hour, index) => (
+                        {hourMarks.map((hour) => (
                           <span
                             key={hour}
                             className="absolute right-2 -translate-y-1/2 text-[10px] font-bold text-[#8B7D70]"
@@ -1851,7 +1851,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                             }}
                             onDrop={(event) => handleTimelineDrop(event, day)}
                           >
-                            {hourMarks.map((hour, index) => (
+                            {hourMarks.map((hour) => (
                               <span
                                 key={hour}
                                 className="pointer-events-none absolute inset-x-0 border-t border-[#EFE8E0]"
