@@ -47,7 +47,10 @@ test("onboarding offers one clear create or join choice", async () => {
   assert.match(shell, /Create a Covie calendar/);
   assert.match(shell, /Join a Covie calendar/);
   assert.match(shell, /name="flow" value="onboarding"/);
+  assert.match(shell, /CalendarTypeChoiceGrid/);
+  assert.match(shell, /name="calendarType"/);
   assert.match(shell, /name="calendarName"/);
+  assert.match(shell, /selectedType === "co_parenting"/);
   assert.match(shell, /name="children"/);
   assert.match(shell, /name="code"/);
   assert.doesNotMatch(shell, /membership|participant ID|database permission/i);
