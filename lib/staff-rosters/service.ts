@@ -1898,35 +1898,90 @@ export async function copyPreviousRosterWeek(input: {
     "yyyy-MM-dd",
   );
 
-  const sourceShifts = await getDb()
-    .select({
-      memberId: staffRosterShifts.memberId,
-      roleId: staffRosterShifts.roleId,
-      locationId: staffRosterShifts.locationId,
-      date: staffRosterShifts.shiftDate,
-      startTime: staffRosterShifts.startTime,
-      endTime: staffRosterShifts.endTime,
-      note: staffRosterShifts.note,
-    })
-    .from(staffRosterShifts)
-    .where(
-      and(
-        eq(staffRosterShifts.calendarId, input.session.calendarId),
-        drizzleSql`${staffRosterShifts.shiftDate} >= ${sourceWeekStart}`,
-        drizzleSql`${staffRosterShifts.shiftDate} <= ${sourceWeekEnd}`,
-      ),
-    )
-    .orderBy(
-      asc(staffRosterShifts.shiftDate),
-      asc(staffRosterShifts.startTime),
-    );
+  const db = getDb();
+  const [sourceShifts, activeMembers, activeRoles, activeLocations] =
+    await Promise.all([
+      db
+        .select({
+          memberId: staffRosterShifts.memberId,
+          roleId: staffRosterShifts.roleId,
+          locationId: staffRosterShifts.locationId,
+          date: staffRosterShifts.shiftDate,
+          startTime: staffRosterShifts.startTime,
+          endTime: staffRosterShifts.endTime,
+          note: staffRosterShifts.note,
+        })
+        .from(staffRosterShifts)
+        .where(
+          and(
+            eq(staffRosterShifts.calendarId, input.session.calendarId),
+            drizzleSql`${staffRosterShifts.shiftDate} >= ${sourceWeekStart}`,
+            drizzleSql`${staffRosterShifts.shiftDate} <= ${sourceWeekEnd}`,
+          ),
+        )
+        .orderBy(
+          asc(staffRosterShifts.shiftDate),
+          asc(staffRosterShifts.startTime),
+        ),
+      db
+        .select({ id: staffRosterMembers.id })
+        .from(staffRosterMembers)
+        .where(
+          and(
+            eq(staffRosterMembers.calendarId, input.session.calendarId),
+            eq(staffRosterMembers.active, true),
+          ),
+        ),
+      db
+        .select({ id: staffRosterRoles.id })
+        .from(staffRosterRoles)
+        .where(
+          and(
+            eq(staffRosterRoles.calendarId, input.session.calendarId),
+            eq(staffRosterRoles.active, true),
+          ),
+        ),
+      db
+        .select({ id: staffRosterLocations.id })
+        .from(staffRosterLocations)
+        .where(
+          and(
+            eq(staffRosterLocations.calendarId, input.session.calendarId),
+            eq(staffRosterLocations.active, true),
+          ),
+        ),
+    ]);
+
+  const activeMemberIds = new Set(activeMembers.map((member) => member.id));
+  const activeRoleIds = new Set(activeRoles.map((role) => role.id));
+  const activeLocationIds = new Set(
+    activeLocations.map((location) => location.id),
+  );
 
   let copied = 0;
   let overlapSkipped = 0;
   let availabilitySkipped = 0;
   let leaveSkipped = 0;
+  let inactiveStaffSkipped = 0;
+  let staleReferenceAdjusted = 0;
 
   for (const shift of sourceShifts) {
+    if (!activeMemberIds.has(shift.memberId)) {
+      inactiveStaffSkipped += 1;
+      continue;
+    }
+
+    const roleId =
+      shift.roleId && activeRoleIds.has(shift.roleId) ? shift.roleId : null;
+    const locationId =
+      shift.locationId && activeLocationIds.has(shift.locationId)
+        ? shift.locationId
+        : null;
+
+    if (roleId !== shift.roleId || locationId !== shift.locationId) {
+      staleReferenceAdjusted += 1;
+    }
+
     const targetDate = format(
       addDays(parseISO(shift.date), 7),
       "yyyy-MM-dd",
@@ -1939,8 +1994,8 @@ export async function copyPreviousRosterWeek(input: {
         date: targetDate,
         startTime: shift.startTime.slice(0, 5),
         endTime: shift.endTime.slice(0, 5),
-        roleId: shift.roleId,
-        locationId: shift.locationId,
+        roleId,
+        locationId,
         note: shift.note,
         overrideAvailabilityConflict: false,
       });
@@ -1972,7 +2027,11 @@ export async function copyPreviousRosterWeek(input: {
     }
   }
 
-  const skipped = overlapSkipped + availabilitySkipped + leaveSkipped;
+  const skipped =
+    overlapSkipped +
+    availabilitySkipped +
+    leaveSkipped +
+    inactiveStaffSkipped;
   return {
     ok: true as const,
     copied,
@@ -1980,6 +2039,8 @@ export async function copyPreviousRosterWeek(input: {
     overlapSkipped,
     availabilitySkipped,
     leaveSkipped,
+    inactiveStaffSkipped,
+    staleReferenceAdjusted,
     sourceWeekStart,
     targetWeekStart: input.targetWeekStart,
   };
