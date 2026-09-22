@@ -1013,6 +1013,54 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     }
   }
 
+  async function saveOperationalHours() {
+    if (
+      busy ||
+      !data?.canManageRoster ||
+      operationalEndDraft <= operationalStartDraft
+    ) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/staff-roster/settings", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          startMinute: operationalStartDraft,
+          endMinute: operationalEndDraft,
+        }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | {
+            error?: string;
+            operationalStartMinute?: number;
+            operationalEndMinute?: number;
+          }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          body?.error ?? "Operational hours could not be saved.",
+        );
+      }
+
+      setOperationalHoursOpen(false);
+      await refresh(anchorDate, view);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Operational hours could not be saved.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function setDragPayload(
     event: DragEvent<HTMLElement>,
     payload: { kind: "member"; memberId: string } | { kind: "shift"; shiftId: string },
