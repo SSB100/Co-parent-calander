@@ -354,22 +354,18 @@ export function DayDetailsPanel({
       const response = await fetch("/api/events", {
         method: "DELETE",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id: event.id, reason: null }),
+        body: JSON.stringify({ id: event.id }),
       });
       const body = (await response.json().catch(() => null)) as
-        | { error?: string; pending?: boolean; approverName?: string | null }
+        | { error?: string }
         | null;
       if (!response.ok) {
         throw new Error(body?.error ?? "The event could not be deleted.");
       }
 
-      const message = body?.pending
-        ? body.approverName
-          ? `Event cancellation sent to ${body.approverName} for approval.`
-          : "Event cancellation sent for approval."
-        : "Event removed.";
+      const message = "Event removed.";
 
-      if (!body?.pending) await refreshDayEvents();
+      await refreshDayEvents();
       setEventToDelete(null);
       setEventMessage(message);
       onEventChanged(message);
