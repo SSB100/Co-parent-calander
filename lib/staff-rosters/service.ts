@@ -427,6 +427,7 @@ export async function updateTeamMember(input: {
   memberId: string;
   displayName: string;
   accessRole: "manager" | "staff";
+  roleIds: string[];
   defaultRoleId: string | null;
   defaultLocationId: string | null;
   active: boolean;
@@ -460,6 +461,17 @@ export async function updateTeamMember(input: {
     )
     .limit(1);
   const target = targetRows[0];
+  const targetRoleRows = target
+    ? await db
+        .select({ roleId: staffRosterMemberRoles.roleId })
+        .from(staffRosterMemberRoles)
+        .where(
+          and(
+            eq(staffRosterMemberRoles.calendarId, input.session.calendarId),
+            eq(staffRosterMemberRoles.memberId, input.memberId),
+          ),
+        )
+    : [];
 
   if (!target) {
     throw new StaffRosterServiceError(404, "Team member not found.");
@@ -480,11 +492,22 @@ export async function updateTeamMember(input: {
     );
   }
 
-  await assertReferenceBelongsToCalendar({
-    calendarId: input.session.calendarId,
-    roleId: input.defaultRoleId,
-    locationId: input.defaultLocationId,
-  });
+  const roleIds = normalizedMemberRoleIds(
+    input.roleIds,
+    input.defaultRoleId,
+  );
+  const defaultRoleId =
+    input.defaultRoleId && roleIds.includes(input.defaultRoleId)
+      ? input.defaultRoleId
+      : (roleIds[0] ?? null);
+
+  await Promise.all([
+    assertStaffRolesBelongToCalendar(input.session.calendarId, roleIds),
+    assertReferenceBelongsToCalendar({
+      calendarId: input.session.calendarId,
+      locationId: input.defaultLocationId,
+    }),
+  ]);
 
   if (!input.active) {
     const today = localDateInTimeZone(input.session.calendarTimezone);
@@ -540,13 +563,28 @@ export async function updateTeamMember(input: {
         SET
           display_name = ${input.displayName},
           access_role = ${input.accessRole}::staff_roster_access_role,
-          default_role_id = ${input.defaultRoleId},
+          default_role_id = ${defaultRoleId},
           default_location_id = ${input.defaultLocationId},
           active = ${input.active},
           updated_at = now()
         WHERE id = ${input.memberId}
           AND calendar_id = ${input.session.calendarId}
       `,
+      sql`
+        DELETE FROM staff_roster_member_roles
+        WHERE calendar_id = ${input.session.calendarId}
+          AND member_id = ${input.memberId}
+      `,
+      ...roleIds.map(
+        (roleId) => sql`
+          INSERT INTO staff_roster_member_roles (
+            calendar_id, member_id, role_id
+          )
+          VALUES (
+            ${input.session.calendarId}, ${input.memberId}, ${roleId}
+          )
+        `,
+      ),
     ];
 
     if (!input.active) {
@@ -580,6 +618,7 @@ export async function updateTeamMember(input: {
         ${JSON.stringify({
           displayName: target.displayName,
           accessRole: target.accessRole,
+          roleIds: targetRoleRows.map((row) => row.roleId),
           defaultRoleId: target.defaultRoleId,
           defaultLocationId: target.defaultLocationId,
           active: target.active,
@@ -587,7 +626,8 @@ export async function updateTeamMember(input: {
         ${JSON.stringify({
           displayName: input.displayName,
           accessRole: input.accessRole,
-          defaultRoleId: input.defaultRoleId,
+          roleIds,
+          defaultRoleId,
           defaultLocationId: input.defaultLocationId,
           active: input.active,
           accountAccessRevoked: !input.active && Boolean(target.membershipId),
