@@ -4,6 +4,7 @@ import { format, parseISO } from "date-fns";
 import { CalendarPlus2, LoaderCircle, Pencil, Trash2, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
+import { eventCategorySurfaceClass } from "@/components/calendar/event-category-icon";
 
 const RangeAssignmentPanel = dynamic(() =>
   import("@/components/calendar/range-assignment-panel").then(
@@ -482,7 +483,7 @@ export function EventPanel({
                   {events.map((event) => (
                     <div
                       key={event.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3"
+                      className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${eventCategorySurfaceClass(event.category)}`}
                     >
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -501,7 +502,7 @@ export function EventPanel({
                           type="button"
                           aria-label={`Edit ${event.title}`}
                           onClick={() => editEvent(event)}
-                          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+                          className="covie-icon-button flex h-11 w-11 items-center justify-center rounded-[10px]"
                         >
                           <Pencil className="h-4 w-4" aria-hidden="true" />
                         </button>
@@ -509,7 +510,7 @@ export function EventPanel({
                           type="button"
                           aria-label={`Delete ${event.title}`}
                           onClick={() => void deleteEvent(event.id)}
-                          className="flex h-9 w-9 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50"
+                          className="flex h-11 w-11 items-center justify-center rounded-[10px] border border-[#A23F39] bg-[#FBECE8] text-[#A23F39] hover:bg-[#F7D8D2]"
                         >
                           <Trash2 className="h-4 w-4" aria-hidden="true" />
                         </button>
