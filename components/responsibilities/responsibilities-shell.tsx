@@ -21,7 +21,7 @@ import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
-import { CovieDialog, CoviePage, CoviePageHeader } from "@/components/ui/covie";
+import { CovieConfirmDialog, CovieDialog, CoviePage, CoviePageHeader } from "@/components/ui/covie";
 import { RecordFocus } from "@/components/workspace/record-focus";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
@@ -271,6 +271,7 @@ export function ResponsibilitiesShell({
   const [statusFilter, setStatusFilter] = useState<"current" | "archive" | "upcoming" | "due_soon" | "due_today" | "overdue">("current");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [taskToRemove, setTaskToRemove] = useState<Responsibility | null>(null);
 
   const refresh = useCallback(async () => {
     const query = dateFilter ? `?date=${encodeURIComponent(dateFilter)}` : "";
@@ -465,6 +466,7 @@ export function ResponsibilitiesShell({
       }
 
       setFormOpen(false);
+      setTaskToRemove(null);
       setMessage(
         body?.pending
           ? body.approverName
@@ -535,7 +537,6 @@ export function ResponsibilitiesShell({
 
   async function remove(item: Responsibility) {
     if (!editable || busyId || item.status === "completed") return;
-    if (!window.confirm(`Remove “${item.title}” from tasks?`)) return;
 
     setBusyId(item.id);
     setError(null);
@@ -926,7 +927,7 @@ export function ResponsibilitiesShell({
                       <button
                         type="button"
                         disabled={Boolean(busyId)}
-                        onClick={() => void remove(item)}
+                        onClick={() => setTaskToRemove(item)}
                         className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-rose-200 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -945,6 +946,26 @@ export function ResponsibilitiesShell({
           </div>
         )}
       </section>
+
+      <CovieConfirmDialog
+        open={Boolean(taskToRemove)}
+        id="remove-task-title"
+        title="Remove task?"
+        description={
+          taskToRemove
+            ? <>Remove “{taskToRemove.title}” from tasks?</>
+            : "Remove this task?"
+        }
+        confirmLabel="Remove task"
+        busy={Boolean(busyId)}
+        icon={<Trash2 aria-hidden="true" />}
+        onCancel={() => {
+          if (!busyId) setTaskToRemove(null);
+        }}
+        onConfirm={() => {
+          if (taskToRemove) void remove(taskToRemove);
+        }}
+      />
 
       {formOpen ? (
         <CovieDialog
