@@ -285,7 +285,7 @@ export function AttachmentPanel({
       <button
         type="button"
         onClick={toggleOpen}
-        className={`inline-flex min-h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 ${
+        className={`inline-flex min-h-11 items-center gap-2 rounded-[10px] border border-[#E6DBCF] bg-white px-3 text-xs font-semibold text-[#526168] hover:bg-[#FFF9F2] ${
           compact ? "" : "mt-3"
         }`}
       >
@@ -320,7 +320,7 @@ export function AttachmentPanel({
           type="button"
           onClick={toggleOpen}
           aria-label={`Close ${title}`}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white"
+          className="covie-icon-button flex h-11 w-11 items-center justify-center rounded-[10px]"
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -364,7 +364,7 @@ export function AttachmentPanel({
                 type="button"
                 onClick={() => void download(item)}
                 aria-label={`Open ${item.originalFileName}`}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+                className="covie-icon-button flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px]"
               >
                 <Download className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -374,7 +374,7 @@ export function AttachmentPanel({
                   disabled={busy}
                   onClick={() => setItemToRemove(item)}
                   aria-label={`Remove ${item.originalFileName}`}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50 disabled:opacity-50"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-[#A23F39] bg-[#FBECE8] text-[#A23F39] hover:bg-[#F7D8D2] disabled:opacity-50"
                 >
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -393,7 +393,7 @@ export function AttachmentPanel({
             onChange={(event) =>
               setCategory(event.target.value as AttachmentCategory)
             }
-            className="min-h-10 rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-slate-500"
+            className="covie-select min-h-11 text-xs font-semibold"
           >
             {(Object.keys(categoryLabels) as AttachmentCategory[]).map((value) => (
               <option key={value} value={value}>
@@ -416,7 +416,7 @@ export function AttachmentPanel({
             type="button"
             disabled={busy}
             onClick={() => inputRef.current?.click()}
-            className="covie-primary-action inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-xs disabled:opacity-50"
+            className="covie-primary-action inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] px-3 text-xs disabled:opacity-50"
           >
             {busy ? (
               <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
