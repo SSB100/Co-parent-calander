@@ -24,7 +24,6 @@ export function eventCategoryBarClass(category: string) {
   if (category === "birthday") return "bg-[#F4C64E] text-[#243139]";
   if (category === "holiday") return "bg-[#3B73AE] text-white";
   if (category === "activity") return "bg-[#0D7A6D] text-white";
-  if (category === "handover") return "bg-[#FF5A8A] text-[#243139]";
   return "bg-[#66747A] text-white";
 }
 
@@ -35,7 +34,6 @@ export function eventCategorySurfaceClass(category: string) {
   if (category === "birthday") return "border-[#9C7310] bg-[#F4C64E] text-[#243139]";
   if (category === "holiday") return "border-[#315F91] bg-[#3B73AE] text-white";
   if (category === "activity") return "border-[#0B665C] bg-[#0D7A6D] text-white";
-  if (category === "handover") return "border-[#D94877] bg-[#FF5A8A] text-[#243139]";
   return "border-[#526168] bg-[#66747A] text-white";
 }
 
