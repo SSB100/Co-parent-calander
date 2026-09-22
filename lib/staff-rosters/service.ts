@@ -1438,6 +1438,7 @@ export async function getRosterWeek(input: {
     members,
     roles,
     locations,
+    memberRoleRows,
     liveShifts,
     publicationRows,
     publishedShifts,
@@ -1481,6 +1482,30 @@ export async function getRosterWeek(input: {
         ),
       )
       .orderBy(asc(staffRosterLocations.name)),
+    db
+      .select({
+        memberId: staffRosterMemberRoles.memberId,
+        roleId: staffRosterMemberRoles.roleId,
+        roleName: staffRosterRoles.name,
+      })
+      .from(staffRosterMemberRoles)
+      .innerJoin(
+        staffRosterMembers,
+        eq(staffRosterMemberRoles.memberId, staffRosterMembers.id),
+      )
+      .innerJoin(
+        staffRosterRoles,
+        eq(staffRosterMemberRoles.roleId, staffRosterRoles.id),
+      )
+      .where(
+        and(
+          eq(staffRosterMemberRoles.calendarId, input.session.calendarId),
+          eq(staffRosterMembers.active, true),
+          eq(staffRosterRoles.active, true),
+          memberFilter,
+        ),
+      )
+      .orderBy(asc(staffRosterRoles.name)),
     db
       .select({
         id: staffRosterShifts.id,
@@ -1619,6 +1644,16 @@ export async function getRosterWeek(input: {
     getRosterSetup(input.session),
   ]);
 
+  const memberRolesByMember = new Map<
+    string,
+    Array<{ id: string; name: string }>
+  >();
+  for (const row of memberRoleRows) {
+    const assigned = memberRolesByMember.get(row.memberId) ?? [];
+    assigned.push({ id: row.roleId, name: row.roleName });
+    memberRolesByMember.set(row.memberId, assigned);
+  }
+
   const publication = publicationRows[0] ?? null;
   const changedMemberIds = new Set<string>();
   let changedShiftCount = 0;
@@ -1681,7 +1716,14 @@ export async function getRosterWeek(input: {
         : 0,
       changedShiftCount: capabilities.createShifts ? changedShiftCount : 0,
     },
-    members,
+    members: members.map((member) => {
+      const assignedRoles = memberRolesByMember.get(member.id) ?? [];
+      return {
+        ...member,
+        roleIds: assignedRoles.map((role) => role.id),
+        roleNames: assignedRoles.map((role) => role.name),
+      };
+    }),
     roles: capabilities.createShifts ? roles : [],
     locations: capabilities.createShifts ? locations : [],
     leave: leaveRows.map((leave) => ({
