@@ -65,7 +65,7 @@ test("new Staff Rosters calendars open directly into the calendar", async () => 
   assert.match(setup, /Availability/);
 });
 
-test("Staff Rosters calendar is a real weekly roster builder", async () => {
+test("Staff Rosters calendar is a calendar-first weekly roster builder", async () => {
   const [shell, roster] = await Promise.all([
     source("components/templates/template-shell.tsx"),
     source("components/staff-rosters/roster-calendar-page.tsx"),
@@ -76,12 +76,25 @@ test("Staff Rosters calendar is a real weekly roster builder", async () => {
   assert.match(roster, /Previous week/);
   assert.match(roster, /Next week/);
   assert.match(roster, /Today/);
-  assert.match(roster, /grid-cols-\[180px_repeat\(7/);
+  assert.match(roster, /Week/);
+  assert.match(roster, /Month/);
+  assert.match(roster, /Drag onto calendar/);
+  assert.match(roster, /grid-cols-\[210px_minmax\(0,1fr\)\]/);
+  assert.match(roster, /layoutOverlappingShifts/);
+  assert.match(roster, /handleTimelineDrop/);
+  assert.match(roster, /beginResize/);
+  assert.match(roster, /SNAP_MINUTES = 15/);
+  assert.match(roster, /weeklyMinutesByMember/);
+  assert.match(roster, /Copy previous week/);
+  assert.match(roster, /Publish roster/);
+  assert.match(roster, /Send updates/);
+  assert.match(roster, /Changes pending/);
   assert.match(roster, /md:hidden/);
-  assert.match(roster, /Finish setup/);
   assert.match(roster, /availability_conflict/);
-  assert.match(roster, /Create anyway/);
+  assert.match(roster, /pending_leave_conflict/);
+  assert.match(roster, /Save anyway/);
   assert.match(roster, /Delete shift/);
+  assert.doesNotMatch(roster, /Finish setup/);
 
   for (const mock of ["Alex", "Jordan", "Sam", "Main site", "Morning shift"]) {
     assert.doesNotMatch(roster, new RegExp(mock));
@@ -129,12 +142,96 @@ test("Staff roster publication keeps live drafts separate from Staff-visible sna
   assert.match(service, /changes_pending/);
   assert.match(service, /export async function publishRosterWeek/);
   assert.match(service, /pg_advisory_xact_lock/);
+  assert.match(service, /staff_roster_updates/);
+  assert.match(service, /shift_changed/);
   assert.match(service, /DELETE FROM staff_roster_published_shifts/);
   assert.match(service, /INSERT INTO staff_roster_published_shifts/);
   assert.match(route, /publishRosterWeek/);
   assert.match(route, /isSameOriginMutation/);
   assert.match(schema, /staffRosterWeekPublications/);
   assert.match(schema, /staffRosterPublishedShifts/);
+  assert.match(schema, /staffRosterUpdates/);
+});
+
+test("Staff gets a materially separate personal workspace and manager routes stay server guarded", async () => {
+  const [route, shell, nav, myRoster, service] = await Promise.all([
+    source("components/templates/template-route.tsx"),
+    source("components/templates/template-shell.tsx"),
+    source("components/templates/template-workspace-nav.tsx"),
+    source("components/staff-rosters/my-roster-page.tsx"),
+    source("lib/staff-rosters/service.ts"),
+  ]);
+
+  assert.match(route, /staffAccessRole === "staff"/);
+  assert.match(route, /activeToolKey !== "availability"/);
+  assert.match(route, /activeToolKey !== "timesheets"/);
+  assert.match(shell, /StaffMyRosterPage/);
+  assert.match(nav, /My roster/);
+  assert.match(nav, /Timesheet/);
+  assert.match(nav, /Leave/);
+  assert.match(myRoster, /Clock in/);
+  assert.match(myRoster, /Clock out/);
+  assert.match(service, /if \(!capabilities\.manageTeam\)/);
+  assert.match(service, /if \(!capabilities\.manageStructure\)/);
+});
+
+test("Staff self-service attendance, corrections and leave stay bounded", async () => {
+  const [capabilities, workforce, clockRoute, correctionRoute, leaveRoute, schema] =
+    await Promise.all([
+      source("lib/staff-rosters/capabilities.ts"),
+      source("lib/staff-rosters/workforce-service.ts"),
+      source("app/api/staff-roster/clock/route.ts"),
+      source("app/api/staff-roster/timesheet-corrections/route.ts"),
+      source("app/api/staff-roster/leave/route.ts"),
+      source("lib/db/schema/staff-rosters.ts"),
+    ]);
+
+  assert.match(capabilities, /clockOwnTime: true/);
+  assert.match(capabilities, /requestOwnTimesheetCorrection: true/);
+  assert.match(capabilities, /requestOwnLeave: true/);
+  assert.match(capabilities, /reviewTimesheets: canWrite && isManager/);
+  assert.match(capabilities, /reviewLeave: canWrite && isManager/);
+  assert.match(workforce, /unrostered_confirmation_required/);
+  assert.match(workforce, /staff_roster\.clock\.in/);
+  assert.match(workforce, /staff_roster\.clock\.out/);
+  assert.match(workforce, /staff_roster\.timesheet_correction\.request/);
+  assert.match(workforce, /staff_roster\.timesheet_correction\.review/);
+  assert.match(workforce, /staff_roster\.leave\.request/);
+  assert.match(workforce, /staff_roster\.leave\.review/);
+  assert.match(clockRoute, /isSameOriginMutation/);
+  assert.match(correctionRoute, /isSameOriginMutation/);
+  assert.match(leaveRoute, /isSameOriginMutation/);
+  assert.match(schema, /staff_roster_clock_sessions_member_active_unique/);
+  assert.match(schema, /staffRosterTimesheetCorrections/);
+  assert.match(schema, /staffRosterLeaveRequests/);
+});
+
+test("approved leave blocks rostering while pending leave is an explicit warning", async () => {
+  const service = await source("lib/staff-rosters/service.ts");
+
+  assert.match(service, /approved_leave_conflict/);
+  assert.match(service, /pending_leave_conflict/);
+  assert.match(service, /conflicts\.approvedLeave\.length > 0/);
+  assert.match(service, /conflicts\.pendingLeave\.length > 0/);
+});
+
+test("Staff invitations link existing team profiles without co-parent participants", async () => {
+  const [service, join, team, schema] = await Promise.all([
+    source("lib/staff-rosters/invitations-service.ts"),
+    source("app/calendar/actions.ts"),
+    source("components/staff-rosters/team-page.tsx"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  assert.match(service, /UPDATE staff_roster_members member/);
+  assert.match(service, /membership_id = membership\.id/);
+  assert.match(service, /already linked to another team member/);
+  assert.match(service, /Only the calendar owner can invite another manager/);
+  assert.doesNotMatch(service, /INSERT INTO participants/);
+  assert.match(join, /acceptStaffRosterInviteCode/);
+  assert.match(team, /Invite to Covie/);
+  assert.match(team, /links their account to this existing team profile/);
+  assert.match(schema, /staffRosterInvites/);
 });
 
 test("Staff setup completion is persisted but does not force optional data", async () => {
