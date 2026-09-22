@@ -18,6 +18,8 @@ import { hashToken } from "@/lib/security/tokens";
 
 type StaffSession = {
   calendarId: string;
+  calendarType: string;
+  calendarTimezone: string;
   membershipId: string;
   permission: "owner" | "editor" | "viewer";
   userName: string | null;
