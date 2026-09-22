@@ -4,6 +4,7 @@ import {
   check,
   date,
   index,
+  integer,
   pgEnum,
   pgTable,
   text,
@@ -204,3 +205,83 @@ export const staffRosterShifts = pgTable(
     ),
   ],
 );
+
+export const staffRosterWeekPublications = pgTable(
+  "staff_roster_week_publications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    calendarId: uuid("calendar_id")
+      .notNull()
+      .references(() => calendars.id, { onDelete: "cascade" }),
+    weekStart: date("week_start", { mode: "string" }).notNull(),
+    revision: integer("revision").notNull().default(1),
+    publishedAt: timestamp("published_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    publishedByMembershipId: uuid("published_by_membership_id").references(
+      () => calendarMemberships.id,
+      { onDelete: "set null" },
+    ),
+    lastSentAt: timestamp("last_sent_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastSentByMembershipId: uuid("last_sent_by_membership_id").references(
+      () => calendarMemberships.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("staff_roster_week_publications_calendar_week_unique").on(
+      table.calendarId,
+      table.weekStart,
+    ),
+    index("staff_roster_week_publications_calendar_idx").on(table.calendarId),
+  ],
+);
+
+export const staffRosterPublishedShifts = pgTable(
+  "staff_roster_published_shifts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    publicationId: uuid("publication_id")
+      .notNull()
+      .references(() => staffRosterWeekPublications.id, { onDelete: "cascade" }),
+    sourceShiftId: uuid("source_shift_id"),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => staffRosterMembers.id, { onDelete: "restrict" }),
+    roleId: uuid("role_id").references(() => staffRosterRoles.id, {
+      onDelete: "set null",
+    }),
+    locationId: uuid("location_id").references(() => staffRosterLocations.id, {
+      onDelete: "set null",
+    }),
+    shiftDate: date("shift_date", { mode: "string" }).notNull(),
+    startTime: time("start_time", { withTimezone: false, precision: 0 }).notNull(),
+    endTime: time("end_time", { withTimezone: false, precision: 0 }).notNull(),
+    note: text("note"),
+    availabilityOverride: boolean("availability_override").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    check(
+      "staff_roster_published_shifts_time_valid",
+      sql`${table.endTime} > ${table.startTime}`,
+    ),
+    uniqueIndex("staff_roster_published_shifts_source_unique")
+      .on(table.publicationId, table.sourceShiftId)
+      .where(sql`${table.sourceShiftId} IS NOT NULL`),
+    index("staff_roster_published_shifts_publication_date_idx").on(
+      table.publicationId,
+      table.shiftDate,
+    ),
+    index("staff_roster_published_shifts_member_date_idx").on(
+      table.memberId,
+      table.shiftDate,
+      table.startTime,
+    ),
+  ],
+);
+
