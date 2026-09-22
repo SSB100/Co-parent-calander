@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { MobileCalendarSwipe } from "@/components/calendar/mobile-calendar-swipe";
 import { PwaRegister } from "@/components/pwa/pwa-register";
+import { MobileKeyboardGuard } from "@/components/workspace/mobile-keyboard-guard";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,6 +21,13 @@ const fraunces = Fraunces({
   subsets: ["latin"],
   display: "swap",
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+};
 
 export const metadata: Metadata = {
   title: { default: "Covie", template: "%s · Covie" },
@@ -39,6 +47,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable}`}>
         <AuthProvider>{children}</AuthProvider>
         <MobileCalendarSwipe />
+        <MobileKeyboardGuard />
         <PwaRegister />
       </body>
     </html>

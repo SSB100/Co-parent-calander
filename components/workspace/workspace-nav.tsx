@@ -1,5 +1,5 @@
 "use client";
-import { CalendarDays, Bell, LayoutGrid, LogOut, UsersRound, WalletCards, ChevronDown, Download, Eye } from "lucide-react";
+import { CalendarDays, Bell, CheckSquare2, LayoutGrid, LogOut, UsersRound, WalletCards, ChevronDown, Download, Eye } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -12,14 +12,32 @@ import { CovieBrand } from "./covie-brand";
 
 export type WorkspaceSection = "home" | "calendar" | "expenses" | "responsibilities" | "kids" | "organiser";
 export const organiserItems = [
-  { href: "/expenses", label: "Shared costs", description: "Shared costs, reimbursements and settlements.", icon: WalletCards },
-  { href: "/kids", label: "Children", description: "Profiles, activities and useful information.", icon: UsersRound },
-];
+  {
+    key: "responsibilities",
+    href: "/responsibilities",
+    label: "Tasks",
+    description: "Practical jobs, ownership and due dates.",
+    icon: CheckSquare2,
+  },
+  {
+    key: "expenses",
+    href: "/expenses",
+    label: "Shared costs",
+    description: "Shared costs, reimbursements and settlements.",
+    icon: WalletCards,
+  },
+  {
+    key: "kids",
+    href: "/kids",
+    label: "Children",
+    description: "Profiles, activities and useful information.",
+    icon: UsersRound,
+  },
+] as const;
 const items = [
   { key: "calendar", href: "/calendar", label: "Calendar", icon: CalendarDays },
   { key: "home", href: "/home", label: "Updates", icon: Bell },
-  { key: "organiser", href: "/organiser", label: "Organiser", icon: LayoutGrid },
-];
+] as const;
 
 type WorkspaceSummaryResponse = {
   notificationCount?: number;
@@ -35,16 +53,16 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
   const [contextError, setContextError] = useState(false);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const accountRef = useRef<HTMLDetailsElement>(null);
+  const organiserRef = useRef<HTMLDetailsElement>(null);
   const mobileActionsRef = useRef<HTMLDivElement>(null);
   const mobileActionsOpenRef = useRef(false);
   const summaryControllerRef = useRef<AbortController | null>(null);
   useDismissibleDetails(accountRef);
+  useDismissibleDetails(organiserRef);
   const section =
-    active === "responsibilities"
-      ? "calendar"
-      : active && ["expenses", "kids"].includes(active)
-        ? "organiser"
-        : active;
+    active && ["responsibilities", "expenses", "kids", "organiser"].includes(active)
+      ? "organiser"
+      : active;
 
   const refreshWorkspace = useCallback(async (includeContext: boolean) => {
     summaryControllerRef.current?.abort();
@@ -189,6 +207,38 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
             ) : null}
           </Link>
         ))}
+
+        <details
+          ref={organiserRef}
+          className={`workspace-organiser-menu${section === "organiser" ? " is-active" : ""}`}
+        >
+          <summary
+            className="workspace-organiser-trigger"
+            aria-current={section === "organiser" ? "page" : undefined}
+          >
+            <LayoutGrid size={20} aria-hidden="true" />
+            <span>Organiser</span>
+            <ChevronDown className="workspace-organiser-chevron" size={16} aria-hidden="true" />
+          </summary>
+          <div className="workspace-organiser-options">
+            {organiserItems.map(({ key, href, label, description, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active === key ? "page" : undefined}
+                className="workspace-organiser-option"
+              >
+                <span className="workspace-organiser-option-icon">
+                  <Icon size={18} aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <strong>{label}</strong>
+                  <span>{description}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </details>
       </div>
       <div className="desktop-coming-up">
         <ComingUp

@@ -358,21 +358,25 @@ test("Covie interactive surfaces use the branded action hierarchy instead of gen
 });
 
 
-test("Tasks belong to Calendar while Organiser exposes Shared costs and Children", async () => {
-  const [calendar, organiser, nav, taskPage, costPage] = await Promise.all([
+test("Organiser menu owns Tasks Shared costs and Children across desktop and mobile", async () => {
+  const [calendar, nav, organiserRoute, styles, taskPage, costPage] = await Promise.all([
     source("components/calendar/calendar-shell.tsx"),
-    source("components/workspace/organiser-shell.tsx"),
     source("components/workspace/workspace-nav.tsx"),
+    source("app/organiser/page.tsx"),
+    source("app/globals.css"),
     source("app/responsibilities/page.tsx"),
     source("app/expenses/page.tsx"),
   ]);
 
-  assert.match(calendar, />\s*Tasks\s*</);
-  assert.match(calendar, /href="\/responsibilities"/);
-  assert.doesNotMatch(organiser, /href="\/responsibilities"/);
-  assert.match(organiser, /Shared costs/);
-  assert.match(organiser, /Children/);
-  assert.match(nav, /active === "responsibilities"[\s\S]*?\? "calendar"/);
+  assert.doesNotMatch(calendar, /href="\/responsibilities"/);
+  assert.match(nav, /href: "\/responsibilities"/);
+  assert.match(nav, /label: "Tasks"/);
+  assert.match(nav, /label: "Shared costs"/);
+  assert.match(nav, /label: "Children"/);
+  assert.match(nav, /workspace-organiser-menu/);
+  assert.match(nav, /active && \["responsibilities", "expenses", "kids", "organiser"\]\.includes\(active\)/);
+  assert.match(organiserRoute, /redirect\("\/responsibilities"\)/);
+  assert.match(styles, /\.workspace-organiser-options[\s\S]*bottom: calc\(100% \+ 10px\)/);
   assert.match(taskPage, /title: "Tasks"/);
   assert.match(costPage, /title: "Shared costs"/);
 });
