@@ -20,10 +20,12 @@ export default async function OnboardingPage({
   const inviteCode = params.invite ? normalizeInviteCode(params.invite) : "";
   const sql = getSql();
   const memberships = (await sql`
-    SELECT calendar_id
-    FROM calendar_memberships
-    WHERE user_id = ${session.user.id}
-    ORDER BY created_at ASC
+    SELECT membership.calendar_id
+    FROM calendar_memberships membership
+    JOIN calendars calendar ON calendar.id = membership.calendar_id
+    WHERE membership.user_id = ${session.user.id}
+      AND calendar.archived_at IS NULL
+    ORDER BY membership.created_at ASC
     LIMIT 1
   `) as Array<{ calendar_id: string }>;
 
