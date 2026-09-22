@@ -18,7 +18,6 @@ import {
   CircleDollarSign,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   Hourglass,
   LoaderCircle,
   RotateCcw,
@@ -407,9 +406,7 @@ function SwipeMonthPreview({
                   <span aria-hidden="true">
                     {eventIcon(tileEvents[0]?.category ?? "other")}
                   </span>
-                ) : (
-                  <Clock3 className="h-3 w-3 shrink-0" aria-hidden="true" />
-                )}
+                ) : null}
                 <span className="truncate">{tileEvents[0]?.title}</span>
                 {tileEvents.length > 1 ? (
                   <span className="ml-auto shrink-0">+{tileEvents.length - 1}</span>
@@ -1262,13 +1259,15 @@ export function CalendarShell({
 
                   {tileEvents.length > 0 ? (
                     <div className={`absolute inset-x-0 bottom-0 z-20 flex h-6 items-center gap-1 truncate px-1.5 text-[11px] font-bold sm:h-7 sm:px-2 ${eventCategoryBarClass(tileEvents[0]?.category ?? "other")}`}>
-                      {tileEvents[0]?.category !== "handover" ? <span aria-hidden="true">{eventIcon(tileEvents[0]?.category ?? "other")}</span> : <Clock3 className="h-3 w-3 shrink-0" aria-hidden="true" />}
+                      {tileEvents[0]?.category !== "handover" ? (
+                        <span aria-hidden="true">{eventIcon(tileEvents[0]?.category ?? "other")}</span>
+                      ) : null}
                       <span className="truncate">{tileEvents[0]?.title}</span>
                       {tileEvents.length > 1 ? <span className="ml-auto shrink-0">+{tileEvents.length - 1}</span> : null}
                     </div>
                   ) : null}
 
-                  {(marker ||
+                  {(marker?.note ||
                     dayPending.length > 0 ||
                     responsibilityMarker?.count ||
                     responsibilityMarker?.pendingCount ||
@@ -1311,17 +1310,13 @@ export function CalendarShell({
                       {(dayPending.length > 0 ? 1 : 0) +
                         (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) +
                         (expenseMarker?.count ? 1 : 0) <
-                      3 ? (
-                        marker?.handover ? (
-                          <Clock3 className="hidden h-3.5 w-3.5 sm:block" aria-label="Handover" />
-                        ) : marker?.note ? (
-                          <StickyNote className="h-3.5 w-3.5" aria-label="Note" />
-                        ) : null
+                      3 && marker?.note ? (
+                        <StickyNote className="h-3.5 w-3.5" aria-label="Note" />
                       ) : null}
                       {(dayPending.length > 0 ? 1 : 0) +
                         (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) +
                         (expenseMarker?.count ? 1 : 0) +
-                        (marker?.handover || marker?.note ? 1 : 0) >
+                        (marker?.note ? 1 : 0) >
                       3 ? (
                         <span
                           className="text-[11px] font-bold text-slate-500"
@@ -1329,7 +1324,7 @@ export function CalendarShell({
                             (dayPending.length > 0 ? 1 : 0) +
                               (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) +
                               (expenseMarker?.count ? 1 : 0) +
-                              (marker?.handover || marker?.note ? 1 : 0) -
+                              (marker?.note ? 1 : 0) -
                               3 ===
                             1
                               ? "One more detail"
@@ -1339,7 +1334,7 @@ export function CalendarShell({
                           +{(dayPending.length > 0 ? 1 : 0) +
                             (responsibilityMarker?.count || responsibilityMarker?.pendingCount ? 1 : 0) +
                             (expenseMarker?.count ? 1 : 0) +
-                            (marker?.handover || marker?.note ? 1 : 0) -
+                            (marker?.note ? 1 : 0) -
                             3}
                         </span>
                       ) : null}
