@@ -6,6 +6,13 @@ export const parentProfileSlots = [
 export type ParentProfileSlot =
   (typeof parentProfileSlots)[number];
 
+/**
+ * Functional identity palette for parent ownership in calendar data.
+ * These colours identify people/ownership only and must not be reused for
+ * semantic UI states such as success, warning, information or destructive actions.
+ * Blue is intentionally available here as an identity colour even though it is not
+ * part of Covie's semantic brand palette.
+ */
 export const parentColorKeys = [
   "teal",
   "violet",
