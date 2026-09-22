@@ -230,6 +230,15 @@ test("workspace rail prioritises organiser context and caps Your Events at three
   assert.doesNotMatch(shell, /ComingUp variant=/);
 });
 
+test("Calendar day cards show handover text without clock icons", async () => {
+  const shell = await source("components/calendar/calendar-shell.tsx");
+
+  assert.match(shell, /title: "Handover"/);
+  assert.doesNotMatch(shell, /Clock3/);
+  assert.doesNotMatch(shell, /aria-label="Handover"/);
+  assert.doesNotMatch(shell, /marker\?\.handover \|\| marker\?\.note/);
+});
+
 test("Calendar removes the redundant next handover summary row", async () => {
   const shell = await source("components/calendar/calendar-shell.tsx");
 
