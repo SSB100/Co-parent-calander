@@ -168,6 +168,7 @@ export function UndoBulkButton({ onChanged }: { onChanged?: () => void }) {
           dialogRef={dialogRef}
           closeButtonRef={closeButtonRef}
           describedBy="undo-description"
+          dismissOnEscape={false}
           footer={
             <>
               <button
