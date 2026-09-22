@@ -494,7 +494,10 @@ async function nextActiveCalendar(userId: string, excludedCalendarId?: string) {
   return rows[0] ?? null;
 }
 
-async function selectFallbackCalendar(userId: string, excludedCalendarId?: string) {
+async function selectFallbackCalendar(
+  userId: string,
+  excludedCalendarId?: string,
+): Promise<never> {
   const fallback = await nextActiveCalendar(userId, excludedCalendarId);
   const cookieStore = await cookies();
 
