@@ -205,7 +205,6 @@ export function AttachmentPanel({
         );
       }
 
-      setItemToRemove(null);
       await load();
     } catch (caught) {
       if (attachmentId) {
@@ -270,6 +269,7 @@ export function AttachmentPanel({
       if (!response.ok) {
         throw new Error(body?.error ?? "The document could not be removed.");
       }
+      setItemToRemove(null);
       await load();
     } catch (caught) {
       setError(
