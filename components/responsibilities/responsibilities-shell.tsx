@@ -21,7 +21,7 @@ import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
-import { CovieConfirmDialog, CovieDialog, CoviePage, CoviePageHeader } from "@/components/ui/covie";
+import { CovieButton, CovieConfirmDialog, CovieDialog, CovieEmptyState, CovieMetricCard, CovieMetricGrid, CovieNotice, CoviePage, CoviePageHeader, CovieRecordCard, CovieSectionHeader, CovieSegmentedControl, CovieStatusBadge } from "@/components/ui/covie";
 import { RecordFocus } from "@/components/workspace/record-focus";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
@@ -240,11 +240,13 @@ function proposalSummary(
   }${item.recurrence !== "none" ? ` · ${recurrenceLabels[item.recurrence]}` : ""}`;
 }
 
-function statusClass(status: ResponsibilityStatus) {
-  if (status === "completed") return "bg-emerald-100 text-emerald-700";
-  if (status === "overdue") return "bg-rose-100 text-rose-700";
-  if (status === "due_today" || status === "due_soon") return "bg-amber-100 text-amber-700";
-  return "bg-slate-100 text-slate-600";
+function statusTone(
+  status: ResponsibilityStatus,
+): "teal" | "danger" | "sunshine" | "neutral" {
+  if (status === "completed") return "teal";
+  if (status === "overdue") return "danger";
+  if (status === "due_today" || status === "due_soon") return "sunshine";
+  return "neutral";
 }
 
 export function ResponsibilitiesShell({
@@ -599,7 +601,10 @@ export function ResponsibilitiesShell({
       />
 
       {dateFilter ? (
-        <div className="mt-4 flex flex-col gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 sm:flex-row sm:items-center sm:justify-between">
+        <CovieNotice
+          tone="violet"
+          className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+        >
           <span className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" aria-hidden="true" />
             Showing tasks due on {dateLabel(dateFilter)}.
@@ -607,55 +612,53 @@ export function ResponsibilitiesShell({
           <button
             type="button"
             onClick={() => setDateFilter(null)}
-            className="self-start font-semibold hover:underline sm:self-auto"
+            className="self-start font-semibold underline-offset-2 hover:underline sm:self-auto"
           >
             Show all tasks
           </button>
-        </div>
+        </CovieNotice>
       ) : null}
 
       {message ? (
-        <div
-          role="status"
-          className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-        >
+        <CovieNotice tone="teal" className="mt-4">
           {message}
-        </div>
+        </CovieNotice>
       ) : null}
       {error ? (
-        <div
-          role="alert"
-          className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-        >
+        <CovieNotice tone="danger" role="alert" className="mt-4">
           {error}
-        </div>
+        </CovieNotice>
       ) : null}
 
-      <section className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 lg:grid-cols-4">
-        <div className="rounded-2xl border border-[#243139] bg-[#BFEDE6] p-3 sm:p-4">
-          <p className="text-xs font-bold text-[#0B665C]">Open</p>
-          <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.open}</p>
-        </div>
-        <div className="rounded-2xl border border-[#243139] bg-[#F7DC86] p-3 sm:p-4">
-          <p className="text-xs font-bold text-[#5F4709]">Due today</p>
-          <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.dueToday}</p>
-        </div>
-        <div className="rounded-2xl border border-[#243139] bg-[#FFD0CB] p-3 sm:p-4">
-          <p className="text-xs font-bold text-[#8C332D]">Overdue</p>
-          <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.overdue}</p>
-        </div>
-        <div className="rounded-2xl border border-[#243139] bg-[#DDD3FA] p-3 sm:p-4">
-          <p className="text-xs font-bold text-[#544394]">Archived</p>
-          <p className="mt-2 text-3xl font-semibold text-[#243139]">{summary.archived}</p>
-        </div>
-      </section>
+      <CovieMetricGrid columns={4}>
+        <CovieMetricCard tone="teal">
+          <p className="covie-metric-label">Open</p>
+          <p className="covie-metric-value">{summary.open}</p>
+          <p className="covie-metric-description">Active tasks still to complete</p>
+        </CovieMetricCard>
+        <CovieMetricCard tone="sunshine">
+          <p className="covie-metric-label">Due today</p>
+          <p className="covie-metric-value">{summary.dueToday}</p>
+          <p className="covie-metric-description">Tasks that need attention today</p>
+        </CovieMetricCard>
+        <CovieMetricCard tone="coral">
+          <p className="covie-metric-label">Overdue</p>
+          <p className="covie-metric-value">{summary.overdue}</p>
+          <p className="covie-metric-description">Past their agreed due date</p>
+        </CovieMetricCard>
+        <CovieMetricCard tone="violet">
+          <p className="covie-metric-label">Archived</p>
+          <p className="covie-metric-value">{summary.archived}</p>
+          <p className="covie-metric-description">Completed tasks kept as history</p>
+        </CovieMetricCard>
+      </CovieMetricGrid>
 
       {(data?.pendingProposals.length ?? 0) > 0 ? (
         <section className="mt-6">
-          <h2 className="text-lg font-semibold text-slate-950">Waiting for agreement</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            The agreed task stays unchanged until the proposal is accepted.
-          </p>
+          <CovieSectionHeader
+            title="Waiting for agreement"
+            description="The agreed task stays unchanged until the proposal is accepted."
+          />
           <div className="mt-3 grid gap-3 lg:grid-cols-2">
             {data?.pendingProposals.map((proposal) => {
               const previous = proposalResponsibility(proposal.previousState);
@@ -710,53 +713,60 @@ export function ResponsibilitiesShell({
       ) : null}
 
       <section className="mt-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-950">
-              {statusFilter === "archive" ? "Task archive" : "Current tasks"}
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {statusFilter === "archive"
-                ? "Completed tasks stay available here as history."
-                : "Completed items disappear from this active view automatically."}
-            </p>
-          </div>
-          <div className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1">
-            {(["current", "overdue", "due_today", "due_soon", "upcoming", "archive"] as const).map(
-              (value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setStatusFilter(value)}
-                  className={`min-h-9 shrink-0 rounded-lg px-3 text-xs font-semibold ${
-                    statusFilter === value
-                      ? value === "archive"
-                        ? "bg-[#765ED6] text-white"
-                        : "bg-[#19A897] text-[#243139]"
-                      : "text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  {value === "current"
-                    ? "Current"
-                    : value === "archive"
-                      ? "Archive"
-                      : statusLabels[value]}
-                </button>
-              ),
-            )}
-          </div>
-        </div>
+        <CovieSectionHeader
+          title={statusFilter === "archive" ? "Task archive" : "Current tasks"}
+          description={
+            statusFilter === "archive"
+              ? "Completed tasks stay available here as history."
+              : "Completed items disappear from this active view automatically."
+          }
+          actions={
+            <CovieSegmentedControl
+              value={statusFilter}
+              options={[
+                { value: "current", label: "Current" },
+                { value: "overdue", label: "Overdue" },
+                { value: "due_today", label: "Due today" },
+                { value: "due_soon", label: "Due soon" },
+                { value: "upcoming", label: "Upcoming" },
+                { value: "archive", label: "Archive" },
+              ]}
+              onChange={setStatusFilter}
+              tone="teal"
+              ariaLabel="Task view"
+            />
+          }
+        />
 
         {filtered.length === 0 ? (
-          <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center">
-            <CheckSquare2 className="mx-auto h-7 w-7 text-slate-400" aria-hidden="true" />
-            <p className="mt-2 font-semibold text-slate-800">Nothing here</p>
-            <p className="mt-1 text-sm text-slate-500">
-              {dateFilter
+          <CovieEmptyState
+            className="mt-4"
+            icon={<CheckSquare2 className="h-7 w-7" aria-hidden="true" />}
+            title={statusFilter === "archive" ? "No archived tasks" : "No tasks here"}
+            description={
+              dateFilter
                 ? "No agreed tasks are due on this date."
-                : "Add a task when there is something useful to make clearly owned."}
-            </p>
-          </div>
+                : statusFilter === "archive"
+                  ? "Completed tasks will stay available here as history."
+                  : "Add a task when there is something useful to make clearly owned."
+            }
+            action={
+              dateFilter ? (
+                <CovieButton tone="neutral" onClick={() => setDateFilter(null)}>
+                  Show all tasks
+                </CovieButton>
+              ) : statusFilter === "archive" ? (
+                <CovieButton tone="neutral" onClick={() => setStatusFilter("current")}>
+                  View current tasks
+                </CovieButton>
+              ) : editable ? (
+                <CovieButton onClick={openCreate}>
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Add task
+                </CovieButton>
+              ) : null
+            }
+          />
         ) : (
           <div className="mt-4 grid gap-3 lg:grid-cols-2">
             {filtered.map((item) => {
@@ -775,9 +785,11 @@ export function ResponsibilitiesShell({
               );
 
               return (
-                <article
-                  key={item.id} id={`record-${item.id}`} tabIndex={-1}
-                  className="rounded-2xl border border-[#E6DBCF] bg-white p-4 shadow-[4px_4px_0_#24313910] sm:p-5"
+                <CovieRecordCard
+                  key={item.id}
+                  id={`record-${item.id}`}
+                  tabIndex={-1}
+                  className="sm:p-5"
                 >
                   <div className="flex items-start gap-3">
                     <button
@@ -793,7 +805,7 @@ export function ResponsibilitiesShell({
                             ? `Mark ${item.title} complete`
                             : `${item.title} is assigned to ${parent?.displayName ?? "the other parent"}`
                       }
-                      className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                      className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border ${
                         item.status === "completed"
                           ? item.nextOccurrenceId
                             ? "border-emerald-200 bg-emerald-100 text-emerald-700"
@@ -816,21 +828,17 @@ export function ResponsibilitiesShell({
 
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(
-                            item.status,
-                          )}`}
-                        >
+                        <CovieStatusBadge tone={statusTone(item.status)}>
                           {statusLabels[item.status]}
-                        </span>
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                        </CovieStatusBadge>
+                        <CovieStatusBadge tone="neutral">
                           {categoryLabels[item.category]}
-                        </span>
+                        </CovieStatusBadge>
                         {item.recurrence !== "none" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700">
+                          <CovieStatusBadge tone="violet" className="gap-1">
                             <Repeat2 className="h-3 w-3" aria-hidden="true" />
                             {recurrenceLabels[item.recurrence]}
-                          </span>
+                          </CovieStatusBadge>
                         ) : null}
                       </div>
                       <h3
@@ -866,12 +874,9 @@ export function ResponsibilitiesShell({
                   {itemChildren.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {itemChildren.map((child) => (
-                        <span
-                          key={child.id}
-                          className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700"
-                        >
+                        <CovieStatusBadge key={child.id} tone="violet">
                           {child.displayName}
-                        </span>
+                        </CovieStatusBadge>
                       ))}
                     </div>
                   ) : null}
@@ -881,7 +886,7 @@ export function ResponsibilitiesShell({
                   ) : null}
 
                   {linkedEvent || linkedExpense ? (
-                    <div className="mt-3 space-y-1 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="mt-3 space-y-1 rounded-[10px] bg-[#FFF9F2] px-3 py-2 text-xs text-slate-600">
                       {linkedEvent ? (
                         <p className="flex items-center gap-2">
                           <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -914,25 +919,25 @@ export function ResponsibilitiesShell({
                   </div>
 
                   {editable && item.status !== "completed" ? (
-                    <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-                      <button
-                        type="button"
+                    <div className="covie-record-actions">
+                      <CovieButton
+                        tone="neutral"
                         disabled={Boolean(busyId)}
                         onClick={() => openEdit(item)}
-                        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                        className="px-3 text-xs"
                       >
                         <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                         Edit
-                      </button>
-                      <button
-                        type="button"
+                      </CovieButton>
+                      <CovieButton
+                        tone="danger"
                         disabled={Boolean(busyId)}
                         onClick={() => setTaskToRemove(item)}
-                        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-rose-200 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                        className="px-3 text-xs"
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                         Remove
-                      </button>
+                      </CovieButton>
                     </div>
                   ) : item.status === "completed" ? (
                     <p className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-4 text-xs font-semibold text-emerald-700">
@@ -940,7 +945,7 @@ export function ResponsibilitiesShell({
                       Completed tasks stay in history.
                     </p>
                   ) : null}
-                </article>
+                </CovieRecordCard>
               );
             })}
           </div>
