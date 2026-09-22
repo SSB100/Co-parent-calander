@@ -112,7 +112,7 @@ export function StaffRosterAvailabilityPage() {
 
   function openCreate() {
     setMemberId(data?.currentMemberId ?? "");
-    setDate(localDateValue());
+    setDate(data?.from ?? localDateValue());
     setStatus("unavailable");
     setStartTime("");
     setEndTime("");
