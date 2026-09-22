@@ -1,8 +1,10 @@
+import { X } from "lucide-react";
 import type {
   ButtonHTMLAttributes,
   HTMLAttributes,
   InputHTMLAttributes,
   ReactNode,
+  Ref,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
@@ -263,5 +265,175 @@ export function CovieEmptyState({
       <p className="covie-empty-state-description">{description}</p>
       {action ? <div className="covie-empty-state-action">{action}</div> : null}
     </div>
+  );
+}
+
+
+type DialogTone = "coral" | "teal" | "sunshine" | "violet";
+
+export function CovieDialog({
+  id,
+  title,
+  description,
+  icon,
+  iconTone = "violet",
+  size = "md",
+  busy = false,
+  onClose,
+  children,
+  footer,
+  bodyClassName,
+  dialogRef,
+  closeButtonRef,
+  describedBy,
+  dismissOnEscape = true,
+  dismissOnBackdrop = true,
+}: {
+  id: string;
+  title: ReactNode;
+  description?: ReactNode;
+  icon?: ReactNode;
+  iconTone?: DialogTone;
+  size?: "sm" | "md" | "lg";
+  busy?: boolean;
+  onClose: () => void;
+  children?: ReactNode;
+  footer?: ReactNode;
+  bodyClassName?: string;
+  dialogRef?: Ref<HTMLElement>;
+  closeButtonRef?: Ref<HTMLButtonElement>;
+  describedBy?: string;
+  dismissOnEscape?: boolean;
+  dismissOnBackdrop?: boolean;
+}) {
+  return (
+    <div
+      className="covie-dialog-backdrop"
+      onMouseDown={(event) => {
+        if (
+          dismissOnBackdrop &&
+          !busy &&
+          event.target === event.currentTarget
+        ) {
+          onClose();
+        }
+      }}
+    >
+      <section
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={id}
+        aria-describedby={describedBy}
+        aria-busy={busy || undefined}
+        tabIndex={-1}
+        onKeyDown={(event) => {
+          if (dismissOnEscape && !busy && event.key === "Escape") {
+            event.preventDefault();
+            onClose();
+          }
+        }}
+        className={classes(
+          "covie-dialog",
+          `covie-dialog-${size}`,
+          "covie-dialog-fit",
+        )}
+      >
+        <header className="covie-dialog-header">
+          <div className="covie-dialog-heading">
+            {icon ? (
+              <div className={classes("covie-dialog-icon", iconTone)}>{icon}</div>
+            ) : null}
+            <div className="min-w-0">
+              <h2 id={id} className="covie-dialog-title">
+                {title}
+              </h2>
+              {description ? (
+                <div className="covie-dialog-description">{description}</div>
+              ) : null}
+            </div>
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            aria-label="Close dialog"
+            disabled={busy}
+            onClick={onClose}
+            className="covie-dialog-close"
+          >
+            <X aria-hidden="true" />
+          </button>
+        </header>
+
+        {children ? (
+          <div className={classes("covie-dialog-body", bodyClassName)}>
+            {children}
+          </div>
+        ) : null}
+
+        {footer ? <footer className="covie-dialog-footer">{footer}</footer> : null}
+      </section>
+    </div>
+  );
+}
+
+export function CovieConfirmDialog({
+  open,
+  id,
+  title,
+  description,
+  confirmLabel,
+  cancelLabel = "Cancel",
+  busy = false,
+  destructive = true,
+  icon,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  id: string;
+  title: ReactNode;
+  description: ReactNode;
+  confirmLabel: string;
+  cancelLabel?: string;
+  busy?: boolean;
+  destructive?: boolean;
+  icon?: ReactNode;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <CovieDialog
+      id={id}
+      title={title}
+      description={description}
+      icon={icon}
+      iconTone={destructive ? "coral" : "sunshine"}
+      size="sm"
+      busy={busy}
+      onClose={onCancel}
+      footer={
+        <>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onCancel}
+            className="covie-dialog-secondary"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onConfirm}
+            className={destructive ? "covie-dialog-danger" : "covie-dialog-primary"}
+          >
+            {confirmLabel}
+          </button>
+        </>
+      }
+    />
   );
 }

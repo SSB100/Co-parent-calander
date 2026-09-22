@@ -603,6 +603,45 @@ main:has(.workspace-nav) { background: #fff9f2; }
   padding: 10px 12px;
   resize: vertical;
 }
+.covie-field-label {
+  display: block;
+  color: var(--covie-ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+.covie-field-optional {
+  color: var(--covie-text-muted);
+  font-weight: 400;
+}
+.covie-field-help {
+  display: block;
+  margin-top: 6px;
+  color: var(--covie-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.covie-input-shell {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  border: 1px solid var(--covie-input-border);
+  border-radius: var(--covie-radius-control);
+  background: #fff;
+  padding: 0 12px;
+}
+.covie-input-shell:focus-within {
+  outline: 3px solid var(--covie-focus);
+  outline-offset: 3px;
+}
+.covie-input-shell > input {
+  min-width: 0;
+  flex: 1 1 auto;
+  border: 0;
+  background: transparent;
+  color: var(--covie-ink);
+  font-size: 14px;
+  outline: none;
+}
 .covie-status-badge {
   display: inline-flex;
   min-height: 24px;
@@ -776,8 +815,8 @@ main:has(.workspace-nav) { background: #fff9f2; }
 }
 .covie-dialog-close {
   display: flex;
-  height: 38px;
-  width: 38px;
+  height: 44px;
+  width: 44px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
@@ -1212,8 +1251,8 @@ main:has(.workspace-nav) { background: #fff9f2; }
   }
 
   .covie-dialog-close {
-    height: 36px;
-    width: 36px;
+    height: 44px;
+    width: 44px;
   }
 
   .covie-dialog-body {

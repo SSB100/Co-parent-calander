@@ -14,7 +14,6 @@ import {
   RotateCcw,
   Trash2,
   UserRound,
-  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { localDateInTimeZone } from "@/lib/calendar/time";
@@ -22,7 +21,7 @@ import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
-import { CoviePage, CoviePageHeader } from "@/components/ui/covie";
+import { CovieConfirmDialog, CovieDialog, CoviePage, CoviePageHeader } from "@/components/ui/covie";
 import { RecordFocus } from "@/components/workspace/record-focus";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
@@ -272,6 +271,7 @@ export function ResponsibilitiesShell({
   const [statusFilter, setStatusFilter] = useState<"current" | "archive" | "upcoming" | "due_soon" | "due_today" | "overdue">("current");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [taskToRemove, setTaskToRemove] = useState<Responsibility | null>(null);
 
   const refresh = useCallback(async () => {
     const query = dateFilter ? `?date=${encodeURIComponent(dateFilter)}` : "";
@@ -466,6 +466,7 @@ export function ResponsibilitiesShell({
       }
 
       setFormOpen(false);
+      setTaskToRemove(null);
       setMessage(
         body?.pending
           ? body.approverName
@@ -536,7 +537,6 @@ export function ResponsibilitiesShell({
 
   async function remove(item: Responsibility) {
     if (!editable || busyId || item.status === "completed") return;
-    if (!window.confirm(`Remove “${item.title}” from tasks?`)) return;
 
     setBusyId(item.id);
     setError(null);
@@ -927,7 +927,7 @@ export function ResponsibilitiesShell({
                       <button
                         type="button"
                         disabled={Boolean(busyId)}
-                        onClick={() => void remove(item)}
+                        onClick={() => setTaskToRemove(item)}
                         className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-rose-200 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -947,36 +947,60 @@ export function ResponsibilitiesShell({
         )}
       </section>
 
+      <CovieConfirmDialog
+        open={Boolean(taskToRemove)}
+        id="remove-task-title"
+        title="Remove task?"
+        description={
+          taskToRemove
+            ? <>Remove “{taskToRemove.title}” from tasks?</>
+            : "Remove this task?"
+        }
+        confirmLabel="Remove task"
+        busy={Boolean(busyId)}
+        icon={<Trash2 aria-hidden="true" />}
+        onCancel={() => {
+          if (!busyId) setTaskToRemove(null);
+        }}
+        onConfirm={() => {
+          if (taskToRemove) void remove(taskToRemove);
+        }}
+      />
+
       {formOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#243139]/35 sm:items-center sm:p-4">
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="responsibility-form-title"
-            className="max-h-[94vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border-2 border-[#243139] bg-white p-5 shadow-[7px_7px_0_#19A897] sm:rounded-3xl sm:p-6"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  Shared task
-                </p>
-                <h2
-                  id="responsibility-form-title"
-                  className="mt-1 text-2xl font-semibold text-slate-950"
-                >
-                  {form.id ? "Edit task" : "Add task"}
-                </h2>
-              </div>
+        <CovieDialog
+          id="responsibility-form-title"
+          title={form.id ? "Edit task" : "Add task"}
+          description="Keep what needs doing, who owns it and when it is due clear."
+          icon={<CheckSquare2 aria-hidden="true" />}
+          iconTone="teal"
+          size="md"
+          busy={Boolean(busyId)}
+          onClose={() => setFormOpen(false)}
+          footer={
+            <>
               <button
                 type="button"
                 disabled={Boolean(busyId)}
                 onClick={() => setFormOpen(false)}
-                aria-label="Close task form"
-                className="covie-icon-button flex h-10 w-10 items-center justify-center rounded-xl disabled:opacity-50"
+                className="covie-dialog-secondary"
               >
-                <X className="h-5 w-5" aria-hidden="true" />
+                Cancel
               </button>
-            </div>
+              <button
+                type="button"
+                disabled={Boolean(busyId)}
+                onClick={() => void save()}
+                className="covie-dialog-primary"
+              >
+                {busyId ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : null}
+                {form.id ? "Save change" : "Add task"}
+              </button>
+            </>
+          }
+        >
 
             {!form.id ? (
               <div className="mt-5">
@@ -1010,7 +1034,7 @@ export function ResponsibilitiesShell({
                     setForm((current) => ({ ...current, title: event.target.value }))
                   }
                   placeholder="e.g. Return school permission form"
-                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 px-4 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="covie-input mt-2 text-base"
                 />
               </label>
 
@@ -1026,7 +1050,7 @@ export function ResponsibilitiesShell({
                       responsibleParticipantId: event.target.value,
                     }))
                   }
-                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="covie-input mt-2 text-base"
                 >
                   {participants.map((participant) => (
                     <option key={participant.id} value={participant.id}>
@@ -1048,7 +1072,7 @@ export function ResponsibilitiesShell({
                       category: event.target.value as ResponsibilityCategory,
                     }))
                   }
-                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="covie-input mt-2 text-base"
                 >
                   {Object.entries(categoryLabels).map(([value, label]) => (
                     <option key={value} value={value}>
@@ -1066,7 +1090,7 @@ export function ResponsibilitiesShell({
                   onChange={(event) =>
                     setForm((current) => ({ ...current, dueDate: event.target.value }))
                   }
-                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="covie-input mt-2 text-base"
                 />
               </label>
 
@@ -1080,7 +1104,7 @@ export function ResponsibilitiesShell({
                   onChange={(event) =>
                     setForm((current) => ({ ...current, dueTime: event.target.value }))
                   }
-                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="covie-input mt-2 text-base"
                 />
               </label>
             </div>
@@ -1131,7 +1155,7 @@ export function ResponsibilitiesShell({
                           : current.recurrenceEndDate,
                     }))
                   }
-                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  className="covie-input mt-2 text-base"
                 >
                   {Object.entries(recurrenceLabels).map(([value, label]) => (
                     <option key={value} value={value}>
@@ -1157,7 +1181,7 @@ export function ResponsibilitiesShell({
                         recurrenceEndDate: event.target.value,
                       }))
                     }
-                    className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    className="covie-input mt-2 text-base"
                   />
                 </label>
               ) : null}
@@ -1175,7 +1199,7 @@ export function ResponsibilitiesShell({
                   setForm((current) => ({ ...current, note: event.target.value }))
                 }
                 placeholder="Short practical detail"
-                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                className="covie-textarea mt-2 text-base"
               />
             </label>
 
@@ -1195,7 +1219,7 @@ export function ResponsibilitiesShell({
                         linkedEventId: event.target.value,
                       }))
                     }
-                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    className="covie-select mt-1"
                   >
                     <option value="">No linked event</option>
                     {data?.events.map((event) => (
@@ -1215,7 +1239,7 @@ export function ResponsibilitiesShell({
                         linkedExpenseId: event.target.value,
                       }))
                     }
-                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    className="covie-select mt-1"
                   >
                     <option value="">No linked shared cost</option>
                     {data?.expenses.map((expense) => (
@@ -1241,36 +1265,14 @@ export function ResponsibilitiesShell({
                   setForm((current) => ({ ...current, reason: event.target.value }))
                 }
                 placeholder="Used if this needs the other parent's approval"
-                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                className="covie-textarea mt-2 text-base"
               />
               <span className="mt-1 block text-xs text-slate-500">
                 Assigning or changing work for the other linked parent requires their approval.
               </span>
             </label>
 
-            <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                disabled={Boolean(busyId)}
-                onClick={() => setFormOpen(false)}
-                className="covie-action-secondary min-h-12 rounded-xl px-4 text-sm disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={Boolean(busyId)}
-                onClick={() => void save()}
-                className="covie-primary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm disabled:opacity-50"
-              >
-                {busyId ? (
-                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                ) : null}
-                {form.id ? "Save change" : "Add task"}
-              </button>
-            </div>
-          </section>
-        </div>
+        </CovieDialog>
       ) : null}
 
       {!editable && data ? (

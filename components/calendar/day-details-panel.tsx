@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Clock3, LoaderCircle, MapPin, StickyNote, Trash2, X } from "lucide-react";
+import { CalendarDays, Clock3, LoaderCircle, MapPin, StickyNote, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
@@ -10,6 +10,7 @@ import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
 import { DayExpenses } from "@/components/expenses/day-expenses";
 import { DayResponsibilities } from "@/components/responsibilities/day-responsibilities";
+import { CovieConfirmDialog, CovieDialog } from "@/components/ui/covie";
 import type { CalendarPendingProposal } from "@/lib/approvals/calendar-pending";
 import {
   parentingAssignmentsProposalStateSchema,
@@ -329,6 +330,7 @@ export function DayDetailsPanel({
   const [dayEvents, setDayEvents] = useState<CalendarEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(null);
   const [eventMessage, setEventMessage] = useState<string | null>(null);
 
   async function refreshDayEvents() {
@@ -344,13 +346,6 @@ export function DayDetailsPanel({
 
   async function deleteDayEvent(event: CalendarEvent) {
     if (readOnly || submitting || deletingEventId) return;
-    const recurring = event.recurrence && event.recurrence !== "none";
-    const confirmed = window.confirm(
-      recurring
-        ? `Delete “${event.title}” and all of its repeated occurrences?`
-        : `Delete “${event.title}” from the shared calendar?`,
-    );
-    if (!confirmed) return;
 
     setDeletingEventId(event.id);
     setEventMessage(null);
@@ -375,6 +370,7 @@ export function DayDetailsPanel({
         : "Event removed.";
 
       if (!body?.pending) await refreshDayEvents();
+      setEventToDelete(null);
       setEventMessage(message);
       onEventChanged(message);
       window.dispatchEvent(new Event("covie-records-updated"));
@@ -526,18 +522,58 @@ export function DayDetailsPanel({
     : [{ value: "unassigned", label: "Unassigned", className: "bg-[#F7DC86] text-[#243139] hover:bg-[#F2D16B]" }];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#243139]/35 sm:items-center sm:p-4">
-      <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="day-details-title" aria-describedby={error ? "day-details-error" : undefined} aria-busy={submitting || Boolean(deletingEventId)} tabIndex={-1} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl border-2 border-[#243139] bg-white p-5 shadow-[7px_7px_0_#765ED6] sm:rounded-3xl sm:p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 id="day-details-title" className="text-2xl font-semibold text-slate-900">
-              {new Intl.DateTimeFormat("en-NZ", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`))}
-            </h2>
-          </div>
-          <button ref={closeButtonRef} type="button" aria-label="Close day details" disabled={submitting || Boolean(deletingEventId)} onClick={onClose} className="covie-icon-button flex h-10 w-10 shrink-0 items-center justify-center rounded-xl disabled:opacity-50"><X className="h-5 w-5" aria-hidden="true" /></button>
-        </div>
-
-        <div className="mt-5 border-b border-slate-200 pb-5">
+    <>
+      <CovieDialog
+        id="day-details-title"
+        title={new Intl.DateTimeFormat("en-NZ", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+          timeZone: "UTC",
+        }).format(new Date(`${date}T00:00:00Z`))}
+        description="Review events, parenting and handover details for this day."
+        icon={<CalendarDays aria-hidden="true" />}
+        iconTone="coral"
+        size="md"
+        busy={submitting || Boolean(deletingEventId)}
+        onClose={onClose}
+        dialogRef={dialogRef}
+        closeButtonRef={closeButtonRef}
+        describedBy={error ? "day-details-error" : undefined}
+        dismissOnEscape={false}
+        footer={
+          <>
+            <button
+              type="button"
+              disabled={submitting || Boolean(deletingEventId)}
+              onClick={onClose}
+              className="covie-dialog-secondary"
+            >
+              Close
+            </button>
+            {!readOnly ? (
+              <button
+                type="button"
+                disabled={
+                  submitting ||
+                  Boolean(deletingEventId) ||
+                  choice === "mixed" ||
+                  !selectedOwnership
+                }
+                onClick={() => void save()}
+                className="covie-dialog-primary"
+              >
+                {submitting ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : null}
+                Save day
+              </button>
+            ) : null}
+          </>
+        }
+      >
+        <div className="border-b border-slate-200 pb-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="flex items-center gap-2 font-semibold text-slate-900">
@@ -612,7 +648,7 @@ export function DayDetailsPanel({
                         {!readOnly ? (
                           <button
                             type="button"
-                            onClick={() => void deleteDayEvent(event)}
+                            onClick={() => setEventToDelete(event)}
                             disabled={submitting || Boolean(deletingEventId)}
                             className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
                           >
@@ -693,9 +729,9 @@ export function DayDetailsPanel({
         ) : null}
 
         <div className={`mt-6 space-y-4 ${detailsDisabled || readOnly ? "opacity-60" : ""}`}>
-          <label className="block"><span className="flex items-center gap-2 text-sm font-semibold text-slate-800"><Clock3 className="h-4 w-4" aria-hidden="true" />Handover time</span><input type="time" value={handoverTime} disabled={detailsDisabled || readOnly} onChange={(event) => setHandoverTime(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50" /></label>
-          <label className="block"><span className="flex items-center gap-2 text-sm font-semibold text-slate-800"><MapPin className="h-4 w-4" aria-hidden="true" />Handover location</span><input type="text" maxLength={120} value={handoverLocation} disabled={detailsDisabled || readOnly} placeholder="e.g. School gate, home, rugby club" onChange={(event) => setHandoverLocation(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50" /></label>
-          <label className="block"><span className="flex items-center gap-2 text-sm font-semibold text-slate-800"><StickyNote className="h-4 w-4" aria-hidden="true" />Note</span><textarea rows={3} maxLength={500} value={note} disabled={detailsDisabled || readOnly} placeholder="Short practical note for this day" onChange={(event) => setNote(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:bg-slate-50" /></label>
+          <label className="block"><span className="flex items-center gap-2 text-sm font-semibold text-slate-800"><Clock3 className="h-4 w-4" aria-hidden="true" />Handover time</span><input type="time" value={handoverTime} disabled={detailsDisabled || readOnly} onChange={(event) => setHandoverTime(event.target.value)} className="covie-input mt-2 text-base disabled:bg-slate-50" /></label>
+          <label className="block"><span className="flex items-center gap-2 text-sm font-semibold text-slate-800"><MapPin className="h-4 w-4" aria-hidden="true" />Handover location</span><input type="text" maxLength={120} value={handoverLocation} disabled={detailsDisabled || readOnly} placeholder="e.g. School gate, home, rugby club" onChange={(event) => setHandoverLocation(event.target.value)} className="covie-input mt-2 text-base disabled:bg-slate-50" /></label>
+          <label className="block"><span className="flex items-center gap-2 text-sm font-semibold text-slate-800"><StickyNote className="h-4 w-4" aria-hidden="true" />Note</span><textarea rows={3} maxLength={500} value={note} disabled={detailsDisabled || readOnly} placeholder="Short practical note for this day" onChange={(event) => setNote(event.target.value)} className="covie-textarea mt-2 text-base disabled:bg-slate-50" /></label>
         </div>
 
         {!readOnly ? (
@@ -708,7 +744,7 @@ export function DayDetailsPanel({
               disabled={submitting}
               placeholder="e.g. Family birthday lunch"
               onChange={(event) => setReason(event.target.value)}
-              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
+              className="covie-textarea mt-2 text-base disabled:opacity-60"
             />
             <span className="mt-1 block text-xs text-slate-500">
               Used only if this change needs the other parent&apos;s approval.
@@ -722,11 +758,29 @@ export function DayDetailsPanel({
 
         <DayExpenses date={date} readOnly={readOnly} />
 
-        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" disabled={submitting} onClick={onClose} className="covie-action-secondary min-h-12 rounded-xl px-4 text-sm disabled:opacity-50">Close</button>
-          {!readOnly ? <button type="button" disabled={submitting || Boolean(deletingEventId) || choice === "mixed" || !selectedOwnership} onClick={() => void save()} className="covie-primary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm disabled:opacity-50">{submitting ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}Save day</button> : null}
-        </div>
-      </section>
-    </div>
+      </CovieDialog>
+
+      <CovieConfirmDialog
+        open={Boolean(eventToDelete)}
+        id="delete-calendar-event-title"
+        title="Delete event?"
+        description={
+          eventToDelete
+            ? eventToDelete.recurrence && eventToDelete.recurrence !== "none"
+              ? <>Delete “{eventToDelete.title}” and all of its repeated occurrences?</>
+              : <>Delete “{eventToDelete.title}” from the shared calendar?</>
+            : "Delete this event?"
+        }
+        confirmLabel="Delete event"
+        busy={Boolean(deletingEventId)}
+        icon={<Trash2 aria-hidden="true" />}
+        onCancel={() => {
+          if (!deletingEventId) setEventToDelete(null);
+        }}
+        onConfirm={() => {
+          if (eventToDelete) void deleteDayEvent(eventToDelete);
+        }}
+      />
+    </>
   );
 }

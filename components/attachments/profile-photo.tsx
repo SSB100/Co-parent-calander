@@ -2,6 +2,7 @@
 
 import { Camera, LoaderCircle, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CovieConfirmDialog } from "@/components/ui/covie";
 
 type PhotoItem = {
   id: string;
@@ -83,6 +84,7 @@ export function ProfilePhoto({
   const [photoFailed, setPhotoFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [removeOpen, setRemoveOpen] = useState(false);
 
   const load = useCallback(async () => {
     const result = await fetchProfilePhoto(childId);
@@ -192,7 +194,6 @@ export function ProfilePhoto({
   async function remove() {
     const photo = payload?.attachments[0];
     if (!photo || busy) return;
-    if (!window.confirm("Remove this child profile photo?")) return;
 
     setBusy(true);
     setError(null);
@@ -207,6 +208,7 @@ export function ProfilePhoto({
       if (!response.ok) {
         throw new Error(body?.error ?? "The profile photo could not be removed.");
       }
+      setRemoveOpen(false);
       await load();
     } catch (caught) {
       setError(
@@ -272,7 +274,7 @@ export function ProfilePhoto({
             <button
               type="button"
               disabled={busy}
-              onClick={() => void remove()}
+              onClick={() => setRemoveOpen(true)}
               aria-label="Remove profile photo"
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 bg-[#FBECE8] text-rose-700 hover:bg-rose-100 disabled:opacity-50"
             >
@@ -281,6 +283,20 @@ export function ProfilePhoto({
           ) : null}
         </div>
       ) : null}
+
+      <CovieConfirmDialog
+        open={removeOpen}
+        id="remove-profile-photo-title"
+        title="Remove profile photo?"
+        description="Remove this child profile photo from Covie?"
+        confirmLabel="Remove photo"
+        busy={busy}
+        icon={<Trash2 aria-hidden="true" />}
+        onCancel={() => {
+          if (!busy) setRemoveOpen(false);
+        }}
+        onConfirm={() => void remove()}
+      />
 
       {error ? (
         <span className="max-w-40 text-center text-[10px] leading-4 text-rose-600">
