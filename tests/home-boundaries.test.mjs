@@ -333,7 +333,7 @@ test("Covie interactive surfaces use the branded action hierarchy instead of gen
   assert.match(day, /#FFD0CB/);
   assert.match(day, /#DDD3FA/);
   assert.match(day, /#F7DC86/);
-  assert.match(day, /covie-primary-action/);
+  assert.match(day, /covie-dialog-primary/);
   assert.doesNotMatch(day, /border-slate-900 bg-slate-900 text-white/);
 
   assert.match(calendar, /covie-action-teal/);
