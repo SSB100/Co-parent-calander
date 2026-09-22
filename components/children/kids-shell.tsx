@@ -10,7 +10,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AddChildPanel } from "@/components/children/add-child-panel";
-import { CoviePage, CoviePageHeader } from "@/components/ui/covie";
+import { CovieEmptyState, CovieNotice, CoviePage, CoviePageHeader } from "@/components/ui/covie";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 
 type ChildSummary = {
@@ -101,16 +101,13 @@ export function KidsShell() {
       />
 
       {error ? (
-        <div
-          role="alert"
-          className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-        >
+        <CovieNotice tone="danger" role="alert" className="mt-4">
           {error}
-        </div>
+        </CovieNotice>
       ) : null}
 
       {!data && !error ? (
-        <div className="mt-5 flex min-h-40 items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm text-slate-500">
+        <div className="mt-5 flex min-h-40 items-center justify-center rounded-2xl border border-[#E6DBCF] bg-white text-sm text-slate-500">
           <LoaderCircle className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
           Loading child profiles…
         </div>
@@ -119,20 +116,16 @@ export function KidsShell() {
       {data ? (
         <section className="mt-5">
           {data.children.length === 0 ? (
-            <div className="rounded-2xl border-2 border-dashed border-[#765ED6] bg-[#F4F1FF] px-5 py-9 text-center">
-              <UsersRound className="mx-auto h-8 w-8 text-[#765ED6]" aria-hidden="true" />
-              <h2 className="covie-display mt-3 text-2xl font-semibold text-[#243139]">
-                Add your first child
-              </h2>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-                You only need a name to begin. School, activities, health notes and documents can all be added later.
-              </p>
-              {editable ? (
-                <div className="mt-5 flex justify-center">
+            <CovieEmptyState
+              icon={<UsersRound className="h-8 w-8 text-[#765ED6]" aria-hidden="true" />}
+              title="Add your first child"
+              description="You only need a name to begin. School, activities, health notes and documents can all be added later."
+              action={
+                editable ? (
                   <AddChildPanel onChanged={() => void refresh()} buttonLabel="Add child" />
-                </div>
-              ) : null}
-            </div>
+                ) : null
+              }
+            />
           ) : (
             <>
               <div className="mb-3 flex items-center justify-between gap-3">
@@ -145,19 +138,13 @@ export function KidsShell() {
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
-                {data.children.map((child, index) => (
+                {data.children.map((child) => (
                   <Link
                     key={child.id}
                     href={`/kids/${child.id}`}
-                    className={`group flex items-center gap-4 rounded-2xl border-2 border-[#243139] p-4 transition hover:-translate-y-0.5 ${
-                      index % 3 === 0
-                        ? "bg-[#F4F1FF]"
-                        : index % 3 === 1
-                          ? "bg-[#EAF8F5]"
-                          : "bg-[#FFF9DF]"
-                    }`}
+                    className="group flex items-center gap-4 rounded-2xl border border-[#E6DBCF] bg-white p-4 transition hover:-translate-y-0.5 hover:border-[#765ED6] focus-visible:border-[#765ED6]"
                   >
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[#243139] bg-white text-base font-black text-[#243139]">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[#C9BDF1] bg-[#F4F1FF] text-base font-black text-[#243139]">
                       {initials(child.displayName) || "C"}
                     </div>
 
@@ -179,20 +166,20 @@ export function KidsShell() {
 
                       <div className="mt-3 flex flex-wrap gap-2 text-xs">
                         {child.schoolName ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-700">
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E6DBCF] bg-white px-2.5 py-1 font-semibold text-slate-700">
                             <GraduationCap className="h-3.5 w-3.5" aria-hidden="true" />
                             {child.schoolName}
                             {child.yearClass ? ` · ${child.yearClass}` : ""}
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-500">
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E6DBCF] bg-white px-2.5 py-1 font-semibold text-slate-500">
                             <GraduationCap className="h-3.5 w-3.5" aria-hidden="true" />
                             Add school
                           </span>
                         )}
 
                         {child.dateOfBirth ? (
-                          <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-600">
+                          <span className="rounded-full border border-[#E6DBCF] bg-white px-2.5 py-1 font-semibold text-slate-600">
                             {dateLabel(child.dateOfBirth)}
                           </span>
                         ) : null}
