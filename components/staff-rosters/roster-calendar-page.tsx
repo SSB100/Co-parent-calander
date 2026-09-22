@@ -53,6 +53,8 @@ type Member = {
   id: string;
   displayName: string;
   accessRole: StaffAccessRole;
+  roleIds: string[];
+  roleNames: string[];
   defaultRoleId: string | null;
   defaultLocationId: string | null;
 };
@@ -461,7 +463,7 @@ export function StaffRosterCalendarPage() {
       data?.members.filter(
         (member) =>
           (!staffFilter || member.id === staffFilter) &&
-          (!roleFilter || member.defaultRoleId === roleFilter) &&
+          (!roleFilter || member.roleIds.includes(roleFilter)) &&
           (!locationFilter ||
             member.defaultLocationId === locationFilter),
       ) ?? [],
@@ -1404,9 +1406,12 @@ export function StaffRosterCalendarPage() {
                   </div>
                   <div className="space-y-2 p-2">
                     {filteredMembers.map((member) => {
-                      const roleName = member.defaultRoleId
-                        ? roleById.get(member.defaultRoleId)
-                        : null;
+                      const roleName =
+                        member.roleNames.length > 0
+                          ? member.roleNames.join(", ")
+                          : member.defaultRoleId
+                            ? roleById.get(member.defaultRoleId)
+                            : null;
                       const locationName = member.defaultLocationId
                         ? locationById.get(member.defaultLocationId)
                         : null;
