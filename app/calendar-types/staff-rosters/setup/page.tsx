@@ -6,6 +6,7 @@ import {
   listCalendarNavigationOptions,
 } from "@/lib/calendars/navigation";
 import { getCalendarSession } from "@/lib/security/session";
+import { ensureStaffRosterMember } from "@/lib/staff-rosters/service";
 import { calendarPathForType } from "@/lib/templates/calendar-templates";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,11 @@ export default async function StaffRosterSetupRoute() {
 
   if (session.calendarType !== "staff_rosters") {
     redirect(calendarPathForType(session.calendarType));
+  }
+
+  const staffMember = await ensureStaffRosterMember(session);
+  if (staffMember.accessRole === "staff") {
+    redirect("/calendar-types/staff-rosters");
   }
 
   const [calendars, archivedCalendars] = await Promise.all([
