@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
@@ -8,7 +8,10 @@ export const SELECTED_CALENDAR_COOKIE_NAME = "coparent_calendar";
 
 async function membershipForUser(userId: string, calendarId?: string) {
   const db = getDb();
-  const conditions = [eq(calendarMemberships.userId, userId)];
+  const conditions = [
+    eq(calendarMemberships.userId, userId),
+    isNull(calendars.archivedAt),
+  ];
 
   if (calendarId) {
     conditions.push(eq(calendarMemberships.calendarId, calendarId));
