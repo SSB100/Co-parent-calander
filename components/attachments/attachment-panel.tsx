@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CovieConfirmDialog } from "@/components/ui/covie";
 
 type AttachmentEntityType = "expense" | "responsibility" | "event" | "child";
 type AttachmentCategory =
@@ -100,6 +101,7 @@ export function AttachmentPanel({
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [itemToRemove, setItemToRemove] = useState<AttachmentItem | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -203,6 +205,7 @@ export function AttachmentPanel({
         );
       }
 
+      setItemToRemove(null);
       await load();
     } catch (caught) {
       if (attachmentId) {
@@ -253,7 +256,6 @@ export function AttachmentPanel({
 
   async function remove(item: AttachmentItem) {
     if (busy) return;
-    if (!window.confirm(`Remove “${item.originalFileName}” from Covie?`)) return;
 
     setBusy(true);
     setError(null);
@@ -370,7 +372,7 @@ export function AttachmentPanel({
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => void remove(item)}
+                  onClick={() => setItemToRemove(item)}
                   aria-label={`Remove ${item.originalFileName}`}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50 disabled:opacity-50"
                 >
@@ -425,6 +427,26 @@ export function AttachmentPanel({
           </button>
         </div>
       ) : null}
+
+      <CovieConfirmDialog
+        open={Boolean(itemToRemove)}
+        id="remove-attachment-title"
+        title="Remove file?"
+        description={
+          itemToRemove
+            ? <>Remove “{itemToRemove.originalFileName}” from Covie?</>
+            : "Remove this file from Covie?"
+        }
+        confirmLabel="Remove file"
+        busy={busy}
+        icon={<Trash2 aria-hidden="true" />}
+        onCancel={() => {
+          if (!busy) setItemToRemove(null);
+        }}
+        onConfirm={() => {
+          if (itemToRemove) void remove(itemToRemove);
+        }}
+      />
 
       {error ? (
         <p role="alert" className="mt-3 text-xs text-rose-700">
