@@ -253,7 +253,8 @@ export function MembersPanel({ onChanged }: { onChanged?: () => void }) {
                   const colorKey = normalizeParentColorKey(parent.colorKey, index);
                   const identity =
                     parentColorOptions.find((option) => option.key === colorKey) ??
-                    parentColorOptions[index % parentColorOptions.length];
+                    parentColorOptions[index % parentColorOptions.length] ??
+                    parentColorOptions[0];
                   return (
                     <div
                       key={parent.id}
