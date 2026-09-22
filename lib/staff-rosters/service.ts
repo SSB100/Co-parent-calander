@@ -1424,7 +1424,8 @@ export async function getRosterWeek(input: {
         const live = liveById.get(id);
         const published = publishedById.get(id);
         if (!live || !published || live.key !== published.key) {
-          changedMemberIds.add(live?.memberId ?? published?.memberId ?? "");
+          if (live?.memberId) changedMemberIds.add(live.memberId);
+          if (published?.memberId) changedMemberIds.add(published.memberId);
           changedShiftCount += 1;
         }
       }
