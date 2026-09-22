@@ -17,6 +17,5 @@
   },
   "regions": [
     "syd1"
-  ],
-  "buildCommand": "npm run lint && npm audit --audit-level=high && npm run build"
+  ]
 }
