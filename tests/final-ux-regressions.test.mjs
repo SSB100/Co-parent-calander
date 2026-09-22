@@ -512,7 +512,7 @@ test("mobile keyboard support keeps focused fields inside the visual viewport", 
 test("Calendar mobile header omits editor and repeating-schedule tags", async () => {
   const shell = await source("components/calendar/calendar-shell.tsx");
 
-  assert.doesNotMatch(shell, /editing/);
+  assert.doesNotMatch(shell, /currentEditor|Editor access/);
   assert.doesNotMatch(shell, /Repeating schedule on/);
   assert.match(shell, /View only/);
   assert.match(shell, /hidden sm:inline-flex/);
