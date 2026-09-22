@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { addDays, format, parseISO } from "date-fns";
-import { and, asc, desc, eq, inArray, sql as drizzleSql } from "drizzle-orm";
+import { and, asc, desc, eq, sql as drizzleSql } from "drizzle-orm";
 import { getDb, getSql } from "@/lib/db";
 import {
   staffRosterClockSessions,
@@ -777,10 +777,6 @@ export async function cancelLeaveRequest(input: {
 
   if (!request || request.memberId !== current.id) {
     throw new StaffRosterServiceError(404, "Leave request not found.");
-  }
-  if (!inArray(staffRosterLeaveRequests.status, ["pending", "approved"])) {
-    // This expression is intentionally not used as a query; keep the status
-    // check explicit below so callers cannot cancel declined history.
   }
   if (request.status !== "pending" && request.status !== "approved") {
     throw new StaffRosterServiceError(409, "This leave request cannot be cancelled.");
