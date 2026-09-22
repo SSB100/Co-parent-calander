@@ -958,6 +958,18 @@ export async function getRosterSetup(session: StaffSession) {
     accessRole: current.accessRole,
     permission: session.permission,
   });
+
+  if (!capabilities.manageTeam) {
+    return {
+      canManageSetup: false,
+      currentAccessRole: current.accessRole,
+      roleCount: 0,
+      locationCount: 0,
+      memberCount: 0,
+      setupCompletedAt: null,
+    };
+  }
+
   const db = getDb();
 
   const [roleCountRows, locationCountRows, memberCountRows, settingsRows] =
