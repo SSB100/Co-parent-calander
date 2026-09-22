@@ -137,7 +137,7 @@ const SNAP_MINUTES = 15;
 const DEFAULT_SHIFT_MINUTES = 8 * 60;
 const DAY_START_MINUTE = 6 * 60;
 const DAY_END_MINUTE = 24 * 60;
-const HOUR_HEIGHT = 28;
+const HOUR_HEIGHT = 26;
 const DND_TYPE = "application/x-covie-roster";
 
 function todayValue() {
@@ -1175,7 +1175,7 @@ export function StaffRosterCalendarPage() {
                 </CovieButton>
               </div>
 
-              <strong className="order-first w-full text-center font-[family-name:var(--font-fraunces)] text-xl text-[#243139] sm:order-none sm:w-auto">
+              <strong className="covie-display order-first w-full text-center text-xl font-semibold text-[#243139] sm:order-none sm:w-auto">
                 {view === "week"
                   ? weekLabel(weekStart, days[6])
                   : monthLabel(anchorDate)}
@@ -1325,7 +1325,7 @@ export function StaffRosterCalendarPage() {
               }
             />
           ) : view === "month" ? (
-            <div className="overflow-hidden rounded-2xl border-2 border-[#243139] bg-white">
+            <div className="overflow-hidden rounded-2xl border border-[#E6DBCF] bg-white">
               <div className="grid grid-cols-7 border-b border-[#E6DBCF] bg-[#FFF9F2]">
                 {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => (
                   <div
@@ -1452,10 +1452,12 @@ export function StaffRosterCalendarPage() {
                         ? locationById.get(member.defaultLocationId)
                         : null;
                       return (
-                        <button
+                        <div
                           key={member.id}
-                          type="button"
+                          role="button"
+                          tabIndex={0}
                           draggable={data.canManageRoster}
+                          title="Drag onto a day and time to create a shift"
                           onDragStart={(event) =>
                             setDragPayload(event, {
                               kind: "member",
@@ -1467,6 +1469,15 @@ export function StaffRosterCalendarPage() {
                               ? openCreate(member.id, selectedMobileDay)
                               : undefined
                           }
+                          onKeyDown={(event) => {
+                            if (
+                              data.canManageRoster &&
+                              (event.key === "Enter" || event.key === " ")
+                            ) {
+                              event.preventDefault();
+                              openCreate(member.id, selectedMobileDay);
+                            }
+                          }}
                           className="group flex min-h-14 w-full cursor-grab select-none items-center gap-2 rounded-xl border border-[#D8CEC3] bg-white p-2 text-left transition hover:border-[#19A897] active:cursor-grabbing"
                         >
                           {data.canManageRoster ? (
@@ -1488,7 +1499,7 @@ export function StaffRosterCalendarPage() {
                           <span className="shrink-0 rounded-lg bg-[#EAF8F5] px-2 py-1 text-xs font-extrabold text-[#0D7A6D]">
                             {hoursText(weeklyMinutesByMember.get(member.id) ?? 0)}
                           </span>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
