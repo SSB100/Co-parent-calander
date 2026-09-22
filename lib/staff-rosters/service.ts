@@ -1307,32 +1307,48 @@ export async function createShift(input: {
 
   const id = randomUUID();
   const sql = getSql();
+  const lockKey =
+    input.session.calendarId + ":" + input.memberId + ":" + input.date;
+  let inserted: Array<{ id: string }>;
 
   try {
-    await sql.transaction([
-      sql`
+    inserted = (await sql`
+      WITH locked AS MATERIALIZED (
+        SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
+      ),
+      created AS (
         INSERT INTO staff_roster_shifts (
           id, calendar_id, member_id, role_id, location_id,
           shift_date, start_time, end_time, note,
           availability_override, created_by_membership_id
         )
-        VALUES (
+        SELECT
           ${id}, ${input.session.calendarId}, ${input.memberId},
           ${input.roleId}, ${input.locationId},
           ${input.date}, ${input.startTime}, ${input.endTime}, ${input.note},
           ${conflicts.unavailable.length > 0}, ${input.session.membershipId}
+        FROM locked
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM staff_roster_shifts existing
+          WHERE existing.calendar_id = ${input.session.calendarId}
+            AND existing.member_id = ${input.memberId}
+            AND existing.shift_date = ${input.date}
+            AND existing.start_time < ${input.endTime}
+            AND existing.end_time > ${input.startTime}
         )
-      `,
-      sql`
+        RETURNING id
+      ),
+      audited AS (
         INSERT INTO audit_log (
           calendar_id, actor_participant_id, action,
           entity_type, entity_id, after_state
         )
-        VALUES (
+        SELECT
           ${input.session.calendarId}, NULL,
           'staff_roster.shift.create',
           'staff_roster_shift',
-          ${id},
+          created.id,
           ${JSON.stringify({
             memberId: input.memberId,
             date: input.date,
@@ -1344,11 +1360,20 @@ export async function createShift(input: {
             availabilityOverride: conflicts.unavailable.length > 0,
             actorStaffMemberId: actor.id,
           })}::jsonb
-        )
-      `,
-    ]);
+        FROM created
+      )
+      SELECT id FROM created
+    `) as Array<{ id: string }>;
   } catch {
     throw new StaffRosterServiceError(409, "The shift could not be created.");
+  }
+
+  if (!inserted[0]) {
+    throw new StaffRosterServiceError(
+      409,
+      "This person already has an overlapping shift.",
+      "shift_overlap",
+    );
   }
 
   return { ok: true as const, id };
@@ -1442,10 +1467,17 @@ export async function updateShift(input: {
   }
 
   const sql = getSql();
+  const lockKey =
+    input.session.calendarId + ":" + input.memberId + ":" + input.date;
+  let updated: Array<{ id: string }>;
+
   try {
-    await sql.transaction([
-      sql`
-        UPDATE staff_roster_shifts
+    updated = (await sql`
+      WITH locked AS MATERIALIZED (
+        SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
+      ),
+      changed AS (
+        UPDATE staff_roster_shifts shift
         SET
           member_id = ${input.memberId},
           role_id = ${input.roleId},
@@ -1456,19 +1488,31 @@ export async function updateShift(input: {
           note = ${input.note},
           availability_override = ${conflicts.unavailable.length > 0},
           updated_at = now()
-        WHERE id = ${input.shiftId}
-          AND calendar_id = ${input.session.calendarId}
-      `,
-      sql`
+        FROM locked
+        WHERE shift.id = ${input.shiftId}
+          AND shift.calendar_id = ${input.session.calendarId}
+          AND NOT EXISTS (
+            SELECT 1
+            FROM staff_roster_shifts other
+            WHERE other.calendar_id = ${input.session.calendarId}
+              AND other.member_id = ${input.memberId}
+              AND other.shift_date = ${input.date}
+              AND other.id <> ${input.shiftId}
+              AND other.start_time < ${input.endTime}
+              AND other.end_time > ${input.startTime}
+          )
+        RETURNING shift.id
+      ),
+      audited AS (
         INSERT INTO audit_log (
           calendar_id, actor_participant_id, action,
           entity_type, entity_id, before_state, after_state
         )
-        VALUES (
+        SELECT
           ${input.session.calendarId}, NULL,
           'staff_roster.shift.update',
           'staff_roster_shift',
-          ${input.shiftId},
+          changed.id,
           ${JSON.stringify(existing)}::jsonb,
           ${JSON.stringify({
             memberId: input.memberId,
@@ -1481,11 +1525,20 @@ export async function updateShift(input: {
             availabilityOverride: conflicts.unavailable.length > 0,
             actorStaffMemberId: actor.id,
           })}::jsonb
-        )
-      `,
-    ]);
+        FROM changed
+      )
+      SELECT id FROM changed
+    `) as Array<{ id: string }>;
   } catch {
     throw new StaffRosterServiceError(409, "The shift could not be updated.");
+  }
+
+  if (!updated[0]) {
+    throw new StaffRosterServiceError(
+      409,
+      "This person already has an overlapping shift.",
+      "shift_overlap",
+    );
   }
 
   return { ok: true as const };
