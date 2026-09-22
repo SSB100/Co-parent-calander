@@ -30,6 +30,7 @@ import { StaffRosterRolesLocationsPage } from "@/components/staff-rosters/roles-
 import { StaffRosterCalendarPage } from "@/components/staff-rosters/roster-calendar-page";
 import { StaffMyRosterPage } from "@/components/staff-rosters/my-roster-page";
 import { StaffRosterTimesheetsPage } from "@/components/staff-rosters/timesheets-page";
+import { StaffRosterUpdatesPage } from "@/components/staff-rosters/updates-page";
 import {
   getCalendarTemplateBySlug,
   type AdditionalCalendarTemplateSlug,
@@ -211,6 +212,8 @@ export function TemplateShell({
         <section className={section === "calendar" ? "mt-3" : "mt-6"}>
           {template.id === "staff_rosters" && section === "calendar" ? (
             staffMode ? <StaffMyRosterPage /> : <StaffRosterCalendarPage />
+          ) : template.id === "staff_rosters" && section === "updates" ? (
+            <StaffRosterUpdatesPage />
           ) : template.id === "staff_rosters" &&
           section === "organiser" &&
           activeToolKey === "team" ? (
