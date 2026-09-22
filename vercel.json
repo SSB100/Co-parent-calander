@@ -11,7 +11,8 @@
   "git": {
     "deploymentEnabled": {
       "**": false,
-      "main": true
+      "main": true,
+      "feature/staff-rosters-stage-2-roster-builder": true
     }
   },
   "regions": [
