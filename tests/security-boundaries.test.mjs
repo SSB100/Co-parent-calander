@@ -111,6 +111,7 @@ test("account routes use managed Neon auth and protect the signed-in workspace",
   assert.match(proxy, /auth\.middleware/);
   assert.match(proxy, /\/dashboard\/\:path\*/);
   assert.match(proxy, /\/calendar\/\:path\*/);
+  assert.match(proxy, /\/calendar-types\/\:path\*/);
   assert.match(proxy, /\/home\/\:path\*/);
   assert.match(proxy, /\/expenses\/\:path\*/);
   assert.match(proxy, /\/responsibilities\/\:path\*/);
