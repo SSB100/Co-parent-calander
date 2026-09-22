@@ -19,7 +19,7 @@ import Link from "next/link";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { ProfilePhoto } from "@/components/attachments/profile-photo";
 import { LinkedItemsPanel } from "@/components/links/linked-items-panel";
-import { CoviePage, CoviePageHeader } from "@/components/ui/covie";
+import { CovieDialog, CoviePage, CoviePageHeader } from "@/components/ui/covie";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -216,7 +216,7 @@ function TextField({
         value={value ?? ""}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value || null)}
-        className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        className="covie-input mt-2 text-base"
       />
     </label>
   );
@@ -241,7 +241,7 @@ function TextAreaField({
         value={value ?? ""}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value || null)}
-        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        className="covie-textarea mt-2 text-base"
       />
     </label>
   );
@@ -792,25 +792,38 @@ export function ChildProfileShell({ childId }: { childId: string }) {
       </section>
 
       {profileOpen && profileForm ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#243139]/35 sm:items-center sm:p-4">
-          <section role="dialog" aria-modal="true" aria-labelledby="edit-child-profile-title" className="max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-t-3xl border-2 border-[#243139] bg-white p-5 shadow-[7px_7px_0_#765ED6] sm:rounded-3xl sm:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Child profile</p>
-                <h2 id="edit-child-profile-title" className="mt-1 text-2xl font-semibold text-slate-950">Edit {child.displayName}</h2>
-              </div>
+        <CovieDialog
+          id="edit-child-profile-title"
+          title={`Edit ${child.displayName}`}
+          description="Keep the practical information both parents may need in one place."
+          icon={<Pencil aria-hidden="true" />}
+          iconTone="violet"
+          size="lg"
+          busy={busy}
+          onClose={() => setProfileOpen(false)}
+          footer={
+            <>
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => setProfileOpen(false)}
-                aria-label="Close child profile editor"
-                className="covie-icon-button flex h-10 w-10 items-center justify-center rounded-xl disabled:opacity-50"
+                className="covie-dialog-secondary"
               >
-                <X className="h-5 w-5" aria-hidden="true" />
+                Cancel
               </button>
-            </div>
-
-            <div className="mt-6 space-y-7">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void saveProfile()}
+                className="covie-dialog-primary"
+              >
+                {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                Save profile
+              </button>
+            </>
+          }
+        >
+            <div className="space-y-7">
               <div>
                 <h3 className="font-semibold text-slate-900">Basic</h3>
                 <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -866,33 +879,42 @@ export function ChildProfileShell({ childId }: { childId: string }) {
               </div>
             </div>
 
-            <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
-              <button type="button" disabled={busy} onClick={() => setProfileOpen(false)} className="covie-action-secondary min-h-12 rounded-xl px-4 text-sm disabled:opacity-50">Cancel</button>
-              <button type="button" disabled={busy} onClick={() => void saveProfile()} className="covie-primary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm disabled:opacity-50">
-                {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-                Save profile
-              </button>
-            </div>
-          </section>
-        </div>
+        </CovieDialog>
       ) : null}
 
       {activityOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#243139]/35 sm:items-center sm:p-4">
-          <section role="dialog" aria-modal="true" aria-labelledby="activity-form-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border-2 border-[#243139] bg-white p-5 shadow-[7px_7px_0_#19A897] sm:rounded-3xl sm:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Child activity</p>
-                <h2 id="activity-form-title" className="mt-1 text-2xl font-semibold text-slate-950">
-                  {activityForm.id ? "Edit activity" : "Add activity"}
-                </h2>
-              </div>
-              <button type="button" disabled={busy} onClick={() => setActivityOpen(false)} aria-label="Close activity form" className="covie-icon-button flex h-10 w-10 items-center justify-center rounded-xl disabled:opacity-50">
-                <X className="h-5 w-5" aria-hidden="true" />
+        <CovieDialog
+          id="activity-form-title"
+          title={activityForm.id ? "Edit activity" : "Add activity"}
+          description="Keep recurring activities, contacts and practical details together."
+          icon={<Activity aria-hidden="true" />}
+          iconTone="teal"
+          size="md"
+          busy={busy}
+          onClose={() => setActivityOpen(false)}
+          footer={
+            <>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setActivityOpen(false)}
+                className="covie-dialog-secondary"
+              >
+                Cancel
               </button>
-            </div>
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void saveActivity()}
+                className="covie-dialog-primary"
+              >
+                {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                {activityForm.id ? "Save activity" : "Add activity"}
+              </button>
+            </>
+          }
+        >
+            <div className="grid gap-4 sm:grid-cols-2">
               <TextField label="Activity / team" value={activityForm.activityName} onChange={(value) => setActivityForm((current) => ({ ...current, activityName: value ?? "" }))} />
               <TextField label="Organisation" value={activityForm.organisation} onChange={(value) => setActivityForm((current) => ({ ...current, organisation: value }))} />
               <TextField label="Coach / contact" value={activityForm.contactName} onChange={(value) => setActivityForm((current) => ({ ...current, contactName: value }))} />
@@ -904,15 +926,7 @@ export function ChildProfileShell({ childId }: { childId: string }) {
               </div>
             </div>
 
-            <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
-              <button type="button" disabled={busy} onClick={() => setActivityOpen(false)} className="covie-action-secondary min-h-12 rounded-xl px-4 text-sm disabled:opacity-50">Cancel</button>
-              <button type="button" disabled={busy} onClick={() => void saveActivity()} className="covie-primary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm disabled:opacity-50">
-                {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-                {activityForm.id ? "Save activity" : "Add activity"}
-              </button>
-            </div>
-          </section>
-        </div>
+        </CovieDialog>
       ) : null}
 
       {data.permission === "viewer" ? (
