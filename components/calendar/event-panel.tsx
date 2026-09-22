@@ -457,9 +457,9 @@ export function EventPanel({
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span aria-hidden="true">{categoryIcons[event.category]}</span>
-                          <p className="truncate font-semibold text-slate-900">{event.title}</p>
+                          <p className="truncate font-semibold text-current">{event.title}</p>
                         </div>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-current opacity-80">
                           {format(parseISO(event.startDate), "d MMM yyyy")}
                           {event.endDate && event.endDate !== event.startDate
                             ? ` – ${format(parseISO(event.endDate), "d MMM yyyy")}`
