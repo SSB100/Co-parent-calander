@@ -30,9 +30,11 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type DragEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from "react";
 import {
   CovieButton,
@@ -100,6 +102,8 @@ type RosterPayload = {
     locationCount: number;
     memberCount: number;
     setupCompletedAt: string | null;
+    operationalStartMinute: number;
+    operationalEndMinute: number;
   };
   publication: {
     status: "draft" | "published" | "changes_pending";
@@ -134,10 +138,11 @@ type PositionedShift = {
 };
 
 const SNAP_MINUTES = 15;
-const DEFAULT_SHIFT_MINUTES = 8 * 60;
-const DAY_START_MINUTE = 6 * 60;
+const DROP_SHIFT_MINUTES = 60;
+const DAY_START_MINUTE = 0;
 const DAY_END_MINUTE = 24 * 60;
-const HOUR_HEIGHT = 26;
+const MIN_HOUR_HEIGHT = 18;
+const DAY_HEADER_HEIGHT = 54;
 const DND_TYPE = "application/x-covie-roster";
 
 function todayValue() {
@@ -217,6 +222,16 @@ function compactTime(value: string) {
     ? hour + ":" + String(minutesValue).padStart(2, "0") + suffix
     : hour + suffix;
 }
+
+function compactMinuteLabel(value: number) {
+  if (value >= DAY_END_MINUTE) return "12am";
+  return compactTime(timeFromMinutes(value));
+}
+
+const operationalHourOptions = Array.from(
+  { length: DAY_END_MINUTE / 30 + 1 },
+  (_, index) => index * 30,
+);
 
 function snapMinutes(value: number) {
   return Math.round(value / SNAP_MINUTES) * SNAP_MINUTES;
@@ -329,7 +344,7 @@ async function readRosterWeek(weekStart: string) {
   return body;
 }
 
-export function StaffRosterCalendarPage() {
+export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
   const [anchorDate, setAnchorDate] = useState(todayValue);
   const [mobileDay, setMobileDay] = useState(todayValue);
   const [view, setView] = useState<RosterView>("week");
@@ -353,6 +368,20 @@ export function StaffRosterCalendarPage() {
     startTime: string;
     endTime: string;
   } | null>(null);
+  const [operationalHoursOpen, setOperationalHoursOpen] = useState(false);
+  const [operationalStartDraft, setOperationalStartDraft] = useState(0);
+  const [operationalEndDraft, setOperationalEndDraft] = useState(DAY_END_MINUTE);
+  const [draggingPayload, setDraggingPayload] = useState<
+    | { kind: "member"; memberId: string }
+    | { kind: "shift"; shiftId: string }
+    | null
+  >(null);
+  const [dropPreview, setDropPreview] = useState<{
+    date: string;
+    minute: number;
+  } | null>(null);
+  const [weekBoardHeight, setWeekBoardHeight] = useState(540);
+  const weekBoardRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<ShiftForm>({
     shiftId: null,
     memberId: "",
