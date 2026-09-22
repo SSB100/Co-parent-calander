@@ -23,6 +23,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CovieButton,
+  CovieConfirmDialog,
   CovieEmptyState,
   CovieNotice,
   CovieStatusBadge,
@@ -56,6 +57,24 @@ type MyRosterPayload = {
     affectedMemberCount: number;
   };
   shifts: Shift[];
+};
+
+type ClockState = {
+  timezone: string;
+  activeSession: {
+    id: string;
+    clockInAt: string;
+    scheduledDate: string | null;
+    scheduledStartTime: string | null;
+    scheduledEndTime: string | null;
+    unrostered: boolean;
+  } | null;
+  matchingShift: {
+    id: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+  } | null;
 };
 
 type View = "week" | "month";
@@ -154,6 +173,9 @@ export function StaffMyRosterPage() {
   const [anchorDate, setAnchorDate] = useState(todayValue);
   const [view, setView] = useState<View>("week");
   const [data, setData] = useState<MyRosterPayload | null>(null);
+  const [clock, setClock] = useState<ClockState | null>(null);
+  const [clockBusy, setClockBusy] = useState(false);
+  const [confirmUnrostered, setConfirmUnrostered] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async (date: string, nextView: View) => {
@@ -184,18 +206,80 @@ export function StaffMyRosterPage() {
     setError(null);
   }, []);
 
+  const refreshClock = useCallback(async () => {
+    const response = await fetch("/api/staff-roster/clock", { cache: "no-store" });
+    const body = (await response.json().catch(() => null)) as
+      | ClockState
+      | { error?: string }
+      | null;
+    if (!response.ok || !body || !("activeSession" in body)) {
+      throw new Error(
+        body && "error" in body && body.error
+          ? body.error
+          : "Clock status could not be loaded.",
+      );
+    }
+    setClock(body);
+  }, []);
+
+  async function runClockAction(
+    action: "clock_in" | "clock_out",
+    confirm = false,
+  ) {
+    if (clockBusy) return;
+    setClockBusy(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/staff-roster/clock", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action,
+          confirmUnrostered: confirm,
+        }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; code?: string | null }
+        | null;
+
+      if (!response.ok) {
+        if (
+          action === "clock_in" &&
+          body?.code === "unrostered_confirmation_required"
+        ) {
+          setConfirmUnrostered(true);
+          return;
+        }
+        throw new Error(body?.error ?? "The clock action could not be recorded.");
+      }
+
+      setConfirmUnrostered(false);
+      await refreshClock();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "The clock action could not be recorded.",
+      );
+    } finally {
+      setClockBusy(false);
+    }
+  }
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void refresh(anchorDate, view).catch((caught) =>
-        setError(
-          caught instanceof Error
-            ? caught.message
-            : "Your roster could not be loaded.",
-        ),
+      void Promise.all([refresh(anchorDate, view), refreshClock()]).catch(
+        (caught) =>
+          setError(
+            caught instanceof Error
+              ? caught.message
+              : "Your roster could not be loaded.",
+          ),
       );
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [anchorDate, refresh, view]);
+  }, [anchorDate, refresh, refreshClock, view]);
 
   const weekStart = weekStartFor(anchorDate);
   const days = useMemo(
@@ -262,6 +346,57 @@ export function StaffMyRosterPage() {
                   ? "Published"
                   : "No published roster"}
               </CovieStatusBadge>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-[#E6DBCF] bg-[#FFF9F2] p-4">
+              {clock?.activeSession ? (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-extrabold uppercase tracking-[0.06em] text-[#0D7A6D]">
+                      Clocked in
+                    </p>
+                    <strong className="mt-1 block text-[#243139]">
+                      {new Intl.DateTimeFormat("en-NZ", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                        timeZone: clock.timezone,
+                      }).format(new Date(clock.activeSession.clockInAt))}
+                    </strong>
+                    {clock.activeSession.unrostered ? (
+                      <span className="mt-1 block text-xs font-bold text-[#8B6714]">
+                        No rostered shift matched this clock-in
+                      </span>
+                    ) : null}
+                  </div>
+                  <CovieButton
+                    disabled={clockBusy}
+                    onClick={() => void runClockAction("clock_out")}
+                  >
+                    {clockBusy ? "Recording…" : "Clock out"}
+                  </CovieButton>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-extrabold uppercase tracking-[0.06em] text-[#66747A]">
+                      Attendance
+                    </p>
+                    <strong className="mt-1 block text-[#243139]">
+                      {clock?.matchingShift
+                        ? compactTime(clock.matchingShift.startTime) +
+                          " – " +
+                          compactTime(clock.matchingShift.endTime)
+                        : "Ready when you start work"}
+                    </strong>
+                  </div>
+                  <CovieButton
+                    disabled={clockBusy}
+                    onClick={() => void runClockAction("clock_in")}
+                  >
+                    {clockBusy ? "Recording…" : "Clock in"}
+                  </CovieButton>
+                </div>
+              )}
             </div>
 
             {todayShifts.length > 0 ? (
@@ -476,6 +611,17 @@ export function StaffMyRosterPage() {
           ) : null}
         </>
       ) : null}
+      <CovieConfirmDialog
+        open={confirmUnrostered}
+        id="confirm-unrostered-clock-in"
+        title="Clock in without a rostered shift?"
+        description="No published shift was found near the current time. You can still clock in and it will be marked for manager review."
+        confirmLabel="Clock in anyway"
+        busy={clockBusy}
+        icon={<Clock3 aria-hidden="true" />}
+        onCancel={() => setConfirmUnrostered(false)}
+        onConfirm={() => void runClockAction("clock_in", true)}
+      />
     </div>
   );
 }
