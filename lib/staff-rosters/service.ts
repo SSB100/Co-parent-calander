@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { addDays, format, parseISO } from "date-fns";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql as drizzleSql } from "drizzle-orm";
 import { getDb, getSql } from "@/lib/db";
 import {
   staffRosterAvailability,
@@ -424,15 +424,31 @@ export async function createRoleOrLocation(input: {
     throw new StaffRosterServiceError(403, "Manager access is required.");
   }
 
-  const sql = getSql();
-  const table =
-    input.kind === "role" ? "staff_roster_roles" : "staff_roster_locations";
-  const duplicateRows = await sql.query(
-    `SELECT id FROM ${table}
-     WHERE calendar_id = $1 AND lower(name) = lower($2) AND active = true
-     LIMIT 1`,
-    [input.session.calendarId, input.name],
-  );
+  const db = getDb();
+  const duplicateRows =
+    input.kind === "role"
+      ? await db
+          .select({ id: staffRosterRoles.id })
+          .from(staffRosterRoles)
+          .where(
+            and(
+              eq(staffRosterRoles.calendarId, input.session.calendarId),
+              eq(staffRosterRoles.active, true),
+              drizzleSql`lower(${staffRosterRoles.name}) = lower(${input.name})`,
+            ),
+          )
+          .limit(1)
+      : await db
+          .select({ id: staffRosterLocations.id })
+          .from(staffRosterLocations)
+          .where(
+            and(
+              eq(staffRosterLocations.calendarId, input.session.calendarId),
+              eq(staffRosterLocations.active, true),
+              drizzleSql`lower(${staffRosterLocations.name}) = lower(${input.name})`,
+            ),
+          )
+          .limit(1);
 
   if (duplicateRows.length > 0) {
     throw new StaffRosterServiceError(
