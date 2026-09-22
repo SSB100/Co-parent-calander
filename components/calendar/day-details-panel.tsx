@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Clock3, LoaderCircle, MapPin, StickyNote, Trash2, X } from "lucide-react";
+import { CalendarDays, Clock3, LoaderCircle, MapPin, StickyNote, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ProposalActions } from "@/components/approvals/proposal-actions";
 import { ProposalCard } from "@/components/approvals/proposal-card";
