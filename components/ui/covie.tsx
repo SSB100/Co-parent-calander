@@ -4,6 +4,7 @@ import type {
   HTMLAttributes,
   InputHTMLAttributes,
   ReactNode,
+  Ref,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
@@ -282,6 +283,9 @@ export function CovieDialog({
   children,
   footer,
   bodyClassName,
+  dialogRef,
+  closeButtonRef,
+  describedBy,
 }: {
   id: string;
   title: ReactNode;
@@ -294,13 +298,18 @@ export function CovieDialog({
   children: ReactNode;
   footer?: ReactNode;
   bodyClassName?: string;
+  dialogRef?: Ref<HTMLElement>;
+  closeButtonRef?: Ref<HTMLButtonElement>;
+  describedBy?: string;
 }) {
   return (
     <div className="covie-dialog-backdrop">
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={id}
+        aria-describedby={describedBy}
         aria-busy={busy || undefined}
         className={classes(
           "covie-dialog",
@@ -323,6 +332,7 @@ export function CovieDialog({
             </div>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             aria-label="Close dialog"
             disabled={busy}
