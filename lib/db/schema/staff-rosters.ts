@@ -39,10 +39,9 @@ export const staffRosterRoles = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("staff_roster_roles_calendar_name_unique").on(
-      table.calendarId,
-      table.name,
-    ),
+    uniqueIndex("staff_roster_roles_calendar_name_unique")
+      .on(table.calendarId, table.name)
+      .where(sql`${table.active} = true`),
     index("staff_roster_roles_calendar_active_idx").on(
       table.calendarId,
       table.active,
@@ -63,10 +62,9 @@ export const staffRosterLocations = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("staff_roster_locations_calendar_name_unique").on(
-      table.calendarId,
-      table.name,
-    ),
+    uniqueIndex("staff_roster_locations_calendar_name_unique")
+      .on(table.calendarId, table.name)
+      .where(sql`${table.active} = true`),
     index("staff_roster_locations_calendar_active_idx").on(
       table.calendarId,
       table.active,
