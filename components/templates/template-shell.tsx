@@ -24,6 +24,9 @@ import {
   TemplateWorkspaceNav,
   type TemplateOrganiserNavItem,
 } from "@/components/templates/template-workspace-nav";
+import { StaffRosterTeamPage } from "@/components/staff-rosters/team-page";
+import { StaffRosterAvailabilityPage } from "@/components/staff-rosters/availability-page";
+import { StaffRosterRolesLocationsPage } from "@/components/staff-rosters/roles-locations-page";
 import {
   getCalendarTemplateBySlug,
   type AdditionalCalendarTemplateSlug,
@@ -191,11 +194,30 @@ export function TemplateShell({
         )}
 
         <section className={section === "calendar" ? "mt-3" : "mt-6"}>
-          <CovieEmptyState
-            icon={<EmptyIcon className={emptyIconClassName} aria-hidden="true" />}
-            title={emptyTitle}
-            description={emptyDescription}
-          />
+          {template.id === "staff_rosters" &&
+          section === "organiser" &&
+          activeToolKey === "team" ? (
+            <StaffRosterTeamPage />
+          ) : template.id === "staff_rosters" &&
+            section === "organiser" &&
+            activeToolKey === "availability" ? (
+            <StaffRosterAvailabilityPage />
+          ) : template.id === "staff_rosters" &&
+            section === "organiser" &&
+            activeToolKey === "roles-locations" ? (
+            <StaffRosterRolesLocationsPage />
+          ) : (
+            <CovieEmptyState
+              icon={
+                <EmptyIcon
+                  className={emptyIconClassName}
+                  aria-hidden="true"
+                />
+              }
+              title={emptyTitle}
+              description={emptyDescription}
+            />
+          )}
         </section>
       </CoviePage>
     </div>
