@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   Settings,
   UsersRound,
+  type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -45,7 +46,8 @@ const calendarViewByType: Record<
     context: string;
     emptyTitle: string;
     emptyDescription: string;
-    icon: typeof CalendarDays;
+    icon: LucideIcon;
+    iconClassName: string;
   }
 > = {
   staff_rosters: {
@@ -54,6 +56,7 @@ const calendarViewByType: Record<
     emptyTitle: "No shifts yet",
     emptyDescription: "Shifts will appear here when the roster is built.",
     icon: BriefcaseBusiness,
+    iconClassName: "text-[#19A897]",
   },
   shared_facilities: {
     title: "Bookings",
@@ -61,6 +64,7 @@ const calendarViewByType: Record<
     emptyTitle: "No bookings yet",
     emptyDescription: "Bookings will appear here when a resource is reserved.",
     icon: Building2,
+    iconClassName: "text-[#765ED6]",
   },
   social_groups: {
     title: "Events",
@@ -68,6 +72,7 @@ const calendarViewByType: Record<
     emptyTitle: "No events yet",
     emptyDescription: "Events will appear here when the group starts planning.",
     icon: CalendarHeart,
+    iconClassName: "text-[#FF6B5F]",
   },
 };
 
@@ -153,6 +158,7 @@ export function TemplateShell({
   let emptyTitle = calendarView.emptyTitle;
   let emptyDescription = calendarView.emptyDescription;
   let EmptyIcon = calendarView.icon;
+  let emptyIconClassName = calendarView.iconClassName;
 
   if (activeSection === "updates") {
     title = "Updates";
@@ -160,6 +166,7 @@ export function TemplateShell({
     emptyTitle = "No updates yet";
     emptyDescription = "There are no calendar changes to show.";
     EmptyIcon = Bell;
+    emptyIconClassName = "text-[#765ED6]";
   } else if (activeTool) {
     const copy = organiserEmptyCopy[activeTool.key] ?? {
       title: `No ${activeTool.label.toLowerCase()} yet`,
@@ -170,6 +177,7 @@ export function TemplateShell({
     emptyTitle = copy.title;
     emptyDescription = copy.description;
     EmptyIcon = activeTool.icon;
+    emptyIconClassName = calendarView.iconClassName;
   }
 
   return (
@@ -199,7 +207,7 @@ export function TemplateShell({
 
         <section className="mt-6">
           <CovieEmptyState
-            icon={<EmptyIcon aria-hidden="true" />}
+            icon={<EmptyIcon className={emptyIconClassName} aria-hidden="true" />}
             title={emptyTitle}
             description={emptyDescription}
           />
