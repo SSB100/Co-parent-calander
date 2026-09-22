@@ -1,14 +1,19 @@
 import { randomUUID } from "node:crypto";
-import { addDays, format, parseISO } from "date-fns";
-import { and, asc, eq, sql as drizzleSql } from "drizzle-orm";
+import { addDays, format, parseISO, subDays } from "date-fns";
+import { and, asc, desc, eq, inArray, sql as drizzleSql } from "drizzle-orm";
 import { getDb, getSql } from "@/lib/db";
 import {
   staffRosterAvailability,
+  staffRosterLeaveRequests,
   staffRosterLocations,
+  staffRosterMemberRoles,
   staffRosterMembers,
+  staffRosterPublishedShifts,
   staffRosterRoles,
   staffRosterSettings,
   staffRosterShifts,
+  staffRosterUpdates,
+  staffRosterWeekPublications,
 } from "@/lib/db/schema";
 import { localDateInTimeZone } from "@/lib/calendar/time";
 import {
@@ -173,8 +178,52 @@ async function assertReferenceBelongsToCalendar(input: {
   }
 }
 
+function normalizedMemberRoleIds(
+  roleIds: string[],
+  defaultRoleId: string | null,
+) {
+  const unique = [...new Set(roleIds)];
+  if (defaultRoleId && !unique.includes(defaultRoleId)) {
+    unique.unshift(defaultRoleId);
+  }
+  return unique;
+}
+
+async function assertStaffRolesBelongToCalendar(
+  calendarId: string,
+  roleIds: string[],
+) {
+  if (roleIds.length === 0) return;
+
+  const rows = await getDb()
+    .select({ id: staffRosterRoles.id })
+    .from(staffRosterRoles)
+    .where(
+      and(
+        eq(staffRosterRoles.calendarId, calendarId),
+        eq(staffRosterRoles.active, true),
+        inArray(staffRosterRoles.id, roleIds),
+      ),
+    );
+
+  if (rows.length !== roleIds.length) {
+    throw new StaffRosterServiceError(
+      400,
+      "Choose active roster roles from this calendar.",
+    );
+  }
+}
+
 export async function getTeam(session: StaffSession) {
   const current = await ensureStaffRosterMember(session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: current.accessRole,
+    permission: session.permission,
+  });
+  if (!capabilities.manageTeam) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
   const db = getDb();
 
   const members = await db
@@ -206,7 +255,7 @@ export async function getTeam(session: StaffSession) {
     )
     .orderBy(asc(staffRosterMembers.createdAt));
 
-  const [roles, locations] = await Promise.all([
+  const [roles, locations, memberRoleRows] = await Promise.all([
     db
       .select({ id: staffRosterRoles.id, name: staffRosterRoles.name })
       .from(staffRosterRoles)
@@ -227,23 +276,51 @@ export async function getTeam(session: StaffSession) {
         ),
       )
       .orderBy(asc(staffRosterLocations.name)),
+    db
+      .select({
+        memberId: staffRosterMemberRoles.memberId,
+        roleId: staffRosterMemberRoles.roleId,
+        roleName: staffRosterRoles.name,
+      })
+      .from(staffRosterMemberRoles)
+      .innerJoin(
+        staffRosterRoles,
+        eq(staffRosterMemberRoles.roleId, staffRosterRoles.id),
+      )
+      .where(
+        and(
+          eq(staffRosterMemberRoles.calendarId, session.calendarId),
+          eq(staffRosterRoles.active, true),
+        ),
+      )
+      .orderBy(asc(staffRosterRoles.name)),
   ]);
 
-  const capabilities = staffRosterCapabilities({
-    accessRole: current.accessRole,
-    permission: session.permission,
-  });
+  const rolesByMember = new Map<
+    string,
+    Array<{ id: string; name: string }>
+  >();
+  for (const row of memberRoleRows) {
+    const assigned = rolesByMember.get(row.memberId) ?? [];
+    assigned.push({ id: row.roleId, name: row.roleName });
+    rolesByMember.set(row.memberId, assigned);
+  }
 
   return {
     currentMemberId: current.id,
     currentAccessRole: current.accessRole,
     canManageTeam: capabilities.manageTeam,
     canManageManagers: capabilities.manageManagers,
-    members: members.map((member) => ({
-      ...member,
-      hasAccount: Boolean(member.membershipId),
-      isCurrentUser: member.id === current.id,
-    })),
+    members: members.map((member) => {
+      const assignedRoles = rolesByMember.get(member.id) ?? [];
+      return {
+        ...member,
+        roleIds: assignedRoles.map((role) => role.id),
+        roleNames: assignedRoles.map((role) => role.name),
+        hasAccount: Boolean(member.membershipId),
+        isCurrentUser: member.id === current.id,
+      };
+    }),
     roles,
     locations,
   };
@@ -253,6 +330,7 @@ export async function createTeamMember(input: {
   session: StaffSession;
   displayName: string;
   accessRole: "manager" | "staff";
+  roleIds: string[];
   defaultRoleId: string | null;
   defaultLocationId: string | null;
 }) {
@@ -271,17 +349,28 @@ export async function createTeamMember(input: {
     );
   }
 
-  await assertReferenceBelongsToCalendar({
-    calendarId: input.session.calendarId,
-    roleId: input.defaultRoleId,
-    locationId: input.defaultLocationId,
-  });
+  const roleIds = normalizedMemberRoleIds(
+    input.roleIds,
+    input.defaultRoleId,
+  );
+  const defaultRoleId =
+    input.defaultRoleId && roleIds.includes(input.defaultRoleId)
+      ? input.defaultRoleId
+      : (roleIds[0] ?? null);
+
+  await Promise.all([
+    assertStaffRolesBelongToCalendar(input.session.calendarId, roleIds),
+    assertReferenceBelongsToCalendar({
+      calendarId: input.session.calendarId,
+      locationId: input.defaultLocationId,
+    }),
+  ]);
 
   const id = randomUUID();
   const sql = getSql();
 
   try {
-    await sql.transaction([
+    const statements = [
       sql`
         INSERT INTO staff_roster_members (
           id, calendar_id, display_name, access_role,
@@ -290,9 +379,19 @@ export async function createTeamMember(input: {
         VALUES (
           ${id}, ${input.session.calendarId}, ${input.displayName},
           ${input.accessRole}::staff_roster_access_role,
-          ${input.defaultRoleId}, ${input.defaultLocationId}, true
+          ${defaultRoleId}, ${input.defaultLocationId}, true
         )
       `,
+      ...roleIds.map(
+        (roleId) => sql`
+          INSERT INTO staff_roster_member_roles (
+            calendar_id, member_id, role_id
+          )
+          VALUES (
+            ${input.session.calendarId}, ${id}, ${roleId}
+          )
+        `,
+      ),
       sql`
         INSERT INTO audit_log (
           calendar_id, actor_participant_id, action,
@@ -304,11 +403,15 @@ export async function createTeamMember(input: {
           ${JSON.stringify({
             displayName: input.displayName,
             accessRole: input.accessRole,
+            roleIds,
+            defaultRoleId,
             actorStaffMemberId: actor.id,
           })}::jsonb
         )
       `,
-    ]);
+    ];
+
+    await sql.transaction(statements);
   } catch {
     throw new StaffRosterServiceError(
       409,
@@ -324,6 +427,7 @@ export async function updateTeamMember(input: {
   memberId: string;
   displayName: string;
   accessRole: "manager" | "staff";
+  roleIds: string[];
   defaultRoleId: string | null;
   defaultLocationId: string | null;
   active: boolean;
@@ -357,6 +461,17 @@ export async function updateTeamMember(input: {
     )
     .limit(1);
   const target = targetRows[0];
+  const targetRoleRows = target
+    ? await db
+        .select({ roleId: staffRosterMemberRoles.roleId })
+        .from(staffRosterMemberRoles)
+        .where(
+          and(
+            eq(staffRosterMemberRoles.calendarId, input.session.calendarId),
+            eq(staffRosterMemberRoles.memberId, input.memberId),
+          ),
+        )
+    : [];
 
   if (!target) {
     throw new StaffRosterServiceError(404, "Team member not found.");
@@ -377,21 +492,78 @@ export async function updateTeamMember(input: {
     );
   }
 
-  await assertReferenceBelongsToCalendar({
-    calendarId: input.session.calendarId,
-    roleId: input.defaultRoleId,
-    locationId: input.defaultLocationId,
-  });
+  const roleIds = normalizedMemberRoleIds(
+    input.roleIds,
+    input.defaultRoleId,
+  );
+  const defaultRoleId =
+    input.defaultRoleId && roleIds.includes(input.defaultRoleId)
+      ? input.defaultRoleId
+      : (roleIds[0] ?? null);
+
+  await Promise.all([
+    assertStaffRolesBelongToCalendar(input.session.calendarId, roleIds),
+    assertReferenceBelongsToCalendar({
+      calendarId: input.session.calendarId,
+      locationId: input.defaultLocationId,
+    }),
+  ]);
+
+  if (!input.active) {
+    const today = localDateInTimeZone(input.session.calendarTimezone);
+    const [liveUpcoming, publishedUpcoming] = await Promise.all([
+      db
+        .select({ id: staffRosterShifts.id })
+        .from(staffRosterShifts)
+        .where(
+          and(
+            eq(staffRosterShifts.calendarId, input.session.calendarId),
+            eq(staffRosterShifts.memberId, input.memberId),
+            drizzleSql`${staffRosterShifts.shiftDate} >= ${today}`,
+          ),
+        )
+        .limit(1),
+      db
+        .select({ id: staffRosterPublishedShifts.id })
+        .from(staffRosterPublishedShifts)
+        .innerJoin(
+          staffRosterWeekPublications,
+          eq(
+            staffRosterPublishedShifts.publicationId,
+            staffRosterWeekPublications.id,
+          ),
+        )
+        .where(
+          and(
+            eq(
+              staffRosterWeekPublications.calendarId,
+              input.session.calendarId,
+            ),
+            eq(staffRosterPublishedShifts.memberId, input.memberId),
+            drizzleSql`${staffRosterPublishedShifts.shiftDate} >= ${today}`,
+          ),
+        )
+        .limit(1),
+    ]);
+
+    if (liveUpcoming[0] || publishedUpcoming[0]) {
+      throw new StaffRosterServiceError(
+        409,
+        "Remove or reassign this person’s upcoming shifts and send any pending roster updates before archiving them.",
+        "upcoming_shifts",
+      );
+    }
+  }
 
   const sql = getSql();
   try {
-    await sql.transaction([
+    const statements = [
       sql`
         UPDATE staff_roster_members
         SET
           display_name = ${input.displayName},
           access_role = ${input.accessRole}::staff_roster_access_role,
-          default_role_id = ${input.defaultRoleId},
+          default_role_id = ${defaultRoleId},
           default_location_id = ${input.defaultLocationId},
           active = ${input.active},
           updated_at = now()
@@ -399,31 +571,72 @@ export async function updateTeamMember(input: {
           AND calendar_id = ${input.session.calendarId}
       `,
       sql`
-        INSERT INTO audit_log (
-          calendar_id, actor_participant_id, action,
-          entity_type, entity_id, before_state, after_state
-        )
-        VALUES (
-          ${input.session.calendarId}, NULL, 'staff_roster.member.update',
-          'staff_roster_member', ${input.memberId},
-          ${JSON.stringify({
-            displayName: target.displayName,
-            accessRole: target.accessRole,
-            defaultRoleId: target.defaultRoleId,
-            defaultLocationId: target.defaultLocationId,
-            active: target.active,
-          })}::jsonb,
-          ${JSON.stringify({
-            displayName: input.displayName,
-            accessRole: input.accessRole,
-            defaultRoleId: input.defaultRoleId,
-            defaultLocationId: input.defaultLocationId,
-            active: input.active,
-            actorStaffMemberId: actor.id,
-          })}::jsonb
-        )
+        DELETE FROM staff_roster_member_roles
+        WHERE calendar_id = ${input.session.calendarId}
+          AND member_id = ${input.memberId}
       `,
-    ]);
+      ...roleIds.map(
+        (roleId) => sql`
+          INSERT INTO staff_roster_member_roles (
+            calendar_id, member_id, role_id
+          )
+          VALUES (
+            ${input.session.calendarId}, ${input.memberId}, ${roleId}
+          )
+        `,
+      ),
+    ];
+
+    if (!input.active) {
+      statements.push(sql`
+        UPDATE staff_roster_invites
+        SET revoked_at = now()
+        WHERE calendar_id = ${input.session.calendarId}
+          AND member_id = ${input.memberId}
+          AND redeemed_at IS NULL
+          AND revoked_at IS NULL
+      `);
+
+      if (target.membershipId) {
+        statements.push(sql`
+          DELETE FROM calendar_memberships
+          WHERE id = ${target.membershipId}
+            AND calendar_id = ${input.session.calendarId}
+            AND permission <> 'owner'
+        `);
+      }
+    }
+
+    statements.push(sql`
+      INSERT INTO audit_log (
+        calendar_id, actor_participant_id, action,
+        entity_type, entity_id, before_state, after_state
+      )
+      VALUES (
+        ${input.session.calendarId}, NULL, 'staff_roster.member.update',
+        'staff_roster_member', ${input.memberId},
+        ${JSON.stringify({
+          displayName: target.displayName,
+          accessRole: target.accessRole,
+          roleIds: targetRoleRows.map((row) => row.roleId),
+          defaultRoleId: target.defaultRoleId,
+          defaultLocationId: target.defaultLocationId,
+          active: target.active,
+        })}::jsonb,
+        ${JSON.stringify({
+          displayName: input.displayName,
+          accessRole: input.accessRole,
+          roleIds,
+          defaultRoleId,
+          defaultLocationId: input.defaultLocationId,
+          active: input.active,
+          accountAccessRevoked: !input.active && Boolean(target.membershipId),
+          actorStaffMemberId: actor.id,
+        })}::jsonb
+      )
+    `);
+
+    await sql.transaction(statements);
   } catch {
     throw new StaffRosterServiceError(
       409,
@@ -436,6 +649,14 @@ export async function updateTeamMember(input: {
 
 export async function getRolesAndLocations(session: StaffSession) {
   const current = await ensureStaffRosterMember(session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: current.accessRole,
+    permission: session.permission,
+  });
+  if (!capabilities.manageStructure) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
   const db = getDb();
 
   const [roles, locations] = await Promise.all([
@@ -459,13 +680,8 @@ export async function getRolesAndLocations(session: StaffSession) {
       .orderBy(asc(staffRosterLocations.name)),
   ]);
 
-  const capabilities = staffRosterCapabilities({
-    accessRole: current.accessRole,
-    permission: session.permission,
-  });
-
   return {
-    canManage: capabilities.manageStructure,
+    canManage: true,
     roles,
     locations,
   };
@@ -620,10 +836,27 @@ export async function archiveRoleOrLocation(input: {
     if (input.kind === "role") {
       await sql.transaction([
         sql`
-          UPDATE staff_roster_members
-          SET default_role_id = NULL, updated_at = now()
+          UPDATE staff_roster_members member
+          SET default_role_id = (
+                SELECT member_role.role_id
+                FROM staff_roster_member_roles member_role
+                JOIN staff_roster_roles role
+                  ON role.id = member_role.role_id
+                WHERE member_role.member_id = member.id
+                  AND member_role.calendar_id = ${input.session.calendarId}
+                  AND member_role.role_id <> ${input.id}
+                  AND role.active = true
+                ORDER BY role.name
+                LIMIT 1
+              ),
+              updated_at = now()
+          WHERE member.calendar_id = ${input.session.calendarId}
+            AND member.default_role_id = ${input.id}
+        `,
+        sql`
+          DELETE FROM staff_roster_member_roles
           WHERE calendar_id = ${input.session.calendarId}
-            AND default_role_id = ${input.id}
+            AND role_id = ${input.id}
         `,
         sql`
           UPDATE staff_roster_roles
@@ -948,6 +1181,18 @@ export async function getRosterSetup(session: StaffSession) {
     accessRole: current.accessRole,
     permission: session.permission,
   });
+
+  if (!capabilities.manageTeam) {
+    return {
+      canManageSetup: false,
+      currentAccessRole: current.accessRole,
+      roleCount: 0,
+      locationCount: 0,
+      memberCount: 0,
+      setupCompletedAt: null,
+    };
+  }
+
   const db = getDb();
 
   const [roleCountRows, locationCountRows, memberCountRows, settingsRows] =
@@ -1091,7 +1336,7 @@ async function shiftConflictState(input: {
     );
   }
 
-  const [overlaps, unavailable] = await Promise.all([
+  const [overlaps, unavailable, leave] = await Promise.all([
     db
       .select({
         id: staffRosterShifts.id,
@@ -1126,9 +1371,63 @@ async function shiftConflictState(input: {
         ),
       )
       .limit(10),
+    db
+      .select({
+        id: staffRosterLeaveRequests.id,
+        status: staffRosterLeaveRequests.status,
+        allDay: staffRosterLeaveRequests.allDay,
+        startTime: staffRosterLeaveRequests.startTime,
+        endTime: staffRosterLeaveRequests.endTime,
+      })
+      .from(staffRosterLeaveRequests)
+      .where(
+        and(
+          eq(staffRosterLeaveRequests.calendarId, input.calendarId),
+          eq(staffRosterLeaveRequests.memberId, input.memberId),
+          drizzleSql`${staffRosterLeaveRequests.startDate} <= ${input.date}`,
+          drizzleSql`${staffRosterLeaveRequests.endDate} >= ${input.date}`,
+          drizzleSql`${staffRosterLeaveRequests.status} IN ('pending', 'approved')`,
+          drizzleSql`(
+            ${staffRosterLeaveRequests.allDay} = true
+            OR
+            (
+              ${staffRosterLeaveRequests.startTime} < ${input.endTime}
+              AND ${staffRosterLeaveRequests.endTime} > ${input.startTime}
+            )
+          )`,
+        ),
+      )
+      .limit(10),
   ]);
 
-  return { overlaps, unavailable };
+  return {
+    overlaps,
+    unavailable,
+    approvedLeave: leave.filter((item) => item.status === "approved"),
+    pendingLeave: leave.filter((item) => item.status === "pending"),
+  };
+}
+
+function shiftComparisonKey(input: {
+  memberId: string;
+  roleId: string | null;
+  locationId: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
+  note: string | null;
+  availabilityOverride: boolean;
+}) {
+  return JSON.stringify([
+    input.memberId,
+    input.roleId,
+    input.locationId,
+    input.date,
+    input.startTime.slice(0, 5),
+    input.endTime.slice(0, 5),
+    input.note,
+    input.availabilityOverride,
+  ]);
 }
 
 export async function getRosterWeek(input: {
@@ -1147,7 +1446,17 @@ export async function getRosterWeek(input: {
     ? drizzleSql`true`
     : eq(staffRosterMembers.id, current.id);
 
-  const [members, roles, locations, shifts, setup] = await Promise.all([
+  const [
+    members,
+    roles,
+    locations,
+    memberRoleRows,
+    liveShifts,
+    publicationRows,
+    publishedShifts,
+    leaveRows,
+    setup,
+  ] = await Promise.all([
     db
       .select({
         id: staffRosterMembers.id,
@@ -1187,6 +1496,30 @@ export async function getRosterWeek(input: {
       .orderBy(asc(staffRosterLocations.name)),
     db
       .select({
+        memberId: staffRosterMemberRoles.memberId,
+        roleId: staffRosterMemberRoles.roleId,
+        roleName: staffRosterRoles.name,
+      })
+      .from(staffRosterMemberRoles)
+      .innerJoin(
+        staffRosterMembers,
+        eq(staffRosterMemberRoles.memberId, staffRosterMembers.id),
+      )
+      .innerJoin(
+        staffRosterRoles,
+        eq(staffRosterMemberRoles.roleId, staffRosterRoles.id),
+      )
+      .where(
+        and(
+          eq(staffRosterMemberRoles.calendarId, input.session.calendarId),
+          eq(staffRosterMembers.active, true),
+          eq(staffRosterRoles.active, true),
+          memberFilter,
+        ),
+      )
+      .orderBy(asc(staffRosterRoles.name)),
+    db
+      .select({
         id: staffRosterShifts.id,
         memberId: staffRosterShifts.memberId,
         memberName: staffRosterMembers.displayName,
@@ -1224,8 +1557,159 @@ export async function getRosterWeek(input: {
         asc(staffRosterShifts.shiftDate),
         asc(staffRosterShifts.startTime),
       ),
+    db
+      .select({
+        id: staffRosterWeekPublications.id,
+        revision: staffRosterWeekPublications.revision,
+        publishedAt: staffRosterWeekPublications.publishedAt,
+        lastSentAt: staffRosterWeekPublications.lastSentAt,
+      })
+      .from(staffRosterWeekPublications)
+      .where(
+        and(
+          eq(staffRosterWeekPublications.calendarId, input.session.calendarId),
+          eq(staffRosterWeekPublications.weekStart, input.weekStart),
+        ),
+      )
+      .limit(1),
+    db
+      .select({
+        id: staffRosterPublishedShifts.id,
+        sourceShiftId: staffRosterPublishedShifts.sourceShiftId,
+        memberId: staffRosterPublishedShifts.memberId,
+        memberName: staffRosterMembers.displayName,
+        roleId: staffRosterPublishedShifts.roleId,
+        roleName: staffRosterRoles.name,
+        locationId: staffRosterPublishedShifts.locationId,
+        locationName: staffRosterLocations.name,
+        date: staffRosterPublishedShifts.shiftDate,
+        startTime: staffRosterPublishedShifts.startTime,
+        endTime: staffRosterPublishedShifts.endTime,
+        note: staffRosterPublishedShifts.note,
+        availabilityOverride: staffRosterPublishedShifts.availabilityOverride,
+      })
+      .from(staffRosterPublishedShifts)
+      .innerJoin(
+        staffRosterWeekPublications,
+        eq(
+          staffRosterPublishedShifts.publicationId,
+          staffRosterWeekPublications.id,
+        ),
+      )
+      .innerJoin(
+        staffRosterMembers,
+        eq(staffRosterPublishedShifts.memberId, staffRosterMembers.id),
+      )
+      .leftJoin(
+        staffRosterRoles,
+        eq(staffRosterPublishedShifts.roleId, staffRosterRoles.id),
+      )
+      .leftJoin(
+        staffRosterLocations,
+        eq(staffRosterPublishedShifts.locationId, staffRosterLocations.id),
+      )
+      .where(
+        and(
+          eq(staffRosterWeekPublications.calendarId, input.session.calendarId),
+          eq(staffRosterWeekPublications.weekStart, input.weekStart),
+          capabilities.createShifts
+            ? drizzleSql`true`
+            : eq(staffRosterPublishedShifts.memberId, current.id),
+        ),
+      )
+      .orderBy(
+        asc(staffRosterPublishedShifts.shiftDate),
+        asc(staffRosterPublishedShifts.startTime),
+      ),
+    db
+      .select({
+        id: staffRosterLeaveRequests.id,
+        memberId: staffRosterLeaveRequests.memberId,
+        memberName: staffRosterMembers.displayName,
+        startDate: staffRosterLeaveRequests.startDate,
+        endDate: staffRosterLeaveRequests.endDate,
+        allDay: staffRosterLeaveRequests.allDay,
+        startTime: staffRosterLeaveRequests.startTime,
+        endTime: staffRosterLeaveRequests.endTime,
+        status: staffRosterLeaveRequests.status,
+      })
+      .from(staffRosterLeaveRequests)
+      .innerJoin(
+        staffRosterMembers,
+        eq(staffRosterLeaveRequests.memberId, staffRosterMembers.id),
+      )
+      .where(
+        and(
+          eq(staffRosterLeaveRequests.calendarId, input.session.calendarId),
+          drizzleSql`${staffRosterLeaveRequests.startDate} <= ${weekEnd}`,
+          drizzleSql`${staffRosterLeaveRequests.endDate} >= ${input.weekStart}`,
+          drizzleSql`${staffRosterLeaveRequests.status} IN ('pending', 'approved')`,
+          capabilities.createShifts
+            ? drizzleSql`true`
+            : eq(staffRosterLeaveRequests.memberId, current.id),
+        ),
+      )
+      .orderBy(
+        asc(staffRosterLeaveRequests.startDate),
+        asc(staffRosterMembers.displayName),
+      ),
     getRosterSetup(input.session),
   ]);
+
+  const memberRolesByMember = new Map<
+    string,
+    Array<{ id: string; name: string }>
+  >();
+  for (const row of memberRoleRows) {
+    const assigned = memberRolesByMember.get(row.memberId) ?? [];
+    assigned.push({ id: row.roleId, name: row.roleName });
+    memberRolesByMember.set(row.memberId, assigned);
+  }
+
+  const publication = publicationRows[0] ?? null;
+  const changedMemberIds = new Set<string>();
+  let changedShiftCount = 0;
+
+  if (capabilities.createShifts) {
+    if (!publication) {
+      for (const shift of liveShifts) changedMemberIds.add(shift.memberId);
+      changedShiftCount = liveShifts.length;
+    } else {
+      const liveById = new Map(
+        liveShifts.map((shift) => [
+          shift.id,
+          { memberId: shift.memberId, key: shiftComparisonKey(shift) },
+        ]),
+      );
+      const publishedById = new Map(
+        publishedShifts
+          .filter((shift) => shift.sourceShiftId)
+          .map((shift) => [
+            shift.sourceShiftId as string,
+            { memberId: shift.memberId, key: shiftComparisonKey(shift) },
+          ]),
+      );
+      const ids = new Set([...liveById.keys(), ...publishedById.keys()]);
+      for (const id of ids) {
+        const live = liveById.get(id);
+        const published = publishedById.get(id);
+        if (!live || !published || live.key !== published.key) {
+          if (live?.memberId) changedMemberIds.add(live.memberId);
+          if (published?.memberId) changedMemberIds.add(published.memberId);
+          changedShiftCount += 1;
+        }
+      }
+      changedMemberIds.delete("");
+    }
+  }
+
+  const publicationStatus = !publication
+    ? "draft"
+    : capabilities.createShifts && changedMemberIds.size > 0
+      ? "changes_pending"
+      : "published";
+
+  const visibleShifts = capabilities.createShifts ? liveShifts : publishedShifts;
 
   return {
     weekStart: input.weekStart,
@@ -1233,15 +1717,527 @@ export async function getRosterWeek(input: {
     currentMemberId: current.id,
     currentAccessRole: current.accessRole,
     canManageRoster: capabilities.createShifts,
-    setup,
-    members,
-    roles,
-    locations,
-    shifts: shifts.map((shift) => ({
-      ...shift,
+    setup: capabilities.createShifts ? setup : null,
+    publication: {
+      status: publicationStatus as "draft" | "published" | "changes_pending",
+      revision: publication?.revision ?? 0,
+      publishedAt: publication?.publishedAt ?? null,
+      lastSentAt: publication?.lastSentAt ?? null,
+      affectedMemberCount: capabilities.createShifts
+        ? changedMemberIds.size
+        : 0,
+      changedShiftCount: capabilities.createShifts ? changedShiftCount : 0,
+    },
+    members: members.map((member) => {
+      const assignedRoles = memberRolesByMember.get(member.id) ?? [];
+      return {
+        ...member,
+        roleIds: assignedRoles.map((role) => role.id),
+        roleNames: assignedRoles.map((role) => role.name),
+      };
+    }),
+    roles: capabilities.createShifts ? roles : [],
+    locations: capabilities.createShifts ? locations : [],
+    leave: leaveRows.map((leave) => ({
+      ...leave,
+      startTime: leave.startTime?.slice(0, 5) ?? null,
+      endTime: leave.endTime?.slice(0, 5) ?? null,
+    })),
+    shifts: visibleShifts.map((shift) => ({
+      id: shift.id,
+      memberId: shift.memberId,
+      memberName: shift.memberName,
+      roleId: shift.roleId,
+      roleName: shift.roleName,
+      locationId: shift.locationId,
+      locationName: shift.locationName,
+      date: shift.date,
       startTime: shift.startTime.slice(0, 5),
       endTime: shift.endTime.slice(0, 5),
+      note: shift.note,
+      availabilityOverride: shift.availabilityOverride,
     })),
+  };
+}
+
+export async function publishRosterWeek(input: {
+  session: StaffSession;
+  weekStart: string;
+}) {
+  const actor = await ensureStaffRosterMember(input.session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
+  if (!capabilities.createShifts) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
+  const weekEnd = format(addDays(parseISO(input.weekStart), 6), "yyyy-MM-dd");
+  const existing = await getDb()
+    .select({
+      id: staffRosterWeekPublications.id,
+      revision: staffRosterWeekPublications.revision,
+    })
+    .from(staffRosterWeekPublications)
+    .where(
+      and(
+        eq(staffRosterWeekPublications.calendarId, input.session.calendarId),
+        eq(staffRosterWeekPublications.weekStart, input.weekStart),
+      ),
+    )
+    .limit(1);
+
+  const publicationId = existing[0]?.id ?? randomUUID();
+  const action = existing[0] ? "send_updates" : "publish";
+  const lockKey =
+    input.session.calendarId + ":publication:" + input.weekStart;
+  const sql = getSql();
+
+  try {
+    await sql.transaction([
+      sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`,
+      sql`
+        INSERT INTO staff_roster_week_publications (
+          id, calendar_id, week_start, revision,
+          published_at, published_by_membership_id,
+          last_sent_at, last_sent_by_membership_id,
+          created_at, updated_at
+        )
+        VALUES (
+          ${publicationId}, ${input.session.calendarId}, ${input.weekStart}, 1,
+          now(), ${input.session.membershipId},
+          now(), ${input.session.membershipId},
+          now(), now()
+        )
+        ON CONFLICT (calendar_id, week_start)
+        DO UPDATE SET
+          revision = staff_roster_week_publications.revision + 1,
+          last_sent_at = now(),
+          last_sent_by_membership_id = EXCLUDED.last_sent_by_membership_id,
+          updated_at = now()
+      `,
+      sql`
+        WITH publication AS (
+          SELECT id, calendar_id
+          FROM staff_roster_week_publications
+          WHERE calendar_id = ${input.session.calendarId}
+            AND week_start = ${input.weekStart}
+          LIMIT 1
+        ),
+        live AS (
+          SELECT
+            shift.id,
+            shift.member_id,
+            shift.shift_date,
+            shift.start_time,
+            shift.end_time,
+            shift.role_id,
+            shift.location_id,
+            shift.note,
+            shift.availability_override
+          FROM staff_roster_shifts shift
+          WHERE shift.calendar_id = ${input.session.calendarId}
+            AND shift.shift_date >= ${input.weekStart}
+            AND shift.shift_date <= ${weekEnd}
+        ),
+        previous AS (
+          SELECT
+            published.source_shift_id,
+            published.member_id,
+            published.shift_date,
+            published.start_time,
+            published.end_time,
+            published.role_id,
+            published.location_id,
+            published.note,
+            published.availability_override
+          FROM staff_roster_published_shifts published
+          JOIN publication ON publication.id = published.publication_id
+        ),
+        changed AS (
+          SELECT
+            live.member_id,
+            live.shift_date,
+            CASE
+              WHEN previous.source_shift_id IS NULL
+                OR live.member_id IS DISTINCT FROM previous.member_id
+              THEN 'shift_added'
+              ELSE 'shift_changed'
+            END AS kind,
+            CASE
+              WHEN previous.source_shift_id IS NULL
+                OR live.member_id IS DISTINCT FROM previous.member_id
+              THEN NULL
+              ELSE CONCAT(
+                previous.shift_date::text, ' ',
+                LEFT(previous.start_time::text, 5), '–',
+                LEFT(previous.end_time::text, 5)
+              )
+            END AS before_summary,
+            CONCAT(
+              live.shift_date::text, ' ',
+              LEFT(live.start_time::text, 5), '–',
+              LEFT(live.end_time::text, 5)
+            ) AS after_summary
+          FROM live
+          LEFT JOIN previous
+            ON previous.source_shift_id = live.id
+          WHERE ${action} = 'send_updates'
+            AND (
+              previous.source_shift_id IS NULL
+              OR live.member_id IS DISTINCT FROM previous.member_id
+              OR live.shift_date IS DISTINCT FROM previous.shift_date
+              OR live.start_time IS DISTINCT FROM previous.start_time
+              OR live.end_time IS DISTINCT FROM previous.end_time
+              OR live.role_id IS DISTINCT FROM previous.role_id
+              OR live.location_id IS DISTINCT FROM previous.location_id
+              OR live.note IS DISTINCT FROM previous.note
+              OR live.availability_override IS DISTINCT FROM previous.availability_override
+            )
+
+          UNION ALL
+
+          SELECT
+            previous.member_id,
+            previous.shift_date,
+            'shift_removed' AS kind,
+            CONCAT(
+              previous.shift_date::text, ' ',
+              LEFT(previous.start_time::text, 5), '–',
+              LEFT(previous.end_time::text, 5)
+            ) AS before_summary,
+            NULL AS after_summary
+          FROM previous
+          LEFT JOIN live
+            ON live.id = previous.source_shift_id
+          WHERE ${action} = 'send_updates'
+            AND (
+              live.id IS NULL
+              OR live.member_id IS DISTINCT FROM previous.member_id
+            )
+        )
+        INSERT INTO staff_roster_updates (
+          id, calendar_id, member_id, publication_id,
+          kind, title, before_summary, after_summary
+        )
+        SELECT
+          gen_random_uuid(), publication.calendar_id, live.member_id,
+          publication.id, 'published',
+          'Your roster was published',
+          NULL,
+          COUNT(*)::text || CASE WHEN COUNT(*) = 1 THEN ' shift' ELSE ' shifts' END
+        FROM publication
+        JOIN live ON true
+        WHERE ${action} = 'publish'
+        GROUP BY publication.id, publication.calendar_id, live.member_id
+        UNION ALL
+        SELECT
+          gen_random_uuid(), publication.calendar_id, changed.member_id,
+          publication.id, changed.kind,
+          TRIM(TO_CHAR(changed.shift_date, 'FMDay')) ||
+            CASE changed.kind
+              WHEN 'shift_added' THEN ' shift added'
+              WHEN 'shift_removed' THEN ' shift removed'
+              ELSE ' shift changed'
+            END,
+          changed.before_summary,
+          changed.after_summary
+        FROM publication
+        JOIN changed ON true
+      `,
+      sql`
+        DELETE FROM staff_roster_published_shifts
+        WHERE publication_id = (
+          SELECT id
+          FROM staff_roster_week_publications
+          WHERE calendar_id = ${input.session.calendarId}
+            AND week_start = ${input.weekStart}
+          LIMIT 1
+        )
+      `,
+      sql`
+        INSERT INTO staff_roster_published_shifts (
+          publication_id, source_shift_id, member_id, role_id, location_id,
+          shift_date, start_time, end_time, note, availability_override
+        )
+        SELECT
+          publication.id, shift.id, shift.member_id, shift.role_id, shift.location_id,
+          shift.shift_date, shift.start_time, shift.end_time,
+          shift.note, shift.availability_override
+        FROM staff_roster_week_publications publication
+        JOIN staff_roster_shifts shift
+          ON shift.calendar_id = publication.calendar_id
+         AND shift.shift_date >= ${input.weekStart}
+         AND shift.shift_date <= ${weekEnd}
+        WHERE publication.calendar_id = ${input.session.calendarId}
+          AND publication.week_start = ${input.weekStart}
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action,
+          entity_type, entity_id, after_state
+        )
+        SELECT
+          ${input.session.calendarId}, NULL,
+          ${action === "publish"
+            ? "staff_roster.week.publish"
+            : "staff_roster.week.send_updates"},
+          'staff_roster_week_publication',
+          publication.id,
+          jsonb_build_object(
+            'weekStart', ${input.weekStart},
+            'revision', publication.revision,
+            'actorStaffMemberId', ${actor.id}
+          )
+        FROM staff_roster_week_publications publication
+        WHERE publication.calendar_id = ${input.session.calendarId}
+          AND publication.week_start = ${input.weekStart}
+      `,
+    ]);
+  } catch {
+    throw new StaffRosterServiceError(
+      409,
+      action === "publish"
+        ? "The roster could not be published."
+        : "The roster updates could not be sent.",
+    );
+  }
+
+  const rows = await getDb()
+    .select({
+      revision: staffRosterWeekPublications.revision,
+    })
+    .from(staffRosterWeekPublications)
+    .where(
+      and(
+        eq(staffRosterWeekPublications.calendarId, input.session.calendarId),
+        eq(staffRosterWeekPublications.weekStart, input.weekStart),
+      ),
+    )
+    .limit(1);
+
+  return {
+    ok: true as const,
+    action,
+    revision: rows[0]?.revision ?? 1,
+  };
+}
+
+export async function getRosterUpdates(session: StaffSession) {
+  const current = await ensureStaffRosterMember(session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: current.accessRole,
+    permission: session.permission,
+  });
+
+  const rows = await getDb()
+    .select({
+      id: staffRosterUpdates.id,
+      memberId: staffRosterUpdates.memberId,
+      memberName: staffRosterMembers.displayName,
+      kind: staffRosterUpdates.kind,
+      title: staffRosterUpdates.title,
+      beforeSummary: staffRosterUpdates.beforeSummary,
+      afterSummary: staffRosterUpdates.afterSummary,
+      createdAt: staffRosterUpdates.createdAt,
+      weekStart: staffRosterWeekPublications.weekStart,
+    })
+    .from(staffRosterUpdates)
+    .innerJoin(
+      staffRosterMembers,
+      eq(staffRosterUpdates.memberId, staffRosterMembers.id),
+    )
+    .innerJoin(
+      staffRosterWeekPublications,
+      eq(staffRosterUpdates.publicationId, staffRosterWeekPublications.id),
+    )
+    .where(
+      and(
+        eq(staffRosterUpdates.calendarId, session.calendarId),
+        capabilities.createShifts
+          ? drizzleSql`true`
+          : eq(staffRosterUpdates.memberId, current.id),
+      ),
+    )
+    .orderBy(desc(staffRosterUpdates.createdAt))
+    .limit(50);
+
+  return {
+    currentMemberId: current.id,
+    currentAccessRole: current.accessRole,
+    canManageRoster: capabilities.createShifts,
+    updates: rows,
+  };
+}
+
+export async function copyPreviousRosterWeek(input: {
+  session: StaffSession;
+  targetWeekStart: string;
+}) {
+  const actor = await ensureStaffRosterMember(input.session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
+  if (!capabilities.createShifts) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
+  const sourceWeekStart = format(
+    subDays(parseISO(input.targetWeekStart), 7),
+    "yyyy-MM-dd",
+  );
+  const sourceWeekEnd = format(
+    addDays(parseISO(sourceWeekStart), 6),
+    "yyyy-MM-dd",
+  );
+
+  const db = getDb();
+  const [sourceShifts, activeMembers, activeRoles, activeLocations] =
+    await Promise.all([
+      db
+        .select({
+          memberId: staffRosterShifts.memberId,
+          roleId: staffRosterShifts.roleId,
+          locationId: staffRosterShifts.locationId,
+          date: staffRosterShifts.shiftDate,
+          startTime: staffRosterShifts.startTime,
+          endTime: staffRosterShifts.endTime,
+          note: staffRosterShifts.note,
+        })
+        .from(staffRosterShifts)
+        .where(
+          and(
+            eq(staffRosterShifts.calendarId, input.session.calendarId),
+            drizzleSql`${staffRosterShifts.shiftDate} >= ${sourceWeekStart}`,
+            drizzleSql`${staffRosterShifts.shiftDate} <= ${sourceWeekEnd}`,
+          ),
+        )
+        .orderBy(
+          asc(staffRosterShifts.shiftDate),
+          asc(staffRosterShifts.startTime),
+        ),
+      db
+        .select({ id: staffRosterMembers.id })
+        .from(staffRosterMembers)
+        .where(
+          and(
+            eq(staffRosterMembers.calendarId, input.session.calendarId),
+            eq(staffRosterMembers.active, true),
+          ),
+        ),
+      db
+        .select({ id: staffRosterRoles.id })
+        .from(staffRosterRoles)
+        .where(
+          and(
+            eq(staffRosterRoles.calendarId, input.session.calendarId),
+            eq(staffRosterRoles.active, true),
+          ),
+        ),
+      db
+        .select({ id: staffRosterLocations.id })
+        .from(staffRosterLocations)
+        .where(
+          and(
+            eq(staffRosterLocations.calendarId, input.session.calendarId),
+            eq(staffRosterLocations.active, true),
+          ),
+        ),
+    ]);
+
+  const activeMemberIds = new Set(activeMembers.map((member) => member.id));
+  const activeRoleIds = new Set(activeRoles.map((role) => role.id));
+  const activeLocationIds = new Set(
+    activeLocations.map((location) => location.id),
+  );
+
+  let copied = 0;
+  let overlapSkipped = 0;
+  let availabilitySkipped = 0;
+  let leaveSkipped = 0;
+  let inactiveStaffSkipped = 0;
+  let staleReferenceAdjusted = 0;
+
+  for (const shift of sourceShifts) {
+    if (!activeMemberIds.has(shift.memberId)) {
+      inactiveStaffSkipped += 1;
+      continue;
+    }
+
+    const roleId =
+      shift.roleId && activeRoleIds.has(shift.roleId) ? shift.roleId : null;
+    const locationId =
+      shift.locationId && activeLocationIds.has(shift.locationId)
+        ? shift.locationId
+        : null;
+
+    if (roleId !== shift.roleId || locationId !== shift.locationId) {
+      staleReferenceAdjusted += 1;
+    }
+
+    const targetDate = format(
+      addDays(parseISO(shift.date), 7),
+      "yyyy-MM-dd",
+    );
+
+    try {
+      await createShift({
+        session: input.session,
+        memberId: shift.memberId,
+        date: targetDate,
+        startTime: shift.startTime.slice(0, 5),
+        endTime: shift.endTime.slice(0, 5),
+        roleId,
+        locationId,
+        note: shift.note,
+        overrideAvailabilityConflict: false,
+      });
+      copied += 1;
+    } catch (error) {
+      if (
+        error instanceof StaffRosterServiceError &&
+        error.code === "availability_conflict"
+      ) {
+        availabilitySkipped += 1;
+        continue;
+      }
+      if (
+        error instanceof StaffRosterServiceError &&
+        (error.code === "pending_leave_conflict" ||
+          error.code === "approved_leave_conflict")
+      ) {
+        leaveSkipped += 1;
+        continue;
+      }
+      if (
+        error instanceof StaffRosterServiceError &&
+        error.code === "shift_overlap"
+      ) {
+        overlapSkipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  const skipped =
+    overlapSkipped +
+    availabilitySkipped +
+    leaveSkipped +
+    inactiveStaffSkipped;
+  return {
+    ok: true as const,
+    copied,
+    skipped,
+    overlapSkipped,
+    availabilitySkipped,
+    leaveSkipped,
+    inactiveStaffSkipped,
+    staleReferenceAdjusted,
+    sourceWeekStart,
+    targetWeekStart: input.targetWeekStart,
   };
 }
 
@@ -1293,15 +2289,27 @@ export async function createShift(input: {
     );
   }
 
-  if (
-    conflicts.unavailable.length > 0 &&
-    !input.overrideAvailabilityConflict
-  ) {
+  if (conflicts.approvedLeave.length > 0) {
     throw new StaffRosterServiceError(
       409,
-      member.displayName + " is marked unavailable during this shift.",
-      "availability_conflict",
-      conflicts.unavailable,
+      member.displayName + " is on approved leave during this shift.",
+      "approved_leave_conflict",
+      conflicts.approvedLeave,
+    );
+  }
+
+  if (
+    (conflicts.unavailable.length > 0 || conflicts.pendingLeave.length > 0) &&
+    !input.overrideAvailabilityConflict
+  ) {
+    const pendingLeave = conflicts.pendingLeave.length > 0;
+    throw new StaffRosterServiceError(
+      409,
+      pendingLeave
+        ? member.displayName + " has a pending leave request during this shift."
+        : member.displayName + " is marked unavailable during this shift.",
+      pendingLeave ? "pending_leave_conflict" : "availability_conflict",
+      pendingLeave ? conflicts.pendingLeave : conflicts.unavailable,
     );
   }
 
@@ -1326,7 +2334,7 @@ export async function createShift(input: {
           ${id}, ${input.session.calendarId}, ${input.memberId},
           ${input.roleId}, ${input.locationId},
           ${input.date}, ${input.startTime}, ${input.endTime}, ${input.note},
-          ${conflicts.unavailable.length > 0}, ${input.session.membershipId}
+          ${conflicts.unavailable.length > 0 || conflicts.pendingLeave.length > 0}, ${input.session.membershipId}
         FROM locked
         WHERE NOT EXISTS (
           SELECT 1
@@ -1357,7 +2365,9 @@ export async function createShift(input: {
             roleId: input.roleId,
             locationId: input.locationId,
             note: input.note,
-            availabilityOverride: conflicts.unavailable.length > 0,
+            availabilityOverride:
+              conflicts.unavailable.length > 0 ||
+              conflicts.pendingLeave.length > 0,
             actorStaffMemberId: actor.id,
           })}::jsonb
         FROM created
@@ -1454,15 +2464,27 @@ export async function updateShift(input: {
     );
   }
 
-  if (
-    conflicts.unavailable.length > 0 &&
-    !input.overrideAvailabilityConflict
-  ) {
+  if (conflicts.approvedLeave.length > 0) {
     throw new StaffRosterServiceError(
       409,
-      member.displayName + " is marked unavailable during this shift.",
-      "availability_conflict",
-      conflicts.unavailable,
+      member.displayName + " is on approved leave during this shift.",
+      "approved_leave_conflict",
+      conflicts.approvedLeave,
+    );
+  }
+
+  if (
+    (conflicts.unavailable.length > 0 || conflicts.pendingLeave.length > 0) &&
+    !input.overrideAvailabilityConflict
+  ) {
+    const pendingLeave = conflicts.pendingLeave.length > 0;
+    throw new StaffRosterServiceError(
+      409,
+      pendingLeave
+        ? member.displayName + " has a pending leave request during this shift."
+        : member.displayName + " is marked unavailable during this shift.",
+      pendingLeave ? "pending_leave_conflict" : "availability_conflict",
+      pendingLeave ? conflicts.pendingLeave : conflicts.unavailable,
     );
   }
 
@@ -1486,7 +2508,7 @@ export async function updateShift(input: {
           start_time = ${input.startTime},
           end_time = ${input.endTime},
           note = ${input.note},
-          availability_override = ${conflicts.unavailable.length > 0},
+          availability_override = ${conflicts.unavailable.length > 0 || conflicts.pendingLeave.length > 0},
           updated_at = now()
         FROM locked
         WHERE shift.id = ${input.shiftId}
@@ -1522,7 +2544,9 @@ export async function updateShift(input: {
             roleId: input.roleId,
             locationId: input.locationId,
             note: input.note,
-            availabilityOverride: conflicts.unavailable.length > 0,
+            availabilityOverride:
+              conflicts.unavailable.length > 0 ||
+              conflicts.pendingLeave.length > 0,
             actorStaffMemberId: actor.id,
           })}::jsonb
         FROM changed

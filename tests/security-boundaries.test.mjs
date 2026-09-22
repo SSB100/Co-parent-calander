@@ -49,6 +49,19 @@ const sameOriginMutationRoutes = [
     methods: ["POST", "DELETE"],
   },
   { file: "app/api/staff-roster/setup/route.ts", methods: ["POST"] },
+  { file: "app/api/staff-roster/copy-week/route.ts", methods: ["POST"] },
+  { file: "app/api/staff-roster/publication/route.ts", methods: ["POST"] },
+  { file: "app/api/staff-roster/invitations/route.ts", methods: ["POST"] },
+  { file: "app/api/staff-roster/clock/route.ts", methods: ["POST"] },
+  { file: "app/api/staff-roster/timesheet/route.ts", methods: ["PATCH"] },
+  {
+    file: "app/api/staff-roster/timesheet-corrections/route.ts",
+    methods: ["POST", "PATCH"],
+  },
+  {
+    file: "app/api/staff-roster/leave/route.ts",
+    methods: ["POST", "PATCH", "DELETE"],
+  },
   {
     file: "app/api/staff-roster/shifts/route.ts",
     methods: ["POST", "PATCH", "DELETE"],

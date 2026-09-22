@@ -134,8 +134,8 @@ export const calendarTemplateManifests: Record<
       },
       {
         key: "availability",
-        label: "Availability",
-        description: "When people can work or have marked themselves unavailable.",
+        label: "Availability & leave",
+        description: "Availability, unavailability and simple leave requests.",
         icon: "calendar",
       },
       {
@@ -143,6 +143,12 @@ export const calendarTemplateManifests: Record<
         label: "Roles & locations",
         description: "The roles and places managers can schedule.",
         icon: "grid",
+      },
+      {
+        key: "timesheets",
+        label: "Timesheets",
+        description: "Worked time, clocking exceptions and correction requests.",
+        icon: "settings",
       },
     ],
     eventCategoryMapping: [

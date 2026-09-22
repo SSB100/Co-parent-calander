@@ -19,14 +19,14 @@ async function schemaSource() {
   )).join("\n");
 }
 
-test("schema migrations are sequential through 0024", async () => {
+test("schema migrations are sequential through 0029", async () => {
   const files = (await readdir(path.join(root, "drizzle")))
     .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort();
 
   assert.deepEqual(
     files.map((file) => file.slice(0, 4)),
-    Array.from({ length: 25 }, (_, index) => String(index).padStart(4, "0")),
+    Array.from({ length: 30 }, (_, index) => String(index).padStart(4, "0")),
   );
 });
 
@@ -280,6 +280,131 @@ test("0024 adds calendar lifecycle plus Staff roster setup and shifts", async ()
     /'0024', 'Calendar lifecycle and Staff roster setup and shifts'/,
   );
   assert.doesNotMatch(migration, /ALTER TABLE "participants"|ALTER TABLE "children"/);
+});
+
+
+test("0025 adds Staff roster published week snapshots without changing live shifts", async () => {
+  const [migration, staff] = await Promise.all([
+    source("drizzle/0025_staff_roster_publication.sql"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  for (const token of [
+    "staff_roster_week_publications",
+    "staff_roster_published_shifts",
+    "staff_roster_week_publications_calendar_week_unique",
+    "staff_roster_published_shifts_time_valid",
+    "published_by_membership_id",
+    "last_sent_by_membership_id",
+  ]) {
+    assert.match(migration, new RegExp(token));
+    assert.match(staff, new RegExp(token));
+  }
+
+  assert.match(
+    migration,
+    /'0025', 'Staff roster published week snapshots'/,
+  );
+  assert.doesNotMatch(migration, /ALTER TABLE "staff_roster_shifts"/);
+});
+
+
+test("0026 adds Staff attendance corrections and leave without payroll scope", async () => {
+  const [migration, staff] = await Promise.all([
+    source("drizzle/0026_staff_roster_attendance_leave.sql"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  for (const token of [
+    "staff_roster_clock_sessions",
+    "staff_roster_timesheet_corrections",
+    "staff_roster_leave_requests",
+    "staff_roster_clock_sessions_member_active_unique",
+    "staff_roster_correction_status",
+    "staff_roster_leave_status",
+  ]) {
+    assert.match(migration, new RegExp(token));
+    assert.match(staff, new RegExp(token));
+  }
+
+  assert.match(
+    migration,
+    /'0026', 'Staff roster attendance corrections and leave'/,
+  );
+  for (const excluded of ["payroll", "wage", "paye", "kiwisaver", "gps"]) {
+    assert.doesNotMatch(migration.toLowerCase(), new RegExp(excluded));
+  }
+});
+
+
+test("0027 adds Staff roster account invitations without reusing co-parent profiles", async () => {
+  const [migration, staff] = await Promise.all([
+    source("drizzle/0027_staff_roster_invitations.sql"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  for (const token of [
+    "staff_roster_invites",
+    "staff_roster_invites_code_hash_unique",
+    "created_by_membership_id",
+    "redeemed_by_membership_id",
+  ]) {
+    assert.match(migration, new RegExp(token));
+    assert.match(staff, new RegExp(token));
+  }
+
+  assert.match(
+    migration,
+    /'0027', 'Staff roster account invitations'/,
+  );
+  assert.doesNotMatch(migration, /participants/);
+});
+
+
+test("0028 adds a lightweight Staff roster publication update feed", async () => {
+  const [migration, staff] = await Promise.all([
+    source("drizzle/0028_staff_roster_updates.sql"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  for (const token of [
+    "staff_roster_updates",
+    "staff_roster_updates_calendar_created_idx",
+    "staff_roster_updates_member_created_idx",
+    "before_summary",
+    "after_summary",
+  ]) {
+    assert.match(migration, new RegExp(token));
+    assert.match(staff, new RegExp(token));
+  }
+
+  assert.match(
+    migration,
+    /'0028', 'Staff roster publication updates'/,
+  );
+  assert.doesNotMatch(migration.toLowerCase(), /push_token|email_provider|sms/);
+});
+
+
+test("0029 adds reusable multi-role assignments and backfills existing defaults", async () => {
+  const [migration, staff] = await Promise.all([
+    source("drizzle/0029_staff_roster_member_roles.sql"),
+    source("lib/db/schema/staff-rosters.ts"),
+  ]);
+
+  for (const token of [
+    "staff_roster_member_roles",
+    "staff_roster_member_roles_member_role_unique",
+    "default_role_id",
+    "ON CONFLICT",
+  ]) {
+    assert.match(migration, new RegExp(token));
+  }
+  assert.match(staff, /staffRosterMemberRoles/);
+  assert.match(
+    migration,
+    /'0029', 'Staff roster member multi-role assignments'/,
+  );
 });
 
 

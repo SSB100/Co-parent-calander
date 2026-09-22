@@ -2,6 +2,7 @@
 
 import { CalendarCheck2, LoaderCircle, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { StaffRosterLeavePanel } from "@/components/staff-rosters/leave-panel";
 import {
   CovieButton,
   CovieConfirmDialog,
@@ -193,6 +194,9 @@ export function StaffRosterAvailabilityPage() {
 
   return (
     <>
+      <StaffRosterLeavePanel />
+
+      <section className="border-t-2 border-[#243139] pt-6">
       {error ? (
         <CovieNotice tone="danger" role="alert" className="mb-4">
           {error}
@@ -387,6 +391,8 @@ export function StaffRosterAvailabilityPage() {
           </div>
         </CovieDialog>
       ) : null}
+
+      </section>
 
       <CovieConfirmDialog
         open={Boolean(deleteTarget)}
