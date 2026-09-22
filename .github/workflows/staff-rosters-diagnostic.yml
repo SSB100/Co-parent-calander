@@ -12,7 +12,12 @@ jobs:
         with:
           node-version: 24
       - name: Install
-        run: npm ci --no-audit --no-fund
+        id: install
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm ci --no-audit --no-fund 2>&1 | tee install.log
       - name: Lint
         id: lint
         continue-on-error: true
@@ -57,6 +62,7 @@ jobs:
         with:
           name: staff-rosters-diagnostic
           path: |
+            install.log
             lint.log
             typecheck.log
             tests.log
@@ -66,6 +72,7 @@ jobs:
         if: always()
         shell: bash
         run: |
+          test "${{ steps.install.outcome }}" = "success"
           test "${{ steps.lint.outcome }}" = "success"
           test "${{ steps.typecheck.outcome }}" = "success"
           test "${{ steps.tests.outcome }}" = "success"
