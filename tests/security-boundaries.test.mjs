@@ -53,6 +53,7 @@ const sameOriginMutationRoutes = [
   { file: "app/api/staff-roster/publication/route.ts", methods: ["POST"] },
   { file: "app/api/staff-roster/invitations/route.ts", methods: ["POST"] },
   { file: "app/api/staff-roster/clock/route.ts", methods: ["POST"] },
+  { file: "app/api/staff-roster/timesheet/route.ts", methods: ["PATCH"] },
   {
     file: "app/api/staff-roster/timesheet-corrections/route.ts",
     methods: ["POST", "PATCH"],
