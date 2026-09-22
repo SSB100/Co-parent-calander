@@ -619,13 +619,13 @@ export function DayDetailsPanel({
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-slate-900">{event.title}</p>
+                        <p className="font-semibold text-current">{event.title}</p>
                         <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">
                           {categoryLabels[event.category] ?? "Other"}
                         </span>
                       </div>
                       {event.description ? (
-                        <p className="mt-1 text-sm leading-5 text-slate-600">{event.description}</p>
+                        <p className="mt-1 text-sm leading-5 text-current opacity-80">{event.description}</p>
                       ) : null}
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <AttachmentPanel
@@ -646,7 +646,7 @@ export function DayDetailsPanel({
                             type="button"
                             onClick={() => setEventToDelete(event)}
                             disabled={submitting || Boolean(deletingEventId)}
-                            className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-[10px] px-3 text-xs font-semibold text-[#A23F39] hover:bg-[#FBECE8] disabled:opacity-50"
+                            className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-[10px] border border-white/70 bg-white px-3 text-xs font-semibold text-[#A23F39] hover:bg-[#FBECE8] disabled:opacity-50"
                           >
                             {deletingEventId === event.id ? (
                               <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
