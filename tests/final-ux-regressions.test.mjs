@@ -169,7 +169,10 @@ test("Calendar day tiles centre the date, place custody below it, and stack up t
   assert.match(shell, /top-8/);
   assert.doesNotMatch(shell, /right-1 top-1\/2/);
   assert.match(shell, /function TileEventStack/);
-  assert.match(shell, /events\.slice\(0, 3\)/);
+  assert.match(shell, /events\.find\(\(event\) => event\.category === "handover"\)/);
+  assert.match(shell, /regularEvents\.slice\(0, 2\)/);
+  assert.match(shell, /regularEvents\.slice\(0, 3\)/);
+  assert.match(shell, /\.\.\.regularEvents\.slice\(0, 2\), handover/);
   assert.match(shell, /hiddenCount/);
   assert.match(shell, /inset-x-0 bottom-0/);
   assert.match(shell, /eventCategoryBarClass/);
@@ -489,7 +492,8 @@ test("Calendar and compact workspace controls follow the final brand consistency
   assert.match(categories, /birthday[\s\S]*#F4C64E/);
   assert.match(categories, /holiday[\s\S]*#3B73AE/);
   assert.match(categories, /activity[\s\S]*#0D7A6D/);
-  assert.match(categories, /handover[\s\S]*#243139/);
+  assert.match(categories, /handover[\s\S]*#FF5A8A/);
+  assert.doesNotMatch(categories, /handover[\s\S]*bg-\[#243139\]/);
   assert.doesNotMatch(categories, /birthday" \|\| category === "holiday"/);
   assert.doesNotMatch(categories, /sport" \|\| category === "activity"/);
   assert.doesNotMatch(categories, /bg-\[#(?:DDD3FA|BFEDE6|FFD0CB|F7DC86|C3DCF7|D7F2EC|F4F1FF|EAF8F5|FFF3F1|FFF9DF|EEF5FC|F0FBF8)\]/);
