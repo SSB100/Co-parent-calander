@@ -686,6 +686,38 @@ export async function deleteCalendar(
         WHERE calendar_id = ${calendar.id}
       `,
       sql`
+        DELETE FROM staff_roster_timesheet_corrections
+        WHERE calendar_id = ${calendar.id}
+      `,
+      sql`
+        DELETE FROM staff_roster_clock_sessions
+        WHERE calendar_id = ${calendar.id}
+      `,
+      sql`
+        DELETE FROM staff_roster_updates
+        WHERE calendar_id = ${calendar.id}
+      `,
+      sql`
+        DELETE FROM staff_roster_published_shifts
+        WHERE publication_id IN (
+          SELECT id
+          FROM staff_roster_week_publications
+          WHERE calendar_id = ${calendar.id}
+        )
+      `,
+      sql`
+        DELETE FROM staff_roster_week_publications
+        WHERE calendar_id = ${calendar.id}
+      `,
+      sql`
+        DELETE FROM staff_roster_leave_requests
+        WHERE calendar_id = ${calendar.id}
+      `,
+      sql`
+        DELETE FROM staff_roster_invites
+        WHERE calendar_id = ${calendar.id}
+      `,
+      sql`
         DELETE FROM staff_roster_shifts
         WHERE calendar_id = ${calendar.id}
       `,
