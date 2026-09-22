@@ -71,23 +71,14 @@ export function CalendarSwitcher({
   const detailsRef = useRef<HTMLDetailsElement>(null);
   useDismissibleDetails(detailsRef);
 
-  const currentTemplate = current
-    ? calendarTemplateManifests[current.calendarType]
-    : null;
-
   return (
     <details
       ref={detailsRef}
       className="calendar-switcher relative z-40 max-w-[calc(50vw-2.75rem)] sm:max-w-none"
     >
       <summary className="group inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-[10px] px-1 text-left text-[#243139] transition hover:text-[#0B665C] [&::-webkit-details-marker]:hidden">
-        <span className="min-w-0">
-          <span className="block truncate text-2xl font-semibold tracking-tight sm:text-3xl">
-            {current?.name ?? "Covie calendar"}
-          </span>
-          <span className="mt-0.5 block truncate text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#66747A]">
-            {currentTemplate?.name ?? "Calendar"}
-          </span>
+        <span className="block min-w-0 truncate text-2xl font-semibold tracking-tight sm:text-3xl">
+          {current?.name ?? "Covie calendar"}
         </span>
         <ChevronDown
           className="h-5 w-5 shrink-0 text-slate-400 transition group-open:rotate-180"
