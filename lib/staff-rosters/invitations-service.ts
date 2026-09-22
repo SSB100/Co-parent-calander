@@ -207,6 +207,31 @@ export async function acceptStaffRosterInviteCode(input: {
     );
   }
 
+  const existingMembership = (await sql`
+    SELECT
+      membership.id,
+      linked.id AS linked_member_id
+    FROM calendar_memberships membership
+    LEFT JOIN staff_roster_members linked
+      ON linked.membership_id = membership.id
+    WHERE membership.calendar_id = ${invite.calendar_id}
+      AND membership.user_id = ${input.userId}
+    LIMIT 1
+  `) as Array<{
+    id: string;
+    linked_member_id: string | null;
+  }>;
+
+  if (
+    existingMembership[0]?.linked_member_id &&
+    existingMembership[0].linked_member_id !== invite.member_id
+  ) {
+    throw new StaffRosterServiceError(
+      409,
+      "Your account is already linked to another team member on this roster.",
+    );
+  }
+
   const membershipId = randomUUID();
   const permission = invite.access_role === "manager" ? "editor" : "viewer";
   const lockKey = "staff-roster-invite:" + codeHash;
