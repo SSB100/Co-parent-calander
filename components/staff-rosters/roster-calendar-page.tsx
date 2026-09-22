@@ -30,9 +30,11 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type DragEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from "react";
 import {
   CovieButton,
@@ -100,6 +102,8 @@ type RosterPayload = {
     locationCount: number;
     memberCount: number;
     setupCompletedAt: string | null;
+    operationalStartMinute: number;
+    operationalEndMinute: number;
   };
   publication: {
     status: "draft" | "published" | "changes_pending";
@@ -134,10 +138,11 @@ type PositionedShift = {
 };
 
 const SNAP_MINUTES = 15;
-const DEFAULT_SHIFT_MINUTES = 8 * 60;
-const DAY_START_MINUTE = 6 * 60;
+const DROP_SHIFT_MINUTES = 60;
+const DAY_START_MINUTE = 0;
 const DAY_END_MINUTE = 24 * 60;
-const HOUR_HEIGHT = 26;
+const MIN_HOUR_HEIGHT = 18;
+const DAY_HEADER_HEIGHT = 54;
 const DND_TYPE = "application/x-covie-roster";
 
 function todayValue() {
@@ -217,6 +222,16 @@ function compactTime(value: string) {
     ? hour + ":" + String(minutesValue).padStart(2, "0") + suffix
     : hour + suffix;
 }
+
+function compactMinuteLabel(value: number) {
+  if (value >= DAY_END_MINUTE) return "12am";
+  return compactTime(timeFromMinutes(value));
+}
+
+const operationalHourOptions = Array.from(
+  { length: DAY_END_MINUTE / 30 + 1 },
+  (_, index) => index * 30,
+);
 
 function snapMinutes(value: number) {
   return Math.round(value / SNAP_MINUTES) * SNAP_MINUTES;
@@ -329,7 +344,7 @@ async function readRosterWeek(weekStart: string) {
   return body;
 }
 
-export function StaffRosterCalendarPage() {
+export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
   const [anchorDate, setAnchorDate] = useState(todayValue);
   const [mobileDay, setMobileDay] = useState(todayValue);
   const [view, setView] = useState<RosterView>("week");
@@ -353,6 +368,25 @@ export function StaffRosterCalendarPage() {
     startTime: string;
     endTime: string;
   } | null>(null);
+  const [operationalHoursOpen, setOperationalHoursOpen] = useState(false);
+  const [operationalStartDraft, setOperationalStartDraft] = useState(0);
+  const [operationalEndDraft, setOperationalEndDraft] = useState(DAY_END_MINUTE);
+  const [draggingPayload, setDraggingPayload] = useState<
+    | { kind: "member"; memberId: string }
+    | { kind: "shift"; shiftId: string }
+    | null
+  >(null);
+  const [dropPreview, setDropPreview] = useState<{
+    date: string;
+    minute: number;
+  } | null>(null);
+  const [weekBoardHeight, setWeekBoardHeight] = useState(540);
+  const weekBoardRef = useRef<HTMLDivElement>(null);
+  const draggingPayloadRef = useRef<
+    | { kind: "member"; memberId: string }
+    | { kind: "shift"; shiftId: string }
+    | null
+  >(null);
   const [form, setForm] = useState<ShiftForm>({
     shiftId: null,
     memberId: "",
@@ -427,6 +461,47 @@ export function StaffRosterCalendarPage() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [anchorDate, refresh, view]);
+
+  useEffect(() => {
+    if (!data?.setup) return;
+    setOperationalStartDraft(data.setup.operationalStartMinute);
+    setOperationalEndDraft(data.setup.operationalEndMinute);
+  }, [
+    data?.setup?.operationalEndMinute,
+    data?.setup?.operationalStartMinute,
+  ]);
+
+  useEffect(() => {
+    if (view !== "week" || !data) return;
+
+    let frame = 0;
+    const measure = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const board = weekBoardRef.current;
+        if (!board) return;
+        const top = board.getBoundingClientRect().top;
+        const available = Math.floor(window.innerHeight - top - 18);
+        setWeekBoardHeight(Math.max(430, available));
+      });
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(measure);
+    if (observer && weekBoardRef.current) {
+      observer.observe(weekBoardRef.current.parentElement ?? weekBoardRef.current);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+    };
+  }, [data, view]);
 
   const roleById = useMemo(
     () => new Map(data?.roles.map((role) => [role.id, role.name]) ?? []),
@@ -943,48 +1018,152 @@ export function StaffRosterCalendarPage() {
     }
   }
 
+  async function saveOperationalHours() {
+    if (
+      busy ||
+      !data?.canManageRoster ||
+      operationalEndDraft <= operationalStartDraft
+    ) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/staff-roster/settings", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          startMinute: operationalStartDraft,
+          endMinute: operationalEndDraft,
+        }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | {
+            error?: string;
+            operationalStartMinute?: number;
+            operationalEndMinute?: number;
+          }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          body?.error ?? "Operational hours could not be saved.",
+        );
+      }
+
+      setOperationalHoursOpen(false);
+      await refresh(anchorDate, view);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Operational hours could not be saved.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function setDragPayload(
     event: DragEvent<HTMLElement>,
     payload: { kind: "member"; memberId: string } | { kind: "shift"; shiftId: string },
   ) {
     const serialized = JSON.stringify(payload);
-    event.dataTransfer.effectAllowed = payload.kind === "member" ? "copy" : "move";
+    event.dataTransfer.effectAllowed =
+      payload.kind === "member" ? "copy" : "move";
     event.dataTransfer.setData(DND_TYPE, serialized);
     event.dataTransfer.setData("text/plain", serialized);
+    draggingPayloadRef.current = payload;
+    setDraggingPayload(payload);
+  }
+
+  function clearDragState() {
+    draggingPayloadRef.current = null;
+    setDraggingPayload(null);
+    setDropPreview(null);
+  }
+
+  function minuteAtTimelinePointer(
+    event: DragEvent<HTMLDivElement>,
+  ) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const minutesPerPixel = 60 / hourHeight;
+    const rawMinutes =
+      visibleStartMinute +
+      (event.clientY - bounds.top) * minutesPerPixel;
+
+    return Math.max(
+      visibleStartMinute,
+      Math.min(
+        visibleEndMinute - SNAP_MINUTES,
+        snapMinutes(rawMinutes),
+      ),
+    );
+  }
+
+  function handleTimelineDragOver(
+    event: DragEvent<HTMLDivElement>,
+    date: string,
+  ) {
+    const activeDrag = draggingPayloadRef.current ?? draggingPayload;
+    if (!data?.canManageRoster || busy || !activeDrag) return;
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect =
+      activeDrag.kind === "member" ? "copy" : "move";
+
+    const minute = minuteAtTimelinePointer(event);
+    setDropPreview((current) =>
+      current?.date === date && current.minute === minute
+        ? current
+        : { date, minute },
+    );
   }
 
   function handleTimelineDrop(event: DragEvent<HTMLDivElement>, date: string) {
     event.preventDefault();
-    if (!data?.canManageRoster || busy) return;
+    if (!data?.canManageRoster || busy) {
+      clearDragState();
+      return;
+    }
 
     const raw =
       event.dataTransfer.getData(DND_TYPE) ||
       event.dataTransfer.getData("text/plain");
-    if (!raw) return;
 
-    let payload:
-      | { kind: "member"; memberId: string }
-      | { kind: "shift"; shiftId: string };
-    try {
-      payload = JSON.parse(raw) as typeof payload;
-    } catch {
+    let payload = draggingPayloadRef.current ?? draggingPayload;
+    if (raw) {
+      try {
+        payload = JSON.parse(raw) as
+          | { kind: "member"; memberId: string }
+          | { kind: "shift"; shiftId: string };
+      } catch {
+        // Use the in-memory drag payload as a browser-safe fallback.
+      }
+    }
+
+    if (!payload) {
+      clearDragState();
       return;
     }
 
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const minutesPerPixel = 60 / HOUR_HEIGHT;
-    const rawMinutes =
-      DAY_START_MINUTE + (event.clientY - bounds.top) * minutesPerPixel;
-    const startMinute = Math.max(
-      DAY_START_MINUTE,
-      Math.min(DAY_END_MINUTE - SNAP_MINUTES, snapMinutes(rawMinutes)),
-    );
+    const startMinute = minuteAtTimelinePointer(event);
+    clearDragState();
 
     if (payload.kind === "member") {
-      const endMinute = Math.min(
+      const latestEnd = Math.min(
+        visibleEndMinute,
         23 * 60 + 45,
-        startMinute + DEFAULT_SHIFT_MINUTES,
       );
+      const endMinute = Math.min(
+        latestEnd,
+        startMinute + DROP_SHIFT_MINUTES,
+      );
+
+      if (endMinute <= startMinute) return;
+
       void createShiftFromDrop(
         payload.memberId,
         date,
@@ -996,12 +1175,18 @@ export function StaffRosterCalendarPage() {
 
     const shift = data.shifts.find((item) => item.id === payload.shiftId);
     if (!shift) return;
+
     const duration = shiftDuration(shift);
+    const latestEnd = Math.min(
+      visibleEndMinute,
+      23 * 60 + 45,
+    );
     const latestStart = Math.max(
-      DAY_START_MINUTE,
-      23 * 60 + 45 - duration,
+      visibleStartMinute,
+      latestEnd - duration,
     );
     const adjustedStart = Math.min(startMinute, latestStart);
+
     void moveShift(
       shift,
       date,
@@ -1030,19 +1215,19 @@ export function StaffRosterCalendarPage() {
 
     const onMove = (moveEvent: PointerEvent) => {
       const deltaMinutes = snapMinutes(
-        (moveEvent.clientY - originY) * (60 / HOUR_HEIGHT),
+        (moveEvent.clientY - originY) * (60 / hourHeight),
       );
 
       if (edge === "start") {
         finalStart = Math.max(
-          DAY_START_MINUTE,
+          visibleStartMinute,
           Math.min(originEnd - SNAP_MINUTES, originStart + deltaMinutes),
         );
         finalEnd = originEnd;
       } else {
         finalStart = originStart;
         finalEnd = Math.min(
-          23 * 60 + 45,
+          Math.min(visibleEndMinute, 23 * 60 + 45),
           Math.max(originStart + SNAP_MINUTES, originEnd + deltaMinutes),
         );
       }
@@ -1117,15 +1302,98 @@ export function StaffRosterCalendarPage() {
   const selectedMobileLeave = filteredLeave.filter((leave) =>
     leaveAppliesToDay(leave, selectedMobileDay),
   );
-  const timelineHeight =
-    ((DAY_END_MINUTE - DAY_START_MINUTE) / 60) * HOUR_HEIGHT;
-  const hourMarks = Array.from(
-    { length: (DAY_END_MINUTE - DAY_START_MINUTE) / 60 + 1 },
-    (_, index) => DAY_START_MINUTE / 60 + index,
+  const visibleStartMinute =
+    data?.setup?.operationalStartMinute ?? DAY_START_MINUTE;
+  const visibleEndMinute =
+    data?.setup?.operationalEndMinute ?? DAY_END_MINUTE;
+  const visibleDurationHours =
+    (visibleEndMinute - visibleStartMinute) / 60;
+  const availableTimelineHeight = Math.max(
+    1,
+    weekBoardHeight - DAY_HEADER_HEIGHT,
   );
+  const hourHeight = Math.max(
+    MIN_HOUR_HEIGHT,
+    availableTimelineHeight / visibleDurationHours,
+  );
+  const timelineHeight = visibleDurationHours * hourHeight;
+  const firstHour = Math.ceil(visibleStartMinute / 60);
+  const lastHour = Math.floor(visibleEndMinute / 60);
+  const hourMarks = [
+    ...new Set([
+      visibleStartMinute,
+      ...Array.from(
+        { length: Math.max(0, lastHour - firstHour + 1) },
+        (_, index) => (firstHour + index) * 60,
+      ),
+      visibleEndMinute,
+    ]),
+  ].sort((a, b) => a - b);
+  const operationalHoursLabel =
+    visibleStartMinute === DAY_START_MINUTE &&
+    visibleEndMinute === DAY_END_MINUTE
+      ? "24 hours"
+      : compactMinuteLabel(visibleStartMinute) +
+        "–" +
+        compactMinuteLabel(visibleEndMinute);
 
   return (
     <>
+      {header ? (
+        <div className="mb-2 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0 shrink-0">{header}</div>
+          {data?.canManageRoster ? (
+            <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:ml-4 xl:max-w-[760px]">
+              <CovieSelect
+                aria-label="Filter roster by staff"
+                value={staffFilter}
+                onChange={(event) => setStaffFilter(event.target.value)}
+              >
+                <option value="">All staff</option>
+                {data.members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.displayName}
+                  </option>
+                ))}
+              </CovieSelect>
+              <CovieSelect
+                aria-label="Filter roster by role"
+                value={roleFilter}
+                onChange={(event) => setRoleFilter(event.target.value)}
+              >
+                <option value="">All roles</option>
+                {data.roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </CovieSelect>
+              <CovieSelect
+                aria-label="Filter roster by location"
+                value={locationFilter}
+                onChange={(event) => setLocationFilter(event.target.value)}
+              >
+                <option value="">All locations</option>
+                {data.locations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </CovieSelect>
+              <CovieButton
+                tone="neutral"
+                disabled={busy}
+                onClick={() => setOperationalHoursOpen(true)}
+                className="justify-center whitespace-nowrap"
+              >
+                <Clock3 className="h-4 w-4" aria-hidden="true" />
+                Hours: {operationalHoursLabel}
+              </CovieButton>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {error ? (
         <CovieNotice tone="danger" role="alert" className="mb-4">
           {error}
@@ -1220,47 +1488,6 @@ export function StaffRosterCalendarPage() {
                 </div>
               ) : null}
             </div>
-
-            {data.canManageRoster ? (
-              <div className="mt-2 grid gap-2 border-t border-[#EFE5DA] pt-2 sm:grid-cols-3">
-                <CovieSelect
-                  aria-label="Filter roster by staff"
-                  value={staffFilter}
-                  onChange={(event) => setStaffFilter(event.target.value)}
-                >
-                  <option value="">All staff</option>
-                  {data.members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.displayName}
-                    </option>
-                  ))}
-                </CovieSelect>
-                <CovieSelect
-                  aria-label="Filter roster by role"
-                  value={roleFilter}
-                  onChange={(event) => setRoleFilter(event.target.value)}
-                >
-                  <option value="">All roles</option>
-                  {data.roles.map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {role.name}
-                    </option>
-                  ))}
-                </CovieSelect>
-                <CovieSelect
-                  aria-label="Filter roster by location"
-                  value={locationFilter}
-                  onChange={(event) => setLocationFilter(event.target.value)}
-                >
-                  <option value="">All locations</option>
-                  {data.locations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.name}
-                    </option>
-                  ))}
-                </CovieSelect>
-              </div>
-            ) : null}
 
             {view === "week" ? (
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[#EFE5DA] pt-2 text-xs font-bold text-[#66747A]">
@@ -1430,8 +1657,12 @@ export function StaffRosterCalendarPage() {
             </div>
           ) : (
             <>
-              <div className="hidden overflow-hidden rounded-2xl border border-[#E6DBCF] bg-white md:grid md:grid-cols-[190px_minmax(0,1fr)]">
-                <aside className="border-r border-[#E6DBCF] bg-[#FFF9F2]">
+              <div
+                ref={weekBoardRef}
+                className="hidden overflow-hidden rounded-2xl border border-[#E6DBCF] bg-white md:grid md:grid-cols-[190px_minmax(0,1fr)]"
+                style={{ height: weekBoardHeight }}
+              >
+                <aside className="min-h-0 overflow-y-auto border-r border-[#E6DBCF] bg-[#FFF9F2]">
                   <div className="flex min-h-[54px] items-center justify-between border-b border-[#E6DBCF] px-3">
                     <span className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#66747A]">
                       Staff
@@ -1464,6 +1695,7 @@ export function StaffRosterCalendarPage() {
                               memberId: member.id,
                             })
                           }
+                          onDragEnd={clearDragState}
                           onClick={() =>
                             data.canManageRoster
                               ? openCreate(member.id, selectedMobileDay)
@@ -1516,7 +1748,7 @@ export function StaffRosterCalendarPage() {
                   ) : null}
                 </aside>
 
-                <div className="min-w-0 overflow-x-auto">
+                <div className="min-h-0 min-w-0 overflow-auto">
                   <div className="min-w-[900px]">
                     <div className="grid grid-cols-[48px_repeat(7,minmax(118px,1fr))] border-b border-[#E6DBCF] bg-[#FFF9F2]">
                       <div aria-hidden="true" />
@@ -1576,17 +1808,19 @@ export function StaffRosterCalendarPage() {
                       style={{ height: timelineHeight }}
                     >
                       <div className="relative bg-[#FFF9F2]">
-                        {hourMarks.map((hour, index) => (
+                        {hourMarks.map((minute) => (
                           <span
-                            key={hour}
+                            key={minute}
                             className="absolute right-2 -translate-y-1/2 text-[10px] font-bold text-[#8B7D70]"
-                            style={{ top: index * HOUR_HEIGHT }}
+                            style={{
+                              top:
+                                ((minute - visibleStartMinute) / 60) *
+                                hourHeight,
+                            }}
                           >
-                            {hour === 24
+                            {minute === DAY_END_MINUTE
                               ? ""
-                              : compactTime(
-                                  String(hour).padStart(2, "0") + ":00",
-                                )}
+                              : compactMinuteLabel(minute)}
                           </span>
                         ))}
                       </div>
@@ -1600,32 +1834,83 @@ export function StaffRosterCalendarPage() {
                         return (
                           <div
                             key={day}
-                            className="relative border-l border-[#E6DBCF] bg-white"
-                            onDragOver={(event) => {
-                              if (data.canManageRoster) {
-                                event.preventDefault();
-                                event.dataTransfer.dropEffect = "move";
+                            className={
+                              "relative border-l border-[#E6DBCF] transition-colors " +
+                              (dropPreview?.date === day
+                                ? "bg-[#F0FBF8]"
+                                : "bg-white")
+                            }
+                            onDragEnter={(event) =>
+                              handleTimelineDragOver(event, day)
+                            }
+                            onDragOver={(event) =>
+                              handleTimelineDragOver(event, day)
+                            }
+                            onDragLeave={(event) => {
+                              if (
+                                !event.currentTarget.contains(
+                                  event.relatedTarget as Node | null,
+                                )
+                              ) {
+                                setDropPreview((current) =>
+                                  current?.date === day ? null : current,
+                                );
                               }
                             }}
                             onDrop={(event) => handleTimelineDrop(event, day)}
                           >
-                            {hourMarks.map((hour, index) => (
+                            {hourMarks.map((minute) => (
                               <span
-                                key={hour}
+                                key={minute}
                                 className="pointer-events-none absolute inset-x-0 border-t border-[#EFE8E0]"
-                                style={{ top: index * HOUR_HEIGHT }}
+                                style={{
+                                  top:
+                                    ((minute - visibleStartMinute) / 60) *
+                                    hourHeight,
+                                }}
                                 aria-hidden="true"
                               />
                             ))}
 
+                            {dropPreview?.date === day ? (
+                              <div
+                                className="pointer-events-none absolute inset-x-0 z-30 border-t-2 border-[#19A897]"
+                                style={{
+                                  top:
+                                    ((dropPreview.minute -
+                                      visibleStartMinute) /
+                                      60) *
+                                    hourHeight,
+                                }}
+                              >
+                                <span className="absolute left-1 top-0 -translate-y-1/2 rounded-md bg-[#19A897] px-1.5 py-0.5 text-[10px] font-extrabold text-[#243139] shadow-sm">
+                                  {compactMinuteLabel(dropPreview.minute)}
+                                </span>
+                              </div>
+                            ) : null}
+
                             {positioned.map(({ shift, lane, laneCount }) => {
                               const start = minutesFromTime(shift.startTime);
                               const end = minutesFromTime(shift.endTime);
+                              const visibleShiftStart = Math.max(
+                                start,
+                                visibleStartMinute,
+                              );
+                              const visibleShiftEnd = Math.min(
+                                end,
+                                visibleEndMinute,
+                              );
+                              if (visibleShiftEnd <= visibleShiftStart) {
+                                return null;
+                              }
+
                               const top =
-                                ((start - DAY_START_MINUTE) / 60) * HOUR_HEIGHT;
+                                ((visibleShiftStart - visibleStartMinute) / 60) *
+                                hourHeight;
                               const height = Math.max(
-                                38,
-                                ((end - start) / 60) * HOUR_HEIGHT,
+                                32,
+                                ((visibleShiftEnd - visibleShiftStart) / 60) *
+                                  hourHeight,
                               );
                               const leftPercent = (lane / laneCount) * 100;
                               const widthPercent = 100 / laneCount;
@@ -1634,12 +1919,21 @@ export function StaffRosterCalendarPage() {
                                 <div
                                   key={shift.id}
                                   draggable={data.canManageRoster}
-                                  onDragStart={(event) =>
+                                  onDragStart={(event) => {
+                                    if (
+                                      (event.target as HTMLElement).closest(
+                                        "[data-resize-handle]",
+                                      )
+                                    ) {
+                                      event.preventDefault();
+                                      return;
+                                    }
                                     setDragPayload(event, {
                                       kind: "shift",
                                       shiftId: shift.id,
-                                    })
-                                  }
+                                    });
+                                  }}
+                                  onDragEnd={clearDragState}
                                   className="absolute z-10 overflow-hidden rounded-[10px] border border-[#8BDDD0] bg-[#EAF8F5] shadow-sm"
                                   style={{
                                     top: top + 2,
@@ -1659,7 +1953,8 @@ export function StaffRosterCalendarPage() {
                                       onPointerDown={(event) =>
                                         beginResize(event, shift, "start")
                                       }
-                                      className="absolute inset-x-0 top-0 z-20 h-3 cursor-ns-resize bg-transparent"
+                                      data-resize-handle="true"
+                                      className="absolute inset-x-0 top-0 z-20 h-3 cursor-ns-resize bg-[#19A897]/10 hover:bg-[#19A897]/30"
                                       aria-hidden="true"
                                     />
                                   ) : null}
@@ -1700,7 +1995,8 @@ export function StaffRosterCalendarPage() {
                                       onPointerDown={(event) =>
                                         beginResize(event, shift, "end")
                                       }
-                                      className="absolute inset-x-0 bottom-0 z-20 h-3 cursor-ns-resize bg-transparent"
+                                      data-resize-handle="true"
+                                      className="absolute inset-x-0 bottom-0 z-20 h-3 cursor-ns-resize bg-[#19A897]/10 hover:bg-[#19A897]/30"
                                       aria-hidden="true"
                                     />
                                   ) : null}
@@ -1841,6 +2137,88 @@ export function StaffRosterCalendarPage() {
             </>
           )}
         </>
+      ) : null}
+
+      {operationalHoursOpen && data?.canManageRoster ? (
+        <CovieDialog
+          id="staff-operational-hours-title"
+          title="Operational hours"
+          description="Choose the hours managers normally need to see. The roster still supports the full 24-hour day."
+          icon={<Clock3 aria-hidden="true" />}
+          iconTone="teal"
+          size="sm"
+          busy={busy}
+          onClose={() => setOperationalHoursOpen(false)}
+          footer={
+            <>
+              <CovieButton
+                tone="neutral"
+                disabled={busy}
+                onClick={() => setOperationalHoursOpen(false)}
+              >
+                Cancel
+              </CovieButton>
+              <CovieButton
+                disabled={
+                  busy ||
+                  operationalEndDraft <= operationalStartDraft
+                }
+                onClick={() => void saveOperationalHours()}
+              >
+                {busy ? "Saving…" : "Save hours"}
+              </CovieButton>
+            </>
+          }
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label>
+              <span className="mb-1.5 block text-sm font-bold text-[#243139]">
+                Opens
+              </span>
+              <CovieSelect
+                value={String(operationalStartDraft)}
+                disabled={busy}
+                onChange={(event) =>
+                  setOperationalStartDraft(Number(event.target.value))
+                }
+              >
+                {operationalHourOptions
+                  .filter((minute) => minute < DAY_END_MINUTE)
+                  .map((minute) => (
+                    <option key={minute} value={minute}>
+                      {compactMinuteLabel(minute)}
+                    </option>
+                  ))}
+              </CovieSelect>
+            </label>
+            <label>
+              <span className="mb-1.5 block text-sm font-bold text-[#243139]">
+                Closes
+              </span>
+              <CovieSelect
+                value={String(operationalEndDraft)}
+                disabled={busy}
+                onChange={(event) =>
+                  setOperationalEndDraft(Number(event.target.value))
+                }
+              >
+                {operationalHourOptions
+                  .filter((minute) => minute > 0)
+                  .map((minute) => (
+                    <option key={minute} value={minute}>
+                      {minute === DAY_END_MINUTE
+                        ? "12am (next day)"
+                        : compactMinuteLabel(minute)}
+                    </option>
+                  ))}
+              </CovieSelect>
+            </label>
+          </div>
+          <CovieNotice tone="teal" className="mt-4">
+            Operational hours only crop the weekly view. Shift data remains on
+            a full 24-hour clock.
+          </CovieNotice>
+        </CovieDialog>
       ) : null}
 
       {dialogOpen && data ? (

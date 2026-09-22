@@ -1190,6 +1190,8 @@ export async function getRosterSetup(session: StaffSession) {
       locationCount: 0,
       memberCount: 0,
       setupCompletedAt: null,
+      operationalStartMinute: 0,
+      operationalEndMinute: 24 * 60,
     };
   }
 
@@ -1225,7 +1227,11 @@ export async function getRosterSetup(session: StaffSession) {
           ),
         ),
       db
-        .select({ setupCompletedAt: staffRosterSettings.setupCompletedAt })
+        .select({
+          setupCompletedAt: staffRosterSettings.setupCompletedAt,
+          operationalStartMinute: staffRosterSettings.operationalStartMinute,
+          operationalEndMinute: staffRosterSettings.operationalEndMinute,
+        })
         .from(staffRosterSettings)
         .where(eq(staffRosterSettings.calendarId, session.calendarId))
         .limit(1),
@@ -1238,6 +1244,8 @@ export async function getRosterSetup(session: StaffSession) {
     locationCount: Number(locationCountRows[0]?.count ?? 0),
     memberCount: Number(memberCountRows[0]?.count ?? 0),
     setupCompletedAt: settingsRows[0]?.setupCompletedAt ?? null,
+    operationalStartMinute: settingsRows[0]?.operationalStartMinute ?? 0,
+    operationalEndMinute: settingsRows[0]?.operationalEndMinute ?? 24 * 60,
   };
 }
 
@@ -1285,6 +1293,98 @@ export async function completeRosterSetup(session: StaffSession) {
   }
 
   return { ok: true as const };
+}
+
+export async function updateRosterOperationalHours(input: {
+  session: StaffSession;
+  startMinute: number;
+  endMinute: number;
+}) {
+  const current = await ensureStaffRosterMember(input.session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: current.accessRole,
+    permission: input.session.permission,
+  });
+
+  if (!capabilities.createShifts) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
+  const beforeRows = await getDb()
+    .select({
+      operationalStartMinute: staffRosterSettings.operationalStartMinute,
+      operationalEndMinute: staffRosterSettings.operationalEndMinute,
+    })
+    .from(staffRosterSettings)
+    .where(eq(staffRosterSettings.calendarId, input.session.calendarId))
+    .limit(1);
+
+  const before = {
+    startMinute: beforeRows[0]?.operationalStartMinute ?? 0,
+    endMinute: beforeRows[0]?.operationalEndMinute ?? 24 * 60,
+  };
+
+  const sql = getSql();
+  try {
+    await sql.transaction([
+      sql`
+        INSERT INTO staff_roster_settings (
+          calendar_id,
+          operational_start_minute,
+          operational_end_minute,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          ${input.session.calendarId},
+          ${input.startMinute},
+          ${input.endMinute},
+          now(),
+          now()
+        )
+        ON CONFLICT (calendar_id)
+        DO UPDATE SET
+          operational_start_minute = EXCLUDED.operational_start_minute,
+          operational_end_minute = EXCLUDED.operational_end_minute,
+          updated_at = now()
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id,
+          actor_participant_id,
+          action,
+          entity_type,
+          entity_id,
+          before_state,
+          after_state
+        )
+        VALUES (
+          ${input.session.calendarId},
+          NULL,
+          'staff_roster.operational_hours.update',
+          'staff_roster_settings',
+          ${input.session.calendarId},
+          ${JSON.stringify(before)}::jsonb,
+          ${JSON.stringify({
+            startMinute: input.startMinute,
+            endMinute: input.endMinute,
+            actorStaffMemberId: current.id,
+          })}::jsonb
+        )
+      `,
+    ]);
+  } catch {
+    throw new StaffRosterServiceError(
+      409,
+      "Operational hours could not be saved.",
+    );
+  }
+
+  return {
+    ok: true as const,
+    operationalStartMinute: input.startMinute,
+    operationalEndMinute: input.endMinute,
+  };
 }
 
 async function assertActiveRosterMember(calendarId: string, memberId: string) {

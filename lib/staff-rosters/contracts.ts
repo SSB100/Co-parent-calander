@@ -145,3 +145,24 @@ export const copyStaffRosterWeekSchema = z.object({
 export const staffRosterPublicationSchema = z.object({
   weekStart: z.iso.date(),
 });
+
+export const staffRosterOperationalHoursSchema = z
+  .object({
+    startMinute: z.number().int().min(0).max(23 * 60 + 45),
+    endMinute: z.number().int().min(15).max(24 * 60),
+  })
+  .superRefine((value, context) => {
+    if (value.startMinute % 15 !== 0 || value.endMinute % 15 !== 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Operational hours must use 15-minute increments.",
+      });
+    }
+    if (value.endMinute <= value.startMinute) {
+      context.addIssue({
+        code: "custom",
+        path: ["endMinute"],
+        message: "Operational end time must be after the start time.",
+      });
+    }
+  });

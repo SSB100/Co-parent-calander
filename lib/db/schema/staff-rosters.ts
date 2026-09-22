@@ -177,14 +177,31 @@ export const staffRosterAvailability = pgTable(
 );
 
 
-export const staffRosterSettings = pgTable("staff_roster_settings", {
-  calendarId: uuid("calendar_id")
-    .primaryKey()
-    .references(() => calendars.id, { onDelete: "cascade" }),
-  setupCompletedAt: timestamp("setup_completed_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const staffRosterSettings = pgTable(
+  "staff_roster_settings",
+  {
+    calendarId: uuid("calendar_id")
+      .primaryKey()
+      .references(() => calendars.id, { onDelete: "cascade" }),
+    setupCompletedAt: timestamp("setup_completed_at", { withTimezone: true }),
+    operationalStartMinute: integer("operational_start_minute")
+      .notNull()
+      .default(0),
+    operationalEndMinute: integer("operational_end_minute")
+      .notNull()
+      .default(24 * 60),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    check(
+      "staff_roster_settings_operational_hours_valid",
+      sql`${table.operationalStartMinute} >= 0
+        AND ${table.operationalEndMinute} <= 1440
+        AND ${table.operationalEndMinute} > ${table.operationalStartMinute}`,
+    ),
+  ],
+);
 
 export const staffRosterShifts = pgTable(
   "staff_roster_shifts",
