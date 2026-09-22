@@ -1580,36 +1580,35 @@ export async function publishRosterWeek(input: {
         ),
         changed AS (
           SELECT
-            COALESCE(live.member_id, previous.member_id) AS member_id,
-            COALESCE(live.shift_date, previous.shift_date) AS shift_date,
+            live.member_id,
+            live.shift_date,
             CASE
-              WHEN previous.source_shift_id IS NULL THEN 'shift_added'
-              WHEN live.id IS NULL THEN 'shift_removed'
+              WHEN previous.source_shift_id IS NULL
+                OR live.member_id IS DISTINCT FROM previous.member_id
+              THEN 'shift_added'
               ELSE 'shift_changed'
             END AS kind,
             CASE
-              WHEN previous.source_shift_id IS NULL THEN NULL
+              WHEN previous.source_shift_id IS NULL
+                OR live.member_id IS DISTINCT FROM previous.member_id
+              THEN NULL
               ELSE CONCAT(
                 previous.shift_date::text, ' ',
                 LEFT(previous.start_time::text, 5), '–',
                 LEFT(previous.end_time::text, 5)
               )
             END AS before_summary,
-            CASE
-              WHEN live.id IS NULL THEN NULL
-              ELSE CONCAT(
-                live.shift_date::text, ' ',
-                LEFT(live.start_time::text, 5), '–',
-                LEFT(live.end_time::text, 5)
-              )
-            END AS after_summary
+            CONCAT(
+              live.shift_date::text, ' ',
+              LEFT(live.start_time::text, 5), '–',
+              LEFT(live.end_time::text, 5)
+            ) AS after_summary
           FROM live
-          FULL OUTER JOIN previous
+          LEFT JOIN previous
             ON previous.source_shift_id = live.id
           WHERE ${action} = 'send_updates'
             AND (
               previous.source_shift_id IS NULL
-              OR live.id IS NULL
               OR live.member_id IS DISTINCT FROM previous.member_id
               OR live.shift_date IS DISTINCT FROM previous.shift_date
               OR live.start_time IS DISTINCT FROM previous.start_time
@@ -1618,6 +1617,27 @@ export async function publishRosterWeek(input: {
               OR live.location_id IS DISTINCT FROM previous.location_id
               OR live.note IS DISTINCT FROM previous.note
               OR live.availability_override IS DISTINCT FROM previous.availability_override
+            )
+
+          UNION ALL
+
+          SELECT
+            previous.member_id,
+            previous.shift_date,
+            'shift_removed' AS kind,
+            CONCAT(
+              previous.shift_date::text, ' ',
+              LEFT(previous.start_time::text, 5), '–',
+              LEFT(previous.end_time::text, 5)
+            ) AS before_summary,
+            NULL AS after_summary
+          FROM previous
+          LEFT JOIN live
+            ON live.id = previous.source_shift_id
+          WHERE ${action} = 'send_updates'
+            AND (
+              live.id IS NULL
+              OR live.member_id IS DISTINCT FROM previous.member_id
             )
         )
         INSERT INTO staff_roster_updates (
