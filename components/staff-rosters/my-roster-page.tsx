@@ -188,7 +188,12 @@ export function StaffMyRosterPage() {
     const payloads = await Promise.all(monthWeeks(date).map(loadWeek));
     const first = payloads[0];
     const last = payloads[payloads.length - 1];
-    if (!first || !last) throw new Error("Your roster could not be loaded.");
+    const anchorPayload =
+      payloads.find((payload) => payload.weekStart === weekStartFor(date)) ??
+      first;
+    if (!first || !last || !anchorPayload) {
+      throw new Error("Your roster could not be loaded.");
+    }
 
     const shifts = new Map<string, Shift>();
     for (const payload of payloads) {
@@ -196,7 +201,7 @@ export function StaffMyRosterPage() {
     }
 
     setData({
-      ...first,
+      ...anchorPayload,
       weekStart: first.weekStart,
       weekEnd: last.weekEnd,
       shifts: [...shifts.values()].sort((a, b) =>
