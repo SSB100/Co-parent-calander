@@ -169,6 +169,7 @@ test("Staff team records support multiple reusable roles with one usual role", a
   assert.match(team, /toggleRole/);
   assert.match(team, /Usual role for new shifts/);
   assert.match(team, /member\.roleNames\.join/);
+  assert.match(team, /type="checkbox"/);
   assert.match(schema, /staffRosterMemberRoles/);
 });
 
@@ -226,12 +227,20 @@ test("Staff gets a materially separate personal workspace and manager routes sta
 });
 
 test("Staff self-service attendance, corrections and leave stay bounded", async () => {
-  const [capabilities, workforce, clockRoute, correctionRoute, leaveRoute, schema] =
-    await Promise.all([
+  const [
+    capabilities,
+    workforce,
+    clockRoute,
+    correctionRoute,
+    timesheetRoute,
+    leaveRoute,
+    schema,
+  ] = await Promise.all([
       source("lib/staff-rosters/capabilities.ts"),
       source("lib/staff-rosters/workforce-service.ts"),
       source("app/api/staff-roster/clock/route.ts"),
       source("app/api/staff-roster/timesheet-corrections/route.ts"),
+      source("app/api/staff-roster/timesheet/route.ts"),
       source("app/api/staff-roster/leave/route.ts"),
       source("lib/db/schema/staff-rosters.ts"),
     ]);
@@ -246,15 +255,33 @@ test("Staff self-service attendance, corrections and leave stay bounded", async 
   assert.match(workforce, /staff_roster\.clock\.out/);
   assert.match(workforce, /staff_roster\.timesheet_correction\.request/);
   assert.match(workforce, /staff_roster\.timesheet_correction\.review/);
+  assert.match(workforce, /staff_roster\.timesheet\.manager_correct/);
+  assert.match(workforce, /export async function correctTimesheetSession/);
   assert.match(workforce, /staff_roster\.leave\.request/);
   assert.match(workforce, /staff_roster\.leave\.review/);
   assert.match(clockRoute, /isSameOriginMutation/);
   assert.match(correctionRoute, /isSameOriginMutation/);
+  assert.match(timesheetRoute, /correctTimesheetSession/);
+  assert.match(timesheetRoute, /isSameOriginMutation/);
   assert.match(leaveRoute, /isSameOriginMutation/);
   assert.match(schema, /staff_roster_clock_sessions_member_active_unique/);
   assert.match(schema, /staffRosterTimesheetCorrections/);
   assert.match(schema, /staffRosterLeaveRequests/);
 });
+
+test("manager timesheets expose audited direct fixes while Staff stays request-only", async () => {
+  const [timesheets, contracts] = await Promise.all([
+    source("components/staff-rosters/timesheets-page.tsx"),
+    source("lib/staff-rosters/workforce-contracts.ts"),
+  ]);
+
+  assert.match(timesheets, /Fix time/);
+  assert.match(timesheets, /Save corrected time/);
+  assert.match(timesheets, /Request correction/);
+  assert.match(timesheets, /method: "PATCH"/);
+  assert.match(contracts, /staffTimesheetManagerCorrectionSchema/);
+});
+
 
 test("approved leave blocks rostering while pending leave is an explicit warning", async () => {
   const service = await source("lib/staff-rosters/service.ts");
