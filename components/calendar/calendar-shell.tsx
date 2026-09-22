@@ -226,8 +226,18 @@ type TileEvent = {
 };
 
 function TileEventStack({ events }: { events: TileEvent[] }) {
-  const visibleEvents = events.slice(0, 3);
+  const handover = events.find((event) => event.category === "handover") ?? null;
+  const regularEvents = events.filter((event) => event.category !== "handover");
+  const visibleEvents = handover
+    ? [...regularEvents.slice(0, 2), handover]
+    : regularEvents.slice(0, 3);
   const hiddenCount = Math.max(0, events.length - visibleEvents.length);
+  const overflowIndex =
+    hiddenCount > 0
+      ? handover && visibleEvents.length > 1
+        ? visibleEvents.length - 2
+        : visibleEvents.length - 1
+      : -1;
 
   if (visibleEvents.length === 0) return null;
 
@@ -244,7 +254,7 @@ function TileEventStack({ events }: { events: TileEvent[] }) {
             </span>
           ) : null}
           <span className="min-w-0 flex-1 truncate">{event.title}</span>
-          {index === visibleEvents.length - 1 && hiddenCount > 0 ? (
+          {index === overflowIndex ? (
             <span className="shrink-0">+{hiddenCount}</span>
           ) : null}
         </div>
