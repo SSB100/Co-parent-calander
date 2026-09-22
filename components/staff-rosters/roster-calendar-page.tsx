@@ -42,6 +42,7 @@ import {
   CovieInput,
   CovieNotice,
   CovieSelect,
+  CovieStatusBadge,
   CovieTextarea,
 } from "@/components/ui/covie";
 
@@ -84,6 +85,13 @@ type RosterPayload = {
     locationCount: number;
     memberCount: number;
     setupCompletedAt: string | null;
+  };
+  publication: {
+    status: "draft" | "published" | "changes_pending";
+    revision: number;
+    publishedAt: string | null;
+    lastSentAt: string | null;
+    affectedMemberCount: number;
   };
   members: Member[];
   roles: Option[];
@@ -308,6 +316,7 @@ export function StaffRosterCalendarPage() {
     tone: "teal" | "sunshine";
     text: string;
   } | null>(null);
+  const [publicationNotice, setPublicationNotice] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Shift | null>(null);
   const [resizePreview, setResizePreview] = useState<{
     shiftId: string;
@@ -626,6 +635,53 @@ export function StaffRosterCalendarPage() {
         caught instanceof Error
           ? caught.message
           : "The shift could not be deleted.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function publishCurrentWeek() {
+    if (busy || !data?.canManageRoster) return;
+
+    setBusy(true);
+    setError(null);
+    setPublicationNotice(null);
+
+    const isInitialPublish = data.publication.status === "draft";
+
+    try {
+      const response = await fetch("/api/staff-roster/publication", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ weekStart }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { action?: "publish" | "send_updates"; revision?: number; error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          body?.error ??
+            (isInitialPublish
+              ? "The roster could not be published."
+              : "The roster updates could not be sent."),
+        );
+      }
+
+      setPublicationNotice(
+        isInitialPublish
+          ? "Roster published. Staff can now see this week."
+          : "Roster updates published for affected staff.",
+      );
+      await refresh(anchorDate, view);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : isInitialPublish
+            ? "The roster could not be published."
+            : "The roster updates could not be sent.",
       );
     } finally {
       setBusy(false);
@@ -953,14 +1009,26 @@ export function StaffRosterCalendarPage() {
               {data.canManageRoster ? (
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {view === "week" ? (
-                    <CovieButton
-                      tone="neutral"
-                      disabled={busy}
-                      onClick={() => void copyPreviousWeek()}
-                    >
-                      <Copy className="h-4 w-4" aria-hidden="true" />
-                      Copy previous week
-                    </CovieButton>
+                    <>
+                      <CovieButton
+                        tone="neutral"
+                        disabled={busy}
+                        onClick={() => void copyPreviousWeek()}
+                      >
+                        <Copy className="h-4 w-4" aria-hidden="true" />
+                        Copy previous week
+                      </CovieButton>
+                      {data.publication.status !== "published" ? (
+                        <CovieButton
+                          disabled={busy}
+                          onClick={() => void publishCurrentWeek()}
+                        >
+                          {data.publication.status === "draft"
+                            ? "Publish roster"
+                            : "Send updates"}
+                        </CovieButton>
+                      ) : null}
+                    </>
                   ) : null}
                   <CovieButton
                     tone="neutral"
@@ -975,10 +1043,30 @@ export function StaffRosterCalendarPage() {
             </div>
 
             {view === "week" ? (
-              <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-[#EFE5DA] pt-3 text-xs font-bold text-[#66747A]">
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#EFE5DA] pt-3 text-xs font-bold text-[#66747A]">
+                <CovieStatusBadge
+                  tone={
+                    data.publication.status === "published"
+                      ? "teal"
+                      : data.publication.status === "changes_pending"
+                        ? "sunshine"
+                        : "neutral"
+                  }
+                >
+                  {data.publication.status === "published"
+                    ? "Published"
+                    : data.publication.status === "changes_pending"
+                      ? "Changes pending"
+                      : "Draft"}
+                </CovieStatusBadge>
                 <span>{data.members.length} team</span>
                 <span>{weekShifts.length} shifts</span>
                 <span>{hoursText(totalWeekMinutes)} rostered</span>
+                {data.publication.status === "changes_pending" ? (
+                  <span>
+                    {data.publication.affectedMemberCount} affected staff
+                  </span>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -986,6 +1074,12 @@ export function StaffRosterCalendarPage() {
           {copyNotice ? (
             <CovieNotice tone={copyNotice.tone} className="mb-4">
               {copyNotice.text}
+            </CovieNotice>
+          ) : null}
+
+          {publicationNotice ? (
+            <CovieNotice tone="teal" className="mb-4">
+              {publicationNotice}
             </CovieNotice>
           ) : null}
 
