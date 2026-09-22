@@ -295,7 +295,7 @@ export function CovieDialog({
   size?: "sm" | "md" | "lg";
   busy?: boolean;
   onClose: () => void;
-  children: ReactNode;
+  children?: ReactNode;
   footer?: ReactNode;
   bodyClassName?: string;
   dialogRef?: Ref<HTMLElement>;
@@ -344,9 +344,11 @@ export function CovieDialog({
           </button>
         </header>
 
-        <div className={classes("covie-dialog-body", bodyClassName)}>
-          {children}
-        </div>
+        {children ? (
+          <div className={classes("covie-dialog-body", bodyClassName)}>
+            {children}
+          </div>
+        ) : null}
 
         {footer ? <footer className="covie-dialog-footer">{footer}</footer> : null}
       </section>
@@ -411,10 +413,6 @@ export function CovieConfirmDialog({
           </button>
         </>
       }
-    >
-      <p className="text-sm leading-6 text-[#526168]">
-        This action cannot be undone once it has been applied.
-      </p>
-    </CovieDialog>
+    />
   );
 }
