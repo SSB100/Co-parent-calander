@@ -1,5 +1,8 @@
 # Staff Rosters Stage 2A — setup, roster builder and calendar lifecycle
 
+> Historical implementation record. This document describes the state when this stage was originally built. For the live Production baseline and current Staff Rosters capabilities, use [STAFF_ROSTERS_CURRENT_STATE.md](./STAFF_ROSTERS_CURRENT_STATE.md).
+
+
 This stage responds to the first real Staff Rosters testing feedback: team, roles, locations and availability existed, but there was no clear way to turn that setup into an actual working roster.
 
 ## Sources of truth
@@ -85,7 +88,7 @@ Migration `0024_calendar_lifecycle_staff_shifts.sql` adds:
 
 No co-parenting feature tables are altered.
 
-## Deferred Stage 2B / Stage 3 work
+## Originally deferred Stage 2B / Stage 3 work
 
 This slice deliberately does not invent unfinished interactions. The next Staff Rosters passes still need:
 
@@ -99,4 +102,4 @@ This slice deliberately does not invent unfinished interactions. The next Staff 
 - email/push roster notifications
 - richer activity presentation
 
-The current roster builder is intentionally useful with one-off shifts before those layers are added.
+The current roster builder was intentionally useful with one-off shifts before those layers were added. Most items in this historical deferred list have since been implemented; use `STAFF_ROSTERS_CURRENT_STATE.md` rather than this list to determine remaining work.
