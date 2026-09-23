@@ -1398,6 +1398,8 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
       visibleEndMinute,
     ]),
   ].sort((a, b) => a - b);
+  const hasRosterStaff =
+    data?.members.some((member) => member.accessRole !== "owner") ?? false;
   const operationalHoursLabel =
     visibleStartMinute === DAY_START_MINUTE &&
     visibleEndMinute === DAY_END_MINUTE
@@ -1411,7 +1413,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
       {header ? (
         <div className="mb-2 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0 shrink-0">{header}</div>
-          {data?.canManageRoster ? (
+          {data?.canManageRoster && hasRosterStaff ? (
             <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:ml-4 xl:max-w-[760px]">
               <CovieSelect
                 aria-label="Filter roster by staff"
@@ -1478,6 +1480,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
 
       {data ? (
         <>
+          {hasRosterStaff ? (
           <div className="mb-3 rounded-2xl border border-[#E6DBCF] bg-white p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <CovieSegmentedControl
@@ -1586,20 +1589,21 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
               </div>
             ) : null}
           </div>
+          ) : null}
 
-          {copyNotice ? (
+          {hasRosterStaff && copyNotice ? (
             <CovieNotice tone={copyNotice.tone} className="mb-4">
               {copyNotice.text}
             </CovieNotice>
           ) : null}
 
-          {publicationNotice ? (
+          {hasRosterStaff && publicationNotice ? (
             <CovieNotice tone={publicationNotice.tone} className="mb-4">
               {publicationNotice.text}
             </CovieNotice>
           ) : null}
 
-          {data.members.length === 0 ? (
+          {!hasRosterStaff ? (
             <CovieEmptyState
               icon={
                 <UserRound
@@ -1608,11 +1612,11 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                 />
               }
               title="Add your first staff member to start rostering"
-              description="Once someone is on the team, they can be dragged straight onto the weekly calendar."
+              description="Add a staff member with just their name. Roles, locations, availability and their Covie invite can all wait until later."
               action={
                 data.canManageRoster ? (
                   <Link
-                    href="/calendar-types/staff-rosters/organiser/team"
+                    href="/calendar-types/staff-rosters/organiser/team?add=1"
                     className="inline-flex min-h-11 items-center rounded-[10px] bg-[#FF6B5F] px-4 text-sm font-extrabold text-[#243139]"
                   >
                     Add staff member
@@ -1828,7 +1832,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                   {data.canManageRoster ? (
                     <div className="border-t border-[#E6DBCF] p-2">
                       <Link
-                        href="/calendar-types/staff-rosters/organiser/team"
+                        href="/calendar-types/staff-rosters/organiser/team?add=1"
                         className="flex min-h-11 w-full items-center justify-center rounded-[10px] border border-[#D8CEC3] bg-white px-3 text-sm font-extrabold text-[#243139] hover:bg-[#F7EFE5]"
                       >
                         <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
