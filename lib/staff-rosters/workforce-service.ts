@@ -12,6 +12,7 @@ import {
 } from "@/lib/db/schema";
 import { localDateInTimeZone } from "@/lib/calendar/time";
 import { staffRosterCapabilities } from "@/lib/staff-rosters/capabilities";
+import { qualifyStaffClockIn } from "@/lib/staff-rosters/clocking-policy";
 import {
   ensureStaffRosterMember,
   StaffRosterServiceError,
@@ -165,14 +166,6 @@ export async function clockIn(input: {
     )
     .limit(1);
 
-  if (existing[0]) {
-    throw new StaffRosterServiceError(
-      409,
-      "You are already clocked in.",
-      "active_clock_session",
-    );
-  }
-
   const now = new Date();
   const matchingShift = await findPublishedShiftForClockIn(
     input.session,
@@ -180,12 +173,24 @@ export async function clockIn(input: {
     now,
   );
 
-  if (!matchingShift && !input.confirmUnrostered) {
-    throw new StaffRosterServiceError(
-      409,
-      "No rostered shift was found near the current time.",
-      "unrostered_confirmation_required",
-    );
+  const qualification = qualifyStaffClockIn({
+    hasActiveSession: Boolean(existing[0]),
+    hasMatchingPublishedShift: Boolean(matchingShift),
+    confirmUnrostered: input.confirmUnrostered,
+  });
+
+  if (!qualification.allowed) {
+    throw qualification.code === "active_clock_session"
+      ? new StaffRosterServiceError(
+          409,
+          "You are already clocked in.",
+          qualification.code,
+        )
+      : new StaffRosterServiceError(
+          409,
+          "Covie cannot find a published rostered shift near the current time. Confirm if you still need to clock in.",
+          qualification.code,
+        );
   }
 
   const id = randomUUID();
@@ -204,7 +209,7 @@ export async function clockIn(input: {
           ${matchingShift?.date ?? null},
           ${matchingShift?.startTime ?? null},
           ${matchingShift?.endTime ?? null},
-          now(), ${!matchingShift}
+          now(), ${qualification.unrostered}
         )
       `,
       sql`
@@ -232,7 +237,7 @@ export async function clockIn(input: {
     );
   }
 
-  return { ok: true as const, id, unrostered: !matchingShift };
+  return { ok: true as const, id, unrostered: qualification.unrostered };
 }
 
 export async function clockOut(session: StaffSession) {
@@ -245,22 +250,39 @@ export async function clockOut(session: StaffSession) {
     throw new StaffRosterServiceError(403, "Clock access is not available.");
   }
 
-  const active = await getDb()
-    .select({
-      id: staffRosterClockSessions.id,
-      clockInAt: staffRosterClockSessions.clockInAt,
-    })
-    .from(staffRosterClockSessions)
-    .where(
-      and(
-        eq(staffRosterClockSessions.calendarId, session.calendarId),
-        eq(staffRosterClockSessions.memberId, current.id),
-        drizzleSql`${staffRosterClockSessions.clockOutAt} IS NULL`,
-      ),
-    )
-    .limit(1);
+  const sql = getSql();
+  let ended: Array<{ id: string }>;
 
-  if (!active[0]) {
+  try {
+    ended = (await sql`
+      WITH ended AS (
+        UPDATE staff_roster_clock_sessions
+        SET clock_out_at = now(), updated_at = now()
+        WHERE calendar_id = ${session.calendarId}
+          AND member_id = ${current.id}
+          AND clock_out_at IS NULL
+        RETURNING id
+      )
+      INSERT INTO audit_log (
+        calendar_id, actor_participant_id, action,
+        entity_type, entity_id, after_state
+      )
+      SELECT
+        ${session.calendarId}, NULL,
+        'staff_roster.clock.out',
+        'staff_roster_clock_session', ended.id,
+        ${JSON.stringify({ memberId: current.id })}::jsonb
+      FROM ended
+      RETURNING entity_id AS "id"
+    `) as unknown as Array<{ id: string }>;
+  } catch {
+    throw new StaffRosterServiceError(
+      409,
+      "Clock out could not be recorded. Refresh your clock status and try again.",
+    );
+  }
+
+  if (!ended[0]) {
     throw new StaffRosterServiceError(
       409,
       "There is no active clock session to finish.",
@@ -268,35 +290,7 @@ export async function clockOut(session: StaffSession) {
     );
   }
 
-  const sql = getSql();
-  try {
-    await sql.transaction([
-      sql`
-        UPDATE staff_roster_clock_sessions
-        SET clock_out_at = now(), updated_at = now()
-        WHERE id = ${active[0].id}
-          AND calendar_id = ${session.calendarId}
-          AND member_id = ${current.id}
-          AND clock_out_at IS NULL
-      `,
-      sql`
-        INSERT INTO audit_log (
-          calendar_id, actor_participant_id, action,
-          entity_type, entity_id, after_state
-        )
-        VALUES (
-          ${session.calendarId}, NULL,
-          'staff_roster.clock.out',
-          'staff_roster_clock_session', ${active[0].id},
-          ${JSON.stringify({ memberId: current.id })}::jsonb
-        )
-      `,
-    ]);
-  } catch {
-    throw new StaffRosterServiceError(409, "Clock out could not be recorded.");
-  }
-
-  return { ok: true as const, id: active[0].id };
+  return { ok: true as const, id: ended[0].id };
 }
 
 export async function getTimesheet(input: {
