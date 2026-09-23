@@ -113,7 +113,7 @@ test("Staff Rosters calendar is a calendar-first weekly roster builder", async (
   assert.match(roster, /weekBoardHeight/);
   assert.match(roster, /window\.innerHeight - top - 18/);
   assert.match(roster, /beginResize/);
-  assert.match(roster, /SNAP_MINUTES = 15/);
+  assert.match(roster, /ROSTER_SNAP_MINUTES as SNAP_MINUTES/);
   assert.match(roster, /weeklyMinutesByMember/);
   assert.match(roster, /Copy previous week/);
   assert.match(roster, /inactive staff/);
@@ -182,6 +182,9 @@ test("shift service blocks overlaps and requires explicit unavailability overrid
   assert.match(service, /staff_roster\.shift\.create/);
   assert.match(service, /staff_roster\.shift\.update/);
   assert.match(service, /staff_roster\.shift\.delete/);
+  assert.match(service, /pg_advisory_xact_lock/);
+  assert.match(service, /existing\.member_id = \$\{input\.memberId\}/);
+  assert.match(service, /other\.member_id = \$\{input\.memberId\}/);
   assert.match(service, /export async function copyPreviousRosterWeek/);
   assert.match(service, /availabilitySkipped/);
   assert.match(service, /overlapSkipped/);
