@@ -47,6 +47,10 @@ import {
   snapRosterMinutes as snapMinutes,
 } from "@/lib/staff-rosters/roster-interactions";
 import {
+  monthShiftVisibility,
+  rosterDaySummary,
+} from "@/lib/staff-rosters/roster-intelligence";
+import {
   CovieButton,
   CovieConfirmDialog,
   CovieDialog,
@@ -1620,23 +1624,12 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                     const dayLeave = filteredLeave.filter((leave) =>
                       leaveAppliesToDay(leave, day),
                     );
-                    const visibleShiftLimit = Math.max(
-                      0,
-                      3 -
-                        (dayLeave.length > 0 ? 1 : 0) -
-                        (dayAvailability.length > 0 ? 1 : 0),
-                    );
-                    const hiddenShiftCount = Math.max(
-                      0,
-                      dayShifts.length - visibleShiftLimit,
-                    );
-                    const dayStaffCount = new Set(
-                      dayShifts.map((shift) => shift.memberId),
-                    ).size;
-                    const dayRosterMinutes = dayShifts.reduce(
-                      (sum, shift) => sum + shiftDuration(shift),
-                      0,
-                    );
+                    const visibility = monthShiftVisibility({
+                      shiftCount: dayShifts.length,
+                      hasLeave: dayLeave.length > 0,
+                      hasUnavailable: dayAvailability.length > 0,
+                    });
+                    const daySummary = rosterDaySummary(dayShifts);
                     const outsideMonth = parseISO(day).getMonth() !== month;
                     return (
                       <div
@@ -1667,7 +1660,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                         </button>
                         {dayShifts.length > 0 ? (
                           <p className="mt-1 truncate text-[10px] font-bold text-[#66747A] sm:text-xs">
-                            {dayStaffCount} staff · {hoursText(dayRosterMinutes)}
+                            {daySummary.staffCount} staff · {hoursText(daySummary.rosterMinutes)}
                           </p>
                         ) : null}
                         <div className="mt-1 space-y-1">
@@ -1689,7 +1682,9 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                               {dayAvailability.length} unavailable
                             </span>
                           ) : null}
-                          {dayShifts.slice(0, visibleShiftLimit).map((shift) => (
+                          {dayShifts
+                            .slice(0, visibility.visibleShiftCount)
+                            .map((shift) => (
                             <button
                               key={shift.id}
                               type="button"
@@ -1703,7 +1698,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                               {shift.memberName} {compactTime(shift.startTime)}–{compactTime(shift.endTime)}
                             </button>
                           ))}
-                          {hiddenShiftCount > 0 ? (
+                          {visibility.hiddenShiftCount > 0 ? (
                             <button
                               type="button"
                               onClick={() => {
@@ -1713,7 +1708,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                               }}
                               className="text-[10px] font-extrabold text-[#0D7A6D] sm:text-xs"
                             >
-                              +{hiddenShiftCount} more
+                              +{visibility.hiddenShiftCount} more
                             </button>
                           ) : null}
                         </div>
