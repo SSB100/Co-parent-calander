@@ -3,6 +3,7 @@ import { addDays, format, parseISO } from "date-fns";
 import { and, asc, desc, eq, sql as drizzleSql } from "drizzle-orm";
 import { getDb, getSql } from "@/lib/db";
 import {
+  auditLog,
   staffRosterClockSessions,
   staffRosterLeaveRequests,
   staffRosterMembers,
@@ -293,6 +294,15 @@ export async function clockOut(session: StaffSession) {
   return { ok: true as const, id: ended[0].id };
 }
 
+function readAuditTimestamp(value: unknown, key: string) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const timestamp = (value as Record<string, unknown>)[key];
+  return typeof timestamp === "string" ? timestamp : null;
+}
+
 export async function getTimesheet(input: {
   session: StaffSession;
   weekStart: string;
@@ -382,7 +392,11 @@ export async function getTimesheet(input: {
         requestedClockOutAt: staffRosterTimesheetCorrections.requestedClockOutAt,
         reason: staffRosterTimesheetCorrections.reason,
         status: staffRosterTimesheetCorrections.status,
+        reviewedAt: staffRosterTimesheetCorrections.reviewedAt,
         createdAt: staffRosterTimesheetCorrections.createdAt,
+        currentClockInAt: staffRosterClockSessions.clockInAt,
+        currentClockOutAt: staffRosterClockSessions.clockOutAt,
+        requestBeforeState: auditLog.beforeState,
       })
       .from(staffRosterTimesheetCorrections)
       .innerJoin(
@@ -394,6 +408,14 @@ export async function getTimesheet(input: {
         eq(
           staffRosterTimesheetCorrections.clockSessionId,
           staffRosterClockSessions.id,
+        ),
+      )
+      .leftJoin(
+        auditLog,
+        and(
+          eq(auditLog.entityId, staffRosterTimesheetCorrections.id),
+          eq(auditLog.entityType, "staff_roster_timesheet_correction"),
+          eq(auditLog.action, "staff_roster.timesheet_correction.request"),
         ),
       )
       .where(
@@ -422,7 +444,26 @@ export async function getTimesheet(input: {
       endTime: shift.endTime.slice(0, 5),
     })),
     sessions,
-    corrections,
+    corrections: corrections.map((correction) => {
+      const {
+        requestBeforeState,
+        currentClockInAt,
+        currentClockOutAt,
+        ...visible
+      } = correction;
+
+      return {
+        ...visible,
+        originalClockInAt:
+          readAuditTimestamp(requestBeforeState, "clockInAt") ??
+          currentClockInAt,
+        originalClockOutAt:
+          readAuditTimestamp(requestBeforeState, "clockOutAt") ??
+          currentClockOutAt,
+        currentClockInAt,
+        currentClockOutAt,
+      };
+    }),
   };
 }
 
@@ -442,91 +483,159 @@ export async function requestTimesheetCorrection(input: {
     throw new StaffRosterServiceError(403, "Correction requests are not available.");
   }
 
-  const sessionRows = await getDb()
-    .select({
-      id: staffRosterClockSessions.id,
-      memberId: staffRosterClockSessions.memberId,
-      clockInAt: staffRosterClockSessions.clockInAt,
-      clockOutAt: staffRosterClockSessions.clockOutAt,
-    })
-    .from(staffRosterClockSessions)
-    .where(
-      and(
-        eq(staffRosterClockSessions.id, input.clockSessionId),
-        eq(staffRosterClockSessions.calendarId, input.session.calendarId),
-        eq(staffRosterClockSessions.memberId, current.id),
-      ),
-    )
-    .limit(1);
-  const clockSession = sessionRows[0];
-  if (!clockSession) {
-    throw new StaffRosterServiceError(404, "Timesheet entry not found.");
-  }
-
-  const pending = await getDb()
-    .select({ id: staffRosterTimesheetCorrections.id })
-    .from(staffRosterTimesheetCorrections)
-    .where(
-      and(
-        eq(staffRosterTimesheetCorrections.clockSessionId, input.clockSessionId),
-        eq(staffRosterTimesheetCorrections.status, "pending"),
-      ),
-    )
-    .limit(1);
-  if (pending[0]) {
-    throw new StaffRosterServiceError(
-      409,
-      "A correction is already waiting for review.",
-    );
-  }
-
   const requestedIn = input.requestedClockInAt
     ? new Date(input.requestedClockInAt)
     : null;
   const requestedOut = input.requestedClockOutAt
     ? new Date(input.requestedClockOutAt)
     : null;
-  const effectiveIn = requestedIn ?? clockSession.clockInAt;
-  const effectiveOut = requestedOut ?? clockSession.clockOutAt;
-
-  if (effectiveOut && effectiveOut <= effectiveIn) {
-    throw new StaffRosterServiceError(
-      400,
-      "The corrected finish time must be after the start time.",
-    );
-  }
-
   const id = randomUUID();
   const sql = getSql();
-  await sql.transaction([
-    sql`
+
+  const outcome = (await sql`
+    WITH locked AS (
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(${input.clockSessionId}::text, 0)
+      ) AS acquired
+    ),
+    target AS (
+      SELECT
+        clock_session.id,
+        clock_session.clock_in_at,
+        clock_session.clock_out_at
+      FROM locked
+      JOIN staff_roster_clock_sessions clock_session ON true
+      WHERE clock_session.id = ${input.clockSessionId}
+        AND clock_session.calendar_id = ${input.session.calendarId}
+        AND clock_session.member_id = ${current.id}
+    ),
+    qualified AS (
+      SELECT
+        target.*,
+        COALESCE(${requestedIn}::timestamptz, target.clock_in_at)
+          AS effective_clock_in_at,
+        COALESCE(${requestedOut}::timestamptz, target.clock_out_at)
+          AS effective_clock_out_at,
+        (
+          (
+            ${requestedIn}::timestamptz IS NOT NULL
+            AND ${requestedIn}::timestamptz IS DISTINCT FROM target.clock_in_at
+          )
+          OR
+          (
+            ${requestedOut}::timestamptz IS NOT NULL
+            AND ${requestedOut}::timestamptz IS DISTINCT FROM target.clock_out_at
+          )
+        ) AS has_change
+      FROM target
+    ),
+    existing_pending AS (
+      SELECT correction.id
+      FROM staff_roster_timesheet_corrections correction
+      JOIN target ON target.id = correction.clock_session_id
+      WHERE correction.calendar_id = ${input.session.calendarId}
+        AND correction.status = 'pending'
+      LIMIT 1
+    ),
+    created AS (
       INSERT INTO staff_roster_timesheet_corrections (
         id, calendar_id, member_id, clock_session_id,
         requested_clock_in_at, requested_clock_out_at, reason
       )
-      VALUES (
-        ${id}, ${input.session.calendarId}, ${current.id},
-        ${input.clockSessionId}, ${requestedIn}, ${requestedOut}, ${input.reason}
-      )
-    `,
-    sql`
+      SELECT
+        ${id},
+        ${input.session.calendarId},
+        ${current.id},
+        qualified.id,
+        ${requestedIn},
+        ${requestedOut},
+        ${input.reason}
+      FROM qualified
+      WHERE qualified.has_change
+        AND (
+          qualified.effective_clock_out_at IS NULL
+          OR qualified.effective_clock_out_at > qualified.effective_clock_in_at
+        )
+        AND NOT EXISTS (SELECT 1 FROM existing_pending)
+      RETURNING id, clock_session_id
+    ),
+    audited AS (
       INSERT INTO audit_log (
         calendar_id, actor_participant_id, action,
-        entity_type, entity_id, after_state
+        entity_type, entity_id, before_state, after_state
       )
-      VALUES (
-        ${input.session.calendarId}, NULL,
+      SELECT
+        ${input.session.calendarId},
+        NULL,
         'staff_roster.timesheet_correction.request',
-        'staff_roster_timesheet_correction', ${id},
-        ${JSON.stringify({
-          memberId: current.id,
-          clockSessionId: input.clockSessionId,
-        })}::jsonb
-      )
-    `,
-  ]);
+        'staff_roster_timesheet_correction',
+        created.id,
+        jsonb_build_object(
+          'memberId', ${current.id},
+          'clockSessionId', created.clock_session_id,
+          'clockInAt', target.clock_in_at,
+          'clockOutAt', target.clock_out_at
+        ),
+        jsonb_build_object(
+          'memberId', ${current.id},
+          'clockSessionId', created.clock_session_id,
+          'requestedClockInAt', ${requestedIn}::timestamptz,
+          'requestedClockOutAt', ${requestedOut}::timestamptz,
+          'reason', ${input.reason}
+        )
+      FROM created
+      JOIN target ON target.id = created.clock_session_id
+      RETURNING entity_id
+    )
+    SELECT created.id, 'created'::text AS result
+    FROM created
+    UNION ALL
+    SELECT
+      NULL::uuid AS id,
+      CASE
+        WHEN NOT EXISTS (SELECT 1 FROM target) THEN 'not_found'
+        WHEN EXISTS (SELECT 1 FROM existing_pending) THEN 'pending'
+        WHEN EXISTS (
+          SELECT 1 FROM qualified WHERE qualified.has_change = false
+        ) THEN 'no_change'
+        WHEN EXISTS (
+          SELECT 1
+          FROM qualified
+          WHERE qualified.effective_clock_out_at IS NOT NULL
+            AND qualified.effective_clock_out_at <= qualified.effective_clock_in_at
+        ) THEN 'invalid_order'
+        ELSE 'conflict'
+      END AS result
+    WHERE NOT EXISTS (SELECT 1 FROM created)
+    LIMIT 1
+  `) as unknown as Array<{ id: string | null; result: string }>;
 
-  return { ok: true as const, id };
+  switch (outcome[0]?.result) {
+    case "created":
+      return { ok: true as const, id: outcome[0].id ?? id };
+    case "not_found":
+      throw new StaffRosterServiceError(404, "Timesheet entry not found.");
+    case "pending":
+      throw new StaffRosterServiceError(
+        409,
+        "A correction is already waiting for review.",
+      );
+    case "no_change":
+      throw new StaffRosterServiceError(
+        400,
+        "Those times already match the recorded entry. Change a time before sending a correction.",
+      );
+    case "invalid_order":
+      throw new StaffRosterServiceError(
+        400,
+        "The corrected finish time must be after the start time.",
+      );
+    default:
+      throw new StaffRosterServiceError(
+        409,
+        "The correction could not be saved. Refresh the timesheet and try again.",
+      );
+  }
 }
 
 export async function reviewTimesheetCorrection(input: {
@@ -543,99 +652,169 @@ export async function reviewTimesheetCorrection(input: {
     throw new StaffRosterServiceError(403, "Manager access is required.");
   }
 
-  const rows = await getDb()
-    .select({
-      id: staffRosterTimesheetCorrections.id,
-      status: staffRosterTimesheetCorrections.status,
-      clockSessionId: staffRosterTimesheetCorrections.clockSessionId,
-      requestedClockInAt: staffRosterTimesheetCorrections.requestedClockInAt,
-      requestedClockOutAt: staffRosterTimesheetCorrections.requestedClockOutAt,
-      currentClockInAt: staffRosterClockSessions.clockInAt,
-      currentClockOutAt: staffRosterClockSessions.clockOutAt,
-    })
-    .from(staffRosterTimesheetCorrections)
-    .innerJoin(
-      staffRosterClockSessions,
-      eq(
-        staffRosterTimesheetCorrections.clockSessionId,
-        staffRosterClockSessions.id,
-      ),
-    )
-    .where(
-      and(
-        eq(staffRosterTimesheetCorrections.id, input.correctionId),
-        eq(staffRosterTimesheetCorrections.calendarId, input.session.calendarId),
-      ),
-    )
-    .limit(1);
-  const correction = rows[0];
-  if (!correction) {
-    throw new StaffRosterServiceError(404, "Correction request not found.");
-  }
-  if (correction.status !== "pending") {
-    throw new StaffRosterServiceError(409, "This correction has already been reviewed.");
-  }
-
-  const effectiveIn =
-    correction.requestedClockInAt ?? correction.currentClockInAt;
-  const effectiveOut =
-    correction.requestedClockOutAt ?? correction.currentClockOutAt;
-  if (
-    input.decision === "approved" &&
-    effectiveOut &&
-    effectiveOut <= effectiveIn
-  ) {
-    throw new StaffRosterServiceError(
-      400,
-      "The corrected finish time must be after the start time.",
-    );
-  }
-
   const sql = getSql();
-  const statements = [
-    sql`
-      UPDATE staff_roster_timesheet_corrections
+  const outcome = (await sql`
+    WITH identified AS (
+      SELECT correction.id, correction.clock_session_id
+      FROM staff_roster_timesheet_corrections correction
+      WHERE correction.id = ${input.correctionId}
+        AND correction.calendar_id = ${input.session.calendarId}
+    ),
+    locked AS (
+      SELECT
+        identified.id,
+        identified.clock_session_id,
+        pg_advisory_xact_lock(
+          hashtextextended(identified.clock_session_id::text, 0)
+        ) AS acquired
+      FROM identified
+    ),
+    candidate AS (
+      SELECT
+        correction.id,
+        correction.status,
+        correction.member_id,
+        correction.clock_session_id,
+        correction.requested_clock_in_at,
+        correction.requested_clock_out_at,
+        clock_session.clock_in_at AS current_clock_in_at,
+        clock_session.clock_out_at AS current_clock_out_at,
+        COALESCE(
+          correction.requested_clock_in_at,
+          clock_session.clock_in_at
+        ) AS effective_clock_in_at,
+        COALESCE(
+          correction.requested_clock_out_at,
+          clock_session.clock_out_at
+        ) AS effective_clock_out_at
+      FROM locked
+      JOIN staff_roster_timesheet_corrections correction
+        ON correction.id = locked.id
+       AND correction.calendar_id = ${input.session.calendarId}
+      JOIN staff_roster_clock_sessions clock_session
+        ON clock_session.id = correction.clock_session_id
+       AND clock_session.calendar_id = ${input.session.calendarId}
+    ),
+    transitioned AS (
+      UPDATE staff_roster_timesheet_corrections correction
       SET status = ${input.decision}::staff_roster_correction_status,
           reviewed_by_membership_id = ${input.session.membershipId},
           reviewed_at = now(),
           updated_at = now()
-      WHERE id = ${input.correctionId}
-        AND calendar_id = ${input.session.calendarId}
-        AND status = 'pending'
-    `,
-  ];
-
-  if (input.decision === "approved") {
-    statements.push(sql`
-      UPDATE staff_roster_clock_sessions
-      SET clock_in_at = ${effectiveIn},
-          clock_out_at = ${effectiveOut},
+      FROM candidate
+      WHERE correction.id = candidate.id
+        AND correction.calendar_id = ${input.session.calendarId}
+        AND correction.status = 'pending'
+        AND (
+          ${input.decision}::text = 'declined'
+          OR candidate.effective_clock_out_at IS NULL
+          OR candidate.effective_clock_out_at > candidate.effective_clock_in_at
+        )
+      RETURNING
+        correction.id,
+        candidate.member_id,
+        candidate.clock_session_id,
+        candidate.current_clock_in_at,
+        candidate.current_clock_out_at,
+        candidate.effective_clock_in_at,
+        candidate.effective_clock_out_at
+    ),
+    applied AS (
+      UPDATE staff_roster_clock_sessions clock_session
+      SET clock_in_at = transitioned.effective_clock_in_at,
+          clock_out_at = transitioned.effective_clock_out_at,
           corrected_at = now(),
           corrected_by_membership_id = ${input.session.membershipId},
           updated_at = now()
-      WHERE id = ${correction.clockSessionId}
-        AND calendar_id = ${input.session.calendarId}
-    `);
+      FROM transitioned
+      WHERE ${input.decision}::text = 'approved'
+        AND clock_session.id = transitioned.clock_session_id
+        AND clock_session.calendar_id = ${input.session.calendarId}
+      RETURNING clock_session.id
+    ),
+    audited AS (
+      INSERT INTO audit_log (
+        calendar_id, actor_participant_id, action,
+        entity_type, entity_id, before_state, after_state
+      )
+      SELECT
+        ${input.session.calendarId},
+        NULL,
+        'staff_roster.timesheet_correction.review',
+        'staff_roster_timesheet_correction',
+        transitioned.id,
+        jsonb_build_object(
+          'status', 'pending',
+          'memberId', transitioned.member_id,
+          'clockSessionId', transitioned.clock_session_id,
+          'clockInAt', transitioned.current_clock_in_at,
+          'clockOutAt', transitioned.current_clock_out_at
+        ),
+        jsonb_build_object(
+          'status', ${input.decision}::text,
+          'memberId', transitioned.member_id,
+          'clockSessionId', transitioned.clock_session_id,
+          'clockInAt',
+            CASE
+              WHEN ${input.decision}::text = 'approved'
+                THEN transitioned.effective_clock_in_at
+              ELSE transitioned.current_clock_in_at
+            END,
+          'clockOutAt',
+            CASE
+              WHEN ${input.decision}::text = 'approved'
+                THEN transitioned.effective_clock_out_at
+              ELSE transitioned.current_clock_out_at
+            END,
+          'actorStaffMemberId', ${actor.id}
+        )
+      FROM transitioned
+      RETURNING entity_id
+    )
+    SELECT transitioned.id, 'reviewed'::text AS result
+    FROM transitioned
+    UNION ALL
+    SELECT
+      NULL::uuid AS id,
+      CASE
+        WHEN NOT EXISTS (SELECT 1 FROM candidate) THEN 'not_found'
+        WHEN EXISTS (
+          SELECT 1 FROM candidate WHERE candidate.status <> 'pending'
+        ) THEN 'already_reviewed'
+        WHEN ${input.decision}::text = 'approved'
+          AND EXISTS (
+            SELECT 1
+            FROM candidate
+            WHERE candidate.effective_clock_out_at IS NOT NULL
+              AND candidate.effective_clock_out_at <= candidate.effective_clock_in_at
+          ) THEN 'invalid_order'
+        ELSE 'conflict'
+      END AS result
+    WHERE NOT EXISTS (SELECT 1 FROM transitioned)
+    LIMIT 1
+  `) as unknown as Array<{ id: string | null; result: string }>;
+
+  switch (outcome[0]?.result) {
+    case "reviewed":
+      return { ok: true as const };
+    case "not_found":
+      throw new StaffRosterServiceError(404, "Correction request not found.");
+    case "already_reviewed":
+      throw new StaffRosterServiceError(
+        409,
+        "This correction has already been reviewed.",
+      );
+    case "invalid_order":
+      throw new StaffRosterServiceError(
+        400,
+        "The corrected finish time must be after the start time.",
+      );
+    default:
+      throw new StaffRosterServiceError(
+        409,
+        "This correction changed while you were reviewing it. Refresh the timesheet and try again.",
+      );
   }
-
-  statements.push(sql`
-    INSERT INTO audit_log (
-      calendar_id, actor_participant_id, action,
-      entity_type, entity_id, after_state
-    )
-    VALUES (
-      ${input.session.calendarId}, NULL,
-      'staff_roster.timesheet_correction.review',
-      'staff_roster_timesheet_correction', ${input.correctionId},
-      ${JSON.stringify({
-        decision: input.decision,
-        actorStaffMemberId: actor.id,
-      })}::jsonb
-    )
-  `);
-
-  await sql.transaction(statements);
-  return { ok: true as const };
 }
 
 export async function correctTimesheetSession(input: {
@@ -654,27 +833,6 @@ export async function correctTimesheetSession(input: {
     throw new StaffRosterServiceError(403, "Manager access is required.");
   }
 
-  const rows = await getDb()
-    .select({
-      id: staffRosterClockSessions.id,
-      memberId: staffRosterClockSessions.memberId,
-      clockInAt: staffRosterClockSessions.clockInAt,
-      clockOutAt: staffRosterClockSessions.clockOutAt,
-    })
-    .from(staffRosterClockSessions)
-    .where(
-      and(
-        eq(staffRosterClockSessions.id, input.clockSessionId),
-        eq(staffRosterClockSessions.calendarId, input.session.calendarId),
-      ),
-    )
-    .limit(1);
-
-  const entry = rows[0];
-  if (!entry) {
-    throw new StaffRosterServiceError(404, "Timesheet entry not found.");
-  }
-
   const correctedIn = new Date(input.clockInAt);
   const correctedOut = new Date(input.clockOutAt);
   if (correctedOut <= correctedIn) {
@@ -685,51 +843,110 @@ export async function correctTimesheetSession(input: {
   }
 
   const sql = getSql();
-  await sql.transaction([
-    sql`
-      UPDATE staff_roster_clock_sessions
+  const corrected = (await sql`
+    WITH locked AS (
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(${input.clockSessionId}::text, 0)
+      ) AS acquired
+    ),
+    target AS (
+      SELECT
+        clock_session.id,
+        clock_session.member_id,
+        clock_session.clock_in_at,
+        clock_session.clock_out_at
+      FROM locked
+      JOIN staff_roster_clock_sessions clock_session ON true
+      WHERE clock_session.id = ${input.clockSessionId}
+        AND clock_session.calendar_id = ${input.session.calendarId}
+    ),
+    updated AS (
+      UPDATE staff_roster_clock_sessions clock_session
       SET clock_in_at = ${correctedIn},
           clock_out_at = ${correctedOut},
           corrected_at = now(),
           corrected_by_membership_id = ${input.session.membershipId},
           updated_at = now()
-      WHERE id = ${input.clockSessionId}
-        AND calendar_id = ${input.session.calendarId}
-    `,
-    sql`
-      UPDATE staff_roster_timesheet_corrections
+      FROM target
+      WHERE clock_session.id = target.id
+        AND clock_session.calendar_id = ${input.session.calendarId}
+      RETURNING
+        clock_session.id,
+        clock_session.member_id,
+        target.clock_in_at AS previous_clock_in_at,
+        target.clock_out_at AS previous_clock_out_at
+    ),
+    cancelled AS (
+      UPDATE staff_roster_timesheet_corrections correction
       SET status = 'cancelled',
           reviewed_by_membership_id = ${input.session.membershipId},
           reviewed_at = now(),
           updated_at = now()
-      WHERE calendar_id = ${input.session.calendarId}
-        AND clock_session_id = ${input.clockSessionId}
-        AND status = 'pending'
-    `,
-    sql`
+      FROM updated
+      WHERE correction.calendar_id = ${input.session.calendarId}
+        AND correction.clock_session_id = updated.id
+        AND correction.status = 'pending'
+      RETURNING
+        correction.id,
+        correction.clock_session_id,
+        correction.member_id
+    ),
+    audited_correction AS (
       INSERT INTO audit_log (
         calendar_id, actor_participant_id, action,
         entity_type, entity_id, before_state, after_state
       )
-      VALUES (
-        ${input.session.calendarId}, NULL,
+      SELECT
+        ${input.session.calendarId},
+        NULL,
         'staff_roster.timesheet.manager_correct',
-        'staff_roster_clock_session', ${input.clockSessionId},
-        ${JSON.stringify({
-          memberId: entry.memberId,
-          clockInAt: entry.clockInAt,
-          clockOutAt: entry.clockOutAt,
-        })}::jsonb,
-        ${JSON.stringify({
-          memberId: entry.memberId,
-          clockInAt: input.clockInAt,
-          clockOutAt: input.clockOutAt,
-          reason: input.reason,
-          actorStaffMemberId: actor.id,
-        })}::jsonb
+        'staff_roster_clock_session',
+        updated.id,
+        jsonb_build_object(
+          'memberId', updated.member_id,
+          'clockInAt', updated.previous_clock_in_at,
+          'clockOutAt', updated.previous_clock_out_at
+        ),
+        jsonb_build_object(
+          'memberId', updated.member_id,
+          'clockInAt', ${correctedIn}::timestamptz,
+          'clockOutAt', ${correctedOut}::timestamptz,
+          'reason', ${input.reason},
+          'actorStaffMemberId', ${actor.id}
+        )
+      FROM updated
+      RETURNING entity_id
+    ),
+    audited_superseded AS (
+      INSERT INTO audit_log (
+        calendar_id, actor_participant_id, action,
+        entity_type, entity_id, before_state, after_state
       )
-    `,
-  ]);
+      SELECT
+        ${input.session.calendarId},
+        NULL,
+        'staff_roster.timesheet_correction.supersede',
+        'staff_roster_timesheet_correction',
+        cancelled.id,
+        jsonb_build_object(
+          'status', 'pending',
+          'memberId', cancelled.member_id,
+          'clockSessionId', cancelled.clock_session_id
+        ),
+        jsonb_build_object(
+          'status', 'cancelled',
+          'reason', 'superseded_by_manager_correction',
+          'actorStaffMemberId', ${actor.id}
+        )
+      FROM cancelled
+      RETURNING entity_id
+    )
+    SELECT id FROM updated
+  `) as unknown as Array<{ id: string }>;
+
+  if (!corrected[0]) {
+    throw new StaffRosterServiceError(404, "Timesheet entry not found.");
+  }
 
   return { ok: true as const };
 }

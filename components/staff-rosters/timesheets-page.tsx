@@ -10,7 +10,7 @@ import {
   PencilLine,
   X,
 } from "lucide-react";
-import { addDays, format, parseISO, startOfWeek, subDays } from "date-fns";
+import { addDays, format, parseISO, subDays } from "date-fns";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CovieButton,
@@ -21,6 +21,12 @@ import {
   CovieStatusBadge,
   CovieTextarea,
 } from "@/components/ui/covie";
+import {
+  instantFromLocalDateTimeInTimeZone,
+  localDateTimeInputInTimeZone,
+  mondayWeekStartInTimeZone,
+} from "@/lib/calendar/time";
+import { classifyTimesheetSession } from "@/lib/staff-rosters/timesheet-policy";
 
 type Session = {
   id: string;
@@ -44,6 +50,8 @@ type ScheduledShift = {
   endTime: string;
 };
 
+type CorrectionStatus = "pending" | "approved" | "declined" | "cancelled";
+
 type Correction = {
   id: string;
   memberId: string;
@@ -51,8 +59,13 @@ type Correction = {
   clockSessionId: string;
   requestedClockInAt: string | null;
   requestedClockOutAt: string | null;
+  originalClockInAt: string;
+  originalClockOutAt: string | null;
+  currentClockInAt: string;
+  currentClockOutAt: string | null;
   reason: string;
-  status: "pending" | "approved" | "declined" | "cancelled";
+  status: CorrectionStatus;
+  reviewedAt: string | null;
   createdAt: string;
 };
 
@@ -67,10 +80,6 @@ type TimesheetPayload = {
   sessions: Session[];
   corrections: Correction[];
 };
-
-function weekStartValue(date = new Date()) {
-  return format(startOfWeek(date, { weekStartsOn: 1 }), "yyyy-MM-dd");
-}
 
 function compactTime(value: string) {
   const [hourValue, minuteValue] = value.slice(0, 5).split(":").map(Number);
@@ -98,6 +107,15 @@ function zonedTime(value: string, timeZone: string) {
   }).format(new Date(value));
 }
 
+function zonedDate(value: string, timeZone: string) {
+  return new Intl.DateTimeFormat("en-NZ", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone,
+  }).format(new Date(value));
+}
+
 function durationMinutes(start: string, end: string | null) {
   if (!end) return 0;
   return Math.max(
@@ -118,15 +136,71 @@ function durationText(minutes: number) {
   return remainder ? hours + "h " + remainder + "m" : hours + "h";
 }
 
-function localInputValue(value: string | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
+function correctionStatusLabel(status: CorrectionStatus) {
+  switch (status) {
+    case "pending":
+      return "Pending";
+    case "approved":
+      return "Approved";
+    case "declined":
+      return "Declined";
+    case "cancelled":
+      return "Cancelled";
+  }
+}
+
+function correctionStatusTone(status: CorrectionStatus) {
+  switch (status) {
+    case "pending":
+      return "sunshine" as const;
+    case "approved":
+      return "teal" as const;
+    case "declined":
+    case "cancelled":
+      return "neutral" as const;
+  }
+}
+
+function CorrectionComparison({
+  correction,
+  timezone,
+}: {
+  correction: Correction;
+  timezone: string;
+}) {
+  return (
+    <div className="mt-3 grid gap-3 rounded-xl bg-[#F8F4EF] p-3 text-sm sm:grid-cols-2">
+      <div>
+        <span className="block text-xs font-bold text-[#66747A]">
+          Original recorded time
+        </span>
+        <strong className="mt-1 block text-[#243139]">
+          {zonedTime(correction.originalClockInAt, timezone)} –{" "}
+          {correction.originalClockOutAt
+            ? zonedTime(correction.originalClockOutAt, timezone)
+            : "No clock-out recorded"}
+        </strong>
+      </div>
+      <div>
+        <span className="block text-xs font-bold text-[#66747A]">
+          Requested change
+        </span>
+        <strong className="mt-1 block text-[#243139]">
+          {correction.requestedClockInAt
+            ? zonedTime(correction.requestedClockInAt, timezone)
+            : "Clock-in unchanged"}
+          {" · "}
+          {correction.requestedClockOutAt
+            ? zonedTime(correction.requestedClockOutAt, timezone)
+            : "Clock-out unchanged"}
+        </strong>
+      </div>
+    </div>
+  );
 }
 
 export function StaffRosterTimesheetsPage() {
-  const [weekStart, setWeekStart] = useState(weekStartValue);
+  const [weekStart, setWeekStart] = useState<string | null>(null);
   const [data, setData] = useState<TimesheetPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -141,10 +215,12 @@ export function StaffRosterTimesheetsPage() {
   const [managerReason, setManagerReason] = useState("");
 
   const refresh = useCallback(async () => {
-    const response = await fetch(
-      "/api/staff-roster/timesheet?weekStart=" + encodeURIComponent(weekStart),
-      { cache: "no-store" },
-    );
+    const query = weekStart
+      ? "?weekStart=" + encodeURIComponent(weekStart)
+      : "";
+    const response = await fetch("/api/staff-roster/timesheet" + query, {
+      cache: "no-store",
+    });
     const body = (await response.json().catch(() => null)) as
       | TimesheetPayload
       | { error?: string }
@@ -156,7 +232,9 @@ export function StaffRosterTimesheetsPage() {
           : "Timesheet could not be loaded.",
       );
     }
+
     setData(body);
+    setWeekStart((current) => current ?? body.weekStart);
     setError(null);
   }, [weekStart]);
 
@@ -183,20 +261,67 @@ export function StaffRosterTimesheetsPage() {
       ) ?? 0,
     [data?.sessions],
   );
+  const inProgressCount = useMemo(
+    () =>
+      data?.sessions.filter(
+        (session) =>
+          classifyTimesheetSession({
+            ...session,
+            timeZone: data.timezone,
+          }) === "in_progress",
+      ).length ?? 0,
+    [data],
+  );
+
+  const pendingCorrectionBySession = useMemo(
+    () =>
+      new Map(
+        (data?.corrections ?? [])
+          .filter((correction) => correction.status === "pending")
+          .map((correction) => [correction.clockSessionId, correction] as const),
+      ),
+    [data?.corrections],
+  );
+
+  const pendingCorrections =
+    data?.corrections.filter((correction) => correction.status === "pending") ?? [];
+  const reviewedCorrections =
+    data?.corrections.filter((correction) => correction.status !== "pending") ?? [];
+
+  const correctionHasChange = useMemo(() => {
+    if (!correctionSession || !data) return false;
+
+    return (
+      requestedIn !==
+        localDateTimeInputInTimeZone(data.timezone, correctionSession.clockInAt) ||
+      requestedOut !==
+        (correctionSession.clockOutAt
+          ? localDateTimeInputInTimeZone(data.timezone, correctionSession.clockOutAt)
+          : "")
+    );
+  }, [correctionSession, data, requestedIn, requestedOut]);
 
   function openCorrection(session: Session) {
+    if (!data) return;
     setCorrectionSession(session);
-    setRequestedIn(localInputValue(session.clockInAt));
-    setRequestedOut(localInputValue(session.clockOutAt));
+    setRequestedIn(localDateTimeInputInTimeZone(data.timezone, session.clockInAt));
+    setRequestedOut(
+      session.clockOutAt
+        ? localDateTimeInputInTimeZone(data.timezone, session.clockOutAt)
+        : "",
+    );
     setReason("");
   }
 
   function openManagerFix(session: Session) {
+    if (!data) return;
     setManagerFixSession(session);
-    setManagerClockIn(localInputValue(session.clockInAt));
+    setManagerClockIn(
+      localDateTimeInputInTimeZone(data.timezone, session.clockInAt),
+    );
     setManagerClockOut(
       session.clockOutAt
-        ? localInputValue(session.clockOutAt)
+        ? localDateTimeInputInTimeZone(data.timezone, session.clockOutAt)
         : session.scheduledDate && session.scheduledEndTime
           ? session.scheduledDate + "T" + session.scheduledEndTime.slice(0, 5)
           : "",
@@ -209,6 +334,7 @@ export function StaffRosterTimesheetsPage() {
       !managerFixSession ||
       !managerClockIn ||
       !managerClockOut ||
+      !data ||
       busy
     ) {
       return;
@@ -223,8 +349,14 @@ export function StaffRosterTimesheetsPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           clockSessionId: managerFixSession.id,
-          clockInAt: new Date(managerClockIn).toISOString(),
-          clockOutAt: new Date(managerClockOut).toISOString(),
+          clockInAt: instantFromLocalDateTimeInTimeZone(
+            data.timezone,
+            managerClockIn,
+          ).toISOString(),
+          clockOutAt: instantFromLocalDateTimeInTimeZone(
+            data.timezone,
+            managerClockOut,
+          ).toISOString(),
           reason: managerReason,
         }),
       });
@@ -251,7 +383,16 @@ export function StaffRosterTimesheetsPage() {
   }
 
   async function requestCorrection() {
-    if (!correctionSession || busy || !reason.trim()) return;
+    if (
+      !correctionSession ||
+      !data ||
+      busy ||
+      !reason.trim() ||
+      !correctionHasChange
+    ) {
+      return;
+    }
+
     setBusy(true);
     setError(null);
 
@@ -262,18 +403,27 @@ export function StaffRosterTimesheetsPage() {
         body: JSON.stringify({
           clockSessionId: correctionSession.id,
           requestedClockInAt: requestedIn
-            ? new Date(requestedIn).toISOString()
+            ? instantFromLocalDateTimeInTimeZone(
+                data.timezone,
+                requestedIn,
+              ).toISOString()
             : null,
           requestedClockOutAt: requestedOut
-            ? new Date(requestedOut).toISOString()
+            ? instantFromLocalDateTimeInTimeZone(
+                data.timezone,
+                requestedOut,
+              ).toISOString()
             : null,
           reason,
         }),
       });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
       if (!response.ok) {
         throw new Error(body?.error ?? "Correction request could not be sent.");
       }
+
       setCorrectionSession(null);
       setNotice("Correction request sent for manager review.");
       await refresh();
@@ -293,19 +443,27 @@ export function StaffRosterTimesheetsPage() {
     decision: "approved" | "declined",
   ) {
     if (busy) return;
+
     setBusy(true);
     setError(null);
+
     try {
       const response = await fetch("/api/staff-roster/timesheet-corrections", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ correctionId, decision }),
       });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+
       if (!response.ok) {
         throw new Error(body?.error ?? "Correction could not be reviewed.");
       }
-      setNotice(decision === "approved" ? "Correction approved." : "Correction declined.");
+
+      setNotice(
+        decision === "approved" ? "Correction approved." : "Correction declined.",
+      );
       await refresh();
     } catch (caught) {
       setError(
@@ -317,15 +475,25 @@ export function StaffRosterTimesheetsPage() {
   }
 
   function sessionExceptions(session: Session) {
+    if (!data) return [];
+
     const values: string[] = [];
-    if (session.unrostered) values.push("Worked without scheduled shift");
-    if (!session.clockOutAt) values.push("Forgot to clock out");
-    if (session.correctedAt) values.push("Manually corrected");
+    const state = classifyTimesheetSession({
+      ...session,
+      timeZone: data.timezone,
+    });
+
+    if (session.unrostered) values.push("Unrostered");
+    if (state === "missing_clock_out") values.push("Missing clock-out");
+    if (session.correctedAt) values.push("Corrected");
+    if (pendingCorrectionBySession.has(session.id)) {
+      values.push("Correction pending");
+    }
 
     if (
       session.scheduledStartTime &&
       new Intl.DateTimeFormat("en-CA", {
-        timeZone: data?.timezone,
+        timeZone: data.timezone,
         hour: "2-digit",
         minute: "2-digit",
         hourCycle: "h23",
@@ -338,7 +506,7 @@ export function StaffRosterTimesheetsPage() {
       session.clockOutAt &&
       session.scheduledEndTime &&
       new Intl.DateTimeFormat("en-CA", {
-        timeZone: data?.timezone,
+        timeZone: data.timezone,
         hour: "2-digit",
         minute: "2-digit",
         hourCycle: "h23",
@@ -350,9 +518,6 @@ export function StaffRosterTimesheetsPage() {
     return values;
   }
 
-  const pendingCorrections =
-    data?.corrections.filter((correction) => correction.status === "pending") ?? [];
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E6DBCF] bg-white p-4">
@@ -361,24 +526,48 @@ export function StaffRosterTimesheetsPage() {
             {data?.canReview ? "Team timesheets" : "My timesheet"}
           </p>
           <h1 className="mt-1 font-[family-name:var(--font-fraunces)] text-2xl font-bold text-[#243139]">
-            {dateLabel(weekStart)} – {dateLabel(format(addDays(parseISO(weekStart), 6), "yyyy-MM-dd"))}
+            {weekStart
+              ? dateLabel(weekStart) +
+                " – " +
+                dateLabel(format(addDays(parseISO(weekStart), 6), "yyyy-MM-dd"))
+              : "Current week"}
           </h1>
+          {data ? (
+            <p className="mt-1 text-xs font-semibold text-[#66747A]">
+              Times shown in {data.timezone}
+            </p>
+          ) : null}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <CovieButton
             tone="neutral"
             aria-label="Previous week"
-            onClick={() => setWeekStart(format(subDays(parseISO(weekStart), 7), "yyyy-MM-dd"))}
+            disabled={!weekStart}
+            onClick={() =>
+              weekStart &&
+              setWeekStart(format(subDays(parseISO(weekStart), 7), "yyyy-MM-dd"))
+            }
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </CovieButton>
-          <CovieButton tone="neutral" onClick={() => setWeekStart(weekStartValue())}>
+          <CovieButton
+            tone="neutral"
+            disabled={!data}
+            onClick={() =>
+              data &&
+              setWeekStart(mondayWeekStartInTimeZone(data.timezone, new Date()))
+            }
+          >
             Today
           </CovieButton>
           <CovieButton
             tone="neutral"
             aria-label="Next week"
-            onClick={() => setWeekStart(format(addDays(parseISO(weekStart), 7), "yyyy-MM-dd"))}
+            disabled={!weekStart}
+            onClick={() =>
+              weekStart &&
+              setWeekStart(format(addDays(parseISO(weekStart), 7), "yyyy-MM-dd"))
+            }
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </CovieButton>
@@ -400,16 +589,26 @@ export function StaffRosterTimesheetsPage() {
           {!data.canReview ? (
             <section className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-[#E6DBCF] bg-white p-4">
-                <span className="text-xs font-extrabold uppercase text-[#66747A]">Rostered</span>
+                <span className="text-xs font-extrabold uppercase text-[#66747A]">
+                  Rostered
+                </span>
                 <strong className="mt-1 block text-xl text-[#243139]">
                   {durationText(rosteredMinutes)}
                 </strong>
               </div>
               <div className="rounded-2xl border border-[#E6DBCF] bg-white p-4">
-                <span className="text-xs font-extrabold uppercase text-[#66747A]">Worked</span>
+                <span className="text-xs font-extrabold uppercase text-[#66747A]">
+                  Worked
+                </span>
                 <strong className="mt-1 block text-xl text-[#243139]">
                   {durationText(workedMinutes)}
                 </strong>
+                {inProgressCount > 0 ? (
+                  <span className="mt-1 block text-xs font-semibold text-[#0D7A6D]">
+                    {inProgressCount} in-progress{" "}
+                    {inProgressCount === 1 ? "session is" : "sessions are"} not included yet.
+                  </span>
+                ) : null}
               </div>
             </section>
           ) : null}
@@ -419,15 +618,39 @@ export function StaffRosterTimesheetsPage() {
               <h2 className="font-[family-name:var(--font-fraunces)] text-xl font-bold text-[#243139]">
                 Corrections to review
               </h2>
-              <div className="mt-3 space-y-2">
+              <div className="mt-3 space-y-3">
                 {pendingCorrections.map((correction) => (
-                  <article key={correction.id} className="rounded-xl border border-[#E2C768] bg-white p-3">
-                    <strong className="text-sm text-[#243139]">{correction.memberName}</strong>
-                    <p className="mt-1 text-sm text-[#526168]">{correction.reason}</p>
-                    <div className="mt-3 flex gap-2">
+                  <article
+                    key={correction.id}
+                    className="rounded-xl border border-[#E2C768] bg-white p-3"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <strong className="block break-words text-sm text-[#243139]">
+                          {correction.memberName}
+                        </strong>
+                        <span className="mt-1 block text-xs font-semibold text-[#66747A]">
+                          {zonedDate(correction.originalClockInAt, data.timezone)}
+                        </span>
+                      </div>
+                      <CovieStatusBadge tone="sunshine">Pending</CovieStatusBadge>
+                    </div>
+                    <CorrectionComparison
+                      correction={correction}
+                      timezone={data.timezone}
+                    />
+                    <div className="mt-3">
+                      <span className="block text-xs font-bold text-[#66747A]">Reason</span>
+                      <p className="mt-1 break-words text-sm text-[#526168]">
+                        {correction.reason}
+                      </p>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
                       <CovieButton
                         disabled={busy}
-                        onClick={() => void reviewCorrection(correction.id, "approved")}
+                        onClick={() =>
+                          void reviewCorrection(correction.id, "approved")
+                        }
                       >
                         <Check className="h-4 w-4" aria-hidden="true" />
                         Approve
@@ -435,7 +658,9 @@ export function StaffRosterTimesheetsPage() {
                       <CovieButton
                         tone="neutral"
                         disabled={busy}
-                        onClick={() => void reviewCorrection(correction.id, "declined")}
+                        onClick={() =>
+                          void reviewCorrection(correction.id, "declined")
+                        }
                       >
                         <X className="h-4 w-4" aria-hidden="true" />
                         Decline
@@ -460,31 +685,38 @@ export function StaffRosterTimesheetsPage() {
           ) : (
             <section className="space-y-3">
               {data.sessions.map((session) => {
+                const state = classifyTimesheetSession({
+                  ...session,
+                  timeZone: data.timezone,
+                });
                 const exceptions = sessionExceptions(session);
+                const pendingCorrection = pendingCorrectionBySession.get(session.id);
+
                 return (
                   <article
                     key={session.id}
                     className="rounded-2xl border border-[#E6DBCF] bg-white p-4"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
+                      <div className="min-w-0">
                         {data.canReview ? (
-                          <strong className="block text-sm text-[#243139]">
+                          <strong className="block break-words text-sm text-[#243139]">
                             {session.memberName}
                           </strong>
                         ) : null}
                         <span className="mt-1 block text-sm font-bold text-[#526168]">
                           {session.scheduledDate
                             ? dateLabel(session.scheduledDate)
-                            : new Intl.DateTimeFormat("en-NZ", {
-                                weekday: "short",
-                                day: "numeric",
-                                month: "short",
-                                timeZone: data.timezone,
-                              }).format(new Date(session.clockInAt))}
+                            : zonedDate(session.clockInAt, data.timezone)}
                         </span>
                       </div>
-                      {exceptions.length > 0 ? (
+                      {state === "in_progress" ? (
+                        <CovieStatusBadge tone="teal">In progress</CovieStatusBadge>
+                      ) : pendingCorrection ? (
+                        <CovieStatusBadge tone="sunshine">
+                          Correction pending
+                        </CovieStatusBadge>
+                      ) : exceptions.length > 0 ? (
                         <CovieStatusBadge tone="sunshine">
                           {exceptions[0]}
                         </CovieStatusBadge>
@@ -495,7 +727,9 @@ export function StaffRosterTimesheetsPage() {
 
                     <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
                       <div>
-                        <span className="block text-xs font-bold text-[#66747A]">Rostered</span>
+                        <span className="block text-xs font-bold text-[#66747A]">
+                          Rostered
+                        </span>
                         <strong className="mt-1 block text-[#243139]">
                           {session.scheduledStartTime && session.scheduledEndTime
                             ? compactTime(session.scheduledStartTime) +
@@ -505,19 +739,26 @@ export function StaffRosterTimesheetsPage() {
                         </strong>
                       </div>
                       <div>
-                        <span className="block text-xs font-bold text-[#66747A]">Worked</span>
+                        <span className="block text-xs font-bold text-[#66747A]">
+                          Worked
+                        </span>
                         <strong className="mt-1 block text-[#243139]">
                           {zonedTime(session.clockInAt, data.timezone)} –{" "}
                           {session.clockOutAt
                             ? zonedTime(session.clockOutAt, data.timezone)
-                            : "Still clocked in"}
+                            : state === "in_progress"
+                              ? "In progress"
+                              : "Missing clock-out"}
                         </strong>
                       </div>
                     </div>
 
                     {exceptions.length > 1 ? (
                       <p className="mt-3 flex items-start gap-2 text-xs font-bold text-[#8B6714]">
-                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                        <AlertTriangle
+                          className="mt-0.5 h-4 w-4 shrink-0"
+                          aria-hidden="true"
+                        />
                         {exceptions.join(" · ")}
                       </p>
                     ) : null}
@@ -529,9 +770,9 @@ export function StaffRosterTimesheetsPage() {
                         onClick={() => openManagerFix(session)}
                       >
                         <PencilLine className="h-4 w-4" aria-hidden="true" />
-                        Fix time
+                        Correct time
                       </CovieButton>
-                    ) : !data.canReview && session.clockOutAt ? (
+                    ) : state !== "in_progress" && !pendingCorrection ? (
                       <CovieButton
                         tone="neutral"
                         className="mt-3"
@@ -546,14 +787,87 @@ export function StaffRosterTimesheetsPage() {
               })}
             </section>
           )}
+
+          {!data.canReview && data.corrections.length > 0 ? (
+            <section className="rounded-2xl border border-[#E6DBCF] bg-white p-4">
+              <h2 className="font-[family-name:var(--font-fraunces)] text-xl font-bold text-[#243139]">
+                Correction requests
+              </h2>
+              <div className="mt-3 space-y-3">
+                {data.corrections.map((correction) => (
+                  <article
+                    key={correction.id}
+                    className="rounded-xl border border-[#E6DBCF] p-3"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <span className="text-sm font-bold text-[#243139]">
+                        {zonedDate(correction.originalClockInAt, data.timezone)}
+                      </span>
+                      <CovieStatusBadge tone={correctionStatusTone(correction.status)}>
+                        {correctionStatusLabel(correction.status)}
+                      </CovieStatusBadge>
+                    </div>
+                    <CorrectionComparison
+                      correction={correction}
+                      timezone={data.timezone}
+                    />
+                    <p className="mt-3 break-words text-sm text-[#526168]">
+                      {correction.reason}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {data.canReview && reviewedCorrections.length > 0 ? (
+            <section className="rounded-2xl border border-[#E6DBCF] bg-white p-4">
+              <h2 className="font-[family-name:var(--font-fraunces)] text-xl font-bold text-[#243139]">
+                Reviewed corrections
+              </h2>
+              <div className="mt-3 space-y-3">
+                {reviewedCorrections.map((correction) => (
+                  <article
+                    key={correction.id}
+                    className="rounded-xl border border-[#E6DBCF] p-3"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <strong className="block break-words text-sm text-[#243139]">
+                          {correction.memberName}
+                        </strong>
+                        <span className="mt-1 block text-xs font-semibold text-[#66747A]">
+                          {zonedDate(correction.originalClockInAt, data.timezone)}
+                        </span>
+                      </div>
+                      <CovieStatusBadge tone={correctionStatusTone(correction.status)}>
+                        {correctionStatusLabel(correction.status)}
+                      </CovieStatusBadge>
+                    </div>
+                    <CorrectionComparison
+                      correction={correction}
+                      timezone={data.timezone}
+                    />
+                    <p className="mt-3 break-words text-sm text-[#526168]">
+                      {correction.reason}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </>
       ) : null}
 
-      {managerFixSession ? (
+      {managerFixSession && data ? (
         <CovieDialog
           id="manager-timesheet-fix-title"
-          title={"Fix " + managerFixSession.memberName + "’s time"}
-          description="This changes the recorded worked time immediately and is kept in the audit log."
+          title={"Correct " + managerFixSession.memberName + "’s time"}
+          description={
+            "This changes the recorded worked time immediately. Times are entered in " +
+            data.timezone +
+            " and the change stays in the audit history."
+          }
           icon={<PencilLine aria-hidden="true" />}
           iconTone="sunshine"
           size="md"
@@ -613,11 +927,15 @@ export function StaffRosterTimesheetsPage() {
         </CovieDialog>
       ) : null}
 
-      {correctionSession ? (
+      {correctionSession && data ? (
         <CovieDialog
           id="timesheet-correction-title"
-          title="Request a timesheet correction"
-          description="Your recorded time will not change until a manager approves this request."
+          title="Request a correction"
+          description={
+            "Your recorded time will not change until a manager approves this request. Times are entered in " +
+            data.timezone +
+            "."
+          }
           icon={<PencilLine aria-hidden="true" />}
           iconTone="sunshine"
           size="md"
@@ -625,18 +943,38 @@ export function StaffRosterTimesheetsPage() {
           onClose={() => setCorrectionSession(null)}
           footer={
             <>
-              <CovieButton tone="neutral" disabled={busy} onClick={() => setCorrectionSession(null)}>
+              <CovieButton
+                tone="neutral"
+                disabled={busy}
+                onClick={() => setCorrectionSession(null)}
+              >
                 Cancel
               </CovieButton>
-              <CovieButton disabled={busy || !reason.trim()} onClick={() => void requestCorrection()}>
+              <CovieButton
+                disabled={busy || !reason.trim() || !correctionHasChange}
+                onClick={() => void requestCorrection()}
+              >
                 Send request
               </CovieButton>
             </>
           }
         >
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl bg-[#F8F4EF] p-3 text-sm">
+            <span className="block text-xs font-bold text-[#66747A]">
+              Original recorded time
+            </span>
+            <strong className="mt-1 block text-[#243139]">
+              {zonedTime(correctionSession.clockInAt, data.timezone)} –{" "}
+              {correctionSession.clockOutAt
+                ? zonedTime(correctionSession.clockOutAt, data.timezone)
+                : "No clock-out recorded"}
+            </strong>
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <label>
-              <span className="mb-1.5 block text-sm font-bold">Clock in</span>
+              <span className="mb-1.5 block text-sm font-bold">
+                Requested clock in
+              </span>
               <CovieInput
                 type="datetime-local"
                 value={requestedIn}
@@ -645,7 +983,9 @@ export function StaffRosterTimesheetsPage() {
               />
             </label>
             <label>
-              <span className="mb-1.5 block text-sm font-bold">Clock out</span>
+              <span className="mb-1.5 block text-sm font-bold">
+                Requested clock out
+              </span>
               <CovieInput
                 type="datetime-local"
                 value={requestedOut}
@@ -660,11 +1000,16 @@ export function StaffRosterTimesheetsPage() {
                 maxLength={500}
                 value={reason}
                 disabled={busy}
-                placeholder="For example: Forgot to clock out."
+                placeholder="Briefly explain what needs correcting."
                 onChange={(event) => setReason(event.target.value)}
               />
             </label>
           </div>
+          {!correctionHasChange ? (
+            <p className="mt-3 text-xs font-semibold text-[#8B6714]">
+              Change at least one recorded time before sending the request.
+            </p>
+          ) : null}
         </CovieDialog>
       ) : null}
     </div>
