@@ -155,7 +155,7 @@ test("Stage 6 relies on the database uniqueness invariant for repeated or concur
 
   assert.match(
     migration,
-    /CREATE UNIQUE INDEX[\s\S]*staff_roster_clock_sessions_member_active_unique[\s\S]*clock_out_at IS NULL/,
+    /CREATE UNIQUE INDEX[\s\S]*staff_roster_clock_sessions_member_active_unique[\s\S]*WHERE "clock_out_at" IS NULL/,
   );
 });
 
