@@ -193,9 +193,14 @@ test("Staff roster email copy is privacy-minimal", () => {
 
 test("publication commits snapshots before attempting Staff email delivery", async () => {
   const service = await source("lib/staff-rosters/service.ts");
-  const transactionIndex = service.indexOf("await sql.transaction([");
-  const emailIndex = service.indexOf("await sendStaffRosterEmails({");
+  const start = service.indexOf("export async function publishRosterWeek");
+  const end = service.indexOf("export async function getRosterUpdates");
+  const publish = service.slice(start, end);
+  const transactionIndex = publish.indexOf("await sql.transaction([");
+  const emailIndex = publish.indexOf("await sendStaffRosterEmails({");
 
+  assert.ok(start >= 0);
+  assert.ok(end > start);
   assert.ok(transactionIndex >= 0);
   assert.ok(emailIndex > transactionIndex);
   assert.match(service, /kind: action === "publish" \? "roster_published" : "roster_updated"/);
