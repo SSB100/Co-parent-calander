@@ -106,6 +106,21 @@ test("moving a shift preserves its duration while clamping it into the visible t
   );
 });
 
+test("long shifts keep their duration even when operational hours are narrower", () => {
+  assert.deepEqual(
+    movedShiftRange({
+      dropMinute: 15 * 60,
+      durationMinutes: 12 * 60,
+      visibleStartMinute: 8 * 60,
+      visibleEndMinute: 18 * 60,
+    }),
+    {
+      startMinute: 8 * 60,
+      endMinute: 20 * 60,
+    },
+  );
+});
+
 test("drop creation near the end of the day stays valid instead of creating a zero-length shift", () => {
   const range = memberDropRange({
     dropMinute: 17 * 60 + 55,
