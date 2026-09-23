@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { StaffRosterSetupPage } from "@/components/staff-rosters/setup-page";
-import {
-  listArchivedCalendarNavigationOptions,
-  listCalendarNavigationOptions,
-} from "@/lib/calendars/navigation";
 import { getCalendarSession } from "@/lib/security/session";
 import { ensureStaffRosterMember } from "@/lib/staff-rosters/service";
 import { calendarPathForType } from "@/lib/templates/calendar-templates";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Set up Staff Roster" };
+export const metadata: Metadata = { title: "Roster setup" };
 
 export default async function StaffRosterSetupRoute() {
   const session = await getCalendarSession();
@@ -25,17 +20,5 @@ export default async function StaffRosterSetupRoute() {
     redirect("/calendar-types/staff-rosters");
   }
 
-  const [calendars, archivedCalendars] = await Promise.all([
-    listCalendarNavigationOptions(session.userId),
-    listArchivedCalendarNavigationOptions(session.userId),
-  ]);
-
-  return (
-    <StaffRosterSetupPage
-      calendars={calendars}
-      archivedCalendars={archivedCalendars}
-      currentCalendarId={session.calendarId}
-      defaultName={session.userName}
-    />
-  );
+  redirect("/calendar-types/staff-rosters/organiser/team");
 }
