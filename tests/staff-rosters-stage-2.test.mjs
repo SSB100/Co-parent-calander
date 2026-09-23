@@ -99,7 +99,11 @@ test("Staff Rosters calendar is a calendar-first weekly roster builder", async (
   assert.match(roster, /dropEffect[\s\S]*?"copy"[\s\S]*?"move"/);
   assert.match(roster, /draggingPayloadRef/);
   assert.match(roster, /dropPreview/);
-  assert.match(roster, /DROP_SHIFT_MINUTES = 60/);
+  assert.match(roster, /recentShiftDurationMinutes/);
+  assert.match(roster, /memberDropRange/);
+  assert.match(roster, /movedShiftRange/);
+  assert.match(roster, /resizedShiftRange/);
+  assert.match(roster, /dropPreview\.endMinute/);
   assert.match(roster, /DAY_START_MINUTE = 0/);
   assert.match(roster, /DAY_END_MINUTE = 24 \* 60/);
   assert.match(roster, /MIN_HOUR_HEIGHT = 18/);
@@ -392,4 +396,21 @@ test("archived calendars are excluded from onboarding and active switching", asy
   assert.match(onboarding, /listArchivedCalendarNavigationOptions/);
   assert.match(openAction, /calendar\.archived_at IS NULL/);
   assert.match(navigation, /isNull\(calendars\.archivedAt\)/);
+});
+
+
+test("recent Staff shift duration is derived server-side without new schema", async () => {
+  const [service, interactions] = await Promise.all([
+    source("lib/staff-rosters/service.ts"),
+    source("lib/staff-rosters/roster-interactions.ts"),
+  ]);
+
+  assert.match(service, /SELECT DISTINCT ON \(shift\.member_id\)/);
+  assert.match(service, /recentShiftDurationByMember/);
+  assert.match(service, /recentShiftDurationMinutes/);
+  assert.match(interactions, /DEFAULT_DROP_SHIFT_MINUTES = 8 \* 60/);
+  assert.match(interactions, /preferredDropDuration/);
+  assert.match(interactions, /memberDropRange/);
+  assert.match(interactions, /movedShiftRange/);
+  assert.match(interactions, /resizedShiftRange/);
 });
