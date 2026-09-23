@@ -37,7 +37,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  DEFAULT_DROP_SHIFT_MINUTES,
   ROSTER_SNAP_MINUTES as SNAP_MINUTES,
   memberDropRange,
   movedShiftRange,
