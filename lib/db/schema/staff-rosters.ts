@@ -396,6 +396,21 @@ export const staffRosterClockSessions = pgTable(
   ],
 );
 
+export const staffRosterBreakSessions = pgTable(
+  "staff_roster_break_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clockSessionId: uuid("clock_session_id").notNull().references(() => staffRosterClockSessions.id, { onDelete: "cascade" }),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+  },
+  (table) => [
+    check("staff_roster_break_time_valid", sql`${table.endedAt} IS NULL OR ${table.endedAt} >= ${table.startedAt}`),
+    uniqueIndex("staff_roster_break_active_unique").on(table.clockSessionId).where(sql`${table.endedAt} IS NULL`),
+    index("staff_roster_break_session_start_idx").on(table.clockSessionId, table.startedAt),
+  ],
+);
+
 export const staffRosterTimesheetCorrections = pgTable(
   "staff_roster_timesheet_corrections",
   {

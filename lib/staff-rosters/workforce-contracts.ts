@@ -1,8 +1,9 @@
 import { z } from "zod";
 
 export const staffClockActionSchema = z.object({
-  action: z.enum(["clock_in", "clock_out"]),
+  action: z.enum(["clock_in", "clock_out", "start_break", "end_break"]),
   confirmUnrostered: z.boolean().optional().default(false),
+  breakId: z.string().uuid().optional(),
 });
 
 export const staffTimesheetWeekSchema = z.object({

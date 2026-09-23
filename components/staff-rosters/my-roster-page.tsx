@@ -68,6 +68,7 @@ type ClockState = {
   activeSession: {
     id: string;
     clockInAt: string;
+    activeBreak: { id: string; startedAt: string } | null;
     scheduledDate: string | null;
     scheduledStartTime: string | null;
     scheduledEndTime: string | null;
@@ -250,14 +251,19 @@ export function StaffMyRosterPage() {
   }, [refreshClock]);
 
   async function runClockAction(
-    action: "clock_in" | "clock_out",
+    action: "clock_in" | "clock_out" | "start_break" | "end_break",
     confirm = false,
   ) {
     if (clockBusy) return;
+    const before = clock?.activeSession;
     setClockBusy(true);
     setClockError(null);
     setClockNotice(null);
 
+    let responseSucceeded = false;
+    let responseReceived = false;
+    let confirmationRequired = false;
+    let actionError: string | null = null;
     try {
       const response = await fetch("/api/staff-roster/clock", {
         method: "POST",
@@ -265,8 +271,10 @@ export function StaffMyRosterPage() {
         body: JSON.stringify({
           action,
           confirmUnrostered: confirm,
+          ...(action === "end_break" ? { breakId: before?.activeBreak?.id } : {}),
         }),
       });
+      responseReceived = true;
       const body = (await response.json().catch(() => null)) as
         | { error?: string; code?: string | null }
         | null;
@@ -276,39 +284,50 @@ export function StaffMyRosterPage() {
           action === "clock_in" &&
           body?.code === "unrostered_confirmation_required"
         ) {
-          setConfirmUnrostered(true);
-          return;
+          confirmationRequired = true;
+        } else {
+          actionError = body?.error ?? "The clock action could not be recorded.";
         }
-        throw new Error(body?.error ?? "The clock action could not be recorded.");
+      } else {
+        responseSucceeded = true;
       }
-
-      setConfirmUnrostered(false);
-      await refreshClock();
     } catch (caught) {
-      const message =
+      actionError =
         caught instanceof Error
           ? caught.message
           : "The clock action could not be recorded.";
+    }
 
-      try {
-        const authoritative = await refreshClock();
+    try {
+      const authoritative = await refreshClock();
+      if (confirmationRequired) {
+        setConfirmUnrostered(true);
+      } else {
+        const after = authoritative.activeSession;
         const intendedStateIsNowTrue =
           action === "clock_in"
-            ? Boolean(authoritative.activeSession)
-            : !authoritative.activeSession;
-
-        if (intendedStateIsNowTrue) {
+            ? !before && Boolean(after)
+            : action === "clock_out"
+              ? Boolean(before) && !after
+              : action === "start_break"
+                ? Boolean(before && after?.id === before.id && !before.activeBreak && after.activeBreak)
+                : Boolean(before?.activeBreak && after?.id === before.id && !after.activeBreak);
+        if (responseSucceeded && intendedStateIsNowTrue) {
           setConfirmUnrostered(false);
-          setClockNotice(
-            "Covie refreshed your clock status after the connection response was unclear.",
-          );
-          return;
+        } else if (!responseReceived && intendedStateIsNowTrue) {
+          setConfirmUnrostered(false);
+          setClockNotice("Covie refreshed your clock status after the connection response was unclear.");
+        } else {
+          setClockError(actionError ?? "The clock action could not be confirmed. Refresh and try again.");
         }
-      } catch {
-        setClock(null);
       }
-
-      setClockError(message);
+    } catch (caught) {
+      setClock(null);
+      setClockError(
+        caught instanceof Error
+          ? caught.message
+          : "Clock status could not be loaded. Refresh and try again.",
+      );
     } finally {
       setClockBusy(false);
     }
@@ -430,7 +449,7 @@ export function StaffMyRosterPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-extrabold uppercase tracking-[0.06em] text-[#0D7A6D]">
-                      Clocked in
+                      {clock.activeSession.activeBreak ? "On break" : "Clocked in"}
                     </p>
                     <strong className="mt-1 block text-[#243139]">
                       Since{" "}
@@ -440,6 +459,17 @@ export function StaffMyRosterPage() {
                         timeZone: clock.timezone,
                       }).format(new Date(clock.activeSession.clockInAt))}
                     </strong>
+                    {clock.activeSession.activeBreak ? (
+                      <span className="mt-1 block text-sm font-bold text-[#243139]">
+                        Break started at{" "}
+                        {new Intl.DateTimeFormat("en-NZ", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                          timeZone: clock.timezone,
+                        }).format(new Date(clock.activeSession.activeBreak.startedAt))}
+                        . End your break before clocking out.
+                      </span>
+                    ) : null}
                     {clock.activeSession.unrostered ? (
                       <span className="mt-1 block text-xs font-bold text-[#8B6714]">
                         No rostered shift matched this clock-in.
@@ -453,12 +483,29 @@ export function StaffMyRosterPage() {
                       </span>
                     ) : null}
                   </div>
-                  <CovieButton
-                    disabled={clockBusy}
-                    onClick={() => void runClockAction("clock_out")}
-                  >
-                    {clockBusy ? "Clocking out…" : "Clock out"}
-                  </CovieButton>
+                  <div className="flex flex-wrap gap-2">
+                    <CovieButton
+                      disabled={clockBusy}
+                      onClick={() =>
+                        void runClockAction(
+                          clock.activeSession?.activeBreak ? "end_break" : "start_break",
+                        )
+                      }
+                    >
+                      {clock.activeSession.activeBreak
+                        ? clockBusy ? "Ending break…" : "End break"
+                        : clockBusy ? "Starting break…" : "Start break"}
+                    </CovieButton>
+                    {!clock.activeSession.activeBreak ? (
+                      <CovieButton
+                        tone="neutral"
+                        disabled={clockBusy}
+                        onClick={() => void runClockAction("clock_out")}
+                      >
+                        {clockBusy ? "Clocking out…" : "Clock out"}
+                      </CovieButton>
+                    ) : null}
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center justify-between gap-3">

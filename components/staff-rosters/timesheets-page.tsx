@@ -27,6 +27,7 @@ import {
   mondayWeekStartInTimeZone,
 } from "@/lib/calendar/time";
 import { classifyTimesheetSession } from "@/lib/staff-rosters/timesheet-policy";
+import { attendanceDurations } from "@/lib/staff-rosters/break-duration";
 
 type Session = {
   id: string;
@@ -37,6 +38,7 @@ type Session = {
   scheduledEndTime: string | null;
   clockInAt: string;
   clockOutAt: string | null;
+  breaks: Array<{ id: string; startedAt: string; endedAt: string | null }>;
   unrostered: boolean;
   correctedAt: string | null;
 };
@@ -114,14 +116,6 @@ function zonedDate(value: string, timeZone: string) {
     month: "short",
     timeZone,
   }).format(new Date(value));
-}
-
-function durationMinutes(start: string, end: string | null) {
-  if (!end) return 0;
-  return Math.max(
-    0,
-    Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000),
-  );
 }
 
 function shiftMinutes(shift: ScheduledShift) {
@@ -256,7 +250,23 @@ export function StaffRosterTimesheetsPage() {
   const workedMinutes = useMemo(
     () =>
       data?.sessions.reduce(
-        (sum, session) => sum + durationMinutes(session.clockInAt, session.clockOutAt),
+        (sum, session) =>
+          sum +
+          (session.clockOutAt
+            ? attendanceDurations(session).workedMinutes
+            : 0),
+        0,
+      ) ?? 0,
+    [data?.sessions],
+  );
+  const breakMinutes = useMemo(
+    () =>
+      data?.sessions.reduce(
+        (sum, session) =>
+          sum +
+          (session.clockOutAt
+            ? attendanceDurations(session).breakMinutes
+            : 0),
         0,
       ) ?? 0,
     [data?.sessions],
@@ -587,13 +597,21 @@ export function StaffRosterTimesheetsPage() {
       {data ? (
         <>
           {!data.canReview ? (
-            <section className="grid gap-3 sm:grid-cols-2">
+            <section className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-[#E6DBCF] bg-white p-4">
                 <span className="text-xs font-extrabold uppercase text-[#66747A]">
                   Rostered
                 </span>
                 <strong className="mt-1 block text-xl text-[#243139]">
                   {durationText(rosteredMinutes)}
+                </strong>
+              </div>
+              <div className="rounded-2xl border border-[#E6DBCF] bg-white p-4">
+                <span className="text-xs font-extrabold uppercase text-[#66747A]">
+                  Breaks
+                </span>
+                <strong className="mt-1 block text-xl text-[#243139]">
+                  {durationText(breakMinutes)}
                 </strong>
               </div>
               <div className="rounded-2xl border border-[#E6DBCF] bg-white p-4">
@@ -691,6 +709,7 @@ export function StaffRosterTimesheetsPage() {
                 });
                 const exceptions = sessionExceptions(session);
                 const pendingCorrection = pendingCorrectionBySession.get(session.id);
+                const durations = attendanceDurations(session);
 
                 return (
                   <article
@@ -723,6 +742,29 @@ export function StaffRosterTimesheetsPage() {
                       ) : (
                         <CovieStatusBadge tone="teal">Recorded</CovieStatusBadge>
                       )}
+                    </div>
+
+                    <div className="mt-3 rounded-xl bg-[#F8F4EF] p-3 text-sm text-[#526168]">
+                      <span className="font-bold text-[#243139]">
+                        Elapsed {durationText(durations.elapsedMinutes)}
+                        {session.clockOutAt ? "" : " so far"}
+                      </span>
+                      <span className="mx-2" aria-hidden="true">·</span>
+                      <span>Breaks {durationText(durations.breakMinutes)}</span>
+                      <span className="mx-2" aria-hidden="true">·</span>
+                      <span>Worked {durationText(durations.workedMinutes)}</span>
+                      {!session.clockOutAt ? (
+                        <span className="mt-1 block text-xs font-semibold">
+                          {state === "in_progress"
+                            ? "Time shown so far; this session is not in the weekly total."
+                            : "Provisional time; clock-out is missing and this session is not in the weekly total."}
+                        </span>
+                      ) : null}
+                      {session.breaks.some((entry) => !entry.endedAt) ? (
+                        <span className="mt-1 block text-xs font-bold text-[#8B6714]">
+                          Break in progress
+                        </span>
+                      ) : null}
                     </div>
 
                     <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
