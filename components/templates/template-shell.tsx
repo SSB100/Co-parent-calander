@@ -189,7 +189,7 @@ export function TemplateShell({
         activeSection={section}
         activeToolKey={activeToolKey}
         staffMode={staffMode}
-        showStaffRosterGuide={compactStaffRosterCalendar}
+        showStaffRosterGuide={false}
       />
 
       <CoviePage

@@ -139,6 +139,108 @@ export async function createStaffRosterInvitation(input: {
   };
 }
 
+
+export async function revokeStaffRosterInvitation(input: {
+  session: StaffSession;
+  memberId: string;
+}) {
+  const actor = await ensureStaffRosterMember(input.session);
+  const capabilities = staffRosterCapabilities({
+    accessRole: actor.accessRole,
+    permission: input.session.permission,
+  });
+  if (!capabilities.manageTeam) {
+    throw new StaffRosterServiceError(403, "Manager access is required.");
+  }
+
+  const rows = await getDb()
+    .select({
+      id: staffRosterMembers.id,
+      displayName: staffRosterMembers.displayName,
+      accessRole: staffRosterMembers.accessRole,
+      active: staffRosterMembers.active,
+    })
+    .from(staffRosterMembers)
+    .where(
+      and(
+        eq(staffRosterMembers.id, input.memberId),
+        eq(staffRosterMembers.calendarId, input.session.calendarId),
+      ),
+    )
+    .limit(1);
+
+  const target = rows[0];
+  if (!target || !target.active) {
+    throw new StaffRosterServiceError(404, "Team member not found.");
+  }
+  if (target.accessRole === "owner") {
+    throw new StaffRosterServiceError(
+      400,
+      "The roster owner does not use a Staff invitation.",
+    );
+  }
+  if (target.accessRole === "manager" && !capabilities.manageManagers) {
+    throw new StaffRosterServiceError(
+      403,
+      "Only the calendar owner can manage a manager invitation.",
+    );
+  }
+
+  const sql = getSql();
+  const activeInvites = (await sql`
+    SELECT id
+    FROM staff_roster_invites
+    WHERE calendar_id = ${input.session.calendarId}
+      AND member_id = ${input.memberId}
+      AND redeemed_at IS NULL
+      AND revoked_at IS NULL
+      AND expires_at > now()
+    ORDER BY created_at DESC
+    LIMIT 1
+  `) as Array<{ id: string }>;
+
+  const activeInvite = activeInvites[0];
+  if (!activeInvite) {
+    return { ok: true as const, revoked: false as const };
+  }
+
+  try {
+    await sql.transaction([
+      sql`
+        UPDATE staff_roster_invites
+        SET revoked_at = now()
+        WHERE id = ${activeInvite.id}
+          AND calendar_id = ${input.session.calendarId}
+          AND member_id = ${input.memberId}
+          AND redeemed_at IS NULL
+          AND revoked_at IS NULL
+      `,
+      sql`
+        INSERT INTO audit_log (
+          calendar_id, actor_participant_id, action,
+          entity_type, entity_id, after_state
+        )
+        VALUES (
+          ${input.session.calendarId}, NULL,
+          'staff_roster.invite.revoke',
+          'staff_roster_invite', ${activeInvite.id},
+          ${JSON.stringify({
+            memberId: input.memberId,
+            actorStaffMemberId: actor.id,
+          })}::jsonb
+        )
+      `,
+    ]);
+  } catch {
+    throw new StaffRosterServiceError(
+      409,
+      "The invitation could not be revoked.",
+    );
+  }
+
+  return { ok: true as const, revoked: true as const };
+}
+
 export async function acceptStaffRosterInviteCode(input: {
   userId: string;
   code: string;
