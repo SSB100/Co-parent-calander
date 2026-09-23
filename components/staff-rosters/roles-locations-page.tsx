@@ -1,6 +1,6 @@
 "use client";
 
-import { LoaderCircle, MapPin, Plus, Tags } from "lucide-react";
+import { LoaderCircle, MapPin, Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
   CovieButton,
@@ -18,7 +18,7 @@ type StructurePayload = {
   roles: StructureItem[];
   locations: StructureItem[];
 };
-type Kind = "role" | "location";
+type Kind = "location";
 
 export function StaffRosterRolesLocationsPage() {
   const [data, setData] = useState<StructurePayload | null>(null);
@@ -44,7 +44,7 @@ export function StaffRosterRolesLocationsPage() {
       throw new Error(
         body && "error" in body && body.error
           ? body.error
-          : "Roles and locations could not be loaded.",
+          : "Locations could not be loaded.",
       );
     }
 
@@ -58,7 +58,7 @@ export function StaffRosterRolesLocationsPage() {
         setError(
           caught instanceof Error
             ? caught.message
-            : "Roles and locations could not be loaded.",
+            : "Locations could not be loaded.",
         ),
       );
     }, 0);
@@ -139,13 +139,12 @@ export function StaffRosterRolesLocationsPage() {
     }
   }
 
-  const activeRoles = data?.roles.filter((item) => item.active) ?? [];
   const activeLocations = data?.locations.filter((item) => item.active) ?? [];
 
   function renderList(
     kind: Kind,
     items: StructureItem[],
-    Icon: typeof Tags,
+    Icon: typeof MapPin,
     emptyTitle: string,
     emptyDescription: string,
   ) {
@@ -207,31 +206,12 @@ export function StaffRosterRolesLocationsPage() {
       {!data && !error ? (
         <div className="flex min-h-40 items-center justify-center rounded-2xl border border-[#E6DBCF] bg-white text-sm text-[#66747A]">
           <LoaderCircle className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-          Loading roles and locations…
+          Loading locations…
         </div>
       ) : null}
 
       {data ? (
-        <div className="grid gap-5 xl:grid-cols-2">
-          <section>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-extrabold text-[#243139]">Roles</h2>
-              {data.canManage && activeRoles.length > 0 ? (
-                <CovieButton onClick={() => setDialogKind("role")}>
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                  Add role
-                </CovieButton>
-              ) : null}
-            </div>
-            {renderList(
-              "role",
-              activeRoles,
-              Tags,
-              "No roles yet",
-              "Add the roles people can work when you start building shifts.",
-            )}
-          </section>
-
+        <div>
           <section>
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-lg font-extrabold text-[#243139]">Locations</h2>
@@ -256,19 +236,9 @@ export function StaffRosterRolesLocationsPage() {
       {dialogKind ? (
         <CovieDialog
           id="staff-structure-dialog-title"
-          title={dialogKind === "role" ? "Add role" : "Add location"}
-          description={
-            dialogKind === "role"
-              ? "Roles describe the work a person is rostered to do."
-              : "Locations describe where a shift takes place."
-          }
-          icon={
-            dialogKind === "role" ? (
-              <Tags aria-hidden="true" />
-            ) : (
-              <MapPin aria-hidden="true" />
-            )
-          }
+          title="Add location"
+          description="Locations describe where a shift takes place."
+          icon={<MapPin aria-hidden="true" />}
           iconTone="teal"
           size="sm"
           busy={busy}

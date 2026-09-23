@@ -26,6 +26,7 @@ import {
   subMonths,
 } from "date-fns";
 import Link from "next/link";
+import { localDateInTimeZone } from "@/lib/calendar/time";
 import {
   useCallback,
   useEffect,
@@ -78,7 +79,17 @@ type Member = {
   roleNames: string[];
   defaultRoleId: string | null;
   defaultLocationId: string | null;
+  expectedWeeklyMinutes: number | null;
   recentShiftDurationMinutes: number | null;
+};
+
+type ProfileMember = {
+  id: string;
+  displayName: string;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  expectedWeeklyMinutes: number | null;
+  defaultLocationName: string | null;
 };
 
 type Option = { id: string; name: string };
@@ -123,6 +134,7 @@ type Shift = {
 type RosterPayload = {
   weekStart: string;
   weekEnd: string;
+  calendarTimezone: string;
   currentMemberId: string;
   currentAccessRole: StaffAccessRole;
   canManageRoster: boolean;
@@ -143,6 +155,7 @@ type RosterPayload = {
     changedShiftCount: number;
   };
   members: Member[];
+  attendancePoints: Array<{ memberId: string; memberName: string; clockInAt: string; clockOutAt: string | null }>;
   roles: Option[];
   locations: Option[];
   availability: RosterAvailability[];
@@ -175,13 +188,6 @@ const DND_TYPE = "application/x-covie-roster";
 
 function todayValue() {
   return format(new Date(), "yyyy-MM-dd");
-}
-
-function currentWeekStart() {
-  return format(
-    startOfWeek(new Date(), { weekStartsOn: 1 }),
-    "yyyy-MM-dd",
-  );
 }
 
 function weekStartFor(date: string) {
@@ -357,9 +363,9 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
   const [mobileDay, setMobileDay] = useState(todayValue);
   const [view, setView] = useState<RosterView>("week");
   const [staffFilter, setStaffFilter] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [data, setData] = useState<RosterPayload | null>(null);
+  const [profileMember, setProfileMember] = useState<ProfileMember | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -393,6 +399,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     endMinute: number;
   } | null>(null);
   const [weekBoardHeight, setWeekBoardHeight] = useState(540);
+  const initialCalendarDateSynced = useRef(false);
   const weekBoardRef = useRef<HTMLDivElement>(null);
   const draggingPayloadRef = useRef<
     | { kind: "member"; memberId: string }
@@ -441,12 +448,14 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     const shifts = new Map<string, Shift>();
     const availability = new Map<string, RosterAvailability>();
     const leave = new Map<string, RosterLeave>();
+    const attendancePoints = new Map<string, RosterPayload["attendancePoints"][number]>();
     for (const payload of payloads) {
       for (const shift of payload.shifts) shifts.set(shift.id, shift);
       for (const unavailable of payload.availability) {
         availability.set(unavailable.id, unavailable);
       }
       for (const request of payload.leave) leave.set(request.id, request);
+      for (const point of payload.attendancePoints) attendancePoints.set(point.memberId + point.clockInAt, point);
     }
 
     setData({
@@ -464,6 +473,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
       shifts: [...shifts.values()].sort((a, b) =>
         (a.date + a.startTime).localeCompare(b.date + b.startTime),
       ),
+      attendancePoints: [...attendancePoints.values()],
     });
     setError(null);
   }, []);
@@ -480,6 +490,14 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [anchorDate, refresh, view]);
+
+  useEffect(() => {
+    if (!data || initialCalendarDateSynced.current) return;
+    initialCalendarDateSynced.current = true;
+    const calendarToday = localDateInTimeZone(data.calendarTimezone);
+    setAnchorDate(calendarToday);
+    setMobileDay(calendarToday);
+  }, [data]);
 
   useEffect(() => {
     if (view !== "week" || !data) return;
@@ -513,10 +531,6 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     };
   }, [data, view]);
 
-  const roleById = useMemo(
-    () => new Map(data?.roles.map((role) => [role.id, role.name]) ?? []),
-    [data?.roles],
-  );
   const locationById = useMemo(
     () =>
       new Map(
@@ -524,16 +538,30 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
       ),
     [data?.locations],
   );
+  const attendanceByDate = useMemo(() => {
+    const byDate = new Map<string, Array<{ memberId: string; memberName: string; kind: "in" | "out"; at: string }>>();
+    if (!data?.canManageRoster) return byDate;
+    for (const point of data.attendancePoints) {
+      const events = [
+        { memberId: point.memberId, memberName: point.memberName, kind: "in" as const, at: point.clockInAt },
+        ...(point.clockOutAt ? [{ memberId: point.memberId, memberName: point.memberName, kind: "out" as const, at: point.clockOutAt }] : []),
+      ];
+      for (const event of events) {
+        const day = localDateInTimeZone(data.calendarTimezone, new Date(event.at));
+        byDate.set(day, [...(byDate.get(day) ?? []), event]);
+      }
+    }
+    return byDate;
+  }, [data]);
 
   const filteredShifts = useMemo(
     () =>
       data?.shifts.filter(
         (shift) =>
           (!staffFilter || shift.memberId === staffFilter) &&
-          (!roleFilter || shift.roleId === roleFilter) &&
           (!locationFilter || shift.locationId === locationFilter),
       ) ?? [],
-    [data?.shifts, locationFilter, roleFilter, staffFilter],
+    [data?.shifts, locationFilter, staffFilter],
   );
 
   const filteredMembers = useMemo(
@@ -541,11 +569,10 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
       data?.members.filter(
         (member) =>
           (!staffFilter || member.id === staffFilter) &&
-          (!roleFilter || member.roleIds.includes(roleFilter)) &&
           (!locationFilter ||
             member.defaultLocationId === locationFilter),
       ) ?? [],
-    [data?.members, locationFilter, roleFilter, staffFilter],
+    [data?.members, locationFilter, staffFilter],
   );
 
   const filteredMemberIds = useMemo(
@@ -623,6 +650,21 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
       note: "",
     });
     setDialogOpen(true);
+  }
+
+  async function openProfile(memberId: string) {
+    if (!data?.canManageRoster) return;
+    try {
+      const response = await fetch("/api/staff-roster/team", { cache: "no-store" });
+      const body = await response.json().catch(() => null) as { members?: ProfileMember[]; error?: string } | null;
+      if (!response.ok || !body?.members) throw new Error(body?.error ?? "This staff profile could not be opened.");
+      const member = body.members.find((entry) => entry.id === memberId);
+      if (!member) throw new Error("This staff profile is no longer available. Refresh the roster.");
+      setProfileMember(member);
+      setError(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "This staff profile could not be opened.");
+    }
   }
 
   function openEdit(shift: Shift) {
@@ -1345,7 +1387,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
   }
 
   function goToday() {
-    const value = todayValue();
+    const value = data ? localDateInTimeZone(data.calendarTimezone) : todayValue();
     setAnchorDate(value);
     setMobileDay(value);
   }
@@ -1405,7 +1447,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
         <div className="mb-2 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0 shrink-0">{header}</div>
           {data?.canManageRoster && hasRosterStaff ? (
-            <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:ml-4 xl:max-w-[760px]">
+            <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:ml-4">
               <CovieSelect
                 aria-label="Filter roster by staff"
                 value={staffFilter}
@@ -1415,18 +1457,6 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                 {data.members.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.displayName}
-                  </option>
-                ))}
-              </CovieSelect>
-              <CovieSelect
-                aria-label="Filter roster by role"
-                value={roleFilter}
-                onChange={(event) => setRoleFilter(event.target.value)}
-              >
-                <option value="">All roles</option>
-                {data.roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
                   </option>
                 ))}
               </CovieSelect>
@@ -1455,6 +1485,23 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                 <Clock3 className="h-4 w-4" aria-hidden="true" />
                 Hours: {operationalHoursLabel}
               </CovieButton>
+              {view === "week" ? (
+                <>
+                  <CovieButton tone="neutral" disabled={busy} onClick={() => void copyPreviousWeek()} className="justify-center">
+                    <Copy className="h-4 w-4" aria-hidden="true" />
+                    Copy previous week
+                  </CovieButton>
+                  {data.publication.status !== "published" ? (
+                    <CovieButton
+                      disabled={busy}
+                      onClick={() => data.publication.status === "changes_pending" ? setSendUpdatesConfirmOpen(true) : void publishCurrentWeek()}
+                      className="justify-center"
+                    >
+                      {data.publication.status === "draft" ? "Publish roster" : "Send updates"}
+                    </CovieButton>
+                  ) : null}
+                </>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -1490,7 +1537,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                 className="shrink-0"
               />
 
-              <div className="flex items-center gap-2">
+              <div className={"flex items-center gap-2 " + (view === "week" ? "md:hidden" : "")}>
                 <CovieButton
                   tone="neutral"
                   aria-label={view === "week" ? "Previous week" : "Previous month"}
@@ -1516,44 +1563,6 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                   : monthLabel(anchorDate)}
               </strong>
 
-              {data.canManageRoster ? (
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  {view === "week" ? (
-                    <>
-                      <CovieButton
-                        tone="neutral"
-                        disabled={busy}
-                        onClick={() => void copyPreviousWeek()}
-                      >
-                        <Copy className="h-4 w-4" aria-hidden="true" />
-                        Copy previous week
-                      </CovieButton>
-                      {data.publication.status !== "published" ? (
-                        <CovieButton
-                          disabled={busy}
-                          onClick={() =>
-                            data.publication.status === "changes_pending"
-                              ? setSendUpdatesConfirmOpen(true)
-                              : void publishCurrentWeek()
-                          }
-                        >
-                          {data.publication.status === "draft"
-                            ? "Publish roster"
-                            : "Send updates"}
-                        </CovieButton>
-                      ) : null}
-                    </>
-                  ) : null}
-                  <CovieButton
-                    tone="neutral"
-                    disabled={busy}
-                    onClick={() => openCreate()}
-                  >
-                    <Plus className="h-4 w-4" aria-hidden="true" />
-                    Create shift
-                  </CovieButton>
-                </div>
-              ) : null}
             </div>
 
             {view === "week" ? (
@@ -1607,7 +1616,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                 />
               }
               title="Add your first staff member to start rostering"
-              description="Add a staff member with just their name. Roles, locations, availability and their Covie invite can all wait until later."
+              description="Add a staff member with just their name. Contact details, location and their Covie invite can all wait until later."
               action={
                 data.canManageRoster ? (
                   <Link
@@ -1650,6 +1659,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                     const dayLeave = filteredLeave.filter((leave) =>
                       leaveAppliesToDay(leave, day),
                     );
+                    const dayAttendance = attendanceByDate.get(day) ?? [];
                     const visibility = monthShiftVisibility({
                       shiftCount: dayShifts.length,
                       hasLeave: dayLeave.length > 0,
@@ -1674,7 +1684,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                           }}
                           className={
                             "flex h-8 w-8 items-center justify-center rounded-full text-sm font-extrabold " +
-                            (day === todayValue()
+                            (day === localDateInTimeZone(data.calendarTimezone)
                               ? "bg-[#FF6B5F] text-[#243139]"
                               : outsideMonth
                                 ? "text-[#A59B91]"
@@ -1689,6 +1699,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                             {daySummary.staffCount} staff · {hoursText(daySummary.rosterMinutes)}
                           </p>
                         ) : null}
+                        {dayAttendance.length > 0 ? <p className="mt-1 truncate rounded bg-[#EAF8F5] px-1 text-[10px] font-bold text-[#0D7A6D]">{dayAttendance.length} clock points</p> : null}
                         <div className="mt-1 space-y-1">
                           {dayLeave.slice(0, 1).map((leave) => (
                             <span
@@ -1752,22 +1763,13 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                 style={{ height: weekBoardHeight }}
               >
                 <aside className="min-h-0 overflow-y-auto border-r border-[#E6DBCF] bg-[#FFF9F2]">
-                  <div className="flex min-h-[54px] items-center justify-between border-b border-[#E6DBCF] px-3">
-                    <span className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#66747A]">
-                      Staff
-                    </span>
-                    <span className="text-[10px] font-bold text-[#8B7D70]">
-                      Drag onto calendar
-                    </span>
+                  <div className="flex min-h-[54px] items-center justify-between gap-1 border-b border-[#E6DBCF] px-1">
+                    <CovieButton tone="neutral" aria-label="Previous week" onClick={() => goRelative(-1)}><ChevronLeft className="h-4 w-4" aria-hidden="true" /></CovieButton>
+                    <CovieButton tone="neutral" onClick={goToday}>Today</CovieButton>
+                    <CovieButton tone="neutral" aria-label="Next week" onClick={() => goRelative(1)}><ChevronRight className="h-4 w-4" aria-hidden="true" /></CovieButton>
                   </div>
                   <div className="space-y-2 p-2">
                     {filteredMembers.map((member) => {
-                      const roleName =
-                        member.roleNames.length > 0
-                          ? member.roleNames.join(", ")
-                          : member.defaultRoleId
-                            ? roleById.get(member.defaultRoleId)
-                            : null;
                       const locationName = member.defaultLocationId
                         ? locationById.get(member.defaultLocationId)
                         : null;
@@ -1777,7 +1779,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                           role="button"
                           tabIndex={0}
                           draggable={data.canManageRoster}
-                          title="Drag onto a day and time to create a shift"
+                          title="Open staff profile, or drag onto a day and time to create a shift"
                           onDragStart={(event) =>
                             setDragPayload(event, {
                               kind: "member",
@@ -1785,18 +1787,14 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                             })
                           }
                           onDragEnd={clearDragState}
-                          onClick={() =>
-                            data.canManageRoster
-                              ? openCreate(member.id, selectedMobileDay)
-                              : undefined
-                          }
+                          onClick={() => void openProfile(member.id)}
                           onKeyDown={(event) => {
                             if (
                               data.canManageRoster &&
                               (event.key === "Enter" || event.key === " ")
                             ) {
                               event.preventDefault();
-                              openCreate(member.id, selectedMobileDay);
+                              void openProfile(member.id);
                             }
                           }}
                           className="group flex min-h-14 w-full cursor-grab select-none items-center gap-2 rounded-xl border border-[#D8CEC3] bg-white p-2 text-left transition hover:border-[#19A897] active:cursor-grabbing"
@@ -1811,14 +1809,14 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                             <strong className="block truncate text-sm text-[#243139]">
                               {member.displayName}
                             </strong>
-                            {roleName || locationName ? (
+                            {locationName ? (
                               <span className="mt-0.5 block truncate text-[11px] text-[#66747A]">
-                                {[roleName, locationName].filter(Boolean).join(" · ")}
+                                {locationName}
                               </span>
                             ) : null}
                           </span>
-                          <span className="shrink-0 rounded-lg bg-[#EAF8F5] px-2 py-1 text-xs font-extrabold text-[#0D7A6D]">
-                            {hoursText(weeklyMinutesByMember.get(member.id) ?? 0)}
+                          <span className="shrink-0 rounded-lg bg-[#EAF8F5] px-2 py-1 text-xs font-extrabold text-[#0D7A6D]" title="Assigned / expected weekly hours">
+                            {hoursText(weeklyMinutesByMember.get(member.id) ?? 0)}{member.expectedWeeklyMinutes === null ? "" : ` / ${hoursText(member.expectedWeeklyMinutes)}`}
                           </span>
                         </div>
                       );
@@ -1845,6 +1843,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                         const dayLeave = filteredLeave.filter((leave) =>
                           leaveAppliesToDay(leave, day),
                         );
+                        const attendanceForDay = attendanceByDate.get(day) ?? [];
                         return (
                           <div
                             key={day}
@@ -1853,6 +1852,15 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                             <span className="text-sm font-extrabold text-[#243139]">
                               {dayLabel(day)}
                             </span>
+                            {attendanceForDay.length > 0 ? (
+                              <div className="mt-1 space-y-1 text-left">
+                                {attendanceForDay.map((point, index) => (
+                                  <span key={`${point.memberId}-${point.at}-${point.kind}-${index}`} className="block break-words rounded bg-[#EAF8F5] px-1 py-0.5 text-[9px] font-bold text-[#0D7A6D]">
+                                    {point.memberName}: {point.kind === "in" ? "in" : "out"} {new Intl.DateTimeFormat("en-NZ", { timeZone: data.calendarTimezone, hour: "numeric", minute: "2-digit" }).format(new Date(point.at))}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
                             {dayLeave.length > 0 ? (
                               <div className="mt-1 space-y-1">
                                 {dayLeave.slice(0, 2).map((leave) => (
@@ -1963,6 +1971,19 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                                 aria-hidden="true"
                               />
                             ))}
+                            {data.canManageRoster ? (
+                              <button
+                                type="button"
+                                className="absolute inset-0 z-0 w-full cursor-crosshair"
+                                aria-label={`Add shift on ${dayLabel(day)}`}
+                                onClick={(event) => {
+                                  const rect = event.currentTarget.getBoundingClientRect();
+                                  const rawMinute = visibleStartMinute + ((event.clientY - rect.top) / hourHeight) * 60;
+                                  const startMinute = Math.max(visibleStartMinute, Math.min(visibleEndMinute - 60, snapMinutes(rawMinute)));
+                                  openCreate(undefined, day, timeFromMinutes(startMinute), timeFromMinutes(Math.min(DAY_END_MINUTE, startMinute + 8 * 60)));
+                                }}
+                              />
+                            ) : null}
 
                             {dayAvailability.map((unavailable) => {
                               const start = unavailable.startTime
@@ -2408,7 +2429,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
         <CovieDialog
           id="staff-shift-dialog-title"
           title={form.shiftId ? "Edit shift" : "Create shift"}
-          description="Assign a person, date and time. Role and location are optional."
+          description="Assign a person, date and time. Location is optional."
           icon={<CalendarDays aria-hidden="true" />}
           iconTone="teal"
           size="md"
@@ -2521,27 +2542,6 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
             </div>
 
             <label>
-              <span className="mb-1.5 block text-sm font-bold">Role</span>
-              <CovieSelect
-                value={form.roleId}
-                disabled={busy}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    roleId: event.target.value,
-                  }))
-                }
-              >
-                <option value="">No role</option>
-                {data.roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
-                  </option>
-                ))}
-              </CovieSelect>
-            </label>
-
-            <label>
               <span className="mb-1.5 block text-sm font-bold">
                 Location
               </span>
@@ -2594,6 +2594,32 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                   Save anyway
                 </CovieButton>
               </div>
+            </CovieNotice>
+          ) : null}
+        </CovieDialog>
+      ) : null}
+
+      {profileMember && data ? (
+        <CovieDialog
+          id="staff-roster-profile-title"
+          title={profileMember.displayName}
+          description="Staff profile and this week's assigned hours."
+          icon={<UserRound aria-hidden="true" />}
+          iconTone="teal"
+          size="sm"
+          onClose={() => setProfileMember(null)}
+          footer={<><CovieButton tone="neutral" onClick={() => setProfileMember(null)}>Close</CovieButton><Link href="/calendar-types/staff-rosters/organiser/team" className="inline-flex min-h-11 items-center rounded-[10px] bg-[#FF6B5F] px-4 text-sm font-bold text-[#243139]">Edit in Team</Link></>}
+        >
+          <dl className="grid gap-3 text-sm">
+            <div><dt className="font-bold text-[#66747A]">Contact email</dt><dd className="break-all text-[#243139]">{profileMember.contactEmail ?? "Not set"}</dd></div>
+            <div><dt className="font-bold text-[#66747A]">Contact phone</dt><dd className="text-[#243139]">{profileMember.contactPhone ?? "Not set"}</dd></div>
+            <div><dt className="font-bold text-[#66747A]">Usual location</dt><dd className="text-[#243139]">{profileMember.defaultLocationName ?? "Not set"}</dd></div>
+            <div><dt className="font-bold text-[#66747A]">Assigned this week</dt><dd className="text-[#243139]">{hoursText(weeklyMinutesByMember.get(profileMember.id) ?? 0)}</dd></div>
+            <div><dt className="font-bold text-[#66747A]">Expected each week</dt><dd className="text-[#243139]">{profileMember.expectedWeeklyMinutes === null ? "Not set" : hoursText(profileMember.expectedWeeklyMinutes)}</dd></div>
+          </dl>
+          {profileMember.expectedWeeklyMinutes !== null && (weeklyMinutesByMember.get(profileMember.id) ?? 0) !== profileMember.expectedWeeklyMinutes ? (
+            <CovieNotice tone="sunshine" className="mt-4">
+              {hoursText(Math.abs((weeklyMinutesByMember.get(profileMember.id) ?? 0) - profileMember.expectedWeeklyMinutes))} {((weeklyMinutesByMember.get(profileMember.id) ?? 0) < profileMember.expectedWeeklyMinutes) ? "below" : "above"} expected hours this week.
             </CovieNotice>
           ) : null}
         </CovieDialog>

@@ -44,7 +44,9 @@ test("Staff Rosters access roles are separate from job roles", async () => {
   assert.match(schema, /defaultLocationId/);
 
   assert.match(teamPage, /Roster access/);
-  assert.match(teamPage, /Usual role/);
+  assert.match(teamPage, /Expected weekly hours/);
+  assert.match(teamPage, /Assigned this week/);
+  assert.doesNotMatch(teamPage, /Usual role/);
   assert.match(teamPage, /Usual location/);
   assert.match(service, /Only the calendar owner can add another manager/);
   assert.match(service, /Only the calendar owner can manage manager access/);
@@ -94,15 +96,16 @@ test("Staff Rosters Stage 1 pages are real branded tools with no sample data", a
   assert.match(shell, /StaffRosterAvailabilityPage/);
   assert.match(shell, /StaffRosterRolesLocationsPage/);
 
-  for (const page of [team, availability, structure]) {
+  for (const page of [team, structure]) {
     assert.match(page, /Covie/);
     assert.doesNotMatch(page, /Alex|Jordan|Sam|Main site|Second site/);
     assert.doesNotMatch(page, /window.confirm/);
   }
 
   assert.match(team, /Add staff member/);
-  assert.match(availability, /Add availability/);
-  assert.match(structure, /Add role/);
+  assert.match(availability, /StaffRosterLeavePanel/);
+  assert.doesNotMatch(availability, /Add availability/);
+  assert.doesNotMatch(structure, /Add role/);
   assert.match(structure, /Add location/);
 });
 

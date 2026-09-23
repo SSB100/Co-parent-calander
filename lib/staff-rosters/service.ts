@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { addDays, format, parseISO, subDays } from "date-fns";
+import { addDays, format, parseISO, startOfWeek, subDays } from "date-fns";
 import { and, asc, desc, eq, inArray, sql as drizzleSql } from "drizzle-orm";
 import { getDb, getSql } from "@/lib/db";
 import {
@@ -19,7 +19,6 @@ import {
 import { localDateInTimeZone } from "@/lib/calendar/time";
 import {
   staffRosterCapabilities,
-  type StaffRosterAccessRole,
 } from "@/lib/staff-rosters/capabilities";
 import { sendStaffRosterEmails } from "@/lib/email/staff-roster-notifications";
 import { staffRosterAccountState } from "@/lib/staff-rosters/invitation-status";
@@ -230,10 +229,25 @@ export async function getTeam(session: StaffSession) {
 
   const db = getDb();
 
+  const currentWeekStart = format(startOfWeek(parseISO(localDateInTimeZone(session.calendarTimezone)), { weekStartsOn: 1 }), "yyyy-MM-dd");
+  const currentWeekEnd = format(addDays(parseISO(currentWeekStart), 6), "yyyy-MM-dd");
+  const assignedRows = await getSql()`
+    SELECT member_id AS "memberId",
+      COALESCE(SUM(EXTRACT(EPOCH FROM (end_time - start_time)) / 60), 0)::integer AS "assignedMinutes"
+    FROM staff_roster_shifts
+    WHERE calendar_id = ${session.calendarId}
+      AND shift_date BETWEEN ${currentWeekStart} AND ${currentWeekEnd}
+    GROUP BY member_id
+  ` as Array<{ memberId: string; assignedMinutes: number }>;
+  const assignedByMember = new Map(assignedRows.map((row) => [row.memberId, Number(row.assignedMinutes)]));
+
   const members = await db
     .select({
       id: staffRosterMembers.id,
       displayName: staffRosterMembers.displayName,
+      contactEmail: staffRosterMembers.contactEmail,
+      contactPhone: staffRosterMembers.contactPhone,
+      expectedWeeklyMinutes: staffRosterMembers.expectedWeeklyMinutes,
       accessRole: staffRosterMembers.accessRole,
       active: staffRosterMembers.active,
       membershipId: staffRosterMembers.membershipId,
@@ -357,6 +371,7 @@ export async function getTeam(session: StaffSession) {
             ? latestInvite.expiresAt
             : null,
         isCurrentUser: member.id === current.id,
+        assignedThisWeekMinutes: assignedByMember.get(member.id) ?? 0,
       };
     }),
     roles,
@@ -371,6 +386,9 @@ export async function createTeamMember(input: {
   roleIds: string[];
   defaultRoleId: string | null;
   defaultLocationId: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  expectedWeeklyMinutes: number | null;
 }) {
   const actor = await ensureStaffRosterMember(input.session);
   const capabilities = staffRosterCapabilities({
@@ -412,12 +430,14 @@ export async function createTeamMember(input: {
       sql`
         INSERT INTO staff_roster_members (
           id, calendar_id, display_name, access_role,
-          default_role_id, default_location_id, active
+          default_role_id, default_location_id, active,
+          contact_email, contact_phone, expected_weekly_minutes
         )
         VALUES (
           ${id}, ${input.session.calendarId}, ${input.displayName},
           ${input.accessRole}::staff_roster_access_role,
-          ${defaultRoleId}, ${input.defaultLocationId}, true
+          ${defaultRoleId}, ${input.defaultLocationId}, true,
+          ${input.contactEmail}, ${input.contactPhone}, ${input.expectedWeeklyMinutes}
         )
       `,
       ...roleIds.map(
@@ -443,6 +463,9 @@ export async function createTeamMember(input: {
             accessRole: input.accessRole,
             roleIds,
             defaultRoleId,
+            contactEmail: input.contactEmail,
+            contactPhone: input.contactPhone,
+            expectedWeeklyMinutes: input.expectedWeeklyMinutes,
             actorStaffMemberId: actor.id,
           })}::jsonb
         )
@@ -468,6 +491,9 @@ export async function updateTeamMember(input: {
   roleIds: string[];
   defaultRoleId: string | null;
   defaultLocationId: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  expectedWeeklyMinutes: number | null;
   active: boolean;
 }) {
   const actor = await ensureStaffRosterMember(input.session);
@@ -484,6 +510,9 @@ export async function updateTeamMember(input: {
     .select({
       id: staffRosterMembers.id,
       displayName: staffRosterMembers.displayName,
+      contactEmail: staffRosterMembers.contactEmail,
+      contactPhone: staffRosterMembers.contactPhone,
+      expectedWeeklyMinutes: staffRosterMembers.expectedWeeklyMinutes,
       accessRole: staffRosterMembers.accessRole,
       membershipId: staffRosterMembers.membershipId,
       defaultRoleId: staffRosterMembers.defaultRoleId,
@@ -603,6 +632,9 @@ export async function updateTeamMember(input: {
           access_role = ${input.accessRole}::staff_roster_access_role,
           default_role_id = ${defaultRoleId},
           default_location_id = ${input.defaultLocationId},
+          contact_email = ${input.contactEmail},
+          contact_phone = ${input.contactPhone},
+          expected_weekly_minutes = ${input.expectedWeeklyMinutes},
           active = ${input.active},
           updated_at = now()
         WHERE id = ${input.memberId}
@@ -655,6 +687,9 @@ export async function updateTeamMember(input: {
         'staff_roster_member', ${input.memberId},
         ${JSON.stringify({
           displayName: target.displayName,
+          contactEmail: target.contactEmail,
+          contactPhone: target.contactPhone,
+          expectedWeeklyMinutes: target.expectedWeeklyMinutes,
           accessRole: target.accessRole,
           roleIds: targetRoleRows.map((row) => row.roleId),
           defaultRoleId: target.defaultRoleId,
@@ -663,6 +698,9 @@ export async function updateTeamMember(input: {
         })}::jsonb,
         ${JSON.stringify({
           displayName: input.displayName,
+          contactEmail: input.contactEmail,
+          contactPhone: input.contactPhone,
+          expectedWeeklyMinutes: input.expectedWeeklyMinutes,
           accessRole: input.accessRole,
           roleIds,
           defaultRoleId,
@@ -1546,6 +1584,7 @@ export async function getRosterWeek(input: {
       .select({
         id: staffRosterMembers.id,
         displayName: staffRosterMembers.displayName,
+        expectedWeeklyMinutes: staffRosterMembers.expectedWeeklyMinutes,
         accessRole: staffRosterMembers.accessRole,
         defaultRoleId: staffRosterMembers.defaultRoleId,
         defaultLocationId: staffRosterMembers.defaultLocationId,
@@ -1816,10 +1855,27 @@ export async function getRosterWeek(input: {
       : "published";
 
   const visibleShifts = capabilities.createShifts ? liveShifts : publishedShifts;
+  const attendancePoints = capabilities.createShifts
+    ? await getSql()`
+        SELECT clock.member_id AS "memberId",
+          member.display_name AS "memberName",
+          clock.clock_in_at AS "clockInAt",
+          clock.clock_out_at AS "clockOutAt"
+        FROM staff_roster_clock_sessions clock
+        JOIN staff_roster_members member ON member.id = clock.member_id
+          AND member.calendar_id = clock.calendar_id
+        WHERE clock.calendar_id = ${input.session.calendarId}
+          AND (clock.clock_in_at AT TIME ZONE ${input.session.calendarTimezone})::date <= ${weekEnd}::date
+          AND COALESCE((clock.clock_out_at AT TIME ZONE ${input.session.calendarTimezone})::date,
+            (clock.clock_in_at AT TIME ZONE ${input.session.calendarTimezone})::date) >= ${input.weekStart}::date
+        ORDER BY clock.clock_in_at
+      ` as Array<{ memberId: string; memberName: string; clockInAt: Date | string; clockOutAt: Date | string | null }>
+    : [];
 
   return {
     weekStart: input.weekStart,
     weekEnd,
+    calendarTimezone: input.session.calendarTimezone,
     currentMemberId: current.id,
     currentAccessRole: current.accessRole,
     canManageRoster: capabilities.createShifts,
@@ -1844,6 +1900,7 @@ export async function getRosterWeek(input: {
           recentShiftDurationByMember.get(member.id) ?? null,
       };
     }),
+    attendancePoints,
     roles: capabilities.createShifts ? roles : [],
     locations: capabilities.createShifts ? locations : [],
     availability: availabilityRows.map((availability) => ({

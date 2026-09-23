@@ -139,28 +139,27 @@ export function StaffRosterSetupPage({
   const steps = data
     ? [
         {
-          title: "Roles & locations",
+          title: "Locations",
           description:
-            "Add the jobs and places you use most often. Both stay optional on individual shifts.",
-          done: data.roleCount > 0 || data.locationCount > 0,
-          detail:
-            data.roleCount + " roles · " + data.locationCount + " locations",
+            "Add the places where your team works. Locations stay optional on individual shifts.",
+          done: data.locationCount > 0,
+          detail: data.locationCount + (data.locationCount === 1 ? " location" : " locations"),
           href: "/calendar-types/staff-rosters/organiser/roles-locations",
           icon: MapPin,
         },
         {
           title: "Team",
           description:
-            "Add the people who will appear on the roster and set their usual role or location.",
+            "Add the people who will appear on the roster.",
           done: data.memberCount > 1,
           detail: data.memberCount + (data.memberCount === 1 ? " person" : " people"),
           href: "/calendar-types/staff-rosters/organiser/team",
           icon: UsersRound,
         },
         {
-          title: "Availability",
+          title: "Leave",
           description:
-            "Optional. Add known unavailable or available time before you start assigning shifts.",
+            "Team members can request leave for review.",
           done: true,
           detail: "Can be added any time",
           href: "/calendar-types/staff-rosters/organiser/availability",
@@ -175,11 +174,12 @@ export function StaffRosterSetupPage({
         basePath="/calendar-types/staff-rosters"
         organiserItems={organiserItems}
         activeSection="calendar"
+        staffRosterMode
       />
 
       <CoviePage
         width="wide"
-        className="pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6"
+        className="pb-[calc(156px+env(safe-area-inset-bottom))] lg:pb-6"
       >
         <div className="mb-3">
           <CalendarSwitcher
@@ -212,8 +212,8 @@ export function StaffRosterSetupPage({
           <div className="mt-6">
             {data.setupCompletedAt ? (
               <CovieNotice tone="teal" className="mb-5">
-                Setup is complete. You can still change your team, roles,
-                locations and availability at any time.
+                Setup is complete. You can still change your team and locations,
+                and review leave at any time.
               </CovieNotice>
             ) : null}
 
@@ -256,7 +256,7 @@ export function StaffRosterSetupPage({
                   Ready to build the roster?
                 </p>
                 <p className="mt-1 text-sm text-[#526168]">
-                  Roles, locations and availability are optional. You can start
+                  Locations and leave are optional. You can start
                   with just your team.
                 </p>
               </div>

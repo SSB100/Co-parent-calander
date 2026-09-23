@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Download,
   LoaderCircle,
   PencilLine,
   X,
@@ -118,6 +119,12 @@ function zonedDate(value: string, timeZone: string) {
   }).format(new Date(value));
 }
 
+function csvCell(value: string | number) {
+  const text = String(value);
+  const safe = /^[=+@\-\t\r]/.test(text) ? "'" + text : text;
+  return '"' + safe.replaceAll('"', '""') + '"';
+}
+
 function shiftMinutes(shift: ScheduledShift) {
   const [startHour, startMinute] = shift.startTime.split(":").map(Number);
   const [endHour, endMinute] = shift.endTime.split(":").map(Number);
@@ -207,6 +214,30 @@ export function StaffRosterTimesheetsPage() {
   const [managerClockIn, setManagerClockIn] = useState("");
   const [managerClockOut, setManagerClockOut] = useState("");
   const [managerReason, setManagerReason] = useState("");
+
+  function downloadReport() {
+    if (!data?.canReview) return;
+    const header = ["Staff", "Clock in", "Clock out", "Elapsed minutes", "Break minutes", "Worked minutes", "Unrostered"];
+    const rows = data.sessions.map((session) => {
+      const duration = attendanceDurations(session);
+      return [
+        session.memberName,
+        localDateTimeInputInTimeZone(data.timezone, session.clockInAt),
+        session.clockOutAt ? localDateTimeInputInTimeZone(data.timezone, session.clockOutAt) : "",
+        duration.elapsedMinutes,
+        duration.breakMinutes,
+        duration.workedMinutes,
+        session.unrostered ? "Yes" : "No",
+      ];
+    });
+    const csv = [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
+    const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `covie-timesheet-${data.weekStart}.csv`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
 
   const refresh = useCallback(async () => {
     const query = weekStart
@@ -549,6 +580,7 @@ export function StaffRosterTimesheetsPage() {
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
+          {data?.canReview ? <CovieButton tone="neutral" onClick={downloadReport}><Download className="h-4 w-4" aria-hidden="true" />Download report</CovieButton> : null}
           <CovieButton
             tone="neutral"
             aria-label="Previous week"

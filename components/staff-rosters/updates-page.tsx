@@ -1,6 +1,7 @@
 "use client";
 
-import { Bell, LoaderCircle } from "lucide-react";
+import { Bell, CalendarCheck2, Clock3, LoaderCircle } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   CovieEmptyState,
@@ -105,9 +106,28 @@ export function StaffRosterUpdatesPage() {
     );
   }
 
+  const reviewLinks = data.canManageRoster ? (
+    <section aria-label="Items to review" className="mb-6 grid gap-3 sm:grid-cols-2">
+      <Link
+        href="/calendar-types/staff-rosters/organiser/availability"
+        className="flex items-center gap-3 rounded-2xl border border-[#E6DBCF] bg-white p-4 text-[#243139] hover:bg-[#F7EFE5]"
+      >
+        <CalendarCheck2 className="h-5 w-5 shrink-0 text-[#0D7A6D]" aria-hidden="true" />
+        <span><strong className="block text-sm">Review leave</strong><span className="text-xs text-[#526168]">Approve or decline pending requests</span></span>
+      </Link>
+      <Link
+        href="/calendar-types/staff-rosters/organiser/timesheets"
+        className="flex items-center gap-3 rounded-2xl border border-[#E6DBCF] bg-white p-4 text-[#243139] hover:bg-[#F7EFE5]"
+      >
+        <Clock3 className="h-5 w-5 shrink-0 text-[#0D7A6D]" aria-hidden="true" />
+        <span><strong className="block text-sm">Review time corrections</strong><span className="text-xs text-[#526168]">Resolve pending attendance changes</span></span>
+      </Link>
+    </section>
+  ) : null;
+
   if (data.updates.length === 0) {
     return (
-      <CovieEmptyState
+      <>{reviewLinks}<CovieEmptyState
         icon={<Bell className="h-8 w-8 text-[#19A897]" aria-hidden="true" />}
         title="No roster updates yet"
         description={
@@ -115,12 +135,14 @@ export function StaffRosterUpdatesPage() {
             ? "Published roster changes will appear here after you send them."
             : "Published changes to your roster will appear here."
         }
-      />
+      /></>
     );
   }
 
   return (
     <div className="space-y-3">
+      {reviewLinks}
+      {data.canManageRoster ? <h2 className="text-lg font-extrabold text-[#243139]">Roster updates</h2> : null}
       {data.updates.map((update) => (
         <article
           key={update.id}

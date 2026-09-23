@@ -25,6 +25,10 @@ type StaffAccessRole = "owner" | "manager" | "staff";
 type TeamMember = {
   id: string;
   displayName: string;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  expectedWeeklyMinutes: number | null;
+  assignedThisWeekMinutes: number;
   accessRole: StaffAccessRole;
   active: boolean;
   roleIds: string[];
@@ -55,6 +59,9 @@ type TeamPayload = {
 type MemberForm = {
   memberId: string | null;
   displayName: string;
+  contactEmail: string;
+  contactPhone: string;
+  expectedWeeklyHours: string;
   accessRole: "manager" | "staff";
   roleIds: string[];
   defaultRoleId: string;
@@ -64,6 +71,9 @@ type MemberForm = {
 const emptyForm: MemberForm = {
   memberId: null,
   displayName: "",
+  contactEmail: "",
+  contactPhone: "",
+  expectedWeeklyHours: "",
   accessRole: "staff",
   roleIds: [],
   defaultRoleId: "",
@@ -153,27 +163,15 @@ export function StaffRosterTeamPage() {
     setForm({
       memberId: member.id,
       displayName: member.displayName,
+      contactEmail: member.contactEmail ?? "",
+      contactPhone: member.contactPhone ?? "",
+      expectedWeeklyHours: member.expectedWeeklyMinutes === null ? "" : String(member.expectedWeeklyMinutes / 60),
       accessRole: member.accessRole === "manager" ? "manager" : "staff",
       roleIds: member.roleIds,
       defaultRoleId: member.defaultRoleId ?? member.roleIds[0] ?? "",
       defaultLocationId: member.defaultLocationId ?? "",
     });
     setDialogOpen(true);
-  }
-
-  function toggleRole(roleId: string) {
-    setForm((current) => {
-      const selected = current.roleIds.includes(roleId);
-      const roleIds = selected
-        ? current.roleIds.filter((id) => id !== roleId)
-        : [...current.roleIds, roleId];
-      const defaultRoleId =
-        current.defaultRoleId && roleIds.includes(current.defaultRoleId)
-          ? current.defaultRoleId
-          : (roleIds[0] ?? "");
-
-      return { ...current, roleIds, defaultRoleId };
-    });
   }
 
   async function saveMember() {
@@ -190,6 +188,9 @@ export function StaffRosterTeamPage() {
             ? {
                 memberId: form.memberId,
                 displayName: form.displayName,
+                contactEmail: form.contactEmail,
+                contactPhone: form.contactPhone,
+                expectedWeeklyMinutes: form.expectedWeeklyHours === "" ? null : Math.round(Number(form.expectedWeeklyHours) * 60),
                 accessRole: form.accessRole,
                 roleIds: form.roleIds,
                 defaultRoleId:
@@ -201,6 +202,9 @@ export function StaffRosterTeamPage() {
               }
             : {
                 displayName: form.displayName,
+                contactEmail: form.contactEmail,
+                contactPhone: form.contactPhone,
+                expectedWeeklyMinutes: form.expectedWeeklyHours === "" ? null : Math.round(Number(form.expectedWeeklyHours) * 60),
                 accessRole: form.accessRole,
                 roleIds: form.roleIds,
                 defaultRoleId:
@@ -323,6 +327,9 @@ export function StaffRosterTeamPage() {
           roleIds: archiveTarget.roleIds,
           defaultRoleId: archiveTarget.defaultRoleId ?? archiveTarget.roleIds[0] ?? "",
           defaultLocationId: archiveTarget.defaultLocationId ?? "",
+          contactEmail: archiveTarget.contactEmail,
+          contactPhone: archiveTarget.contactPhone,
+          expectedWeeklyMinutes: archiveTarget.expectedWeeklyMinutes,
           active: false,
         }),
       });
@@ -502,22 +509,15 @@ export function StaffRosterTeamPage() {
                     ) : null}
 
                     <dl className="mt-4 grid gap-2 text-sm">
-                      <div className="flex items-center justify-between gap-3">
-                        <dt className="text-[#66747A]">Roles</dt>
-                        <dd className="max-w-[65%] text-right font-bold text-[#243139]">
-                          {member.roleNames.length > 0
-                            ? member.roleNames.join(", ")
-                            : "Not set"}
-                        </dd>
-                      </div>
-                      {member.defaultRoleName ? (
+                      {member.contactEmail ? (
                         <div className="flex items-center justify-between gap-3">
-                          <dt className="text-[#66747A]">Usual role</dt>
-                          <dd className="max-w-[65%] text-right font-bold text-[#243139]">
-                            {member.defaultRoleName}
-                          </dd>
+                          <dt className="text-[#66747A]">Email</dt>
+                          <dd className="max-w-[65%] break-all text-right font-bold text-[#243139]">{member.contactEmail}</dd>
                         </div>
                       ) : null}
+                      {member.contactPhone ? <div className="flex items-center justify-between gap-3"><dt className="text-[#66747A]">Phone</dt><dd className="text-right font-bold text-[#243139]">{member.contactPhone}</dd></div> : null}
+                      <div className="flex items-center justify-between gap-3"><dt className="text-[#66747A]">Expected weekly hours</dt><dd className="text-right font-bold text-[#243139]">{member.expectedWeeklyMinutes === null ? "Not set" : `${member.expectedWeeklyMinutes / 60}h`}</dd></div>
+                      <div className="flex items-center justify-between gap-3"><dt className="text-[#66747A]">Assigned this week</dt><dd className="text-right font-bold text-[#243139]">{member.assignedThisWeekMinutes / 60}h{member.expectedWeeklyMinutes === null ? "" : ` / ${member.expectedWeeklyMinutes / 60}h expected`}</dd></div>
                       <div className="flex items-center justify-between gap-3">
                         <dt className="text-[#66747A]">Usual location</dt>
                         <dd className="text-right font-bold text-[#243139]">
@@ -539,8 +539,8 @@ export function StaffRosterTeamPage() {
           title={form.memberId ? "Edit staff member" : "Add staff member"}
           description={
             form.memberId
-              ? "Update this person's roster details. Roles and location stay optional."
-              : "Start with their name. Access, roles and location can all be added later."
+              ? "Update this person's contact and roster details."
+              : "Start with their name. Contact details and weekly hours can be added later."
           }
           icon={<BriefcaseBusiness aria-hidden="true" />}
           iconTone="teal"
@@ -597,6 +597,10 @@ export function StaffRosterTeamPage() {
               />
             </label>
 
+            <label><span className="mb-1.5 block text-sm font-bold">Contact email</span><CovieInput type="email" value={form.contactEmail} maxLength={320} disabled={busy} onChange={(event) => setForm((current) => ({ ...current, contactEmail: event.target.value }))} /></label>
+            <label><span className="mb-1.5 block text-sm font-bold">Contact phone</span><CovieInput type="tel" value={form.contactPhone} maxLength={40} disabled={busy} onChange={(event) => setForm((current) => ({ ...current, contactPhone: event.target.value }))} /></label>
+            <label><span className="mb-1.5 block text-sm font-bold">Expected hours each week</span><CovieInput type="number" min="0" max="168" step="0.25" value={form.expectedWeeklyHours} disabled={busy} onChange={(event) => setForm((current) => ({ ...current, expectedWeeklyHours: event.target.value }))} /></label>
+
             <details
               open={form.memberId ? true : undefined}
               className="rounded-xl border border-[#E6DBCF] bg-[#FFF9F2]"
@@ -630,67 +634,6 @@ export function StaffRosterTeamPage() {
                     </p>
                   ) : null}
                 </label>
-
-                <fieldset>
-                  <legend className="mb-1.5 block text-sm font-bold">Roles</legend>
-                  {data.roles.length === 0 ? (
-                    <p className="rounded-xl bg-[#FFF9F2] p-3 text-sm text-[#66747A]">
-                      No roles yet. You can add them later from Roles & locations.
-                    </p>
-                  ) : (
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {data.roles.map((role) => {
-                        const checked = form.roleIds.includes(role.id);
-                        return (
-                          <label
-                            key={role.id}
-                            className={
-                              "flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold " +
-                              (checked
-                                ? "border-[#19A897] bg-[#EAF8F5] text-[#243139]"
-                                : "border-[#E6DBCF] bg-white text-[#526168]")
-                            }
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={busy}
-                              onChange={() => toggleRole(role.id)}
-                              className="h-4 w-4 accent-[#19A897]"
-                            />
-                            <span>{role.name}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                </fieldset>
-
-                {form.roleIds.length > 1 ? (
-                  <label>
-                    <span className="mb-1.5 block text-sm font-bold">
-                      Usual role for new shifts
-                    </span>
-                    <CovieSelect
-                      value={form.defaultRoleId}
-                      disabled={busy}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          defaultRoleId: event.target.value,
-                        }))
-                      }
-                    >
-                      {data.roles
-                        .filter((role) => form.roleIds.includes(role.id))
-                        .map((role) => (
-                          <option key={role.id} value={role.id}>
-                            {role.name}
-                          </option>
-                        ))}
-                    </CovieSelect>
-                  </label>
-                ) : null}
 
                 <label>
                   <span className="mb-1.5 block text-sm font-bold">

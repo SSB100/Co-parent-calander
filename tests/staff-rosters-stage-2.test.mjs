@@ -69,9 +69,9 @@ test("new Staff Rosters calendars open directly into the calendar", async () => 
   assert.match(route, /staffMember\.accessRole === "staff"/);
   assert.match(route, /redirect\("\/calendar-types\/staff-rosters"\)/);
   assert.match(setup, /Set up your roster/);
-  assert.match(setup, /Roles & locations/);
+  assert.match(setup, /title: "Locations"/);
   assert.match(setup, /Team/);
-  assert.match(setup, /Availability/);
+  assert.match(setup, /title: "Leave"/);
 });
 
 test("Staff Rosters calendar is a calendar-first weekly roster builder", async () => {
@@ -88,7 +88,8 @@ test("Staff Rosters calendar is a calendar-first weekly roster builder", async (
   assert.match(roster, /Today/);
   assert.match(roster, /Week/);
   assert.match(roster, /Month/);
-  assert.match(roster, /Drag onto calendar/);
+  assert.match(roster, /drag onto a day and time to create a shift/i);
+  assert.doesNotMatch(roster, /onClick=\{\(\) => openCreate\(\)\}/);
   assert.match(roster, /grid-cols-\[190px_minmax\(0,1fr\)\]/);
   assert.match(roster, /layoutOverlappingShifts/);
   assert.match(roster, /handleTimelineDrop/);
@@ -119,17 +120,16 @@ test("Staff Rosters calendar is a calendar-first weekly roster builder", async (
   assert.match(roster, /inactive staff/);
   assert.match(roster, /outdated role\/location details/);
   assert.match(roster, /All staff/);
-  assert.match(roster, /All roles/);
+  assert.doesNotMatch(roster, /All roles/);
   assert.match(roster, /All locations/);
   assert.match(shell, /header=\{/);
   assert.match(shell, /CalendarSwitcher/);
   assert.match(roster, /Hours: \{operationalHoursLabel\}/);
-  assert.match(roster, /member\.roleIds\.includes\(roleFilter\)/);
+  assert.doesNotMatch(roster, /roleFilter/);
   assert.match(roster, /Publish roster/);
   assert.match(roster, /Send updates/);
   assert.match(roster, /Changes pending/);
-  assert.match(nav, /Start your roster/);
-  assert.match(nav, /drag them straight onto the calendar/);
+  assert.doesNotMatch(nav, /Start your roster/);
   assert.doesNotMatch(roster, /Start your roster/);
   assert.match(roster, /changedShiftCount/);
   assert.match(roster, /sendUpdatesConfirmOpen/);
@@ -204,7 +204,7 @@ test("shift service blocks overlaps and requires explicit unavailability overrid
 });
 
 
-test("Staff team records support multiple reusable roles with one usual role", async () => {
+test("legacy job-role records remain intact while team UI uses access roles", async () => {
   const [service, team, schema] = await Promise.all([
     source("lib/staff-rosters/service.ts"),
     source("components/staff-rosters/team-page.tsx"),
@@ -217,10 +217,9 @@ test("Staff team records support multiple reusable roles with one usual role", a
   assert.match(service, /DELETE FROM staff_roster_member_roles/);
   assert.match(service, /roleNames/);
   assert.match(team, /roleIds: string\[\]/);
-  assert.match(team, /toggleRole/);
-  assert.match(team, /Usual role for new shifts/);
-  assert.match(team, /member\.roleNames\.join/);
-  assert.match(team, /type="checkbox"/);
+  assert.match(team, /Roster access/);
+  assert.match(team, /Expected weekly hours/);
+  assert.doesNotMatch(team, /toggleRole|Usual role for new shifts|type="checkbox"/);
   assert.match(schema, /staffRosterMemberRoles/);
 });
 
@@ -392,7 +391,7 @@ test("Staff setup completion is persisted but does not force optional data", asy
   assert.match(service, /ON CONFLICT \(calendar_id\)/);
   assert.match(schema, /staffRosterSettings/);
   assert.match(schema, /setupCompletedAt/);
-  assert.match(setup, /Roles, locations and availability are optional/);
+  assert.match(setup, /Locations and leave are optional/);
 });
 
 test("archived calendars are excluded from onboarding and active switching", async () => {

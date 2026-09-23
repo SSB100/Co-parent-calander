@@ -190,12 +190,12 @@ test("Stage 5 Organiser stays small and production UI contains no mock Staff", a
   );
   for (const label of [
     "Team",
-    "Availability & leave",
-    "Roles & locations",
-    "Timesheets",
+    "Leave",
+    "Departments/Locations",
+    "Time & attendance",
   ]) {
     assert.match(staffSection, new RegExp(label));
   }
   assert.doesNotMatch(team, /Alex|Jordan|Sam|Main site|Second site/);
-  assert.match(shell, /showStaffRosterGuide=\{false\}/);
+  assert.doesNotMatch(shell, /showStaffRosterGuide/);
 });
