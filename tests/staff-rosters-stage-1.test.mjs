@@ -61,7 +61,7 @@ test("Staff Rosters managers can manage structure while staff availability is ow
   assert.match(capabilities, /manageManagers: canWrite && input\.accessRole === "owner"/);
   assert.match(capabilities, /manageStructure: canWrite && isManager/);
   assert.match(capabilities, /manageAllAvailability: canWrite && isManager/);
-  assert.match(capabilities, /editOwnAvailability: canWrite/);
+  assert.match(capabilities, /editOwnAvailability: true/);
 
   assert.match(service, /staffRosterCapabilities/);
   assert.match(service, /You can only change your own availability/);
@@ -118,4 +118,171 @@ test("availability supports whole-day or bounded time records with server valida
   assert.match(schema, /availabilityDate/);
   assert.match(schema, /startTime/);
   assert.match(schema, /endTime/);
+});
+
+
+test("staff viewer self-service stays available without granting manager authority", async () => {
+  const { staffRosterCapabilities } = await import(
+    "../lib/staff-rosters/capabilities.ts"
+  );
+
+  const staffViewer = staffRosterCapabilities({
+    accessRole: "staff",
+    permission: "viewer",
+  });
+  assert.equal(staffViewer.viewRoster, true);
+  assert.equal(staffViewer.editOwnAvailability, true);
+  assert.equal(staffViewer.clockOwnTime, true);
+  assert.equal(staffViewer.requestOwnTimesheetCorrection, true);
+  assert.equal(staffViewer.requestOwnLeave, true);
+  assert.equal(staffViewer.manageAllAvailability, false);
+  assert.equal(staffViewer.manageTeam, false);
+  assert.equal(staffViewer.manageManagers, false);
+  assert.equal(staffViewer.manageStructure, false);
+  assert.equal(staffViewer.createShifts, false);
+  assert.equal(staffViewer.publishRoster, false);
+  assert.equal(staffViewer.reviewTimesheets, false);
+  assert.equal(staffViewer.reviewLeave, false);
+
+  const managerViewer = staffRosterCapabilities({
+    accessRole: "manager",
+    permission: "viewer",
+  });
+  assert.equal(managerViewer.manageTeam, false);
+  assert.equal(managerViewer.createShifts, false);
+  assert.equal(managerViewer.publishRoster, false);
+  assert.equal(managerViewer.reviewTimesheets, false);
+  assert.equal(managerViewer.reviewLeave, false);
+
+  const managerEditor = staffRosterCapabilities({
+    accessRole: "manager",
+    permission: "editor",
+  });
+  assert.equal(managerEditor.manageTeam, true);
+  assert.equal(managerEditor.createShifts, true);
+  assert.equal(managerEditor.publishRoster, true);
+  assert.equal(managerEditor.reviewTimesheets, true);
+  assert.equal(managerEditor.reviewLeave, true);
+  assert.equal(managerEditor.manageManagers, false);
+
+  const owner = staffRosterCapabilities({
+    accessRole: "owner",
+    permission: "owner",
+  });
+  assert.equal(owner.manageManagers, true);
+});
+
+test("staff invitation permission matches the bounded self-service capability model", async () => {
+  const invitationService = await source(
+    "lib/staff-rosters/invitations-service.ts",
+  );
+
+  assert.match(
+    invitationService,
+    /access_role === "manager" \? "editor" : "viewer"/,
+  );
+  assert.match(
+    invitationService,
+    /participant_id, permission[\s\S]*NULL,[\s\S]*calendar_permission/,
+  );
+});
+
+test("Staff roster contracts enforce time ordering and operational-hour snapping", async () => {
+  const {
+    staffShiftSchema,
+    staffAvailabilitySchema,
+    staffRosterOperationalHoursSchema,
+  } = await import("../lib/staff-rosters/contracts.ts");
+  const { staffLeaveRequestSchema } = await import(
+    "../lib/staff-rosters/workforce-contracts.ts"
+  );
+
+  const memberId = "00000000-0000-4000-8000-000000000001";
+
+  assert.equal(
+    staffShiftSchema.safeParse({
+      memberId,
+      date: "2026-09-23",
+      startTime: "09:00",
+      endTime: "17:00",
+    }).success,
+    true,
+  );
+  assert.equal(
+    staffShiftSchema.safeParse({
+      memberId,
+      date: "2026-09-23",
+      startTime: "17:00",
+      endTime: "09:00",
+    }).success,
+    false,
+  );
+
+  assert.equal(
+    staffAvailabilitySchema.safeParse({
+      memberId,
+      date: "2026-09-23",
+      status: "unavailable",
+      startTime: "12:00",
+      endTime: "15:00",
+      note: "",
+    }).success,
+    true,
+  );
+  assert.equal(
+    staffAvailabilitySchema.safeParse({
+      memberId,
+      date: "2026-09-23",
+      status: "unavailable",
+      startTime: "15:00",
+      endTime: "12:00",
+      note: "",
+    }).success,
+    false,
+  );
+
+  assert.equal(
+    staffRosterOperationalHoursSchema.safeParse({
+      startMinute: 8 * 60,
+      endMinute: 18 * 60,
+    }).success,
+    true,
+  );
+  assert.equal(
+    staffRosterOperationalHoursSchema.safeParse({
+      startMinute: 8 * 60 + 5,
+      endMinute: 18 * 60,
+    }).success,
+    false,
+  );
+  assert.equal(
+    staffRosterOperationalHoursSchema.safeParse({
+      startMinute: 18 * 60,
+      endMinute: 8 * 60,
+    }).success,
+    false,
+  );
+
+  assert.equal(
+    staffLeaveRequestSchema.safeParse({
+      startDate: "2026-09-23",
+      endDate: "2026-09-23",
+      allDay: false,
+      startTime: "12:00",
+      endTime: "15:00",
+      note: "",
+    }).success,
+    true,
+  );
+  assert.equal(
+    staffLeaveRequestSchema.safeParse({
+      startDate: "2026-09-24",
+      endDate: "2026-09-23",
+      allDay: true,
+      startTime: null,
+      endTime: null,
+      note: "",
+    }).success,
+    false,
+  );
 });

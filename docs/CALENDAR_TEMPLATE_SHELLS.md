@@ -1,6 +1,6 @@
 # Covie calendar template shells
 
-This stage establishes the production shell architecture for Covie's additional calendar types before deeper domain behaviour is built.
+This document records the production template architecture for Covie's additional calendar types. Shared Facilities and Social Groups remain largely shell-level domains; Staff Rosters has since progressed into a persistent production roster, attendance, leave and Staff self-service domain while keeping the same template boundary.
 
 ## Authority
 
@@ -9,7 +9,7 @@ This stage establishes the production shell architecture for Covie's additional 
 3. The manifests in `lib/templates/calendar-templates.ts` translate those sources into implementation data.
 4. Feature-specific behaviour must stay inside those boundaries.
 
-Calendar navigation now adds one shared Core field, `calendars.calendar_type`, so Covie can route each selected calendar to the correct template. Existing calendars are backfilled safely as `co_parenting`. The new template-specific schedules still have no persistent shift, booking or social-event records at this stage. Until those domain models exist, the production UI shows honest empty states rather than sample records, demo data or non-functional create controls.
+Calendar navigation uses the shared Core field `calendars.calendar_type` so Covie can route each selected calendar to the correct template. Existing calendars were backfilled safely as `co_parenting`. Staff Rosters now has persistent production domain records; Shared Facilities and Social Groups must continue showing honest empty states until their own real persistence and actions are implemented. No template may substitute sample records, demo data or non-functional create controls.
 
 ## Architecture boundary
 
@@ -40,9 +40,10 @@ A change should touch existing co-parenting feature code only when it is an inte
 - Primary scheduled entity: Shift
 - Identity: staff member / team / location
 - Primary action: Create shift
-- Organiser: Team / Availability / Roles & locations
-- Schedule shell: staff rows across days
-- Boundary: no payroll, wages, time clocks, HR, recruitment or performance management
+- Organiser: Team / Availability & Leave / Roles & locations / Timesheets
+- Schedule: calendar-first Manager Week timeline plus Month overview; Staff receives a separate personal roster workspace
+- Daily Staff tools: clock in/out, personal timesheet, correction requests, leave and availability
+- Boundary: no payroll, wages, PAYE, KiwiSaver, holiday-pay calculations, HR files, recruitment or performance management
 
 ### Shared Facilities
 
@@ -101,3 +102,33 @@ Each additional calendar has real page routes rather than hash-only shell states
 The Calendar page follows the established co-parenting header treatment: the calendar name is the primary header and is not followed by a redundant calendar-type label or second "Calendar" heading. Calendar types remain visible inside the calendar switcher list, where they help users distinguish calendars.
 
 Feature-specific create actions only appear once their persistence and permission rules are implemented.
+
+
+## Staff Rosters production extension
+
+Staff Rosters deliberately remains inside the additional-calendar template boundary while reusing Covie Core navigation and UI primitives.
+
+The production implementation now includes:
+
+- Team members with Owner / Manager / Staff access roles
+- reusable job roles and work locations
+- multiple eligible roles per Staff member plus an optional default role
+- availability
+- a time-based Manager Week roster and Month overview
+- drag/drop roster creation and shift movement
+- 15-minute shift resizing/snapping
+- same-person overlap protection
+- configurable operational hours
+- copy previous week
+- draft versus published roster snapshots
+- accumulated post-publication changes and explicit Send updates
+- Staff account invitations that link to existing team profiles
+- a separate Staff My Roster workspace
+- clock in / clock out
+- timesheets and correction review
+- leave requests and Manager review
+- Staff roster update history
+
+These features change what the Staff Rosters calendar means, but not the shared Covie interaction grammar. Coral remains the global primary-action colour; Teal + Sunshine remains the Staff Rosters accent pair.
+
+The Staff Rosters domain must stay isolated from co-parenting participants, parenting schedules, children, Shared Costs, Tasks and approval assumptions except where an intentional Covie Core component is shared.

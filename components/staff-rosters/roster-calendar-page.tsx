@@ -37,6 +37,20 @@ import {
   type ReactNode,
 } from "react";
 import {
+  ROSTER_SNAP_MINUTES as SNAP_MINUTES,
+  memberDropRange,
+  movedShiftRange,
+  resizedShiftRange,
+  rosterMinutesFromTime as minutesFromTime,
+  rosterShiftDuration as shiftDuration,
+  rosterTimeFromMinutes as timeFromMinutes,
+  snapRosterMinutes as snapMinutes,
+} from "@/lib/staff-rosters/roster-interactions";
+import {
+  monthShiftVisibility,
+  rosterDaySummary,
+} from "@/lib/staff-rosters/roster-intelligence";
+import {
   CovieButton,
   CovieConfirmDialog,
   CovieDialog,
@@ -60,9 +74,20 @@ type Member = {
   roleNames: string[];
   defaultRoleId: string | null;
   defaultLocationId: string | null;
+  recentShiftDurationMinutes: number | null;
 };
 
 type Option = { id: string; name: string };
+
+type RosterAvailability = {
+  id: string;
+  memberId: string;
+  memberName: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  note: string | null;
+};
 
 type RosterLeave = {
   id: string;
@@ -116,6 +141,7 @@ type RosterPayload = {
   members: Member[];
   roles: Option[];
   locations: Option[];
+  availability: RosterAvailability[];
   leave: RosterLeave[];
   shifts: Shift[];
 };
@@ -137,8 +163,6 @@ type PositionedShift = {
   laneCount: number;
 };
 
-const SNAP_MINUTES = 15;
-const DROP_SHIFT_MINUTES = 60;
 const DAY_START_MINUTE = 0;
 const DAY_END_MINUTE = 24 * 60;
 const MIN_HOUR_HEIGHT = 18;
@@ -202,18 +226,6 @@ function monthLabel(date: string) {
   }).format(new Date(date + "T00:00:00Z"));
 }
 
-function minutesFromTime(value: string) {
-  const [hours, minutes] = value.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-function timeFromMinutes(value: number) {
-  const safe = Math.max(0, Math.min(23 * 60 + 45, value));
-  const hours = Math.floor(safe / 60);
-  const minutes = safe % 60;
-  return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0");
-}
-
 function compactTime(value: string) {
   const [hoursValue, minutesValue] = value.split(":").map(Number);
   const suffix = hoursValue >= 12 ? "pm" : "am";
@@ -232,14 +244,6 @@ const operationalHourOptions = Array.from(
   { length: DAY_END_MINUTE / 30 + 1 },
   (_, index) => index * 30,
 );
-
-function snapMinutes(value: number) {
-  return Math.round(value / SNAP_MINUTES) * SNAP_MINUTES;
-}
-
-function shiftDuration(shift: Pick<Shift, "startTime" | "endTime">) {
-  return Math.max(0, minutesFromTime(shift.endTime) - minutesFromTime(shift.startTime));
-}
 
 function leaveAppliesToDay(leave: RosterLeave, day: string) {
   return leave.startDate <= day && leave.endDate >= day;
@@ -378,7 +382,8 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
   >(null);
   const [dropPreview, setDropPreview] = useState<{
     date: string;
-    minute: number;
+    startMinute: number;
+    endMinute: number;
   } | null>(null);
   const [weekBoardHeight, setWeekBoardHeight] = useState(540);
   const weekBoardRef = useRef<HTMLDivElement>(null);
@@ -427,9 +432,13 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     }
 
     const shifts = new Map<string, Shift>();
+    const availability = new Map<string, RosterAvailability>();
     const leave = new Map<string, RosterLeave>();
     for (const payload of payloads) {
       for (const shift of payload.shifts) shifts.set(shift.id, shift);
+      for (const unavailable of payload.availability) {
+        availability.set(unavailable.id, unavailable);
+      }
       for (const request of payload.leave) leave.set(request.id, request);
     }
 
@@ -437,6 +446,9 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
       ...anchorPayload,
       weekStart: first.weekStart,
       weekEnd: last.weekEnd,
+      availability: [...availability.values()].sort((a, b) =>
+        (a.date + a.memberName).localeCompare(b.date + b.memberName),
+      ),
       leave: [...leave.values()].sort((a, b) =>
         (a.startDate + a.memberName).localeCompare(
           b.startDate + b.memberName,
@@ -526,14 +538,6 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     [data?.shifts, locationFilter, roleFilter, staffFilter],
   );
 
-  const filteredLeave = useMemo(
-    () =>
-      data?.leave.filter(
-        (leave) => !staffFilter || leave.memberId === staffFilter,
-      ) ?? [],
-    [data?.leave, staffFilter],
-  );
-
   const filteredMembers = useMemo(
     () =>
       data?.members.filter(
@@ -544,6 +548,25 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
             member.defaultLocationId === locationFilter),
       ) ?? [],
     [data?.members, locationFilter, roleFilter, staffFilter],
+  );
+
+  const filteredMemberIds = useMemo(
+    () => new Set(filteredMembers.map((member) => member.id)),
+    [filteredMembers],
+  );
+
+  const filteredAvailability = useMemo(
+    () =>
+      data?.availability.filter((availability) =>
+        filteredMemberIds.has(availability.memberId),
+      ) ?? [],
+    [data?.availability, filteredMemberIds],
+  );
+
+  const filteredLeave = useMemo(
+    () =>
+      data?.leave.filter((leave) => filteredMemberIds.has(leave.memberId)) ?? [],
+    [data?.leave, filteredMemberIds],
   );
 
   const weekShifts = useMemo(
@@ -936,6 +959,8 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
             leaveSkipped?: number;
             inactiveStaffSkipped?: number;
             staleReferenceAdjusted?: number;
+            sourceWeekStart?: string;
+            targetWeekStart?: string;
             error?: string;
           }
         | null;
@@ -951,11 +976,17 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
       const leaveSkipped = body?.leaveSkipped ?? 0;
       const inactiveStaffSkipped = body?.inactiveStaffSkipped ?? 0;
       const staleReferenceAdjusted = body?.staleReferenceAdjusted ?? 0;
+      const sourceLabel = body?.sourceWeekStart
+        ? weekLabel(
+            body.sourceWeekStart,
+            format(addDays(parseISO(body.sourceWeekStart), 6), "yyyy-MM-dd"),
+          )
+        : "the previous week";
 
       if (copied === 0 && skipped === 0) {
         setCopyNotice({
           tone: "sunshine",
-          text: "There were no shifts in the previous week to copy.",
+          text: "There were no shifts in " + sourceLabel + " to copy.",
         });
       } else if (skipped > 0) {
         const reasons = [
@@ -978,6 +1009,8 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
             copied +
             " shift" +
             (copied === 1 ? "" : "s") +
+            " from " +
+            sourceLabel +
             ". Skipped " +
             skipped +
             (reasons ? " (" + reasons + ")." : ".") +
@@ -996,7 +1029,9 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
             copied +
             " shift" +
             (copied === 1 ? "" : "s") +
-            " from the previous week." +
+            " from " +
+            sourceLabel +
+            "." +
             (staleReferenceAdjusted > 0
               ? " Removed outdated role/location details from " +
                 staleReferenceAdjusted +
@@ -1103,6 +1138,35 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     );
   }
 
+  function dragRange(
+    payload:
+      | { kind: "member"; memberId: string }
+      | { kind: "shift"; shiftId: string },
+    dropMinute: number,
+  ) {
+    if (!data) return null;
+
+    if (payload.kind === "member") {
+      const member = data.members.find((item) => item.id === payload.memberId);
+      if (!member) return null;
+      return memberDropRange({
+        dropMinute,
+        visibleStartMinute,
+        visibleEndMinute,
+        recentDurationMinutes: member.recentShiftDurationMinutes,
+      });
+    }
+
+    const shift = data.shifts.find((item) => item.id === payload.shiftId);
+    if (!shift) return null;
+    return movedShiftRange({
+      dropMinute,
+      durationMinutes: shiftDuration(shift),
+      visibleStartMinute,
+      visibleEndMinute,
+    });
+  }
+
   function handleTimelineDragOver(
     event: DragEvent<HTMLDivElement>,
     date: string,
@@ -1114,11 +1178,14 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     event.dataTransfer.dropEffect =
       activeDrag.kind === "member" ? "copy" : "move";
 
-    const minute = minuteAtTimelinePointer(event);
+    const range = dragRange(activeDrag, minuteAtTimelinePointer(event));
+    if (!range) return;
     setDropPreview((current) =>
-      current?.date === date && current.minute === minute
+      current?.date === date &&
+      current.startMinute === range.startMinute &&
+      current.endMinute === range.endMinute
         ? current
-        : { date, minute },
+        : { date, ...range },
     );
   }
 
@@ -1149,26 +1216,16 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
       return;
     }
 
-    const startMinute = minuteAtTimelinePointer(event);
+    const range = dragRange(payload, minuteAtTimelinePointer(event));
     clearDragState();
+    if (!range) return;
 
     if (payload.kind === "member") {
-      const latestEnd = Math.min(
-        visibleEndMinute,
-        23 * 60 + 45,
-      );
-      const endMinute = Math.min(
-        latestEnd,
-        startMinute + DROP_SHIFT_MINUTES,
-      );
-
-      if (endMinute <= startMinute) return;
-
       void createShiftFromDrop(
         payload.memberId,
         date,
-        timeFromMinutes(startMinute),
-        timeFromMinutes(endMinute),
+        timeFromMinutes(range.startMinute),
+        timeFromMinutes(range.endMinute),
       );
       return;
     }
@@ -1176,22 +1233,11 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     const shift = data.shifts.find((item) => item.id === payload.shiftId);
     if (!shift) return;
 
-    const duration = shiftDuration(shift);
-    const latestEnd = Math.min(
-      visibleEndMinute,
-      23 * 60 + 45,
-    );
-    const latestStart = Math.max(
-      visibleStartMinute,
-      latestEnd - duration,
-    );
-    const adjustedStart = Math.min(startMinute, latestStart);
-
     void moveShift(
       shift,
       date,
-      timeFromMinutes(adjustedStart),
-      timeFromMinutes(adjustedStart + duration),
+      timeFromMinutes(range.startMinute),
+      timeFromMinutes(range.endMinute),
     );
   }
 
@@ -1214,23 +1260,16 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     target.setPointerCapture(pointerId);
 
     const onMove = (moveEvent: PointerEvent) => {
-      const deltaMinutes = snapMinutes(
-        (moveEvent.clientY - originY) * (60 / hourHeight),
-      );
-
-      if (edge === "start") {
-        finalStart = Math.max(
-          visibleStartMinute,
-          Math.min(originEnd - SNAP_MINUTES, originStart + deltaMinutes),
-        );
-        finalEnd = originEnd;
-      } else {
-        finalStart = originStart;
-        finalEnd = Math.min(
-          Math.min(visibleEndMinute, 23 * 60 + 45),
-          Math.max(originStart + SNAP_MINUTES, originEnd + deltaMinutes),
-        );
-      }
+      const range = resizedShiftRange({
+        originStartMinute: originStart,
+        originEndMinute: originEnd,
+        deltaMinutes: (moveEvent.clientY - originY) * (60 / hourHeight),
+        edge,
+        visibleStartMinute,
+        visibleEndMinute,
+      });
+      finalStart = range.startMinute;
+      finalEnd = range.endMinute;
 
       setResizePreview({
         shiftId: shift.id,
@@ -1298,6 +1337,9 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     : (days[0] ?? weekStart);
   const selectedMobileShifts = filteredShifts.filter(
     (shift) => shift.date === selectedMobileDay,
+  );
+  const selectedMobileAvailability = filteredAvailability.filter(
+    (availability) => availability.date === selectedMobileDay,
   );
   const selectedMobileLeave = filteredLeave.filter((leave) =>
     leaveAppliesToDay(leave, selectedMobileDay),
@@ -1576,9 +1618,18 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
 
                   return values.map((day) => {
                     const dayShifts = filteredShifts.filter((shift) => shift.date === day);
+                    const dayAvailability = filteredAvailability.filter(
+                      (availability) => availability.date === day,
+                    );
                     const dayLeave = filteredLeave.filter((leave) =>
                       leaveAppliesToDay(leave, day),
                     );
+                    const visibility = monthShiftVisibility({
+                      shiftCount: dayShifts.length,
+                      hasLeave: dayLeave.length > 0,
+                      hasUnavailable: dayAvailability.length > 0,
+                    });
+                    const daySummary = rosterDaySummary(dayShifts);
                     const outsideMonth = parseISO(day).getMonth() !== month;
                     return (
                       <div
@@ -1607,6 +1658,11 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                         >
                           {format(parseISO(day), "d")}
                         </button>
+                        {dayShifts.length > 0 ? (
+                          <p className="mt-1 truncate text-[10px] font-bold text-[#66747A] sm:text-xs">
+                            {daySummary.staffCount} staff · {hoursText(daySummary.rosterMinutes)}
+                          </p>
+                        ) : null}
                         <div className="mt-1 space-y-1">
                           {dayLeave.slice(0, 1).map((leave) => (
                             <span
@@ -1621,7 +1677,14 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                               {leave.memberName} · {leave.status === "approved" ? "Leave" : "Pending"}
                             </span>
                           ))}
-                          {dayShifts.slice(0, dayLeave.length > 0 ? 2 : 3).map((shift) => (
+                          {dayAvailability.length > 0 ? (
+                            <span className="block w-full truncate rounded-md bg-[#FFF8D8] px-1.5 py-1 text-left text-[10px] font-extrabold text-[#8B6714] sm:text-xs">
+                              {dayAvailability.length} unavailable
+                            </span>
+                          ) : null}
+                          {dayShifts
+                            .slice(0, visibility.visibleShiftCount)
+                            .map((shift) => (
                             <button
                               key={shift.id}
                               type="button"
@@ -1635,7 +1698,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                               {shift.memberName} {compactTime(shift.startTime)}–{compactTime(shift.endTime)}
                             </button>
                           ))}
-                          {dayShifts.length > 3 ? (
+                          {visibility.hiddenShiftCount > 0 ? (
                             <button
                               type="button"
                               onClick={() => {
@@ -1645,7 +1708,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                               }}
                               className="text-[10px] font-extrabold text-[#0D7A6D] sm:text-xs"
                             >
-                              +{dayShifts.length - 3} more
+                              +{visibility.hiddenShiftCount} more
                             </button>
                           ) : null}
                         </div>
@@ -1753,7 +1816,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                     <div className="grid grid-cols-[48px_repeat(7,minmax(118px,1fr))] border-b border-[#E6DBCF] bg-[#FFF9F2]">
                       <div aria-hidden="true" />
                       {days.map((day) => {
-                        const dayLeave = data.leave.filter((leave) =>
+                        const dayLeave = filteredLeave.filter((leave) =>
                           leaveAppliesToDay(leave, day),
                         );
                         return (
@@ -1829,6 +1892,9 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                         const dayShifts = filteredShifts
                           .filter((shift) => shift.date === day)
                           .map(shiftWithPreview);
+                        const dayAvailability = filteredAvailability.filter(
+                          (availability) => availability.date === day,
+                        );
                         const positioned = layoutOverlappingShifts(dayShifts);
 
                         return (
@@ -1872,19 +1938,83 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                               />
                             ))}
 
+                            {dayAvailability.map((unavailable) => {
+                              const start = unavailable.startTime
+                                ? minutesFromTime(unavailable.startTime)
+                                : visibleStartMinute;
+                              const end = unavailable.endTime
+                                ? minutesFromTime(unavailable.endTime)
+                                : visibleEndMinute;
+                              const visibleUnavailableStart = Math.max(
+                                start,
+                                visibleStartMinute,
+                              );
+                              const visibleUnavailableEnd = Math.min(
+                                end,
+                                visibleEndMinute,
+                              );
+                              if (
+                                visibleUnavailableEnd <= visibleUnavailableStart
+                              ) {
+                                return null;
+                              }
+                              return (
+                                <div
+                                  key={"availability-" + unavailable.id}
+                                  className="pointer-events-none absolute inset-x-1 z-[1] overflow-hidden rounded-md border border-[#E2C768] bg-[#FFF8D8]/70"
+                                  style={{
+                                    top:
+                                      ((visibleUnavailableStart -
+                                        visibleStartMinute) /
+                                        60) *
+                                      hourHeight,
+                                    height: Math.max(
+                                      18,
+                                      ((visibleUnavailableEnd -
+                                        visibleUnavailableStart) /
+                                        60) *
+                                        hourHeight,
+                                    ),
+                                  }}
+                                  title={
+                                    unavailable.memberName +
+                                    " unavailable" +
+                                    (unavailable.startTime &&
+                                    unavailable.endTime
+                                      ? " · " +
+                                        compactTime(unavailable.startTime) +
+                                        "–" +
+                                        compactTime(unavailable.endTime)
+                                      : " · All day")
+                                  }
+                                >
+                                  <span className="block truncate px-1.5 py-0.5 text-[9px] font-extrabold text-[#8B6714]">
+                                    {unavailable.memberName} unavailable
+                                  </span>
+                                </div>
+                              );
+                            })}
+
                             {dropPreview?.date === day ? (
                               <div
-                                className="pointer-events-none absolute inset-x-0 z-30 border-t-2 border-[#19A897]"
+                                className="pointer-events-none absolute inset-x-1 z-30 rounded-lg border-2 border-[#19A897] bg-[#EAF8F5]/80"
                                 style={{
                                   top:
-                                    ((dropPreview.minute -
+                                    ((dropPreview.startMinute -
                                       visibleStartMinute) /
                                       60) *
                                     hourHeight,
+                                  height: Math.max(
+                                    28,
+                                    ((dropPreview.endMinute -
+                                      dropPreview.startMinute) /
+                                      60) *
+                                      hourHeight,
+                                  ),
                                 }}
                               >
-                                <span className="absolute left-1 top-0 -translate-y-1/2 rounded-md bg-[#19A897] px-1.5 py-0.5 text-[10px] font-extrabold text-[#243139] shadow-sm">
-                                  {compactMinuteLabel(dropPreview.minute)}
+                                <span className="absolute left-1 top-1 rounded-md bg-[#19A897] px-1.5 py-0.5 text-[10px] font-extrabold text-[#243139] shadow-sm">
+                                  {compactMinuteLabel(dropPreview.startMinute)}–{compactMinuteLabel(dropPreview.endMinute)}
                                 </span>
                               </div>
                             ) : null}
@@ -2045,6 +2175,11 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                         {selectedMobileLeave.length > 0
                           ? " · " + selectedMobileLeave.length + " leave"
                           : ""}
+                        {selectedMobileAvailability.length > 0
+                          ? " · " +
+                            selectedMobileAvailability.length +
+                            " unavailable"
+                          : ""}
                       </p>
                     </div>
                     {data.canManageRoster ? (
@@ -2057,6 +2192,28 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                       </CovieButton>
                     ) : null}
                   </div>
+
+                  {selectedMobileAvailability.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      {selectedMobileAvailability.map((unavailable) => (
+                        <div
+                          key={unavailable.id}
+                          className="rounded-xl border border-[#E2C768] bg-[#FFF8D8] p-3"
+                        >
+                          <strong className="text-sm text-[#243139]">
+                            {unavailable.memberName} unavailable
+                          </strong>
+                          <p className="mt-1 text-xs font-bold text-[#8B6714]">
+                            {unavailable.startTime && unavailable.endTime
+                              ? compactTime(unavailable.startTime) +
+                                "–" +
+                                compactTime(unavailable.endTime)
+                              : "All day"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
 
                   {selectedMobileLeave.length > 0 ? (
                     <div className="mt-4 space-y-2">
