@@ -2198,7 +2198,8 @@ export async function publishRosterWeek(input: {
     attempted: 0,
     sent: 0,
     failed: 0,
-    skippedUnlinked: notificationMemberIds.length,
+    skippedUnlinked: 0,
+    lookupFailed: true,
   }));
 
   const rows = await getDb()
