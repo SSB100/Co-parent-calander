@@ -84,13 +84,31 @@ export async function sendStaffRosterEmails(input: {
       sent: 0,
       failed: 0,
       skippedUnlinked: 0,
+      lookupFailed: false,
     };
   }
 
   const requested = new Set(requestedIds);
-  const recipients = (await linkedStaffRecipients(input.calendarId).catch(
-    () => [] as RecipientRow[],
-  )).filter((recipient) => requested.has(recipient.member_id));
+  let allRecipients: RecipientRow[];
+  try {
+    allRecipients = await linkedStaffRecipients(input.calendarId);
+  } catch {
+    console.error("Staff roster email recipient lookup failed", {
+      kind: input.kind,
+    });
+    return {
+      configured: staffRosterEmailConfigured(),
+      attempted: 0,
+      sent: 0,
+      failed: 0,
+      skippedUnlinked: 0,
+      lookupFailed: true,
+    };
+  }
+
+  const recipients = allRecipients.filter((recipient) =>
+    requested.has(recipient.member_id),
+  );
   const skippedUnlinked = Math.max(0, requestedIds.length - recipients.length);
 
   if (!staffRosterEmailConfigured()) {
@@ -100,6 +118,7 @@ export async function sendStaffRosterEmails(input: {
       sent: 0,
       failed: 0,
       skippedUnlinked,
+      lookupFailed: false,
     };
   }
 
@@ -168,5 +187,6 @@ export async function sendStaffRosterEmails(input: {
     sent,
     failed,
     skippedUnlinked,
+    lookupFailed: false,
   };
 }
