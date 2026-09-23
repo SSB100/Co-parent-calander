@@ -20,6 +20,8 @@ import {
   staffRosterCapabilities,
   type StaffRosterAccessRole,
 } from "@/lib/staff-rosters/capabilities";
+import { sendStaffRosterEmails } from "@/lib/email/staff-roster-notifications";
+import { rosterPublicationDiff } from "@/lib/staff-rosters/publication-diff";
 
 export class StaffRosterServiceError extends Error {
   constructor(
@@ -1508,28 +1510,6 @@ async function shiftConflictState(input: {
   };
 }
 
-function shiftComparisonKey(input: {
-  memberId: string;
-  roleId: string | null;
-  locationId: string | null;
-  date: string;
-  startTime: string;
-  endTime: string;
-  note: string | null;
-  availabilityOverride: boolean;
-}) {
-  return JSON.stringify([
-    input.memberId,
-    input.roleId,
-    input.locationId,
-    input.date,
-    input.startTime.slice(0, 5),
-    input.endTime.slice(0, 5),
-    input.note,
-    input.availabilityOverride,
-  ]);
-}
-
 export async function getRosterWeek(input: {
   session: StaffSession;
   weekStart: string;
@@ -1845,31 +1825,9 @@ export async function getRosterWeek(input: {
       for (const shift of liveShifts) changedMemberIds.add(shift.memberId);
       changedShiftCount = liveShifts.length;
     } else {
-      const liveById = new Map(
-        liveShifts.map((shift) => [
-          shift.id,
-          { memberId: shift.memberId, key: shiftComparisonKey(shift) },
-        ]),
-      );
-      const publishedById = new Map(
-        publishedShifts
-          .filter((shift) => shift.sourceShiftId)
-          .map((shift) => [
-            shift.sourceShiftId as string,
-            { memberId: shift.memberId, key: shiftComparisonKey(shift) },
-          ]),
-      );
-      const ids = new Set([...liveById.keys(), ...publishedById.keys()]);
-      for (const id of ids) {
-        const live = liveById.get(id);
-        const published = publishedById.get(id);
-        if (!live || !published || live.key !== published.key) {
-          if (live?.memberId) changedMemberIds.add(live.memberId);
-          if (published?.memberId) changedMemberIds.add(published.memberId);
-          changedShiftCount += 1;
-        }
-      }
-      changedMemberIds.delete("");
+      const diff = rosterPublicationDiff(liveShifts, publishedShifts);
+      for (const memberId of diff.memberIds) changedMemberIds.add(memberId);
+      changedShiftCount = diff.changedShiftCount;
     }
   }
 
@@ -1967,6 +1925,55 @@ export async function publishRosterWeek(input: {
 
   const publicationId = existing[0]?.id ?? randomUUID();
   const action = existing[0] ? "send_updates" : "publish";
+
+  const [notificationLiveShifts, notificationPublishedShifts] = await Promise.all([
+    getDb()
+      .select({
+        id: staffRosterShifts.id,
+        memberId: staffRosterShifts.memberId,
+        roleId: staffRosterShifts.roleId,
+        locationId: staffRosterShifts.locationId,
+        date: staffRosterShifts.shiftDate,
+        startTime: staffRosterShifts.startTime,
+        endTime: staffRosterShifts.endTime,
+        note: staffRosterShifts.note,
+        availabilityOverride: staffRosterShifts.availabilityOverride,
+      })
+      .from(staffRosterShifts)
+      .where(
+        and(
+          eq(staffRosterShifts.calendarId, input.session.calendarId),
+          drizzleSql`${staffRosterShifts.shiftDate} >= ${input.weekStart}`,
+          drizzleSql`${staffRosterShifts.shiftDate} <= ${weekEnd}`,
+        ),
+      ),
+    existing[0]
+      ? getDb()
+          .select({
+            id: staffRosterPublishedShifts.id,
+            sourceShiftId: staffRosterPublishedShifts.sourceShiftId,
+            memberId: staffRosterPublishedShifts.memberId,
+            roleId: staffRosterPublishedShifts.roleId,
+            locationId: staffRosterPublishedShifts.locationId,
+            date: staffRosterPublishedShifts.shiftDate,
+            startTime: staffRosterPublishedShifts.startTime,
+            endTime: staffRosterPublishedShifts.endTime,
+            note: staffRosterPublishedShifts.note,
+            availabilityOverride: staffRosterPublishedShifts.availabilityOverride,
+          })
+          .from(staffRosterPublishedShifts)
+          .where(eq(staffRosterPublishedShifts.publicationId, existing[0].id))
+      : Promise.resolve([]),
+  ]);
+
+  const notificationMemberIds =
+    action === "publish"
+      ? [...new Set(notificationLiveShifts.map((shift) => shift.memberId))]
+      : rosterPublicationDiff(
+          notificationLiveShifts,
+          notificationPublishedShifts,
+        ).memberIds;
+
   const lockKey =
     input.session.calendarId + ":publication:" + input.weekStart;
   const sql = getSql();
@@ -2181,6 +2188,20 @@ export async function publishRosterWeek(input: {
     );
   }
 
+  const emailDelivery = await sendStaffRosterEmails({
+    calendarId: input.session.calendarId,
+    memberIds: notificationMemberIds,
+    kind: action === "publish" ? "roster_published" : "roster_updated",
+    weekStart: input.weekStart,
+  }).catch(() => ({
+    configured: false,
+    attempted: 0,
+    sent: 0,
+    failed: 0,
+    skippedUnlinked: 0,
+    lookupFailed: true,
+  }));
+
   const rows = await getDb()
     .select({
       revision: staffRosterWeekPublications.revision,
@@ -2198,6 +2219,8 @@ export async function publishRosterWeek(input: {
     ok: true as const,
     action,
     revision: rows[0]?.revision ?? 1,
+    affectedMemberCount: notificationMemberIds.length,
+    emailDelivery,
   };
 }
 

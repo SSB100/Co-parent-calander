@@ -143,3 +143,8 @@ This means the current Actions conclusion cannot be treated as an application li
 Separately, the legacy Stage 1 Staff test contained a stale assertion that expected Staff self-availability to require editor permission. That contradicted the live invitation model, where Staff intentionally receive viewer membership plus bounded Staff self-service authority. The Stage 1 test has been updated to exercise the real capability matrix directly.
 
 Until hosted Actions jobs can actually start, Stage qualification must report GitHub CI as blocked rather than falsely calling it green.
+
+
+## Publication email invariant
+
+Roster publication and Send updates commit their database snapshot/update records before email delivery is attempted. Email is best-effort and cannot roll back a successful publication. Intermediate Manager edits stay silent. Only affected linked Staff accounts are eligible for roster email, and shift details remain inside authenticated Covie rather than being copied into email.
