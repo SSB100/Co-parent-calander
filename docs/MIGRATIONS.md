@@ -4,7 +4,7 @@ Covie uses ordered SQL migration files under `drizzle/`.
 
 ## Current production baseline
 
-Production currently contains migrations `0000` through `0021`. They must **not** be replayed.
+Production currently contains migrations `0000` through `0030`. They must **not** be replayed. This baseline was re-verified against the Production Neon branch `br-quiet-sea-a7duq4r3` on 23 September 2026.
 
 Migration `0012_schema_foundation.sql` introduced the first explicit Covie migration ledger:
 
@@ -24,7 +24,7 @@ The baseline timestamps represent when the ledger was established, not the origi
 6. Create or confirm a rollback point before production schema changes.
 7. Apply only migrations not already present in `covie_schema_migrations`.
 8. Verify schema and application CI before deployment.
-9. Production application deployment remains explicit; Git pushes do not auto-deploy.
+9. Treat merges to `main` as Production code releases. The current Vercel project deploys `main` to Production automatically; feature branches remain non-production unless explicitly promoted.
 
 ## 0012 invariant hardening
 
@@ -110,7 +110,7 @@ Existing calendars are preserved as `co_parenting` through the column default. N
 
 The application uses this type only for calendar navigation, routing and template selection at this stage. It does not retrofit roster, booking or social data into the co-parenting schema.
 
-The migration must be qualified on a temporary Neon branch before Production application and recorded as `0022` in `covie_schema_migrations`.
+The migration was qualified and applied to Production on 22 September 2026 and is recorded as `0022` in `covie_schema_migrations`.
 
 
 ## 0023 Staff Rosters foundation
@@ -132,4 +132,73 @@ It adds the Covie Core calendar lifecycle field `calendars.archived_at`, plus St
 
 Archive is reversible; permanent delete remains a separate owner-only action and relies on existing calendar-scoped cascade rules. Staff shifts are kept inside the Staff Rosters domain and do not alter parenting, child, Shared Costs, Tasks or approval tables.
 
-Migration `0024` is not yet applied to Production. It must be qualified against a fresh Production clone before release. Neon is currently at its project branch limit, so an obsolete preview branch must be explicitly approved for deletion before the final qualification branch can be created.
+Migration `0024` was qualified and applied to Production on 22 September 2026. The rollback branch created immediately before that release is `backup-before-0024-staff-roster-builder` (`br-steep-firefly-a70jmc58`).
+
+
+## 0025 Staff roster publication snapshots
+
+Migration `0025_staff_roster_publication.sql` adds the weekly publication boundary between the Manager's editable roster and the Staff-visible roster:
+
+- `staff_roster_week_publications`
+- `staff_roster_published_shifts`
+
+Managers continue editing `staff_roster_shifts`. Staff reads published snapshots rather than unfinished Manager draft rows. A publication is unique per calendar/week and later sends increment its revision.
+
+Migration `0025` was applied to Production on 23 September 2026 (NZ time).
+
+## 0026 Staff attendance, corrections and leave
+
+Migration `0026_staff_roster_attendance_leave.sql` adds:
+
+- `staff_roster_clock_sessions`
+- `staff_roster_timesheet_corrections`
+- `staff_roster_leave_requests`
+- correction and leave status enums
+
+The database prevents more than one active clock session per Staff member. Attendance remains an operational roster feature only; this migration does not add wages, PAYE, payroll, holiday-pay or leave-accrual calculations.
+
+Migration `0026` was applied to Production on 23 September 2026 (NZ time).
+
+## 0027 Staff roster account invitations
+
+Migration `0027_staff_roster_invitations.sql` adds `staff_roster_invites`.
+
+An invitation links an authenticated Covie calendar membership to an existing `staff_roster_members` profile. It must not create a duplicate Staff profile or a co-parenting participant.
+
+Staff invitations use viewer calendar permission plus Staff-domain self-service capabilities. Manager invitations use editor permission. Owner-only policy continues to govern Manager promotion.
+
+Migration `0027` was applied to Production on 23 September 2026 (NZ time).
+
+## 0028 Staff roster publication updates
+
+Migration `0028_staff_roster_updates.sql` adds `staff_roster_updates`.
+
+These records describe affected Staff changes when a published roster is updated. Intermediate Manager draft edits remain quiet until the Manager explicitly sends the updated roster.
+
+Migration `0028` was applied to Production on 23 September 2026 (NZ time).
+
+## 0029 Staff member multi-role assignments
+
+Migration `0029_staff_roster_member_roles.sql` adds `staff_roster_member_roles` and backfills each member's existing default role into the reusable role-assignment relation.
+
+A Staff member may have multiple eligible job roles while retaining one optional default role for new-shift prefilling.
+
+Migration `0029` was applied to Production on 23 September 2026 (NZ time).
+
+## 0030 Staff roster operational hours
+
+Migration `0030_staff_roster_operational_hours.sql` adds persisted operational-hour bounds to `staff_roster_settings`:
+
+- `operational_start_minute`
+- `operational_end_minute`
+- `staff_roster_settings_operational_hours_valid`
+
+The Manager Week view may show a practical operating window without changing the underlying 24-hour shift model.
+
+Migration `0030` was applied to Production on 23 September 2026 (NZ time).
+
+## Current Staff Rosters schema boundary
+
+As of migration `0030`, Production includes the Staff Rosters foundation, one-off shifts, publication snapshots, roster updates, attendance, timesheet corrections, leave, account invitations, multi-role assignments and operational hours.
+
+Any future Staff Rosters schema change must start at migration `0031` or later, preserve current Production Staff records, and still requires explicit Production migration approval after qualification on a fresh Production clone.
