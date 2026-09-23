@@ -145,9 +145,9 @@ export async function sendStaffRosterEmails(input: {
             copy.heading +
             "\n\n" +
             copy.body +
-            "\\n\\nOpen Covie: " +
+            "\n\nOpen Covie: " +
             updatesUrl +
-            "\\n\\nFor privacy, Covie keeps shift details inside your account rather than copying them into email.",
+            "\n\nFor privacy, Covie keeps shift details inside your account rather than copying them into email.",
           html:
             '<div style="font-family:Arial,Helvetica,sans-serif;background:#FFF9F2;padding:24px;color:#243139">' +
             '<div style="max-width:560px;margin:0 auto;background:#ffffff;border:2px solid #243139;border-radius:16px;overflow:hidden">' +
