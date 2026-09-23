@@ -106,4 +106,7 @@ export const staffLeaveReviewSchema = z.object({
 export const staffLeaveRangeSchema = z.object({
   from: z.iso.date().optional(),
   to: z.iso.date().optional(),
-});
+}).refine(
+  (value) => !value.from || !value.to || value.to >= value.from,
+  "Leave range end must be on or after the start.",
+);

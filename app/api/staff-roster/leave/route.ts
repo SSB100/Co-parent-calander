@@ -15,6 +15,8 @@ import {
 import { staffRosterApiError } from "@/app/api/staff-roster/shared";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession } from "@/lib/security/session";
+import { localDateInTimeZone } from "@/lib/calendar/time";
+import { addDays, format, parseISO } from "date-fns";
 
 export async function GET(request: Request) {
   const session = await getCalendarSession();
@@ -23,10 +25,10 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateInTimeZone(session.calendarTimezone);
   const parsed = staffLeaveRangeSchema.safeParse({
-    from: url.searchParams.get("from") ?? today,
-    to: url.searchParams.get("to") ?? today,
+    from: url.searchParams.get("from") ?? format(addDays(parseISO(today), -30), "yyyy-MM-dd"),
+    to: url.searchParams.get("to") ?? format(addDays(parseISO(today), 180), "yyyy-MM-dd"),
   });
   if (!parsed.success) {
     return NextResponse.json({ error: "Choose a valid leave date range." }, { status: 400 });

@@ -994,12 +994,54 @@ export async function getLeaveRequests(input: {
     )
     .orderBy(asc(staffRosterLeaveRequests.startDate), asc(staffRosterMembers.displayName));
 
+  // Only the review capability can read draft/published overlap context.
+  // Staff payloads never include Manager draft work or other Staff records.
+  const overlaps = capabilities.reviewLeave && rows.length ? await getSql()`
+    WITH work AS (
+      SELECT id, member_id, shift_date, start_time, end_time, false AS published
+      FROM staff_roster_shifts WHERE calendar_id = ${input.session.calendarId}
+      UNION ALL
+      SELECT shift.id, shift.member_id, shift.shift_date, shift.start_time, shift.end_time, true AS published
+      FROM staff_roster_published_shifts shift
+      JOIN staff_roster_week_publications publication ON publication.id = shift.publication_id
+      WHERE publication.calendar_id = ${input.session.calendarId}
+    )
+    SELECT request.id AS request_id, work.id, work.shift_date::text AS date,
+      work.start_time::text AS start_time, work.end_time::text AS end_time, work.published
+    FROM staff_roster_leave_requests request JOIN work ON work.member_id = request.member_id
+      AND work.shift_date BETWEEN request.start_date AND request.end_date
+      AND (request.all_day OR (work.start_time < request.end_time AND work.end_time > request.start_time))
+    WHERE request.calendar_id = ${input.session.calendarId}
+      AND request.start_date <= ${input.to} AND request.end_date >= ${input.from}
+      AND request.status IN ('pending', 'approved')
+    ORDER BY work.shift_date, work.start_time
+  ` : [];
+
   return {
     currentMemberId: current.id,
     currentAccessRole: current.accessRole,
     canReview: capabilities.reviewLeave,
+    calendarTimezone: input.session.calendarTimezone,
+    from: input.from,
+    to: input.to,
     requests: rows.map((request) => ({
-      ...request,
+      id: request.id,
+      memberId: request.memberId,
+      memberName: request.memberName,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      allDay: request.allDay,
+      note: request.note,
+      status: request.status,
+      createdAt: request.createdAt,
+      ...(capabilities.reviewLeave ? {
+        reviewedAt: request.reviewedAt,
+        rosterConflicts: overlaps.filter((work) => work.request_id === request.id).map((work) => ({
+          id: work.id as string, date: work.date as string,
+          startTime: (work.start_time as string).slice(0, 5),
+          endTime: (work.end_time as string).slice(0, 5), published: work.published as boolean,
+        })),
+      } : {}),
       startTime: request.startTime?.slice(0, 5) ?? null,
       endTime: request.endTime?.slice(0, 5) ?? null,
     })),
@@ -1026,39 +1068,36 @@ export async function createLeaveRequest(input: {
 
   const id = randomUUID();
   const sql = getSql();
-  await sql.transaction([
+  // Acquire before the insert statement so a waiting request gets a fresh snapshot.
+  const result = await sql.transaction([
+    sql`SELECT pg_advisory_xact_lock(hashtextextended(${input.session.calendarId + ":leave:" + current.id}, 0))`,
     sql`
-      INSERT INTO staff_roster_leave_requests (
-        id, calendar_id, member_id, start_date, end_date,
-        all_day, start_time, end_time, note, status
-      )
-      VALUES (
-        ${id}, ${input.session.calendarId}, ${current.id},
-        ${input.startDate}, ${input.endDate}, ${input.allDay},
-        ${input.allDay ? null : input.startTime},
-        ${input.allDay ? null : input.endTime},
-        ${input.note}, 'pending'
-      )
-    `,
-    sql`
-      INSERT INTO audit_log (
-        calendar_id, actor_participant_id, action,
-        entity_type, entity_id, after_state
-      )
-      VALUES (
-        ${input.session.calendarId}, NULL,
-        'staff_roster.leave.request',
-        'staff_roster_leave_request', ${id},
-        ${JSON.stringify({
-          memberId: current.id,
-          startDate: input.startDate,
-          endDate: input.endDate,
-          allDay: input.allDay,
-        })}::jsonb
-      )
+      WITH created AS (
+        INSERT INTO staff_roster_leave_requests (
+          id, calendar_id, member_id, start_date, end_date, all_day, start_time, end_time, note, status
+        )
+        SELECT ${id}, ${input.session.calendarId}, ${current.id}, ${input.startDate}, ${input.endDate},
+          ${input.allDay}, ${input.startTime}, ${input.endTime}, ${input.note}, 'pending'
+        WHERE NOT EXISTS (
+          SELECT 1 FROM staff_roster_leave_requests existing
+          WHERE existing.calendar_id = ${input.session.calendarId} AND existing.member_id = ${current.id}
+            AND existing.status = 'pending' AND existing.start_date = ${input.startDate}
+            AND existing.end_date = ${input.endDate} AND existing.all_day = ${input.allDay}
+            AND existing.start_time IS NOT DISTINCT FROM ${input.startTime}::time
+            AND existing.end_time IS NOT DISTINCT FROM ${input.endTime}::time
+            AND existing.note IS NOT DISTINCT FROM ${input.note}::text
+        ) RETURNING *
+      ), audited AS (
+        INSERT INTO audit_log (calendar_id, actor_participant_id, action, entity_type, entity_id, after_state)
+        SELECT calendar_id, NULL, 'staff_roster.leave.request', 'staff_roster_leave_request', id,
+          to_jsonb(created) || jsonb_build_object('actorStaffMemberId', ${current.id}::text)
+        FROM created
+      ) SELECT id FROM created
     `,
   ]);
-
+  if (!result[1][0]) {
+    throw new StaffRosterServiceError(409, "An identical leave request is already pending. Refresh to see its status.");
+  }
   return { ok: true as const, id };
 }
 
@@ -1067,53 +1106,35 @@ export async function cancelLeaveRequest(input: {
   leaveRequestId: string;
 }) {
   const current = await ensureStaffRosterMember(input.session);
-  const rows = await getDb()
-    .select({
-      id: staffRosterLeaveRequests.id,
-      memberId: staffRosterLeaveRequests.memberId,
-      status: staffRosterLeaveRequests.status,
-    })
-    .from(staffRosterLeaveRequests)
-    .where(
-      and(
-        eq(staffRosterLeaveRequests.id, input.leaveRequestId),
-        eq(staffRosterLeaveRequests.calendarId, input.session.calendarId),
-      ),
-    )
-    .limit(1);
-  const request = rows[0];
-
-  if (!request || request.memberId !== current.id) {
-    throw new StaffRosterServiceError(404, "Leave request not found.");
+  const capabilities = staffRosterCapabilities({ accessRole: current.accessRole, permission: input.session.permission });
+  if (!capabilities.requestOwnLeave) {
+    throw new StaffRosterServiceError(403, "Leave requests are not available.");
   }
-  if (request.status !== "pending" && request.status !== "approved") {
-    throw new StaffRosterServiceError(409, "This leave request cannot be cancelled.");
-  }
-
   const sql = getSql();
-  await sql.transaction([
-    sql`
-      UPDATE staff_roster_leave_requests
-      SET status = 'cancelled', updated_at = now()
-      WHERE id = ${input.leaveRequestId}
-        AND calendar_id = ${input.session.calendarId}
+  const changed = await sql`
+    WITH original AS MATERIALIZED (
+      SELECT * FROM staff_roster_leave_requests
+      WHERE id = ${input.leaveRequestId} AND calendar_id = ${input.session.calendarId}
         AND member_id = ${current.id}
-        AND status IN ('pending', 'approved')
-    `,
-    sql`
-      INSERT INTO audit_log (
-        calendar_id, actor_participant_id, action,
-        entity_type, entity_id, after_state
-      )
-      VALUES (
-        ${input.session.calendarId}, NULL,
-        'staff_roster.leave.cancel',
-        'staff_roster_leave_request', ${input.leaveRequestId},
-        ${JSON.stringify({ memberId: current.id })}::jsonb
-      )
-    `,
-  ]);
-
+      FOR UPDATE
+    ), changed AS (
+      UPDATE staff_roster_leave_requests request
+      SET status = 'cancelled', updated_at = now()
+      FROM original
+      WHERE request.id = original.id AND request.calendar_id = ${input.session.calendarId}
+        AND request.member_id = ${current.id} AND request.status IN ('pending', 'approved')
+        AND original.status IN ('pending', 'approved')
+      RETURNING request.*, to_jsonb(original) AS before_state
+    ), audited AS (
+      INSERT INTO audit_log (calendar_id, actor_participant_id, action, entity_type, entity_id, before_state, after_state)
+      SELECT calendar_id, NULL, 'staff_roster.leave.cancel', 'staff_roster_leave_request', id,
+        before_state, (to_jsonb(changed) - 'before_state') || jsonb_build_object('actorStaffMemberId', ${current.id}::text)
+      FROM changed
+    ) SELECT id FROM changed
+  `;
+  if (!changed[0]) {
+    throw new StaffRosterServiceError(409, "This leave request is no longer available to cancel. Refresh and check its status.");
+  }
   return { ok: true as const };
 }
 
@@ -1123,66 +1144,33 @@ export async function reviewLeaveRequest(input: {
   decision: "approved" | "declined";
 }) {
   const actor = await ensureStaffRosterMember(input.session);
-  const capabilities = staffRosterCapabilities({
-    accessRole: actor.accessRole,
-    permission: input.session.permission,
-  });
+  const capabilities = staffRosterCapabilities({ accessRole: actor.accessRole, permission: input.session.permission });
   if (!capabilities.reviewLeave) {
     throw new StaffRosterServiceError(403, "Manager access is required.");
   }
-
-  const rows = await getDb()
-    .select({
-      id: staffRosterLeaveRequests.id,
-      status: staffRosterLeaveRequests.status,
-      memberId: staffRosterLeaveRequests.memberId,
-    })
-    .from(staffRosterLeaveRequests)
-    .where(
-      and(
-        eq(staffRosterLeaveRequests.id, input.leaveRequestId),
-        eq(staffRosterLeaveRequests.calendarId, input.session.calendarId),
-      ),
-    )
-    .limit(1);
-  const request = rows[0];
-
-  if (!request) {
-    throw new StaffRosterServiceError(404, "Leave request not found.");
-  }
-  if (request.status !== "pending") {
-    throw new StaffRosterServiceError(409, "This leave request has already been reviewed.");
-  }
-
   const sql = getSql();
-  await sql.transaction([
-    sql`
-      UPDATE staff_roster_leave_requests
+  const changed = await sql`
+    WITH original AS MATERIALIZED (
+      SELECT * FROM staff_roster_leave_requests
+      WHERE id = ${input.leaveRequestId} AND calendar_id = ${input.session.calendarId}
+      FOR UPDATE
+    ), changed AS (
+      UPDATE staff_roster_leave_requests request
       SET status = ${input.decision}::staff_roster_leave_status,
-          reviewed_by_membership_id = ${input.session.membershipId},
-          reviewed_at = now(),
-          updated_at = now()
-      WHERE id = ${input.leaveRequestId}
-        AND calendar_id = ${input.session.calendarId}
-        AND status = 'pending'
-    `,
-    sql`
-      INSERT INTO audit_log (
-        calendar_id, actor_participant_id, action,
-        entity_type, entity_id, after_state
-      )
-      VALUES (
-        ${input.session.calendarId}, NULL,
-        'staff_roster.leave.review',
-        'staff_roster_leave_request', ${input.leaveRequestId},
-        ${JSON.stringify({
-          memberId: request.memberId,
-          decision: input.decision,
-          actorStaffMemberId: actor.id,
-        })}::jsonb
-      )
-    `,
-  ]);
-
+        reviewed_by_membership_id = ${input.session.membershipId}, reviewed_at = now(), updated_at = now()
+      FROM original
+      WHERE request.id = original.id AND request.calendar_id = ${input.session.calendarId}
+        AND request.status = 'pending' AND original.status = 'pending'
+      RETURNING request.*, to_jsonb(original) AS before_state
+    ), audited AS (
+      INSERT INTO audit_log (calendar_id, actor_participant_id, action, entity_type, entity_id, before_state, after_state)
+      SELECT calendar_id, NULL, 'staff_roster.leave.review', 'staff_roster_leave_request', id,
+        before_state, (to_jsonb(changed) - 'before_state') || jsonb_build_object('actorStaffMemberId', ${actor.id}::text)
+      FROM changed
+    ) SELECT id FROM changed
+  `;
+  if (!changed[0]) {
+    throw new StaffRosterServiceError(409, "This leave request is no longer pending review. Refresh and check its status.");
+  }
   return { ok: true as const };
 }
