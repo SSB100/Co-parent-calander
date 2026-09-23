@@ -7,8 +7,8 @@ import {
   Plus,
   X,
 } from "lucide-react";
-import { addDays, format } from "date-fns";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { localDateInTimeZone } from "@/lib/calendar/time";
 import {
   CovieButton,
   CovieConfirmDialog,
@@ -32,19 +32,19 @@ type LeaveRequest = {
   note: string | null;
   status: "pending" | "approved" | "declined" | "cancelled";
   createdAt: string;
-  reviewedAt: string | null;
+  reviewedAt?: string | null;
+  rosterConflicts?: { id: string; date: string; startTime: string; endTime: string; published: boolean }[];
 };
 
 type LeavePayload = {
+  calendarTimezone: string;
+  from: string;
+  to: string;
   currentMemberId: string;
   currentAccessRole: "owner" | "manager" | "staff";
   canReview: boolean;
   requests: LeaveRequest[];
 };
-
-function todayValue() {
-  return format(new Date(), "yyyy-MM-dd");
-}
 
 function dateLabel(value: string) {
   return new Intl.DateTimeFormat("en-NZ", {
@@ -53,6 +53,12 @@ function dateLabel(value: string) {
     year: "numeric",
     timeZone: "UTC",
   }).format(new Date(value + "T00:00:00Z"));
+}
+
+function eventLabel(value: string, timeZone: string) {
+  return new Intl.DateTimeFormat("en-NZ", {
+    day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", timeZone,
+  }).format(new Date(value));
 }
 
 function statusTone(status: LeaveRequest["status"]) {
@@ -66,25 +72,24 @@ export function StaffRosterLeavePanel() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [rangeFrom, setRangeFrom] = useState("");
+  const [rangeTo, setRangeTo] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<LeaveRequest | null>(null);
-  const [startDate, setStartDate] = useState(todayValue);
-  const [endDate, setEndDate] = useState(todayValue);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [allDay, setAllDay] = useState(true);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [note, setNote] = useState("");
+  const readVersion = useRef(0);
+  const activeRange = useRef<{ from: string; to: string } | null>(null);
 
   const refresh = useCallback(async () => {
-    const from = format(addDays(new Date(), -30), "yyyy-MM-dd");
-    const to = format(addDays(new Date(), 180), "yyyy-MM-dd");
-    const response = await fetch(
-      "/api/staff-roster/leave?from=" +
-        encodeURIComponent(from) +
-        "&to=" +
-        encodeURIComponent(to),
-      { cache: "no-store" },
-    );
+    const version = ++readVersion.current;
+    const range = activeRange.current;
+    const query = range ? `?${new URLSearchParams(range).toString()}` : "";
+    const response = await fetch(`/api/staff-roster/leave${query}`, { cache: "no-store" });
     const body = (await response.json().catch(() => null)) as
       | LeavePayload
       | { error?: string }
@@ -98,25 +103,41 @@ export function StaffRosterLeavePanel() {
       );
     }
 
-    setData(body);
-    setError(null);
+    if (version === readVersion.current) {
+      if (!activeRange.current) {
+        activeRange.current = { from: body.from, to: body.to };
+        setRangeFrom(body.from);
+        setRangeTo(body.to);
+      }
+      setData(body);
+      setError(null);
+    }
   }, []);
+
+  const reload = useCallback(async () => {
+    const version = readVersion.current + 1;
+    try {
+      await refresh();
+      return true;
+    } catch (caught) {
+      if (version === readVersion.current) {
+        setData(null);
+        setError(caught instanceof Error ? caught.message : "Leave requests could not be loaded.");
+      }
+      return false;
+    }
+  }, [refresh]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void refresh().catch((caught) =>
-        setError(
-          caught instanceof Error
-            ? caught.message
-            : "Leave requests could not be loaded.",
-        ),
-      );
+      void reload();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [refresh]);
+  }, [reload]);
 
   function openRequest() {
-    const today = todayValue();
+    if (busy || !data) return;
+    const today = localDateInTimeZone(data.calendarTimezone);
     setStartDate(today);
     setEndDate(today);
     setAllDay(true);
@@ -126,11 +147,23 @@ export function StaffRosterLeavePanel() {
     setDialogOpen(true);
   }
 
+  async function applyRange() {
+    if (busy || !rangeFrom || !rangeTo || rangeTo < rangeFrom) return;
+    setBusy(true);
+    setError(null);
+    activeRange.current = { from: rangeFrom, to: rangeTo };
+    await reload();
+    setBusy(false);
+  }
+
   async function createRequest() {
     if (busy || !startDate || !endDate) return;
     setBusy(true);
     setError(null);
     setNotice(null);
+    ++readVersion.current;
+    let mutationError: string | null = null;
+    let created = false;
 
     try {
       const response = await fetch("/api/staff-roster/leave", {
@@ -152,16 +185,28 @@ export function StaffRosterLeavePanel() {
         throw new Error(body?.error ?? "Leave request could not be sent.");
       }
 
-      setDialogOpen(false);
-      setNotice("Leave request sent for review.");
-      await refresh();
+      created = true;
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Leave request could not be sent.",
-      );
+      mutationError = caught instanceof Error ? caught.message : "Leave request could not be sent.";
     } finally {
+      const selected = activeRange.current;
+      if (selected) {
+        const from = startDate < selected.from ? startDate : selected.from;
+        const to = endDate > selected.to ? endDate : selected.to;
+        activeRange.current = { from, to };
+        setRangeFrom(from);
+        setRangeTo(to);
+      }
+      const loaded = await reload();
+      setDialogOpen(false);
+      if (loaded) {
+        if (created) {
+          setNotice("Leave request sent for review.");
+        }
+        if (mutationError) setError(`${mutationError} Requests have been refreshed; check before trying again.`);
+      } else if (mutationError) {
+        setError(`${mutationError} Requests could not be refreshed. Retry loading before trying again.`);
+      }
       setBusy(false);
     }
   }
@@ -174,6 +219,9 @@ export function StaffRosterLeavePanel() {
     setBusy(true);
     setError(null);
     setNotice(null);
+    ++readVersion.current;
+    let mutationError: string | null = null;
+    let reviewed = false;
 
     try {
       const response = await fetch("/api/staff-roster/leave", {
@@ -188,15 +236,17 @@ export function StaffRosterLeavePanel() {
         throw new Error(body?.error ?? "Leave request could not be reviewed.");
       }
 
-      setNotice(decision === "approved" ? "Leave approved." : "Leave declined.");
-      await refresh();
+      reviewed = true;
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Leave request could not be reviewed.",
-      );
+      mutationError = caught instanceof Error ? caught.message : "Leave request could not be reviewed.";
     } finally {
+      const loaded = await reload();
+      if (loaded) {
+        if (reviewed) setNotice(decision === "approved" ? "Leave approved." : "Leave declined.");
+        if (mutationError) setError(`${mutationError} Requests have been refreshed; check before trying again.`);
+      } else if (mutationError) {
+        setError(`${mutationError} Requests could not be refreshed. Retry loading before trying again.`);
+      }
       setBusy(false);
     }
   }
@@ -205,6 +255,10 @@ export function StaffRosterLeavePanel() {
     if (!cancelTarget || busy) return;
     setBusy(true);
     setError(null);
+    setNotice(null);
+    ++readVersion.current;
+    let mutationError: string | null = null;
+    let cancelled = false;
 
     try {
       const response = await fetch("/api/staff-roster/leave", {
@@ -219,16 +273,18 @@ export function StaffRosterLeavePanel() {
         throw new Error(body?.error ?? "Leave request could not be cancelled.");
       }
 
-      setCancelTarget(null);
-      setNotice("Leave request cancelled.");
-      await refresh();
+      cancelled = true;
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Leave request could not be cancelled.",
-      );
+      mutationError = caught instanceof Error ? caught.message : "Leave request could not be cancelled.";
     } finally {
+      const loaded = await reload();
+      setCancelTarget(null);
+      if (loaded) {
+        if (cancelled) setNotice("Leave request cancelled.");
+        if (mutationError) setError(`${mutationError} Requests have been refreshed; check before trying again.`);
+      } else if (mutationError) {
+        setError(`${mutationError} Requests could not be refreshed. Retry loading before trying again.`);
+      }
       setBusy(false);
     }
   }
@@ -250,7 +306,7 @@ export function StaffRosterLeavePanel() {
             Simple leave requests that feed directly into the roster.
           </p>
         </div>
-        <CovieButton onClick={openRequest}>
+        <CovieButton disabled={busy || !data} onClick={openRequest}>
           <Plus className="h-4 w-4" aria-hidden="true" />
           Request leave
         </CovieButton>
@@ -261,6 +317,7 @@ export function StaffRosterLeavePanel() {
           {error}
         </CovieNotice>
       ) : null}
+      {!data && error ? <CovieButton tone="neutral" onClick={() => void reload()}>Retry loading</CovieButton> : null}
       {notice ? (
         <CovieNotice tone="teal" className="mb-4">
           {notice}
@@ -271,6 +328,22 @@ export function StaffRosterLeavePanel() {
         <div className="flex min-h-32 items-center justify-center rounded-2xl border border-[#E6DBCF] bg-white text-sm text-[#66747A]">
           <LoaderCircle className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
           Loading leave…
+        </div>
+      ) : null}
+
+      {data ? (
+        <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-[#E6DBCF] bg-[#FFF9F2] p-3">
+          <label className="min-w-0 flex-1 basis-36">
+            <span className="mb-1 block text-sm font-bold text-[#243139]">From</span>
+            <CovieInput type="date" value={rangeFrom} onChange={(event) => setRangeFrom(event.target.value)} />
+          </label>
+          <label className="min-w-0 flex-1 basis-36">
+            <span className="mb-1 block text-sm font-bold text-[#243139]">To</span>
+            <CovieInput type="date" min={rangeFrom} value={rangeTo} onChange={(event) => setRangeTo(event.target.value)} />
+          </label>
+          <CovieButton tone="neutral" disabled={busy || !rangeFrom || !rangeTo || rangeTo < rangeFrom} onClick={() => void applyRange()}>
+            Show dates
+          </CovieButton>
         </div>
       ) : null}
 
@@ -290,9 +363,9 @@ export function StaffRosterLeavePanel() {
               aria-hidden="true"
             />
           }
-          title="No leave requests"
-          description="Leave requests and their status will appear here."
-          action={<CovieButton onClick={openRequest}>Request leave</CovieButton>}
+          title="No leave requests in these dates"
+          description="Choose another date range to see earlier or later requests."
+          action={<CovieButton disabled={busy} onClick={openRequest}>Request leave</CovieButton>}
         />
       ) : null}
 
@@ -304,7 +377,7 @@ export function StaffRosterLeavePanel() {
               className="rounded-xl border border-[#E6DBCF] bg-white p-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0 flex-1 break-words">
                   {data.canReview ? (
                     <strong className="block text-sm text-[#243139]">
                       {request.memberName}
@@ -319,7 +392,7 @@ export function StaffRosterLeavePanel() {
                   <p className="mt-1 text-xs text-[#66747A]">
                     {request.allDay
                       ? "All day"
-                      : (request.startTime ?? "") +
+                      : "Part day · " + (request.startTime ?? "") +
                         "–" +
                         (request.endTime ?? "")}
                   </p>
@@ -328,14 +401,31 @@ export function StaffRosterLeavePanel() {
                       {request.note}
                     </p>
                   ) : null}
+                  <p className="mt-2 text-xs text-[#66747A]">
+                    Requested {eventLabel(request.createdAt, data.calendarTimezone)}
+                    {request.reviewedAt ? ` · Reviewed ${eventLabel(request.reviewedAt, data.calendarTimezone)}` : ""}
+                  </p>
                 </div>
                 <CovieStatusBadge tone={statusTone(request.status)}>
                   {request.status[0].toUpperCase() + request.status.slice(1)}
                 </CovieStatusBadge>
               </div>
 
+              {data.canReview && request.rosterConflicts && request.rosterConflicts.length > 0 ? (
+                <div className="mt-3 rounded-xl border border-[#C78D00] bg-[#FFF8D8] p-3 text-sm text-[#243139]">
+                  <strong>{request.rosterConflicts.length} roster overlap{request.rosterConflicts.length === 1 ? "" : "s"}</strong>
+                  <ul className="mt-1 space-y-1">
+                    {request.rosterConflicts.map((conflict) => (
+                      <li key={conflict.id}>
+                        {dateLabel(conflict.date)} · {conflict.startTime}–{conflict.endTime} · {conflict.published ? "Published shift" : "Draft shift"}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
               {data.canReview && request.status === "pending" ? (
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <CovieButton
                     disabled={busy}
                     onClick={() => void review(request.id, "approved")}
@@ -395,7 +485,8 @@ export function StaffRosterLeavePanel() {
                   busy ||
                   !startDate ||
                   !endDate ||
-                  (!allDay && (!startTime || !endTime))
+                  endDate < startDate ||
+                  (!allDay && (!startTime || !endTime || endTime <= startTime))
                 }
                 onClick={() => void createRequest()}
               >
@@ -404,7 +495,7 @@ export function StaffRosterLeavePanel() {
             </>
           }
         >
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
             <label>
               <span className="mb-1.5 block text-sm font-bold">From</span>
               <CovieInput

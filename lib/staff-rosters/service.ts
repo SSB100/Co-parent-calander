@@ -970,7 +970,10 @@ export async function getAvailability(input: {
   const today = localDateInTimeZone(input.session.calendarTimezone);
   const from = input.from ?? today;
   const to =
-    input.to ?? format(addDays(parseISO(today), 30), "yyyy-MM-dd");
+    input.to ?? format(addDays(parseISO(from), 30), "yyyy-MM-dd");
+  if (to < from) {
+    throw new StaffRosterServiceError(400, "Choose a valid availability range.");
+  }
   const db = getDb();
   const capabilities = staffRosterCapabilities({
     accessRole: current.accessRole,
@@ -1028,6 +1031,7 @@ export async function getAvailability(input: {
     currentMemberId: current.id,
     currentAccessRole: current.accessRole,
     canManageAll: capabilities.manageAllAvailability,
+    calendarTimezone: input.session.calendarTimezone,
     from,
     to,
     members: team,
@@ -1084,48 +1088,41 @@ export async function createAvailability(input: {
 
   const id = randomUUID();
   const sql = getSql();
-  try {
-    await sql.transaction([
-      sql`
+  // A separate READ COMMITTED statement after the lock sees the previous
+  // submitter's committed row; a lock inside the insert CTE would keep a stale snapshot.
+  const result = await sql.transaction([
+    sql`SELECT pg_advisory_xact_lock(hashtextextended(${input.session.calendarId + ":availability:" + input.memberId}, 0))`,
+    sql`
+      WITH created AS (
         INSERT INTO staff_roster_availability (
-          id, calendar_id, member_id, availability_date,
-          start_time, end_time, status, note, created_by_membership_id
+          id, calendar_id, member_id, availability_date, start_time, end_time,
+          status, note, created_by_membership_id
         )
-        VALUES (
-          ${id}, ${input.session.calendarId}, ${input.memberId}, ${input.date},
+        SELECT ${id}, ${input.session.calendarId}, target.id, ${input.date},
           ${input.startTime}, ${input.endTime},
-          ${input.status}::staff_roster_availability_status,
-          ${input.note}, ${input.session.membershipId}
-        )
-      `,
-      sql`
-        INSERT INTO audit_log (
-          calendar_id, actor_participant_id, action,
-          entity_type, entity_id, after_state
-        )
-        VALUES (
-          ${input.session.calendarId}, NULL,
-          'staff_roster.availability.create',
-          'staff_roster_availability', ${id},
-          ${JSON.stringify({
-            memberId: input.memberId,
-            date: input.date,
-            startTime: input.startTime,
-            endTime: input.endTime,
-            status: input.status,
-            note: input.note,
-            actorStaffMemberId: actor.id,
-          })}::jsonb
-        )
-      `,
-    ]);
-  } catch {
-    throw new StaffRosterServiceError(
-      409,
-      "Availability could not be added.",
-    );
+          ${input.status}::staff_roster_availability_status, ${input.note}, ${input.session.membershipId}
+        FROM staff_roster_members target
+        WHERE target.id = ${input.memberId} AND target.calendar_id = ${input.session.calendarId}
+          AND target.active = true
+          AND NOT EXISTS (
+            SELECT 1 FROM staff_roster_availability existing
+            WHERE existing.calendar_id = ${input.session.calendarId}
+              AND existing.member_id = target.id AND existing.availability_date = ${input.date}
+              AND (existing.start_time IS NULL OR ${input.startTime}::time IS NULL
+                OR (existing.start_time < ${input.endTime}::time AND existing.end_time > ${input.startTime}::time))
+          )
+        RETURNING *
+      ), audited AS (
+        INSERT INTO audit_log (calendar_id, actor_participant_id, action, entity_type, entity_id, after_state)
+        SELECT calendar_id, NULL, 'staff_roster.availability.create', 'staff_roster_availability', id,
+          to_jsonb(created) || jsonb_build_object('actorStaffMemberId', ${actor.id}::text)
+        FROM created
+      ) SELECT id FROM created
+    `,
+  ]);
+  if (!result[1][0]) {
+    throw new StaffRosterServiceError(409, "Availability overlaps an existing entry, or this team member is no longer active. Refresh and check before adding it again.");
   }
-
   return { ok: true as const, id };
 }
 
@@ -1134,81 +1131,27 @@ export async function deleteAvailability(input: {
   availabilityId: string;
 }) {
   const actor = await ensureStaffRosterMember(input.session);
-  const rows = await getDb()
-    .select({
-      id: staffRosterAvailability.id,
-      memberId: staffRosterAvailability.memberId,
-      date: staffRosterAvailability.availabilityDate,
-      startTime: staffRosterAvailability.startTime,
-      endTime: staffRosterAvailability.endTime,
-      status: staffRosterAvailability.status,
-      note: staffRosterAvailability.note,
-    })
-    .from(staffRosterAvailability)
-    .where(
-      and(
-        eq(staffRosterAvailability.id, input.availabilityId),
-        eq(staffRosterAvailability.calendarId, input.session.calendarId),
-      ),
-    )
-    .limit(1);
-
-  const entry = rows[0];
-  if (!entry) {
-    throw new StaffRosterServiceError(404, "Availability entry not found.");
+  const capabilities = staffRosterCapabilities({ accessRole: actor.accessRole, permission: input.session.permission });
+  if (!capabilities.editOwnAvailability) {
+    throw new StaffRosterServiceError(403, "You can only change your own availability.");
   }
-
-  const capabilities = staffRosterCapabilities({
-    accessRole: actor.accessRole,
-    permission: input.session.permission,
-  });
-
-  if (
-    !capabilities.editOwnAvailability ||
-    (!capabilities.manageAllAvailability && entry.memberId !== actor.id)
-  ) {
-    throw new StaffRosterServiceError(
-      403,
-      "You can only change your own availability.",
-    );
-  }
-
   const sql = getSql();
-  try {
-    await sql.transaction([
-      sql`
-        DELETE FROM staff_roster_availability
-        WHERE id = ${input.availabilityId}
-          AND calendar_id = ${input.session.calendarId}
-      `,
-      sql`
-        INSERT INTO audit_log (
-          calendar_id, actor_participant_id, action,
-          entity_type, entity_id, before_state, after_state
-        )
-        VALUES (
-          ${input.session.calendarId}, NULL,
-          'staff_roster.availability.delete',
-          'staff_roster_availability', ${input.availabilityId},
-          ${JSON.stringify({
-            memberId: entry.memberId,
-            date: entry.date,
-            startTime: entry.startTime,
-            endTime: entry.endTime,
-            status: entry.status,
-            note: entry.note,
-          })}::jsonb,
-          ${JSON.stringify({ actorStaffMemberId: actor.id, deleted: true })}::jsonb
-        )
-      `,
-    ]);
-  } catch {
-    throw new StaffRosterServiceError(
-      409,
-      "Availability could not be removed.",
-    );
+  const removed = await sql`
+    WITH removed AS (
+      DELETE FROM staff_roster_availability
+      WHERE id = ${input.availabilityId} AND calendar_id = ${input.session.calendarId}
+        AND (${capabilities.manageAllAvailability}::boolean OR member_id = ${actor.id})
+      RETURNING *
+    ), audited AS (
+      INSERT INTO audit_log (calendar_id, actor_participant_id, action, entity_type, entity_id, before_state, after_state)
+      SELECT calendar_id, NULL, 'staff_roster.availability.delete', 'staff_roster_availability', id,
+        to_jsonb(removed), jsonb_build_object('actorStaffMemberId', ${actor.id}::text, 'deleted', true)
+      FROM removed
+    ) SELECT id FROM removed
+  `;
+  if (!removed[0]) {
+    throw new StaffRosterServiceError(409, "This availability entry is no longer available to remove. Refresh and check its status.");
   }
-
   return { ok: true as const };
 }
 
@@ -1534,8 +1477,7 @@ async function shiftConflictState(input: {
             )
           )`,
         ),
-      )
-      .limit(10),
+      ),
   ]);
 
   return {
@@ -2579,7 +2521,15 @@ export async function createShift(input: {
             AND existing.member_id = ${input.memberId}
             AND existing.shift_date = ${input.date}
             AND existing.start_time < ${input.endTime}
-            AND existing.end_time > ${input.startTime}
+              AND existing.end_time > ${input.startTime}
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM staff_roster_leave_requests leave_request
+          WHERE leave_request.calendar_id = ${input.session.calendarId}
+            AND leave_request.member_id = ${input.memberId} AND leave_request.status = 'approved'
+            AND ${input.date}::date BETWEEN leave_request.start_date AND leave_request.end_date
+            AND (leave_request.all_day OR (leave_request.start_time < ${input.endTime}::time
+              AND leave_request.end_time > ${input.startTime}::time))
         )
         RETURNING id
       ),
@@ -2615,6 +2565,10 @@ export async function createShift(input: {
   }
 
   if (!inserted[0]) {
+    const latest = await shiftConflictState({ calendarId: input.session.calendarId, memberId: input.memberId, date: input.date, startTime: input.startTime, endTime: input.endTime });
+    if (latest.approvedLeave.length > 0) {
+      throw new StaffRosterServiceError(409, "Approved leave now overlaps this shift. Refresh the roster before trying again.", "approved_leave_conflict", latest.approvedLeave);
+    }
     throw new StaffRosterServiceError(
       409,
       "This person already has an overlapping shift.",
@@ -2759,6 +2713,14 @@ export async function updateShift(input: {
               AND other.start_time < ${input.endTime}
               AND other.end_time > ${input.startTime}
           )
+          AND NOT EXISTS (
+            SELECT 1 FROM staff_roster_leave_requests leave_request
+            WHERE leave_request.calendar_id = ${input.session.calendarId}
+              AND leave_request.member_id = ${input.memberId} AND leave_request.status = 'approved'
+              AND ${input.date}::date BETWEEN leave_request.start_date AND leave_request.end_date
+              AND (leave_request.all_day OR (leave_request.start_time < ${input.endTime}::time
+                AND leave_request.end_time > ${input.startTime}::time))
+          )
         RETURNING shift.id
       ),
       audited AS (
@@ -2794,6 +2756,10 @@ export async function updateShift(input: {
   }
 
   if (!updated[0]) {
+    const latest = await shiftConflictState({ calendarId: input.session.calendarId, memberId: input.memberId, date: input.date, startTime: input.startTime, endTime: input.endTime, excludeShiftId: input.shiftId });
+    if (latest.approvedLeave.length > 0) {
+      throw new StaffRosterServiceError(409, "Approved leave now overlaps this shift. Refresh the roster before trying again.", "approved_leave_conflict", latest.approvedLeave);
+    }
     throw new StaffRosterServiceError(
       409,
       "This person already has an overlapping shift.",

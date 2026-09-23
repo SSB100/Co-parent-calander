@@ -1,7 +1,8 @@
 "use client";
 
 import { CalendarCheck2, LoaderCircle, Plus, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { localDateInTimeZone } from "@/lib/calendar/time";
 import { StaffRosterLeavePanel } from "@/components/staff-rosters/leave-panel";
 import {
   CovieButton,
@@ -35,6 +36,7 @@ type AvailabilityEntry = {
 };
 
 type AvailabilityPayload = {
+  calendarTimezone: string;
   currentMemberId: string;
   currentAccessRole: StaffAccessRole;
   canManageAll: boolean;
@@ -43,12 +45,6 @@ type AvailabilityPayload = {
   members: MemberOption[];
   availability: AvailabilityEntry[];
 };
-
-function localDateValue() {
-  const now = new Date();
-  const offset = now.getTimezoneOffset();
-  return new Date(now.getTime() - offset * 60_000).toISOString().slice(0, 10);
-}
 
 function dateLabel(value: string) {
   return new Intl.DateTimeFormat("en-NZ", {
@@ -64,7 +60,7 @@ export function StaffRosterAvailabilityPage() {
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [memberId, setMemberId] = useState("");
-  const [date, setDate] = useState(localDateValue);
+  const [date, setDate] = useState("");
   const [status, setStatus] = useState<"available" | "unavailable">(
     "unavailable",
   );
@@ -72,12 +68,19 @@ export function StaffRosterAvailabilityPage() {
   const [endTime, setEndTime] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [rangeFrom, setRangeFrom] = useState("");
+  const [rangeTo, setRangeTo] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<AvailabilityEntry | null>(
     null,
   );
+  const readVersion = useRef(0);
+  const activeRange = useRef<{ from: string; to: string } | null>(null);
 
   const refresh = useCallback(async () => {
-    const response = await fetch("/api/staff-roster/availability", {
+    const version = ++readVersion.current;
+    const range = activeRange.current;
+    const query = range ? `?${new URLSearchParams(range).toString()}` : "";
+    const response = await fetch(`/api/staff-roster/availability${query}`, {
       cache: "no-store",
     });
     const body = (await response.json().catch(() => null)) as
@@ -93,27 +96,43 @@ export function StaffRosterAvailabilityPage() {
       );
     }
 
-    setData(body);
-    setMemberId((current) => current || body.currentMemberId);
-    setError(null);
+    if (version === readVersion.current) {
+      if (!activeRange.current) {
+        activeRange.current = { from: body.from, to: body.to };
+        setRangeFrom(body.from);
+        setRangeTo(body.to);
+      }
+      setData(body);
+      setMemberId((current) => current || body.currentMemberId);
+      setError(null);
+    }
   }, []);
+
+  const reload = useCallback(async () => {
+    const version = readVersion.current + 1;
+    try {
+      await refresh();
+      return true;
+    } catch (caught) {
+      if (version === readVersion.current) {
+        setData(null);
+        setError(caught instanceof Error ? caught.message : "Availability could not be loaded.");
+      }
+      return false;
+    }
+  }, [refresh]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void refresh().catch((caught) =>
-        setError(
-          caught instanceof Error
-            ? caught.message
-            : "Availability could not be loaded.",
-        ),
-      );
+      void reload();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [refresh]);
+  }, [reload]);
 
   function openCreate() {
-    setMemberId(data?.currentMemberId ?? "");
-    setDate(data?.from ?? localDateValue());
+    if (busy || !data) return;
+    setMemberId(data.currentMemberId);
+    setDate(localDateInTimeZone(data.calendarTimezone));
     setStatus("unavailable");
     setStartTime("");
     setEndTime("");
@@ -121,10 +140,21 @@ export function StaffRosterAvailabilityPage() {
     setDialogOpen(true);
   }
 
+  async function applyRange() {
+    if (busy || !rangeFrom || !rangeTo || rangeTo < rangeFrom) return;
+    setBusy(true);
+    setError(null);
+    activeRange.current = { from: rangeFrom, to: rangeTo };
+    await reload();
+    setBusy(false);
+  }
+
   async function saveAvailability() {
     if (!memberId || !date || busy) return;
     setBusy(true);
     setError(null);
+    ++readVersion.current;
+    let mutationError: string | null = null;
 
     try {
       const response = await fetch("/api/staff-roster/availability", {
@@ -147,15 +177,24 @@ export function StaffRosterAvailabilityPage() {
         throw new Error(body?.error ?? "Availability could not be saved.");
       }
 
-      setDialogOpen(false);
-      await refresh();
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Availability could not be saved.",
-      );
+      mutationError = caught instanceof Error ? caught.message : "Availability could not be saved.";
     } finally {
+      const selected = activeRange.current;
+      if (selected) {
+        const from = date < selected.from ? date : selected.from;
+        const to = date > selected.to ? date : selected.to;
+        activeRange.current = { from, to };
+        setRangeFrom(from);
+        setRangeTo(to);
+      }
+      const loaded = await reload();
+      setDialogOpen(false);
+      if (loaded) {
+        if (mutationError) setError(`${mutationError} The list has been refreshed; check it before trying again.`);
+      } else if (mutationError) {
+        setError(`${mutationError} Availability could not be refreshed. Retry loading before trying again.`);
+      }
       setBusy(false);
     }
   }
@@ -164,6 +203,9 @@ export function StaffRosterAvailabilityPage() {
     if (!deleteTarget || busy) return;
     setBusy(true);
     setError(null);
+    ++readVersion.current;
+    let mutationError: string | null = null;
+    let removed = false;
 
     try {
       const response = await fetch("/api/staff-roster/availability", {
@@ -179,15 +221,18 @@ export function StaffRosterAvailabilityPage() {
         throw new Error(body?.error ?? "Availability could not be removed.");
       }
 
-      setDeleteTarget(null);
-      await refresh();
+      removed = true;
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Availability could not be removed.",
-      );
+      mutationError = caught instanceof Error ? caught.message : "Availability could not be removed.";
     } finally {
+      const loaded = await reload();
+      if (loaded) {
+        if (removed || mutationError) setDeleteTarget(null);
+        if (mutationError) setError(`${mutationError} The list has been refreshed; check it before trying again.`);
+      } else {
+        setDeleteTarget(null);
+        if (mutationError) setError(`${mutationError} Availability could not be refreshed. Retry loading before trying again.`);
+      }
       setBusy(false);
     }
   }
@@ -202,6 +247,7 @@ export function StaffRosterAvailabilityPage() {
           {error}
         </CovieNotice>
       ) : null}
+      {!data && error ? <CovieButton tone="neutral" onClick={() => void reload()}>Retry loading</CovieButton> : null}
 
       {!data && !error ? (
         <div className="flex min-h-40 items-center justify-center rounded-2xl border border-[#E6DBCF] bg-white text-sm text-[#66747A]">
@@ -216,9 +262,23 @@ export function StaffRosterAvailabilityPage() {
             <p className="text-sm font-bold text-[#526168]">
               Upcoming availability
             </p>
-            <CovieButton onClick={openCreate}>
+            <CovieButton disabled={busy} onClick={openCreate}>
               <Plus className="h-4 w-4" aria-hidden="true" />
               Add availability
+            </CovieButton>
+          </div>
+
+          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-[#E6DBCF] bg-[#FFF9F2] p-3">
+            <label className="min-w-0 flex-1 basis-36">
+              <span className="mb-1 block text-sm font-bold text-[#243139]">From</span>
+              <CovieInput type="date" value={rangeFrom} onChange={(event) => setRangeFrom(event.target.value)} />
+            </label>
+            <label className="min-w-0 flex-1 basis-36">
+              <span className="mb-1 block text-sm font-bold text-[#243139]">To</span>
+              <CovieInput type="date" min={rangeFrom} value={rangeTo} onChange={(event) => setRangeTo(event.target.value)} />
+            </label>
+            <CovieButton tone="neutral" disabled={busy || !rangeFrom || !rangeTo || rangeTo < rangeFrom} onClick={() => void applyRange()}>
+              Show dates
             </CovieButton>
           </div>
 
@@ -230,10 +290,10 @@ export function StaffRosterAvailabilityPage() {
                   aria-hidden="true"
                 />
               }
-              title="No availability yet"
-              description="Add available or unavailable time so the roster can use it when shifts are built."
+              title="No availability in these dates"
+              description="Choose another date range or add available or unavailable time."
               action={
-                <CovieButton onClick={openCreate}>
+                <CovieButton disabled={busy} onClick={openCreate}>
                   Add availability
                 </CovieButton>
               }
@@ -245,10 +305,10 @@ export function StaffRosterAvailabilityPage() {
                   key={entry.id}
                   className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E6DBCF] bg-white px-4 py-3"
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1 break-words">
                     <div className="flex flex-wrap items-center gap-2">
                       <strong className="text-sm text-[#243139]">
-                        {entry.memberName}
+                        {data.canManageAll ? entry.memberName : "My availability"}
                       </strong>
                       <CovieStatusBadge
                         tone={
@@ -275,8 +335,9 @@ export function StaffRosterAvailabilityPage() {
                   {entry.canDelete ? (
                     <CovieButton
                       tone="neutral"
+                      disabled={busy}
                       onClick={() => setDeleteTarget(entry)}
-                      aria-label={"Remove " + entry.memberName + " availability"}
+                      aria-label={"Remove availability on " + dateLabel(entry.date)}
                     >
                       <Trash2 className="h-4 w-4" aria-hidden="true" />
                       Remove
@@ -293,7 +354,7 @@ export function StaffRosterAvailabilityPage() {
         <CovieDialog
           id="staff-availability-dialog-title"
           title="Add availability"
-          description="Leave the times blank when this applies to the whole day."
+          description="Leave times blank for the whole day. Times on one day cannot overlap; remove an old entry first if needed. Back-to-back times are allowed."
           icon={<CalendarCheck2 aria-hidden="true" />}
           iconTone="teal"
           size="sm"
@@ -309,7 +370,7 @@ export function StaffRosterAvailabilityPage() {
                 Cancel
               </CovieButton>
               <CovieButton
-                disabled={busy || !memberId || !date}
+                disabled={busy || !memberId || !date || Boolean(startTime) !== Boolean(endTime) || Boolean(startTime && endTime && endTime <= startTime)}
                 onClick={() => void saveAvailability()}
               >
                 {busy ? "Saving…" : "Save"}
@@ -317,7 +378,7 @@ export function StaffRosterAvailabilityPage() {
             </>
           }
         >
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
             {data.canManageAll ? (
               <label className="sm:col-span-2">
                 <span className="mb-1.5 block text-sm font-bold">
