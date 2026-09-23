@@ -11,6 +11,7 @@ import {
 import { staffRosterApiError } from "@/app/api/staff-roster/shared";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession } from "@/lib/security/session";
+import { mondayWeekStartInTimeZone } from "@/lib/calendar/time";
 
 export async function GET(request: Request) {
   const session = await getCalendarSession();
@@ -20,7 +21,9 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const parsed = staffTimesheetWeekSchema.safeParse({
-    weekStart: url.searchParams.get("weekStart"),
+    weekStart:
+      url.searchParams.get("weekStart") ??
+      mondayWeekStartInTimeZone(session.calendarTimezone),
   });
   if (!parsed.success) {
     return NextResponse.json({ error: "Choose a valid timesheet week." }, { status: 400 });
