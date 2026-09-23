@@ -4,6 +4,7 @@ import { and, asc, desc, eq, inArray, sql as drizzleSql } from "drizzle-orm";
 import { getDb, getSql } from "@/lib/db";
 import {
   staffRosterAvailability,
+  staffRosterInvites,
   staffRosterLeaveRequests,
   staffRosterLocations,
   staffRosterMemberRoles,
@@ -21,6 +22,7 @@ import {
   type StaffRosterAccessRole,
 } from "@/lib/staff-rosters/capabilities";
 import { sendStaffRosterEmails } from "@/lib/email/staff-roster-notifications";
+import { staffRosterAccountState } from "@/lib/staff-rosters/invitation-status";
 import { rosterPublicationDiff } from "@/lib/staff-rosters/publication-diff";
 
 export class StaffRosterServiceError extends Error {
@@ -257,7 +259,7 @@ export async function getTeam(session: StaffSession) {
     )
     .orderBy(asc(staffRosterMembers.createdAt));
 
-  const [roles, locations, memberRoleRows] = await Promise.all([
+  const [roles, locations, memberRoleRows, inviteRows] = await Promise.all([
     db
       .select({ id: staffRosterRoles.id, name: staffRosterRoles.name })
       .from(staffRosterRoles)
@@ -296,7 +298,29 @@ export async function getTeam(session: StaffSession) {
         ),
       )
       .orderBy(asc(staffRosterRoles.name)),
+    db
+      .select({
+        id: staffRosterInvites.id,
+        memberId: staffRosterInvites.memberId,
+        expiresAt: staffRosterInvites.expiresAt,
+        revokedAt: staffRosterInvites.revokedAt,
+        redeemedAt: staffRosterInvites.redeemedAt,
+        createdAt: staffRosterInvites.createdAt,
+      })
+      .from(staffRosterInvites)
+      .where(eq(staffRosterInvites.calendarId, session.calendarId))
+      .orderBy(desc(staffRosterInvites.createdAt)),
   ]);
+
+  const latestInviteByMember = new Map<
+    string,
+    (typeof inviteRows)[number]
+  >();
+  for (const invite of inviteRows) {
+    if (!latestInviteByMember.has(invite.memberId)) {
+      latestInviteByMember.set(invite.memberId, invite);
+    }
+  }
 
   const rolesByMember = new Map<
     string,
@@ -315,11 +339,23 @@ export async function getTeam(session: StaffSession) {
     canManageManagers: capabilities.manageManagers,
     members: members.map((member) => {
       const assignedRoles = rolesByMember.get(member.id) ?? [];
+      const latestInvite = latestInviteByMember.get(member.id) ?? null;
+      const hasAccount = Boolean(member.membershipId);
+      const accountState = staffRosterAccountState({
+        hasAccount,
+        latestInvite,
+      });
       return {
         ...member,
         roleIds: assignedRoles.map((role) => role.id),
         roleNames: assignedRoles.map((role) => role.name),
-        hasAccount: Boolean(member.membershipId),
+        hasAccount,
+        accountState,
+        hadInvite: Boolean(latestInvite),
+        inviteExpiresAt:
+          accountState === "invite_active" && latestInvite
+            ? latestInvite.expiresAt
+            : null,
         isCurrentUser: member.id === current.id,
       };
     }),
