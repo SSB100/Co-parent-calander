@@ -75,6 +75,16 @@ type Member = {
 
 type Option = { id: string; name: string };
 
+type RosterAvailability = {
+  id: string;
+  memberId: string;
+  memberName: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  note: string | null;
+};
+
 type RosterLeave = {
   id: string;
   memberId: string;
@@ -127,6 +137,7 @@ type RosterPayload = {
   members: Member[];
   roles: Option[];
   locations: Option[];
+  availability: RosterAvailability[];
   leave: RosterLeave[];
   shifts: Shift[];
 };
@@ -417,9 +428,13 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     }
 
     const shifts = new Map<string, Shift>();
+    const availability = new Map<string, RosterAvailability>();
     const leave = new Map<string, RosterLeave>();
     for (const payload of payloads) {
       for (const shift of payload.shifts) shifts.set(shift.id, shift);
+      for (const unavailable of payload.availability) {
+        availability.set(unavailable.id, unavailable);
+      }
       for (const request of payload.leave) leave.set(request.id, request);
     }
 
@@ -427,6 +442,9 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
       ...anchorPayload,
       weekStart: first.weekStart,
       weekEnd: last.weekEnd,
+      availability: [...availability.values()].sort((a, b) =>
+        (a.date + a.memberName).localeCompare(b.date + b.memberName),
+      ),
       leave: [...leave.values()].sort((a, b) =>
         (a.startDate + a.memberName).localeCompare(
           b.startDate + b.memberName,
@@ -514,6 +532,15 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
           (!locationFilter || shift.locationId === locationFilter),
       ) ?? [],
     [data?.shifts, locationFilter, roleFilter, staffFilter],
+  );
+
+  const filteredAvailability = useMemo(
+    () =>
+      data?.availability.filter(
+        (availability) =>
+          (!staffFilter || availability.memberId === staffFilter),
+      ) ?? [],
+    [data?.availability, staffFilter],
   );
 
   const filteredLeave = useMemo(
@@ -926,6 +953,8 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
             leaveSkipped?: number;
             inactiveStaffSkipped?: number;
             staleReferenceAdjusted?: number;
+            sourceWeekStart?: string;
+            targetWeekStart?: string;
             error?: string;
           }
         | null;
@@ -941,11 +970,17 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
       const leaveSkipped = body?.leaveSkipped ?? 0;
       const inactiveStaffSkipped = body?.inactiveStaffSkipped ?? 0;
       const staleReferenceAdjusted = body?.staleReferenceAdjusted ?? 0;
+      const sourceLabel = body?.sourceWeekStart
+        ? weekLabel(
+            body.sourceWeekStart,
+            format(addDays(parseISO(body.sourceWeekStart), 6), "yyyy-MM-dd"),
+          )
+        : "the previous week";
 
       if (copied === 0 && skipped === 0) {
         setCopyNotice({
           tone: "sunshine",
-          text: "There were no shifts in the previous week to copy.",
+          text: "There were no shifts in " + sourceLabel + " to copy.",
         });
       } else if (skipped > 0) {
         const reasons = [
@@ -968,6 +1003,8 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
             copied +
             " shift" +
             (copied === 1 ? "" : "s") +
+            " from " +
+            sourceLabel +
             ". Skipped " +
             skipped +
             (reasons ? " (" + reasons + ")." : ".") +
@@ -986,7 +1023,9 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
             copied +
             " shift" +
             (copied === 1 ? "" : "s") +
-            " from the previous week." +
+            " from " +
+            sourceLabel +
+            "." +
             (staleReferenceAdjusted > 0
               ? " Removed outdated role/location details from " +
                 staleReferenceAdjusted +
@@ -1293,6 +1332,9 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
   const selectedMobileShifts = filteredShifts.filter(
     (shift) => shift.date === selectedMobileDay,
   );
+  const selectedMobileAvailability = filteredAvailability.filter(
+    (availability) => availability.date === selectedMobileDay,
+  );
   const selectedMobileLeave = filteredLeave.filter((leave) =>
     leaveAppliesToDay(leave, selectedMobileDay),
   );
@@ -1570,8 +1612,21 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
 
                   return values.map((day) => {
                     const dayShifts = filteredShifts.filter((shift) => shift.date === day);
+                    const dayAvailability = filteredAvailability.filter(
+                      (availability) => availability.date === day,
+                    );
                     const dayLeave = filteredLeave.filter((leave) =>
                       leaveAppliesToDay(leave, day),
+                    );
+                    const visibleShiftLimit = Math.max(
+                      0,
+                      3 -
+                        (dayLeave.length > 0 ? 1 : 0) -
+                        (dayAvailability.length > 0 ? 1 : 0),
+                    );
+                    const hiddenShiftCount = Math.max(
+                      0,
+                      dayShifts.length - visibleShiftLimit,
                     );
                     const outsideMonth = parseISO(day).getMonth() !== month;
                     return (
@@ -1615,7 +1670,12 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                               {leave.memberName} · {leave.status === "approved" ? "Leave" : "Pending"}
                             </span>
                           ))}
-                          {dayShifts.slice(0, dayLeave.length > 0 ? 2 : 3).map((shift) => (
+                          {dayAvailability.length > 0 ? (
+                            <span className="block w-full truncate rounded-md bg-[#FFF8D8] px-1.5 py-1 text-left text-[10px] font-extrabold text-[#8B6714] sm:text-xs">
+                              {dayAvailability.length} unavailable
+                            </span>
+                          ) : null}
+                          {dayShifts.slice(0, visibleShiftLimit).map((shift) => (
                             <button
                               key={shift.id}
                               type="button"
@@ -1629,7 +1689,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                               {shift.memberName} {compactTime(shift.startTime)}–{compactTime(shift.endTime)}
                             </button>
                           ))}
-                          {dayShifts.length > 3 ? (
+                          {hiddenShiftCount > 0 ? (
                             <button
                               type="button"
                               onClick={() => {
@@ -1639,7 +1699,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                               }}
                               className="text-[10px] font-extrabold text-[#0D7A6D] sm:text-xs"
                             >
-                              +{dayShifts.length - 3} more
+                              +{hiddenShiftCount} more
                             </button>
                           ) : null}
                         </div>
@@ -1823,6 +1883,9 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                         const dayShifts = filteredShifts
                           .filter((shift) => shift.date === day)
                           .map(shiftWithPreview);
+                        const dayAvailability = filteredAvailability.filter(
+                          (availability) => availability.date === day,
+                        );
                         const positioned = layoutOverlappingShifts(dayShifts);
 
                         return (
@@ -1865,6 +1928,63 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                                 aria-hidden="true"
                               />
                             ))}
+
+                            {dayAvailability.map((unavailable) => {
+                              const start = unavailable.startTime
+                                ? minutesFromTime(unavailable.startTime)
+                                : visibleStartMinute;
+                              const end = unavailable.endTime
+                                ? minutesFromTime(unavailable.endTime)
+                                : visibleEndMinute;
+                              const visibleUnavailableStart = Math.max(
+                                start,
+                                visibleStartMinute,
+                              );
+                              const visibleUnavailableEnd = Math.min(
+                                end,
+                                visibleEndMinute,
+                              );
+                              if (
+                                visibleUnavailableEnd <= visibleUnavailableStart
+                              ) {
+                                return null;
+                              }
+                              return (
+                                <div
+                                  key={"availability-" + unavailable.id}
+                                  className="pointer-events-none absolute inset-x-1 z-[1] overflow-hidden rounded-md border border-[#E2C768] bg-[#FFF8D8]/70"
+                                  style={{
+                                    top:
+                                      ((visibleUnavailableStart -
+                                        visibleStartMinute) /
+                                        60) *
+                                      hourHeight,
+                                    height: Math.max(
+                                      18,
+                                      ((visibleUnavailableEnd -
+                                        visibleUnavailableStart) /
+                                        60) *
+                                        hourHeight,
+                                    ),
+                                  }}
+                                  title={
+                                    unavailable.memberName +
+                                    " unavailable" +
+                                    (unavailable.startTime &&
+                                    unavailable.endTime
+                                      ? " · " +
+                                        compactTime(unavailable.startTime) +
+                                        "–" +
+                                        compactTime(unavailable.endTime)
+                                      : " · All day")
+                                  }
+                                >
+                                  <span className="block truncate px-1.5 py-0.5 text-[9px] font-extrabold text-[#8B6714]">
+                                    {unavailable.memberName} unavailable
+                                  </span>
+                                </div>
+                              );
+                            })}
 
                             {dropPreview?.date === day ? (
                               <div
@@ -2046,6 +2166,11 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                         {selectedMobileLeave.length > 0
                           ? " · " + selectedMobileLeave.length + " leave"
                           : ""}
+                        {selectedMobileAvailability.length > 0
+                          ? " · " +
+                            selectedMobileAvailability.length +
+                            " unavailable"
+                          : ""}
                       </p>
                     </div>
                     {data.canManageRoster ? (
@@ -2058,6 +2183,28 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                       </CovieButton>
                     ) : null}
                   </div>
+
+                  {selectedMobileAvailability.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      {selectedMobileAvailability.map((unavailable) => (
+                        <div
+                          key={unavailable.id}
+                          className="rounded-xl border border-[#E2C768] bg-[#FFF8D8] p-3"
+                        >
+                          <strong className="text-sm text-[#243139]">
+                            {unavailable.memberName} unavailable
+                          </strong>
+                          <p className="mt-1 text-xs font-bold text-[#8B6714]">
+                            {unavailable.startTime && unavailable.endTime
+                              ? compactTime(unavailable.startTime) +
+                                "–" +
+                                compactTime(unavailable.endTime)
+                              : "All day"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
 
                   {selectedMobileLeave.length > 0 ? (
                     <div className="mt-4 space-y-2">
