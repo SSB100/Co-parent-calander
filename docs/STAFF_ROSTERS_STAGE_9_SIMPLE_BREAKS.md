@@ -1,4 +1,4 @@
-# Stage 9 — Simple Breaks (awaiting Production migration approval)
+# Stage 9 — Simple Breaks
 
 Starting Production main: `1fa0dbaeddcf62a2367ab217f0220a89fe7bd5ac` (Stage 8 / PR 124).
 Production was verified READY in syd1 and migration 0030 before work. Stage 10 is not started.
@@ -30,9 +30,9 @@ Start/end mutations and audit inserts are one SQL statement; only changed rows a
 
 Fresh Production clone: `staff-stage-9-breaks-qualification-2026-09-23`, branch `br-fancy-sunset-a7dbx27p`, created from `br-quiet-sea-a7duq4r3` at LSN `0/3243B98`.
 
-Migration applied only to this clone using a direct connection and transaction. All 18 pre-existing table counts/fingerprints matched before/after migration and after test-fixture cleanup. Clone is 0031. Production migration has NOT been applied.
+Migration applied only to this clone using a direct connection and transaction. All 18 pre-existing table counts/fingerprints matched before/after migration and after test-fixture cleanup. Clone is 0031. Owner approved Production migration and release. Migration 0031 was applied transactionally on Production through the signed-in Neon SQL Editor on 23 September 2026; ledger 0031 and all 18 existing table fingerprints were verified afterward.
 
-The fresh clone reflects newer user data than the Stage 8 handoff (10 calendars, 11 memberships, 12 Staff profiles, 171 audit rows across the full database). These are observations, not fixtures or overwrite instructions.
+The qualification clone snapshot contained different counts from the Stage 8 handoff (10 calendars, 11 memberships, 12 Staff profiles, 171 audit rows across the full database). These are observations, not fixtures or overwrite instructions.
 
 - New normal-suite tests: seven, covering action contracts, durations/DST/rounding, schema and transport boundaries.
 - Real clone suite: four scenarios plus parent, 5/5 passing. Covers actual start/end/clock-out races, repeated/stale IDs, own/calendar isolation, private reads, audits, correction bounds and competing review.
@@ -45,11 +45,11 @@ The fresh clone reflects newer user data than the Stage 8 handoff (10 calendars,
 
 ## Owner approval and release order
 
-STOP before applying 0031 to Production. Obtain explicit owner approval for this exact migration.
+Owner explicitly approved this exact migration with “migrate and push to production.” That approval has been fulfilled; do not replay 0031.
 
 After approval: re-fetch main and verify deployment; obtain a new read-only Production preservation snapshot and ledger; create a rollback branch at exact safe main; apply the reviewed migration transaction to Production; compare preservation; merge the reviewed Stage 9 PR; require exact-SHA Vercel Production READY; smoke-test and scan runtime logs; compare preservation again. Do not merge code that queries the new table before the approved migration exists.
 
-The Neon connector began returning an argument-validation error after clone creation. Clone qualification used its already retrieved direct connection. Restore working Production read access before any migration/release; do not infer final Production state from the clone.
+The Neon connector began returning an argument-validation error after clone creation. Clone qualification used its already retrieved direct connection. Production access was restored through the signed-in Neon console. A fresh Production snapshot was taken there before migration and matched after migration; no final Production state was inferred from the clone.
 
 ## Rollback
 
