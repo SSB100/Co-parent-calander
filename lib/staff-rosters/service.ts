@@ -21,6 +21,7 @@ import {
   type StaffRosterAccessRole,
 } from "@/lib/staff-rosters/capabilities";
 import { sendStaffRosterEmails } from "@/lib/email/staff-roster-notifications";
+import { rosterPublicationDiff } from "@/lib/staff-rosters/publication-diff";
 
 export class StaffRosterServiceError extends Error {
   constructor(
@@ -1509,65 +1510,6 @@ async function shiftConflictState(input: {
   };
 }
 
-type ComparableRosterShift = {
-  id: string;
-  memberId: string;
-  roleId: string | null;
-  locationId: string | null;
-  date: string;
-  startTime: string;
-  endTime: string;
-  note: string | null;
-  availabilityOverride: boolean;
-  sourceShiftId?: string | null;
-};
-
-function shiftComparisonKey(input: ComparableRosterShift) {
-  return JSON.stringify([
-    input.memberId,
-    input.roleId,
-    input.locationId,
-    input.date,
-    input.startTime.slice(0, 5),
-    input.endTime.slice(0, 5),
-    input.note,
-    input.availabilityOverride,
-  ]);
-}
-
-function changedRosterMemberIds(
-  liveShifts: ComparableRosterShift[],
-  publishedShifts: ComparableRosterShift[],
-) {
-  const changedMemberIds = new Set<string>();
-  const liveById = new Map(
-    liveShifts.map((shift) => [
-      shift.id,
-      { memberId: shift.memberId, key: shiftComparisonKey(shift) },
-    ]),
-  );
-  const publishedById = new Map(
-    publishedShifts
-      .filter((shift) => shift.sourceShiftId)
-      .map((shift) => [
-        shift.sourceShiftId as string,
-        { memberId: shift.memberId, key: shiftComparisonKey(shift) },
-      ]),
-  );
-  const ids = new Set([...liveById.keys(), ...publishedById.keys()]);
-
-  for (const id of ids) {
-    const live = liveById.get(id);
-    const published = publishedById.get(id);
-    if (!live || !published || live.key !== published.key) {
-      if (live?.memberId) changedMemberIds.add(live.memberId);
-      if (published?.memberId) changedMemberIds.add(published.memberId);
-    }
-  }
-
-  return changedMemberIds;
-}
-
 export async function getRosterWeek(input: {
   session: StaffSession;
   weekStart: string;
@@ -1883,23 +1825,9 @@ export async function getRosterWeek(input: {
       for (const shift of liveShifts) changedMemberIds.add(shift.memberId);
       changedShiftCount = liveShifts.length;
     } else {
-      const changed = changedRosterMemberIds(liveShifts, publishedShifts);
-      for (const memberId of changed) changedMemberIds.add(memberId);
-
-      const liveById = new Map(liveShifts.map((shift) => [shift.id, shift]));
-      const publishedById = new Map(
-        publishedShifts
-          .filter((shift) => shift.sourceShiftId)
-          .map((shift) => [shift.sourceShiftId as string, shift]),
-      );
-      const ids = new Set([...liveById.keys(), ...publishedById.keys()]);
-      for (const id of ids) {
-        const live = liveById.get(id);
-        const published = publishedById.get(id);
-        if (!live || !published || shiftComparisonKey(live) !== shiftComparisonKey(published)) {
-          changedShiftCount += 1;
-        }
-      }
+      const diff = rosterPublicationDiff(liveShifts, publishedShifts);
+      for (const memberId of diff.memberIds) changedMemberIds.add(memberId);
+      changedShiftCount = diff.changedShiftCount;
     }
   }
 
@@ -2041,10 +1969,10 @@ export async function publishRosterWeek(input: {
   const notificationMemberIds =
     action === "publish"
       ? [...new Set(notificationLiveShifts.map((shift) => shift.memberId))]
-      : [...changedRosterMemberIds(
+      : rosterPublicationDiff(
           notificationLiveShifts,
           notificationPublishedShifts,
-        )];
+        ).memberIds;
 
   const lockKey =
     input.session.calendarId + ":publication:" + input.weekStart;
