@@ -1,5 +1,8 @@
 # Staff Rosters Stage 1
 
+> Historical implementation record. This document describes the state when this stage was originally built. For the live Production baseline and current Staff Rosters capabilities, use [STAFF_ROSTERS_CURRENT_STATE.md](./STAFF_ROSTERS_CURRENT_STATE.md).
+
+
 Staff Rosters Stage 1 establishes the real production foundation for the Staff Rosters calendar without changing the co-parenting feature implementation.
 
 ## Product source
@@ -79,7 +82,7 @@ Qualification confirmed:
 - synthetic qualification records were removed
 - the temporary qualification branch was deleted without applying changes to Production
 
-Production remains at migration 0022 until this stage is explicitly approved for release.
+At the time of the original Stage 1 qualification, Production remained at migration 0022 pending release approval. Migration 0023 was subsequently approved and applied; the current Production ledger is documented in `STAFF_ROSTERS_CURRENT_STATE.md`.
 
 ## Deferred to later Staff Rosters stages
 
