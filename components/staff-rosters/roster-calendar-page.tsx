@@ -534,23 +534,6 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     [data?.shifts, locationFilter, roleFilter, staffFilter],
   );
 
-  const filteredAvailability = useMemo(
-    () =>
-      data?.availability.filter(
-        (availability) =>
-          (!staffFilter || availability.memberId === staffFilter),
-      ) ?? [],
-    [data?.availability, staffFilter],
-  );
-
-  const filteredLeave = useMemo(
-    () =>
-      data?.leave.filter(
-        (leave) => !staffFilter || leave.memberId === staffFilter,
-      ) ?? [],
-    [data?.leave, staffFilter],
-  );
-
   const filteredMembers = useMemo(
     () =>
       data?.members.filter(
@@ -561,6 +544,25 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
             member.defaultLocationId === locationFilter),
       ) ?? [],
     [data?.members, locationFilter, roleFilter, staffFilter],
+  );
+
+  const filteredMemberIds = useMemo(
+    () => new Set(filteredMembers.map((member) => member.id)),
+    [filteredMembers],
+  );
+
+  const filteredAvailability = useMemo(
+    () =>
+      data?.availability.filter((availability) =>
+        filteredMemberIds.has(availability.memberId),
+      ) ?? [],
+    [data?.availability, filteredMemberIds],
+  );
+
+  const filteredLeave = useMemo(
+    () =>
+      data?.leave.filter((leave) => filteredMemberIds.has(leave.memberId)) ?? [],
+    [data?.leave, filteredMemberIds],
   );
 
   const weekShifts = useMemo(
@@ -1628,6 +1630,13 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                       0,
                       dayShifts.length - visibleShiftLimit,
                     );
+                    const dayStaffCount = new Set(
+                      dayShifts.map((shift) => shift.memberId),
+                    ).size;
+                    const dayRosterMinutes = dayShifts.reduce(
+                      (sum, shift) => sum + shiftDuration(shift),
+                      0,
+                    );
                     const outsideMonth = parseISO(day).getMonth() !== month;
                     return (
                       <div
@@ -1656,6 +1665,11 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                         >
                           {format(parseISO(day), "d")}
                         </button>
+                        {dayShifts.length > 0 ? (
+                          <p className="mt-1 truncate text-[10px] font-bold text-[#66747A] sm:text-xs">
+                            {dayStaffCount} staff · {hoursText(dayRosterMinutes)}
+                          </p>
+                        ) : null}
                         <div className="mt-1 space-y-1">
                           {dayLeave.slice(0, 1).map((leave) => (
                             <span
@@ -1807,7 +1821,7 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
                     <div className="grid grid-cols-[48px_repeat(7,minmax(118px,1fr))] border-b border-[#E6DBCF] bg-[#FFF9F2]">
                       <div aria-hidden="true" />
                       {days.map((day) => {
-                        const dayLeave = data.leave.filter((leave) =>
+                        const dayLeave = filteredLeave.filter((leave) =>
                           leaveAppliesToDay(leave, day),
                         );
                         return (
