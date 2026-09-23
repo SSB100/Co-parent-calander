@@ -94,3 +94,9 @@ Production must remain on migration `0030`.
 - absence of mock workforce records
 
 All Stage 1–5 tests remain part of the normal `npm test` command.
+
+## Release gates
+
+Stage 6 is not released until the merged Production SHA receives a successful Vercel Production build, reaches READY, passes Production smoke checks, leaves Neon on migration `0030`, and preserves the Stage 5 Production data snapshot.
+
+GitHub Actions runner failures that end before the first job step are recorded as CI infrastructure-blocked rather than application test failures.
