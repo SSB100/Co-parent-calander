@@ -82,32 +82,32 @@ export function movedShiftRange(input: {
   visibleStartMinute: number;
   visibleEndMinute: number;
 }) {
-  const latestEnd = usableTimelineEnd(input.visibleEndMinute);
+  const latestVisibleEnd = usableTimelineEnd(input.visibleEndMinute);
   const durationMinutes = Math.max(
     ROSTER_SNAP_MINUTES,
     snapRosterMinutes(input.durationMinutes),
   );
-  const maximumDuration = Math.max(
-    ROSTER_SNAP_MINUTES,
-    latestEnd - input.visibleStartMinute,
-  );
-  const boundedDuration = Math.min(durationMinutes, maximumDuration);
-  const latestStart = Math.max(
-    input.visibleStartMinute,
-    latestEnd - boundedDuration,
-  );
   const requestedStart = Math.max(
     input.visibleStartMinute,
     Math.min(
-      latestEnd - ROSTER_SNAP_MINUTES,
+      latestVisibleEnd - ROSTER_SNAP_MINUTES,
       snapRosterMinutes(input.dropMinute),
     ),
   );
+
+  const canFitFromVisibleStart =
+    durationMinutes <= LATEST_SHIFT_MINUTE - input.visibleStartMinute;
+  const latestStart = canFitFromVisibleStart
+    ? Math.max(
+        input.visibleStartMinute,
+        latestVisibleEnd - durationMinutes,
+      )
+    : Math.max(0, LATEST_SHIFT_MINUTE - durationMinutes);
   const startMinute = Math.min(requestedStart, latestStart);
 
   return {
     startMinute,
-    endMinute: startMinute + boundedDuration,
+    endMinute: startMinute + durationMinutes,
   };
 }
 
