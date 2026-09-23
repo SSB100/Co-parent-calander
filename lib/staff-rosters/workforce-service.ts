@@ -109,6 +109,11 @@ export async function getClockState(session: StaffSession) {
       scheduledStartTime: staffRosterClockSessions.scheduledStartTime,
       scheduledEndTime: staffRosterClockSessions.scheduledEndTime,
       unrostered: staffRosterClockSessions.unrostered,
+      activeBreak: drizzleSql<{ id: string; startedAt: string } | null>`(
+        SELECT jsonb_build_object('id', b.id, 'startedAt', b.started_at)
+        FROM staff_roster_break_sessions b
+        WHERE b.clock_session_id = "staff_roster_clock_sessions"."id" AND b.ended_at IS NULL
+      )`,
     })
     .from(staffRosterClockSessions)
     .where(
@@ -279,7 +284,7 @@ export async function clockOut(session: StaffSession) {
   } catch {
     throw new StaffRosterServiceError(
       409,
-      "Clock out could not be recorded. Refresh your clock status and try again.",
+      "Clock out could not be recorded. End any active break, then refresh and try again.",
     );
   }
 
@@ -292,6 +297,55 @@ export async function clockOut(session: StaffSession) {
   }
 
   return { ok: true as const, id: ended[0].id };
+}
+
+export async function changeBreak(input: {
+  session: StaffSession;
+  action: "start_break" | "end_break";
+  breakId?: string;
+}) {
+  const current = await ensureStaffRosterMember(input.session);
+  const capabilities = staffRosterCapabilities({ accessRole: current.accessRole, permission: input.session.permission });
+  if (!capabilities.clockOwnTime) throw new StaffRosterServiceError(403, "Clock access is not available.");
+  const sql = getSql();
+  const starting = input.action === "start_break";
+  try {
+    const changed = starting ? await sql`
+      WITH created AS (
+        INSERT INTO staff_roster_break_sessions(clock_session_id, started_at)
+        SELECT id, clock_timestamp() FROM staff_roster_clock_sessions
+        WHERE calendar_id = ${input.session.calendarId} AND member_id = ${current.id}
+          AND clock_out_at IS NULL
+        RETURNING id, clock_session_id, started_at
+      )
+      INSERT INTO audit_log(calendar_id, actor_participant_id, action, entity_type, entity_id, after_state)
+      SELECT ${input.session.calendarId}, NULL, 'staff_roster.break.start', 'staff_roster_break_session', id,
+        jsonb_build_object('clockSessionId', clock_session_id, 'memberId', ${current.id}::text,
+          'actorStaffMemberId', ${current.id}::text, 'startedAt', started_at)
+      FROM created RETURNING entity_id AS id
+    ` : await sql`
+      WITH ended AS (
+        UPDATE staff_roster_break_sessions b SET ended_at = clock_timestamp()
+        FROM staff_roster_clock_sessions c
+        WHERE b.clock_session_id = c.id AND c.calendar_id = ${input.session.calendarId}
+          AND c.member_id = ${current.id} AND c.clock_out_at IS NULL AND b.ended_at IS NULL
+          AND b.id = ${input.breakId ?? null}::uuid
+        RETURNING b.id, b.clock_session_id, b.started_at, b.ended_at
+      )
+      INSERT INTO audit_log(calendar_id, actor_participant_id, action, entity_type, entity_id, before_state, after_state)
+      SELECT ${input.session.calendarId}, NULL, 'staff_roster.break.end', 'staff_roster_break_session', id,
+        jsonb_build_object('startedAt', started_at, 'endedAt', NULL),
+        jsonb_build_object('clockSessionId', clock_session_id, 'memberId', ${current.id}::text,
+          'actorStaffMemberId', ${current.id}::text, 'startedAt', started_at, 'endedAt', ended_at)
+      FROM ended RETURNING entity_id AS id
+    `;
+    if (!changed[0]) throw new Error("No eligible transition");
+    return { ok: true as const, id: changed[0].id as string };
+  } catch {
+    throw new StaffRosterServiceError(409, starting
+      ? "A break could not be started. Refresh your clock status and check that you are clocked in and not already on a break."
+      : "A break could not be ended. Refresh your clock status and try again.");
+  }
 }
 
 function readAuditTimestamp(value: unknown, key: string) {
@@ -334,6 +388,10 @@ export async function getTimesheet(input: {
         clockOutAt: staffRosterClockSessions.clockOutAt,
         unrostered: staffRosterClockSessions.unrostered,
         correctedAt: staffRosterClockSessions.correctedAt,
+        breaks: drizzleSql<Array<{ id: string; startedAt: string; endedAt: string | null }>>`COALESCE((
+          SELECT jsonb_agg(jsonb_build_object('id', b.id, 'startedAt', b.started_at, 'endedAt', b.ended_at) ORDER BY b.started_at)
+          FROM staff_roster_break_sessions b WHERE b.clock_session_id = "staff_roster_clock_sessions"."id"
+        ), '[]'::jsonb)`,
       })
       .from(staffRosterClockSessions)
       .innerJoin(
@@ -571,17 +629,17 @@ export async function requestTimesheetCorrection(input: {
         'staff_roster_timesheet_correction',
         created.id,
         jsonb_build_object(
-          'memberId', ${current.id},
+          'memberId', ${current.id}::text,
           'clockSessionId', created.clock_session_id,
           'clockInAt', target.clock_in_at,
           'clockOutAt', target.clock_out_at
         ),
         jsonb_build_object(
-          'memberId', ${current.id},
+          'memberId', ${current.id}::text,
           'clockSessionId', created.clock_session_id,
           'requestedClockInAt', ${requestedIn}::timestamptz,
           'requestedClockOutAt', ${requestedOut}::timestamptz,
-          'reason', ${input.reason}
+          'reason', ${input.reason}::text
         )
       FROM created
       JOIN target ON target.id = created.clock_session_id
@@ -766,7 +824,7 @@ export async function reviewTimesheetCorrection(input: {
                 THEN transitioned.effective_clock_out_at
               ELSE transitioned.current_clock_out_at
             END,
-          'actorStaffMemberId', ${actor.id}
+          'actorStaffMemberId', ${actor.id}::text
         )
       FROM transitioned
       RETURNING entity_id
@@ -911,8 +969,8 @@ export async function correctTimesheetSession(input: {
           'memberId', updated.member_id,
           'clockInAt', ${correctedIn}::timestamptz,
           'clockOutAt', ${correctedOut}::timestamptz,
-          'reason', ${input.reason},
-          'actorStaffMemberId', ${actor.id}
+          'reason', ${input.reason}::text,
+          'actorStaffMemberId', ${actor.id}::text
         )
       FROM updated
       RETURNING entity_id
@@ -936,7 +994,7 @@ export async function correctTimesheetSession(input: {
         jsonb_build_object(
           'status', 'cancelled',
           'reason', 'superseded_by_manager_correction',
-          'actorStaffMemberId', ${actor.id}
+          'actorStaffMemberId', ${actor.id}::text
         )
       FROM cancelled
       RETURNING entity_id

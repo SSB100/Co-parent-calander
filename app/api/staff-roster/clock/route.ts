@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { staffClockActionSchema } from "@/lib/staff-rosters/workforce-contracts";
-import { clockIn, clockOut, getClockState } from "@/lib/staff-rosters/workforce-service";
+import { clockIn, clockOut, getClockState, changeBreak } from "@/lib/staff-rosters/workforce-service";
 import { staffRosterApiError } from "@/app/api/staff-roster/shared";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { getCalendarSession } from "@/lib/security/session";
@@ -41,7 +41,9 @@ export async function POST(request: NextRequest) {
             session,
             confirmUnrostered: parsed.data.confirmUnrostered,
           })
-        : await clockOut(session),
+        : parsed.data.action === "clock_out"
+          ? await clockOut(session)
+          : await changeBreak({ session, action: parsed.data.action, breakId: parsed.data.breakId }),
     );
   } catch (error) {
     return staffRosterApiError(error);
