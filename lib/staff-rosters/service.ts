@@ -1546,6 +1546,31 @@ export async function getRosterWeek(input: {
     ? drizzleSql`true`
     : eq(staffRosterMembers.id, current.id);
 
+  const recentShiftPatternsPromise = capabilities.createShifts
+    ? (getSql()`
+        SELECT DISTINCT ON (shift.member_id)
+          shift.member_id AS "memberId",
+          shift.start_time AS "startTime",
+          shift.end_time AS "endTime"
+        FROM staff_roster_shifts shift
+        JOIN staff_roster_members member
+          ON member.id = shift.member_id
+        WHERE shift.calendar_id = ${input.session.calendarId}
+          AND shift.shift_date <= ${weekEnd}
+          AND member.active = true
+        ORDER BY
+          shift.member_id,
+          shift.shift_date DESC,
+          shift.start_time DESC
+      ` as unknown as Promise<
+        Array<{
+          memberId: string;
+          startTime: string;
+          endTime: string;
+        }>
+      >)
+    : Promise.resolve([]);
+
   const [
     members,
     roles,
@@ -1555,6 +1580,7 @@ export async function getRosterWeek(input: {
     publicationRows,
     publishedShifts,
     leaveRows,
+    recentShiftRows,
     setup,
   ] = await Promise.all([
     db
@@ -1753,6 +1779,7 @@ export async function getRosterWeek(input: {
         asc(staffRosterLeaveRequests.startDate),
         asc(staffRosterMembers.displayName),
       ),
+    recentShiftPatternsPromise,
     getRosterSetup(input.session),
   ]);
 
@@ -1764,6 +1791,17 @@ export async function getRosterWeek(input: {
     const assigned = memberRolesByMember.get(row.memberId) ?? [];
     assigned.push({ id: row.roleId, name: row.roleName });
     memberRolesByMember.set(row.memberId, assigned);
+  }
+
+  const recentShiftDurationByMember = new Map<string, number>();
+  for (const row of recentShiftRows) {
+    const [startHours, startMinutes] = row.startTime.slice(0, 5).split(":").map(Number);
+    const [endHours, endMinutes] = row.endTime.slice(0, 5).split(":").map(Number);
+    const duration =
+      endHours * 60 + endMinutes - (startHours * 60 + startMinutes);
+    if (duration > 0) {
+      recentShiftDurationByMember.set(row.memberId, duration);
+    }
   }
 
   const publication = publicationRows[0] ?? null;
@@ -1834,6 +1872,8 @@ export async function getRosterWeek(input: {
         ...member,
         roleIds: assignedRoles.map((role) => role.id),
         roleNames: assignedRoles.map((role) => role.name),
+        recentShiftDurationMinutes:
+          recentShiftDurationByMember.get(member.id) ?? null,
       };
     }),
     roles: capabilities.createShifts ? roles : [],
