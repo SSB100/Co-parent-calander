@@ -53,7 +53,7 @@ export function staffRosterEmailConfigured() {
 
 async function linkedStaffRecipients(calendarId: string) {
   const sql = getSql();
-  return (await sql\`
+  return (await sql`
     SELECT
       member.id AS member_id,
       auth_user.email
@@ -62,11 +62,11 @@ async function linkedStaffRecipients(calendarId: string) {
       ON membership.id = member.membership_id
     JOIN neon_auth."user" auth_user
       ON auth_user.id = membership.user_id
-    WHERE member.calendar_id = \${calendarId}
+    WHERE member.calendar_id = ${calendarId}
       AND member.active = true
       AND member.membership_id IS NOT NULL
       AND auth_user.email IS NOT NULL
-  \`) as RecipientRow[];
+  `) as RecipientRow[];
 }
 
 export async function sendStaffRosterEmails(input: {
@@ -87,20 +87,21 @@ export async function sendStaffRosterEmails(input: {
     };
   }
 
+  const requested = new Set(requestedIds);
+  const recipients = (await linkedStaffRecipients(input.calendarId).catch(
+    () => [] as RecipientRow[],
+  )).filter((recipient) => requested.has(recipient.member_id));
+  const skippedUnlinked = Math.max(0, requestedIds.length - recipients.length);
+
   if (!staffRosterEmailConfigured()) {
     return {
       configured: false,
       attempted: 0,
       sent: 0,
       failed: 0,
-      skippedUnlinked: requestedIds.length,
+      skippedUnlinked,
     };
   }
-
-  const requested = new Set(requestedIds);
-  const recipients = (await linkedStaffRecipients(input.calendarId).catch(
-    () => [] as RecipientRow[],
-  )).filter((recipient) => requested.has(recipient.member_id));
 
   const copy = emailCopy(input.kind, input.weekStart);
   const updatesUrl = appUrl() + "/calendar-types/staff-rosters/updates";
@@ -166,6 +167,6 @@ export async function sendStaffRosterEmails(input: {
     attempted: recipients.length,
     sent,
     failed,
-    skippedUnlinked: Math.max(0, requestedIds.length - recipients.length),
+    skippedUnlinked,
   };
 }
