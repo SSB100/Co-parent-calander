@@ -281,6 +281,7 @@ test("Staff self-service attendance, corrections and leave stay bounded", async 
   const [
     capabilities,
     workforce,
+    clockingPolicy,
     clockRoute,
     correctionRoute,
     timesheetRoute,
@@ -289,6 +290,7 @@ test("Staff self-service attendance, corrections and leave stay bounded", async 
   ] = await Promise.all([
       source("lib/staff-rosters/capabilities.ts"),
       source("lib/staff-rosters/workforce-service.ts"),
+      source("lib/staff-rosters/clocking-policy.ts"),
       source("app/api/staff-roster/clock/route.ts"),
       source("app/api/staff-roster/timesheet-corrections/route.ts"),
       source("app/api/staff-roster/timesheet/route.ts"),
@@ -301,7 +303,11 @@ test("Staff self-service attendance, corrections and leave stay bounded", async 
   assert.match(capabilities, /requestOwnLeave: true/);
   assert.match(capabilities, /reviewTimesheets: canWrite && isManager/);
   assert.match(capabilities, /reviewLeave: canWrite && isManager/);
-  assert.match(workforce, /unrostered_confirmation_required/);
+  assert.match(workforce, /qualifyStaffClockIn\(\{[\s\S]*confirmUnrostered: input\.confirmUnrostered/);
+  assert.match(workforce, /qualification\.code/);
+  assert.match(clockingPolicy, /code: "unrostered_confirmation_required"/);
+  assert.match(clockingPolicy, /if \(input\.hasMatchingPublishedShift\) \{[\s\S]*unrostered: false/);
+  assert.match(clockingPolicy, /if \(!input\.confirmUnrostered\) \{[\s\S]*code: "unrostered_confirmation_required"/);
   assert.match(workforce, /staff_roster\.clock\.in/);
   assert.match(workforce, /staff_roster\.clock\.out/);
   assert.match(workforce, /staff_roster\.timesheet_correction\.request/);
@@ -326,7 +332,8 @@ test("manager timesheets expose audited direct fixes while Staff stays request-o
     source("lib/staff-rosters/workforce-contracts.ts"),
   ]);
 
-  assert.match(timesheets, /Fix time/);
+  assert.match(timesheets, /data\.canReview \? \([\s\S]*onClick=\{\(\) => openManagerFix\(session\)\}[\s\S]*Correct time/);
+  assert.match(timesheets, /: state !== "in_progress" && !pendingCorrection \? \([\s\S]*onClick=\{\(\) => openCorrection\(session\)\}[\s\S]*Request correction/);
   assert.match(timesheets, /Save corrected time/);
   assert.match(timesheets, /Request correction/);
   assert.match(timesheets, /method: "PATCH"/);

@@ -482,15 +482,6 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
   }, [anchorDate, refresh, view]);
 
   useEffect(() => {
-    if (!data?.setup) return;
-    setOperationalStartDraft(data.setup.operationalStartMinute);
-    setOperationalEndDraft(data.setup.operationalEndMinute);
-  }, [
-    data?.setup?.operationalEndMinute,
-    data?.setup?.operationalStartMinute,
-  ]);
-
-  useEffect(() => {
     if (view !== "week" || !data) return;
 
     let frame = 0;
@@ -1454,7 +1445,11 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
               <CovieButton
                 tone="neutral"
                 disabled={busy}
-                onClick={() => setOperationalHoursOpen(true)}
+                onClick={() => {
+                  setOperationalStartDraft(data.setup.operationalStartMinute);
+                  setOperationalEndDraft(data.setup.operationalEndMinute);
+                  setOperationalHoursOpen(true);
+                }}
                 className="justify-center whitespace-nowrap"
               >
                 <Clock3 className="h-4 w-4" aria-hidden="true" />

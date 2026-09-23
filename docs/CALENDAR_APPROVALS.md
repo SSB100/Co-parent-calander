@@ -1,5 +1,7 @@
 # Calendar approvals
 
+> **Current behavior verified during Staff Stage 10, 23 September 2026:** The Phase 2 description below is historical. Shared event CRUD, including recurring series, now saves immediately with audit and synchronization; it does not create approval proposals. New unassigned custody is immediate; changes/removal of existing custody retain approval. See `tests/events-sharing-regressions.test.mjs` and `tests/calendar-approval-boundaries.test.mjs`. This qualification stage does not change those policies.
+
 > **Current release status — 18 September 2026:** This feature is live in Covie Production and its required migration(s) are already applied through production schema version `0011`. Any older “do not apply”, “GitHub-only”, or “not yet deployed” wording below is retained only as historical phase context and is not the current operating state.
 
 Phase 2 connects the existing shared calendar workflows to the reusable approval engine from Phase 1.
