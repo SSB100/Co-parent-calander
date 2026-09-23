@@ -1750,6 +1750,37 @@ export async function getRosterWeek(input: {
       ),
     db
       .select({
+        id: staffRosterAvailability.id,
+        memberId: staffRosterAvailability.memberId,
+        memberName: staffRosterMembers.displayName,
+        date: staffRosterAvailability.availabilityDate,
+        startTime: staffRosterAvailability.startTime,
+        endTime: staffRosterAvailability.endTime,
+        note: staffRosterAvailability.note,
+      })
+      .from(staffRosterAvailability)
+      .innerJoin(
+        staffRosterMembers,
+        eq(staffRosterAvailability.memberId, staffRosterMembers.id),
+      )
+      .where(
+        and(
+          eq(staffRosterAvailability.calendarId, input.session.calendarId),
+          eq(staffRosterAvailability.status, "unavailable"),
+          drizzleSql`${staffRosterAvailability.availabilityDate} >= ${input.weekStart}`,
+          drizzleSql`${staffRosterAvailability.availabilityDate} <= ${weekEnd}`,
+          capabilities.createShifts
+            ? drizzleSql`true`
+            : eq(staffRosterAvailability.memberId, current.id),
+        ),
+      )
+      .orderBy(
+        asc(staffRosterAvailability.availabilityDate),
+        asc(staffRosterAvailability.startTime),
+        asc(staffRosterMembers.displayName),
+      ),
+    db
+      .select({
         id: staffRosterLeaveRequests.id,
         memberId: staffRosterLeaveRequests.memberId,
         memberName: staffRosterMembers.displayName,
