@@ -8,7 +8,7 @@ import {
   UserPlus,
   UsersRound,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CovieButton,
   CovieConfirmDialog,
@@ -34,6 +34,9 @@ type TeamMember = {
   defaultLocationId: string | null;
   defaultLocationName: string | null;
   hasAccount: boolean;
+  accountState: "not_invited" | "invite_active" | "connected";
+  hadInvite: boolean;
+  inviteExpiresAt: string | null;
   isCurrentUser: boolean;
 };
 
@@ -74,6 +77,7 @@ function roleLabel(role: StaffAccessRole) {
 }
 
 export function StaffRosterTeamPage() {
+  const autoOpenedAddDialog = useRef(false);
   const [data, setData] = useState<TeamPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -119,12 +123,28 @@ export function StaffRosterTeamPage() {
     return () => window.clearTimeout(timer);
   }, [refresh]);
 
+  useEffect(() => {
+    if (
+      autoOpenedAddDialog.current ||
+      dialogOpen ||
+      !data?.canManageTeam ||
+      new URLSearchParams(window.location.search).get("add") !== "1"
+    ) {
+      return;
+    }
+
+    autoOpenedAddDialog.current = true;
+    setForm(emptyForm);
+    setDialogOpen(true);
+  }, [data, dialogOpen]);
+
   const activeMembers = useMemo(
     () => data?.members.filter((member) => member.active) ?? [],
     [data],
   );
 
   function openCreate() {
+    autoOpenedAddDialog.current = true;
     setForm(emptyForm);
     setDialogOpen(true);
   }
@@ -243,11 +263,43 @@ export function StaffRosterTeamPage() {
         displayName: body.displayName,
         expiresAt: body.expiresAt,
       });
+      await refresh();
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
           : "The invitation could not be created.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeInvite(member: TeamMember) {
+    if (busy || member.accountState !== "invite_active") return;
+    setBusy(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/staff-roster/invitations", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ memberId: member.id }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "The invitation could not be revoked.");
+      }
+
+      await refresh();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "The invitation could not be revoked.",
       );
     } finally {
       setBusy(false);
@@ -328,7 +380,7 @@ export function StaffRosterTeamPage() {
             {data.canManageTeam ? (
               <CovieButton onClick={openCreate}>
                 <UserPlus className="h-4 w-4" aria-hidden="true" />
-                Add team member
+                Add staff member
               </CovieButton>
             ) : null}
           </div>
@@ -336,12 +388,12 @@ export function StaffRosterTeamPage() {
           {activeMembers.length === 0 ? (
             <CovieEmptyState
               icon={<UsersRound className="h-8 w-8 text-[#19A897]" aria-hidden="true" />}
-              title="Add your first team member"
+              title="Add your first staff member"
               description="Add the people who will appear on this roster."
               action={
                 data.canManageTeam ? (
                   <CovieButton onClick={openCreate}>
-                    Add team member
+                    Add staff member
                   </CovieButton>
                 ) : undefined
               }
@@ -353,6 +405,11 @@ export function StaffRosterTeamPage() {
                   data.canManageTeam &&
                   member.accessRole !== "owner" &&
                   (data.canManageManagers || member.accessRole !== "manager");
+                const canManageInvite =
+                  member.accessRole !== "owner" &&
+                  (member.accessRole === "staff"
+                    ? data.canManageTeam
+                    : data.canManageManagers);
 
                 return (
                   <article
@@ -368,11 +425,21 @@ export function StaffRosterTeamPage() {
                           <CovieStatusBadge tone="neutral">
                             {roleLabel(member.accessRole)}
                           </CovieStatusBadge>
-                          {member.hasAccount ? (
-                            <CovieStatusBadge tone="violet">
-                              Account linked
-                            </CovieStatusBadge>
-                          ) : null}
+                          <CovieStatusBadge
+                            tone={
+                              member.accountState === "connected"
+                                ? "teal"
+                                : member.accountState === "invite_active"
+                                  ? "sunshine"
+                                  : "neutral"
+                            }
+                          >
+                            {member.accountState === "connected"
+                              ? "Connected"
+                              : member.accountState === "invite_active"
+                                ? "Invite active"
+                                : "Not invited"}
+                          </CovieStatusBadge>
                           {member.isCurrentUser ? (
                             <CovieStatusBadge tone="neutral">You</CovieStatusBadge>
                           ) : null}
@@ -392,20 +459,46 @@ export function StaffRosterTeamPage() {
                       ) : null}
                     </div>
 
-                    {!member.hasAccount &&
-                    member.accessRole !== "owner" &&
-                    (member.accessRole === "staff"
-                      ? data.canManageTeam
-                      : data.canManageManagers) ? (
-                      <CovieButton
-                        tone="neutral"
-                        className="mt-4 w-full"
-                        disabled={busy}
-                        onClick={() => void inviteMember(member)}
-                      >
-                        <UserPlus className="h-4 w-4" aria-hidden="true" />
-                        Invite to Covie
-                      </CovieButton>
+                    {!member.hasAccount && canManageInvite ? (
+                      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                        <CovieButton
+                          tone="neutral"
+                          className={
+                            member.accountState === "invite_active"
+                              ? "w-full"
+                              : "w-full sm:col-span-2"
+                          }
+                          disabled={busy}
+                          onClick={() => void inviteMember(member)}
+                        >
+                          <UserPlus className="h-4 w-4" aria-hidden="true" />
+                          {member.accountState === "invite_active" ||
+                          member.hadInvite
+                            ? "New invite"
+                            : "Invite to Covie"}
+                        </CovieButton>
+                        {member.accountState === "invite_active" ? (
+                          <CovieButton
+                            tone="neutral"
+                            className="w-full"
+                            disabled={busy}
+                            onClick={() => void revokeInvite(member)}
+                          >
+                            Revoke invite
+                          </CovieButton>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {member.accountState === "invite_active" &&
+                    member.inviteExpiresAt ? (
+                      <p className="mt-2 text-xs font-bold text-[#8B6714]">
+                        Invite active until{" "}
+                        {new Intl.DateTimeFormat("en-NZ", {
+                          day: "numeric",
+                          month: "short",
+                        }).format(new Date(member.inviteExpiresAt))}
+                      </p>
                     ) : null}
 
                     <dl className="mt-4 grid gap-2 text-sm">
@@ -417,8 +510,16 @@ export function StaffRosterTeamPage() {
                             : "Not set"}
                         </dd>
                       </div>
+                      {member.defaultRoleName ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <dt className="text-[#66747A]">Usual role</dt>
+                          <dd className="max-w-[65%] text-right font-bold text-[#243139]">
+                            {member.defaultRoleName}
+                          </dd>
+                        </div>
+                      ) : null}
                       <div className="flex items-center justify-between gap-3">
-                        <dt className="text-[#66747A]">Location</dt>
+                        <dt className="text-[#66747A]">Usual location</dt>
                         <dd className="text-right font-bold text-[#243139]">
                           {member.defaultLocationName ?? "Not set"}
                         </dd>
@@ -435,8 +536,12 @@ export function StaffRosterTeamPage() {
       {dialogOpen && data ? (
         <CovieDialog
           id="staff-member-dialog-title"
-          title={form.memberId ? "Edit team member" : "Add team member"}
-          description="Roster access controls what someone can manage. Add one or more work roles and an optional usual location."
+          title={form.memberId ? "Edit staff member" : "Add staff member"}
+          description={
+            form.memberId
+              ? "Update this person's roster details. Roles and location stay optional."
+              : "Start with their name. Access, roles and location can all be added later."
+          }
           icon={<BriefcaseBusiness aria-hidden="true" />}
           iconTone="teal"
           size="sm"
@@ -466,7 +571,11 @@ export function StaffRosterTeamPage() {
                 disabled={busy || !form.displayName.trim()}
                 onClick={() => void saveMember()}
               >
-                {busy ? "Saving…" : "Save"}
+                {busy
+                  ? "Saving…"
+                  : form.memberId
+                    ? "Save changes"
+                    : "Add staff member"}
               </CovieButton>
             </>
           }
@@ -478,6 +587,7 @@ export function StaffRosterTeamPage() {
                 value={form.displayName}
                 maxLength={80}
                 disabled={busy}
+                autoFocus={!form.memberId}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
@@ -487,106 +597,125 @@ export function StaffRosterTeamPage() {
               />
             </label>
 
-            <label>
-              <span className="mb-1.5 block text-sm font-bold">Roster access</span>
-              <CovieSelect
-                value={form.accessRole}
-                disabled={busy || !data.canManageManagers}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    accessRole: event.target.value as "manager" | "staff",
-                  }))
-                }
-              >
-                <option value="staff">Staff</option>
-                {data.canManageManagers ? (
-                  <option value="manager">Manager</option>
+            <details
+              open={form.memberId ? true : undefined}
+              className="rounded-xl border border-[#E6DBCF] bg-[#FFF9F2]"
+            >
+              <summary className="flex min-h-11 cursor-pointer items-center px-3 py-2 text-sm font-extrabold text-[#243139]">
+                Optional roster details
+              </summary>
+              <div className="grid gap-4 border-t border-[#E6DBCF] bg-white p-3">
+                <label>
+                  <span className="mb-1.5 block text-sm font-bold">
+                    Roster access
+                  </span>
+                  <CovieSelect
+                    value={form.accessRole}
+                    disabled={busy || !data.canManageManagers}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        accessRole: event.target.value as "manager" | "staff",
+                      }))
+                    }
+                  >
+                    <option value="staff">Staff</option>
+                    {data.canManageManagers ? (
+                      <option value="manager">Manager</option>
+                    ) : null}
+                  </CovieSelect>
+                  {!data.canManageManagers ? (
+                    <p className="mt-1.5 text-xs text-[#66747A]">
+                      Only the calendar owner can grant Manager access.
+                    </p>
+                  ) : null}
+                </label>
+
+                <fieldset>
+                  <legend className="mb-1.5 block text-sm font-bold">Roles</legend>
+                  {data.roles.length === 0 ? (
+                    <p className="rounded-xl bg-[#FFF9F2] p-3 text-sm text-[#66747A]">
+                      No roles yet. You can add them later from Roles & locations.
+                    </p>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {data.roles.map((role) => {
+                        const checked = form.roleIds.includes(role.id);
+                        return (
+                          <label
+                            key={role.id}
+                            className={
+                              "flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold " +
+                              (checked
+                                ? "border-[#19A897] bg-[#EAF8F5] text-[#243139]"
+                                : "border-[#E6DBCF] bg-white text-[#526168]")
+                            }
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={busy}
+                              onChange={() => toggleRole(role.id)}
+                              className="h-4 w-4 accent-[#19A897]"
+                            />
+                            <span>{role.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </fieldset>
+
+                {form.roleIds.length > 1 ? (
+                  <label>
+                    <span className="mb-1.5 block text-sm font-bold">
+                      Usual role for new shifts
+                    </span>
+                    <CovieSelect
+                      value={form.defaultRoleId}
+                      disabled={busy}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          defaultRoleId: event.target.value,
+                        }))
+                      }
+                    >
+                      {data.roles
+                        .filter((role) => form.roleIds.includes(role.id))
+                        .map((role) => (
+                          <option key={role.id} value={role.id}>
+                            {role.name}
+                          </option>
+                        ))}
+                    </CovieSelect>
+                  </label>
                 ) : null}
-              </CovieSelect>
-            </label>
 
-            <fieldset>
-              <legend className="mb-1.5 block text-sm font-bold">Roles</legend>
-              {data.roles.length === 0 ? (
-                <p className="rounded-xl bg-[#FFF9F2] p-3 text-sm text-[#66747A]">
-                  No roles have been added yet.
-                </p>
-              ) : (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {data.roles.map((role) => {
-                    const checked = form.roleIds.includes(role.id);
-                    return (
-                      <label
-                        key={role.id}
-                        className={
-                          "flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold " +
-                          (checked
-                            ? "border-[#19A897] bg-[#EAF8F5] text-[#243139]"
-                            : "border-[#E6DBCF] bg-white text-[#526168]")
-                        }
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={busy}
-                          onChange={() => toggleRole(role.id)}
-                          className="h-4 w-4 accent-[#19A897]"
-                        />
-                        <span>{role.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </fieldset>
-
-            {form.roleIds.length > 1 ? (
-              <label>
-                <span className="mb-1.5 block text-sm font-bold">
-                  Usual role for new shifts
-                </span>
-                <CovieSelect
-                  value={form.defaultRoleId}
-                  disabled={busy}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      defaultRoleId: event.target.value,
-                    }))
-                  }
-                >
-                  {data.roles
-                    .filter((role) => form.roleIds.includes(role.id))
-                    .map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
+                <label>
+                  <span className="mb-1.5 block text-sm font-bold">
+                    Usual location
+                  </span>
+                  <CovieSelect
+                    value={form.defaultLocationId}
+                    disabled={busy}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        defaultLocationId: event.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">Not set</option>
+                    {data.locations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.name}
                       </option>
                     ))}
-                </CovieSelect>
-              </label>
-            ) : null}
-
-            <label>
-              <span className="mb-1.5 block text-sm font-bold">Default location</span>
-              <CovieSelect
-                value={form.defaultLocationId}
-                disabled={busy}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    defaultLocationId: event.target.value,
-                  }))
-                }
-              >
-                <option value="">Not set</option>
-                {data.locations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {location.name}
-                  </option>
-                ))}
-              </CovieSelect>
-            </label>
+                  </CovieSelect>
+                </label>
+              </div>
+            </details>
           </div>
         </CovieDialog>
       ) : null}
@@ -639,7 +768,7 @@ export function StaffRosterTeamPage() {
       <CovieConfirmDialog
         open={Boolean(archiveTarget)}
         id="archive-staff-member-title"
-        title="Archive team member?"
+        title="Archive staff member?"
         description={
           archiveTarget
             ? archiveTarget.displayName + " will stop appearing in the active team."
