@@ -32,6 +32,7 @@ const calendarSchema = z
     calendarType: z.enum(calendarTemplateIds),
     displayName: z.string().trim().min(1, "Add your name.").max(50),
     children: z.array(z.string().trim().min(1).max(50)).max(10),
+    staffNames: z.array(z.string().trim().min(1).max(80)).max(50),
   })
   .superRefine((value, context) => {
     if (value.calendarType === "co_parenting" && value.children.length === 0) {
@@ -40,6 +41,9 @@ const calendarSchema = z
         path: ["children"],
         message: "Add at least one child.",
       });
+    }
+    if (value.calendarType === "staff_rosters" && value.staffNames.length === 0) {
+      context.addIssue({ code: "custom", path: ["staffNames"], message: "Add at least one staff member." });
     }
   });
 
@@ -80,6 +84,10 @@ export async function createCalendar(
     calendarType: formData.get("calendarType") || "co_parenting",
     displayName: formData.get("displayName") || user.name,
     children: String(formData.get("children") ?? "")
+      .split("\n")
+      .map((name) => name.trim())
+      .filter(Boolean),
+    staffNames: String(formData.get("staffNames") ?? "")
       .split("\n")
       .map((name) => name.trim())
       .filter(Boolean),
@@ -137,6 +145,12 @@ export async function createCalendar(
           ),
         ]
       : []),
+    ...(parsed.data.calendarType === "staff_rosters"
+      ? parsed.data.staffNames.map((displayName) => sql`
+          INSERT INTO staff_roster_members (id, calendar_id, display_name, access_role, active)
+          VALUES (${randomUUID()}, ${calendarId}, ${displayName}, 'staff', true)
+        `)
+      : []),
     sql`
       INSERT INTO calendar_memberships (
         calendar_id, user_id, participant_id, permission
@@ -161,6 +175,7 @@ export async function createCalendar(
           name: parsed.data.calendarName,
           calendarType: parsed.data.calendarType,
           children: parsed.data.children,
+          initialStaffCount: parsed.data.calendarType === "staff_rosters" ? parsed.data.staffNames.length : 0,
         })}::jsonb
       )
     `,

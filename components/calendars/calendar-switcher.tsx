@@ -203,6 +203,14 @@ export function CalendarSwitcher({
                     <input type="hidden" name="children" value="" />
                   )}
 
+                  {selectedType === "staff_rosters" ? (
+                    <label className="mt-3 block">
+                      <span className="text-xs font-semibold text-slate-700">Your first staff members</span>
+                      <textarea name="staffNames" rows={3} required placeholder={"Alex\nSam"} className={textareaClass} />
+                      <span className="mt-1 block text-[11px] text-slate-500">One name per line. Add more people later.</span>
+                    </label>
+                  ) : null}
+
                   {createState.error ? (
                     <p
                       role="alert"

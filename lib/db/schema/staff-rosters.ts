@@ -84,6 +84,9 @@ export const staffRosterMembers = pgTable(
       onDelete: "set null",
     }),
     displayName: varchar("display_name", { length: 80 }).notNull(),
+    contactEmail: varchar("contact_email", { length: 320 }),
+    contactPhone: varchar("contact_phone", { length: 40 }),
+    expectedWeeklyMinutes: integer("expected_weekly_minutes"),
     accessRole: staffRosterAccessRole("access_role").notNull().default("staff"),
     defaultRoleId: uuid("default_role_id").references(() => staffRosterRoles.id, {
       onDelete: "set null",
@@ -108,6 +111,7 @@ export const staffRosterMembers = pgTable(
       table.calendarId,
       table.accessRole,
     ),
+    check("staff_roster_expected_weekly_minutes_valid", sql`${table.expectedWeeklyMinutes} IS NULL OR ${table.expectedWeeklyMinutes} BETWEEN 0 AND 10080`),
   ],
 );
 

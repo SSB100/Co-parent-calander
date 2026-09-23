@@ -139,6 +139,7 @@ export function TemplateShell({
     template.id === "staff_rosters" && staffAccessRole === "staff";
   const compactStaffRosterCalendar =
     template.id === "staff_rosters" && section === "calendar" && !staffMode;
+  const staffRosterMode = template.id === "staff_rosters";
 
   const organiserItems: readonly TemplateOrganiserNavItem[] =
     template.organiserTools.map((tool) => ({
@@ -162,8 +163,10 @@ export function TemplateShell({
   let emptyIconClassName = calendarView.iconClassName;
 
   if (section === "updates") {
-    title = "Updates";
-    context = "Changes to this calendar will appear here.";
+    title = staffRosterMode && !staffMode ? "Approvals" : "Updates";
+    context = staffRosterMode && !staffMode
+      ? "Review leave and time corrections, and see published roster changes."
+      : "Changes to this calendar will appear here.";
     emptyTitle = "No updates yet";
     emptyDescription = "There are no calendar changes to show.";
     EmptyIcon = Bell;
@@ -189,12 +192,12 @@ export function TemplateShell({
         activeSection={section}
         activeToolKey={activeToolKey}
         staffMode={staffMode}
-        showStaffRosterGuide={false}
+        staffRosterMode={staffRosterMode}
       />
 
       <CoviePage
         width="wide"
-        className="pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6"
+        className={staffRosterMode && !staffMode ? "pb-[calc(156px+env(safe-area-inset-bottom))] lg:pb-6" : "pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6"}
       >
         {compactStaffRosterCalendar ? null : (
           <div

@@ -6,12 +6,19 @@ const optionalUuid = z
   .union([z.string().uuid(), z.literal(""), z.null()])
   .transform((value) => (value ? value : null));
 
+const optionalContactEmail = z.union([z.email().max(320), z.literal(""), z.null()]).optional().transform((value) => value || null);
+const optionalContactPhone = z.union([z.string().trim().max(40), z.null()]).optional().transform((value) => value || null);
+const optionalWeeklyMinutes = z.union([z.number().int().min(0).max(10080), z.null()]).optional().transform((value) => value ?? null);
+
 export const createStaffMemberSchema = z.object({
   displayName: z.string().trim().min(1, "Add the staff member's name.").max(80),
   accessRole: z.enum(["manager", "staff"]).default("staff"),
   roleIds: z.array(z.string().uuid()).max(20).optional().default([]),
   defaultRoleId: optionalUuid.optional().default(null),
   defaultLocationId: optionalUuid.optional().default(null),
+  contactEmail: optionalContactEmail,
+  contactPhone: optionalContactPhone,
+  expectedWeeklyMinutes: optionalWeeklyMinutes,
 });
 
 export const updateStaffMemberSchema = z.object({
@@ -21,6 +28,9 @@ export const updateStaffMemberSchema = z.object({
   roleIds: z.array(z.string().uuid()).max(20).optional().default([]),
   defaultRoleId: optionalUuid.optional().default(null),
   defaultLocationId: optionalUuid.optional().default(null),
+  contactEmail: optionalContactEmail,
+  contactPhone: optionalContactPhone,
+  expectedWeeklyMinutes: optionalWeeklyMinutes,
   active: z.boolean().default(true),
 });
 

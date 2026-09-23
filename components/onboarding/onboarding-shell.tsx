@@ -284,6 +284,14 @@ export function OnboardingShell({
                     <input type="hidden" name="children" value="" />
                   )}
 
+                  {selectedType === "staff_rosters" ? (
+                    <label className="block">
+                      <span className="text-sm font-semibold text-slate-800">Your first staff members</span>
+                      <textarea name="staffNames" rows={4} required placeholder={"Alex\nSam\nTaylor"} className={`${inputClass} py-3`} />
+                      <span className="mt-2 block text-xs text-slate-500">One name per line. You can add more people later.</span>
+                    </label>
+                  ) : null}
+
                   {createState.error ? (
                     <p
                       role="alert"

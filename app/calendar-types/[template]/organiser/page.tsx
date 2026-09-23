@@ -13,6 +13,7 @@ export default async function TemplateOrganiserPage({
 }) {
   const { template } = await params;
   if (!isAdditionalCalendarTemplateSlug(template)) notFound();
+  if (template === "staff-rosters") redirect(`/calendar-types/${template}`);
 
   const firstTool = getCalendarTemplateBySlug(template).organiserTools[0];
   if (!firstTool) notFound();

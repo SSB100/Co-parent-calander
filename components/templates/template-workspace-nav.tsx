@@ -4,9 +4,11 @@ import {
   Bell,
   CalendarCheck2,
   CalendarDays,
+  Building2,
   ChevronDown,
   Clock3,
   LayoutGrid,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -27,14 +29,14 @@ export function TemplateWorkspaceNav({
   activeSection,
   activeToolKey,
   staffMode = false,
-  showStaffRosterGuide = false,
+  staffRosterMode = false,
 }: {
   basePath: string;
   organiserItems: readonly TemplateOrganiserNavItem[];
   activeSection: "calendar" | "updates" | "organiser";
   activeToolKey?: string;
   staffMode?: boolean;
-  showStaffRosterGuide?: boolean;
+  staffRosterMode?: boolean;
 }) {
   const organiserRef = useRef<HTMLDetailsElement>(null);
   useDismissibleDetails(organiserRef);
@@ -42,7 +44,7 @@ export function TemplateWorkspaceNav({
   const organiserActive = activeSection === "organiser";
 
   const destinationClass =
-    "flex min-h-12 items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-bold text-[#526168] transition hover:bg-[#F7EFE5] max-lg:flex-1 max-lg:flex-col max-lg:justify-center max-lg:gap-0.5 max-lg:px-2";
+    "flex min-h-12 min-w-0 items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-bold text-[#526168] transition hover:bg-[#F7EFE5] max-lg:flex-1 max-lg:flex-col max-lg:justify-center max-lg:gap-0.5 max-lg:px-2";
 
   return (
     <nav
@@ -53,7 +55,7 @@ export function TemplateWorkspaceNav({
         <CovieBrand />
       </Link>
 
-      <div className="flex gap-2 lg:flex-col max-lg:justify-around">
+      <div className={staffRosterMode ? `grid ${staffMode ? "grid-cols-4" : "grid-cols-3"} gap-1 lg:flex lg:flex-col lg:gap-2` : "flex gap-2 lg:flex-col max-lg:justify-around"}>
         <Link
           href={basePath}
           aria-current={activeSection === "calendar" ? "page" : undefined}
@@ -67,7 +69,7 @@ export function TemplateWorkspaceNav({
           <span>{staffMode ? "My roster" : "Calendar"}</span>
         </Link>
 
-        {staffMode ? (
+        {staffRosterMode && staffMode ? (
           <>
             <Link
               href={`${basePath}/organiser/timesheets`}
@@ -114,10 +116,31 @@ export function TemplateWorkspaceNav({
           }`}
         >
           <Bell size={20} aria-hidden="true" />
-          <span>Updates</span>
+          <span>{staffRosterMode && !staffMode ? "Approvals" : "Updates"}</span>
         </Link>
 
-        {!staffMode ? (
+        {staffRosterMode && !staffMode ? (
+          <>
+            {([
+              { key: "team", label: "Team", icon: UsersRound },
+              { key: "availability", label: "Leave", icon: CalendarCheck2 },
+              { key: "roles-locations", label: "Locations", icon: Building2 },
+              { key: "timesheets", label: "Time & attendance", icon: Clock3 },
+            ] as const).map(({ key, label, icon: Icon }) => (
+              <Link
+                key={key}
+                href={`${basePath}/organiser/${key}`}
+                aria-current={activeSection === "organiser" && activeToolKey === key ? "page" : undefined}
+                className={`${destinationClass} ${activeSection === "organiser" && activeToolKey === key ? "bg-[#FF6B5F] text-[#243139]" : ""}`}
+              >
+                <Icon size={20} aria-hidden="true" />
+                <span className="min-w-0 break-words text-center text-[11px] leading-3 lg:text-left lg:text-sm lg:leading-normal">{label}</span>
+              </Link>
+            ))}
+          </>
+        ) : null}
+
+        {!staffRosterMode && !staffMode ? (
           <details
           ref={organiserRef}
           className="relative flex-1 lg:flex-none"
@@ -162,35 +185,6 @@ export function TemplateWorkspaceNav({
         ) : null}
       </div>
 
-      {showStaffRosterGuide ? (
-        <aside className="mt-5 hidden border-t border-[#E6DBCF] pt-5 lg:block">
-          <div className="rounded-xl border border-[#E6DBCF] bg-white p-3">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#0D7A6D]">
-              Start your roster
-            </p>
-            <p className="mt-1 text-sm font-extrabold leading-5 text-[#243139]">
-              Add staff, then drag them straight onto the calendar.
-            </p>
-            <p className="mt-2 text-xs leading-5 text-[#526168]">
-              Roles and locations are optional.
-            </p>
-            <div className="mt-3 grid gap-2">
-              <Link
-                href={`${basePath}/organiser/team`}
-                className="flex min-h-10 items-center justify-center rounded-[10px] border border-[#243139] bg-[#FF6B5F] px-3 text-xs font-extrabold text-[#243139]"
-              >
-                Add staff
-              </Link>
-              <Link
-                href={`${basePath}/organiser/roles-locations`}
-                className="flex min-h-10 items-center justify-center rounded-[10px] border border-[#E6DBCF] bg-[#FFF9F2] px-3 text-xs font-extrabold text-[#243139]"
-              >
-                Roles & locations
-              </Link>
-            </div>
-          </div>
-        </aside>
-      ) : null}
     </nav>
   );
 }
