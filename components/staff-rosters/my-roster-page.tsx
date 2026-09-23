@@ -1,13 +1,17 @@
 "use client";
 
 import {
+  Bell,
+  CalendarCheck2,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
   Clock3,
   LoaderCircle,
   MapPin,
+  RefreshCw,
 } from "lucide-react";
+import Link from "next/link";
 import {
   addDays,
   addMonths,
@@ -175,6 +179,8 @@ export function StaffMyRosterPage() {
   const [data, setData] = useState<MyRosterPayload | null>(null);
   const [clock, setClock] = useState<ClockState | null>(null);
   const [clockBusy, setClockBusy] = useState(false);
+  const [clockError, setClockError] = useState<string | null>(null);
+  const [clockNotice, setClockNotice] = useState<string | null>(null);
   const [confirmUnrostered, setConfirmUnrostered] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -225,7 +231,23 @@ export function StaffMyRosterPage() {
       );
     }
     setClock(body);
+    setClockError(null);
+    return body;
   }, []);
+
+  const reloadClock = useCallback(async () => {
+    setClockError(null);
+    try {
+      await refreshClock();
+    } catch (caught) {
+      setClock(null);
+      setClockError(
+        caught instanceof Error
+          ? caught.message
+          : "Clock status could not be loaded. Refresh and try again.",
+      );
+    }
+  }, [refreshClock]);
 
   async function runClockAction(
     action: "clock_in" | "clock_out",
@@ -233,7 +255,8 @@ export function StaffMyRosterPage() {
   ) {
     if (clockBusy) return;
     setClockBusy(true);
-    setError(null);
+    setClockError(null);
+    setClockNotice(null);
 
     try {
       const response = await fetch("/api/staff-roster/clock", {
@@ -262,11 +285,30 @@ export function StaffMyRosterPage() {
       setConfirmUnrostered(false);
       await refreshClock();
     } catch (caught) {
-      setError(
+      const message =
         caught instanceof Error
           ? caught.message
-          : "The clock action could not be recorded.",
-      );
+          : "The clock action could not be recorded.";
+
+      try {
+        const authoritative = await refreshClock();
+        const intendedStateIsNowTrue =
+          action === "clock_in"
+            ? Boolean(authoritative.activeSession)
+            : !authoritative.activeSession;
+
+        if (intendedStateIsNowTrue) {
+          setConfirmUnrostered(false);
+          setClockNotice(
+            "Covie refreshed your clock status after the connection response was unclear.",
+          );
+          return;
+        }
+      } catch {
+        setClock(null);
+      }
+
+      setClockError(message);
     } finally {
       setClockBusy(false);
     }
@@ -274,17 +316,17 @@ export function StaffMyRosterPage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void Promise.all([refresh(anchorDate, view), refreshClock()]).catch(
-        (caught) =>
-          setError(
-            caught instanceof Error
-              ? caught.message
-              : "Your roster could not be loaded.",
-          ),
+      void refresh(anchorDate, view).catch((caught) =>
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "Your roster could not be loaded.",
+        ),
       );
+      void reloadClock();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [anchorDate, refresh, refreshClock, view]);
+  }, [anchorDate, refresh, reloadClock, view]);
 
   const weekStart = weekStartFor(anchorDate);
   const days = useMemo(
@@ -353,14 +395,45 @@ export function StaffMyRosterPage() {
               </CovieStatusBadge>
             </div>
 
-            <div className="mt-5 rounded-xl border border-[#E6DBCF] bg-[#FFF9F2] p-4">
-              {clock?.activeSession ? (
+            <div
+              className="mt-5 rounded-xl border border-[#E6DBCF] bg-[#FFF9F2] p-4"
+              aria-live="polite"
+            >
+              {clockError && !clock ? (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-extrabold uppercase tracking-[0.06em] text-[#8B6714]">
+                      Clock status needs refreshing
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-[#526168]">
+                      {clockError}
+                    </p>
+                  </div>
+                  <CovieButton
+                    tone="neutral"
+                    disabled={clockBusy}
+                    onClick={() => void reloadClock()}
+                  >
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                    Try again
+                  </CovieButton>
+                </div>
+              ) : !clock ? (
+                <div className="flex min-h-16 items-center text-sm font-bold text-[#66747A]">
+                  <LoaderCircle
+                    className="mr-2 h-4 w-4 animate-spin"
+                    aria-hidden="true"
+                  />
+                  Checking your clock status…
+                </div>
+              ) : clock.activeSession ? (
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-extrabold uppercase tracking-[0.06em] text-[#0D7A6D]">
                       Clocked in
                     </p>
                     <strong className="mt-1 block text-[#243139]">
+                      Since{" "}
                       {new Intl.DateTimeFormat("en-NZ", {
                         hour: "numeric",
                         minute: "2-digit",
@@ -369,7 +442,14 @@ export function StaffMyRosterPage() {
                     </strong>
                     {clock.activeSession.unrostered ? (
                       <span className="mt-1 block text-xs font-bold text-[#8B6714]">
-                        No rostered shift matched this clock-in
+                        No rostered shift matched this clock-in.
+                      </span>
+                    ) : clock.activeSession.scheduledStartTime &&
+                      clock.activeSession.scheduledEndTime ? (
+                      <span className="mt-1 block text-xs font-bold text-[#526168]">
+                        Rostered{" "}
+                        {compactTime(clock.activeSession.scheduledStartTime)} –{" "}
+                        {compactTime(clock.activeSession.scheduledEndTime)}
                       </span>
                     ) : null}
                   </div>
@@ -377,33 +457,49 @@ export function StaffMyRosterPage() {
                     disabled={clockBusy}
                     onClick={() => void runClockAction("clock_out")}
                   >
-                    {clockBusy ? "Recording…" : "Clock out"}
+                    {clockBusy ? "Clocking out…" : "Clock out"}
                   </CovieButton>
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-extrabold uppercase tracking-[0.06em] text-[#66747A]">
-                      Attendance
+                      Not clocked in
                     </p>
                     <strong className="mt-1 block text-[#243139]">
-                      {clock?.matchingShift
-                        ? compactTime(clock.matchingShift.startTime) +
+                      {clock.matchingShift
+                        ? "Rostered " +
+                          compactTime(clock.matchingShift.startTime) +
                           " – " +
                           compactTime(clock.matchingShift.endTime)
-                        : "Ready when you start work"}
+                        : "No matching rostered shift right now"}
                     </strong>
+                    {!clock.matchingShift ? (
+                      <span className="mt-1 block text-xs font-bold text-[#66747A]">
+                        You can still choose Clock in and confirm if you are working.
+                      </span>
+                    ) : null}
                   </div>
                   <CovieButton
                     disabled={clockBusy}
                     onClick={() => void runClockAction("clock_in")}
                   >
-                    {clockBusy ? "Recording…" : "Clock in"}
+                    {clockBusy ? "Clocking in…" : "Clock in"}
                   </CovieButton>
                 </div>
               )}
-            </div>
 
+              {clockError && clock ? (
+                <p className="mt-3 text-sm font-bold text-[#A33A32]" role="alert">
+                  {clockError}
+                </p>
+              ) : null}
+              {clockNotice ? (
+                <p className="mt-3 text-sm font-bold text-[#0D7A6D]">
+                  {clockNotice}
+                </p>
+              ) : null}
+            </div>
             {todayShifts.length > 0 ? (
               <div className="mt-5 space-y-3">
                 {todayShifts.map((shift) => (
@@ -442,6 +538,54 @@ export function StaffMyRosterPage() {
                 </p>
               </div>
             )}
+          </section>
+
+          <section
+            className="grid gap-3 sm:grid-cols-3"
+            aria-label="Staff shortcuts"
+          >
+            <Link
+              href="/calendar-types/staff-rosters/organiser/timesheets"
+              className="flex min-h-20 items-center gap-3 rounded-2xl border border-[#E6DBCF] bg-white p-4 text-[#243139] transition hover:bg-[#F7EFE5]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF8F5] text-[#0D7A6D]">
+                <Clock3 className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <strong className="block text-sm font-extrabold">My time</strong>
+                <span className="mt-0.5 block text-xs font-bold text-[#66747A]">
+                  View my timesheet
+                </span>
+              </span>
+            </Link>
+            <Link
+              href="/calendar-types/staff-rosters/organiser/availability"
+              className="flex min-h-20 items-center gap-3 rounded-2xl border border-[#E6DBCF] bg-white p-4 text-[#243139] transition hover:bg-[#F7EFE5]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF8F5] text-[#0D7A6D]">
+                <CalendarCheck2 className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <strong className="block text-sm font-extrabold">Leave</strong>
+                <span className="mt-0.5 block text-xs font-bold text-[#66747A]">
+                  Request or check leave
+                </span>
+              </span>
+            </Link>
+            <Link
+              href="/calendar-types/staff-rosters/updates"
+              className="flex min-h-20 items-center gap-3 rounded-2xl border border-[#E6DBCF] bg-white p-4 text-[#243139] transition hover:bg-[#F7EFE5]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EAF8F5] text-[#0D7A6D]">
+                <Bell className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <strong className="block text-sm font-extrabold">Roster updates</strong>
+                <span className="mt-0.5 block text-xs font-bold text-[#66747A]">
+                  See published changes
+                </span>
+              </span>
+            </Link>
           </section>
 
           <section className="rounded-2xl border border-[#E6DBCF] bg-white p-3 sm:p-4">
@@ -620,7 +764,7 @@ export function StaffMyRosterPage() {
         open={confirmUnrostered}
         id="confirm-unrostered-clock-in"
         title="Clock in without a rostered shift?"
-        description="No published shift was found near the current time. You can still clock in and it will be marked for manager review."
+        description="Covie cannot find a matching published shift near the current time. If you are working now, you can confirm and the clock-in will be kept as unrostered."
         confirmLabel="Clock in anyway"
         busy={clockBusy}
         icon={<Clock3 aria-hidden="true" />}
