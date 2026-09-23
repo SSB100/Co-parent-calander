@@ -1579,6 +1579,7 @@ export async function getRosterWeek(input: {
     liveShifts,
     publicationRows,
     publishedShifts,
+    availabilityRows,
     leaveRows,
     recentShiftRows,
     setup,
@@ -1878,6 +1879,11 @@ export async function getRosterWeek(input: {
     }),
     roles: capabilities.createShifts ? roles : [],
     locations: capabilities.createShifts ? locations : [],
+    availability: availabilityRows.map((availability) => ({
+      ...availability,
+      startTime: availability.startTime?.slice(0, 5) ?? null,
+      endTime: availability.endTime?.slice(0, 5) ?? null,
+    })),
     leave: leaveRows.map((leave) => ({
       ...leave,
       startTime: leave.startTime?.slice(0, 5) ?? null,
