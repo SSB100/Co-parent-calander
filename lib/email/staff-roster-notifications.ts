@@ -23,7 +23,7 @@ function weekLabel(weekStart: string) {
   }).format(new Date(weekStart + "T00:00:00Z"));
 }
 
-function emailCopy(kind: StaffRosterEmailKind, weekStart: string) {
+export function staffRosterEmailCopy(kind: StaffRosterEmailKind, weekStart: string) {
   const week = weekLabel(weekStart);
 
   if (kind === "roster_published") {
@@ -103,7 +103,7 @@ export async function sendStaffRosterEmails(input: {
     };
   }
 
-  const copy = emailCopy(input.kind, input.weekStart);
+  const copy = staffRosterEmailCopy(input.kind, input.weekStart);
   const updatesUrl = appUrl() + "/calendar-types/staff-rosters/updates";
   const from = process.env.EMAIL_FROM!;
 
@@ -124,7 +124,7 @@ export async function sendStaffRosterEmails(input: {
           subject: copy.subject,
           text:
             copy.heading +
-            "\\n\\n" +
+            "\n\n" +
             copy.body +
             "\\n\\nOpen Covie: " +
             updatesUrl +
