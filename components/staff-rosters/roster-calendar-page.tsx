@@ -37,6 +37,17 @@ import {
   type ReactNode,
 } from "react";
 import {
+  DEFAULT_DROP_SHIFT_MINUTES,
+  ROSTER_SNAP_MINUTES as SNAP_MINUTES,
+  memberDropRange,
+  movedShiftRange,
+  resizedShiftRange,
+  rosterMinutesFromTime as minutesFromTime,
+  rosterShiftDuration as shiftDuration,
+  rosterTimeFromMinutes as timeFromMinutes,
+  snapRosterMinutes as snapMinutes,
+} from "@/lib/staff-rosters/roster-interactions";
+import {
   CovieButton,
   CovieConfirmDialog,
   CovieDialog,
@@ -60,6 +71,7 @@ type Member = {
   roleNames: string[];
   defaultRoleId: string | null;
   defaultLocationId: string | null;
+  recentShiftDurationMinutes: number | null;
 };
 
 type Option = { id: string; name: string };
@@ -137,8 +149,6 @@ type PositionedShift = {
   laneCount: number;
 };
 
-const SNAP_MINUTES = 15;
-const DROP_SHIFT_MINUTES = 60;
 const DAY_START_MINUTE = 0;
 const DAY_END_MINUTE = 24 * 60;
 const MIN_HOUR_HEIGHT = 18;
@@ -202,18 +212,6 @@ function monthLabel(date: string) {
   }).format(new Date(date + "T00:00:00Z"));
 }
 
-function minutesFromTime(value: string) {
-  const [hours, minutes] = value.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-function timeFromMinutes(value: number) {
-  const safe = Math.max(0, Math.min(23 * 60 + 45, value));
-  const hours = Math.floor(safe / 60);
-  const minutes = safe % 60;
-  return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0");
-}
-
 function compactTime(value: string) {
   const [hoursValue, minutesValue] = value.split(":").map(Number);
   const suffix = hoursValue >= 12 ? "pm" : "am";
@@ -232,14 +230,6 @@ const operationalHourOptions = Array.from(
   { length: DAY_END_MINUTE / 30 + 1 },
   (_, index) => index * 30,
 );
-
-function snapMinutes(value: number) {
-  return Math.round(value / SNAP_MINUTES) * SNAP_MINUTES;
-}
-
-function shiftDuration(shift: Pick<Shift, "startTime" | "endTime">) {
-  return Math.max(0, minutesFromTime(shift.endTime) - minutesFromTime(shift.startTime));
-}
 
 function leaveAppliesToDay(leave: RosterLeave, day: string) {
   return leave.startDate <= day && leave.endDate >= day;
@@ -378,7 +368,8 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
   >(null);
   const [dropPreview, setDropPreview] = useState<{
     date: string;
-    minute: number;
+    startMinute: number;
+    endMinute: number;
   } | null>(null);
   const [weekBoardHeight, setWeekBoardHeight] = useState(540);
   const weekBoardRef = useRef<HTMLDivElement>(null);
@@ -1103,6 +1094,35 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     );
   }
 
+  function dragRange(
+    payload:
+      | { kind: "member"; memberId: string }
+      | { kind: "shift"; shiftId: string },
+    dropMinute: number,
+  ) {
+    if (!data) return null;
+
+    if (payload.kind === "member") {
+      const member = data.members.find((item) => item.id === payload.memberId);
+      if (!member) return null;
+      return memberDropRange({
+        dropMinute,
+        visibleStartMinute,
+        visibleEndMinute,
+        recentDurationMinutes: member.recentShiftDurationMinutes,
+      });
+    }
+
+    const shift = data.shifts.find((item) => item.id === payload.shiftId);
+    if (!shift) return null;
+    return movedShiftRange({
+      dropMinute,
+      durationMinutes: shiftDuration(shift),
+      visibleStartMinute,
+      visibleEndMinute,
+    });
+  }
+
   function handleTimelineDragOver(
     event: DragEvent<HTMLDivElement>,
     date: string,
@@ -1114,11 +1134,14 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     event.dataTransfer.dropEffect =
       activeDrag.kind === "member" ? "copy" : "move";
 
-    const minute = minuteAtTimelinePointer(event);
+    const range = dragRange(activeDrag, minuteAtTimelinePointer(event));
+    if (!range) return;
     setDropPreview((current) =>
-      current?.date === date && current.minute === minute
+      current?.date === date &&
+      current.startMinute === range.startMinute &&
+      current.endMinute === range.endMinute
         ? current
-        : { date, minute },
+        : { date, ...range },
     );
   }
 
@@ -1149,26 +1172,16 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
       return;
     }
 
-    const startMinute = minuteAtTimelinePointer(event);
+    const range = dragRange(payload, minuteAtTimelinePointer(event));
     clearDragState();
+    if (!range) return;
 
     if (payload.kind === "member") {
-      const latestEnd = Math.min(
-        visibleEndMinute,
-        23 * 60 + 45,
-      );
-      const endMinute = Math.min(
-        latestEnd,
-        startMinute + DROP_SHIFT_MINUTES,
-      );
-
-      if (endMinute <= startMinute) return;
-
       void createShiftFromDrop(
         payload.memberId,
         date,
-        timeFromMinutes(startMinute),
-        timeFromMinutes(endMinute),
+        timeFromMinutes(range.startMinute),
+        timeFromMinutes(range.endMinute),
       );
       return;
     }
@@ -1176,22 +1189,11 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     const shift = data.shifts.find((item) => item.id === payload.shiftId);
     if (!shift) return;
 
-    const duration = shiftDuration(shift);
-    const latestEnd = Math.min(
-      visibleEndMinute,
-      23 * 60 + 45,
-    );
-    const latestStart = Math.max(
-      visibleStartMinute,
-      latestEnd - duration,
-    );
-    const adjustedStart = Math.min(startMinute, latestStart);
-
     void moveShift(
       shift,
       date,
-      timeFromMinutes(adjustedStart),
-      timeFromMinutes(adjustedStart + duration),
+      timeFromMinutes(range.startMinute),
+      timeFromMinutes(range.endMinute),
     );
   }
 
@@ -1214,23 +1216,16 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     target.setPointerCapture(pointerId);
 
     const onMove = (moveEvent: PointerEvent) => {
-      const deltaMinutes = snapMinutes(
-        (moveEvent.clientY - originY) * (60 / hourHeight),
-      );
-
-      if (edge === "start") {
-        finalStart = Math.max(
-          visibleStartMinute,
-          Math.min(originEnd - SNAP_MINUTES, originStart + deltaMinutes),
-        );
-        finalEnd = originEnd;
-      } else {
-        finalStart = originStart;
-        finalEnd = Math.min(
-          Math.min(visibleEndMinute, 23 * 60 + 45),
-          Math.max(originStart + SNAP_MINUTES, originEnd + deltaMinutes),
-        );
-      }
+      const range = resizedShiftRange({
+        originStartMinute: originStart,
+        originEndMinute: originEnd,
+        deltaMinutes: (moveEvent.clientY - originY) * (60 / hourHeight),
+        edge,
+        visibleStartMinute,
+        visibleEndMinute,
+      });
+      finalStart = range.startMinute;
+      finalEnd = range.endMinute;
 
       setResizePreview({
         shiftId: shift.id,
@@ -1874,17 +1869,24 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
 
                             {dropPreview?.date === day ? (
                               <div
-                                className="pointer-events-none absolute inset-x-0 z-30 border-t-2 border-[#19A897]"
+                                className="pointer-events-none absolute inset-x-1 z-30 rounded-lg border-2 border-[#19A897] bg-[#EAF8F5]/80"
                                 style={{
                                   top:
-                                    ((dropPreview.minute -
+                                    ((dropPreview.startMinute -
                                       visibleStartMinute) /
                                       60) *
                                     hourHeight,
+                                  height: Math.max(
+                                    28,
+                                    ((dropPreview.endMinute -
+                                      dropPreview.startMinute) /
+                                      60) *
+                                      hourHeight,
+                                  ),
                                 }}
                               >
-                                <span className="absolute left-1 top-0 -translate-y-1/2 rounded-md bg-[#19A897] px-1.5 py-0.5 text-[10px] font-extrabold text-[#243139] shadow-sm">
-                                  {compactMinuteLabel(dropPreview.minute)}
+                                <span className="absolute left-1 top-1 rounded-md bg-[#19A897] px-1.5 py-0.5 text-[10px] font-extrabold text-[#243139] shadow-sm">
+                                  {compactMinuteLabel(dropPreview.startMinute)}–{compactMinuteLabel(dropPreview.endMinute)}
                                 </span>
                               </div>
                             ) : null}
