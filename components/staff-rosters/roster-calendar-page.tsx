@@ -51,6 +51,10 @@ import {
   rosterDaySummary,
 } from "@/lib/staff-rosters/roster-intelligence";
 import {
+  rosterPublicationFeedback,
+  type StaffRosterEmailDelivery,
+} from "@/lib/staff-rosters/publication-feedback";
+import {
   CovieButton,
   CovieConfirmDialog,
   CovieDialog,
@@ -364,7 +368,10 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
     tone: "teal" | "sunshine";
     text: string;
   } | null>(null);
-  const [publicationNotice, setPublicationNotice] = useState<string | null>(null);
+  const [publicationNotice, setPublicationNotice] = useState<{
+    tone: "teal" | "sunshine";
+    text: string;
+  } | null>(null);
   const [sendUpdatesConfirmOpen, setSendUpdatesConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Shift | null>(null);
   const [resizePreview, setResizePreview] = useState<{
@@ -906,7 +913,13 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
         body: JSON.stringify({ weekStart }),
       });
       const body = (await response.json().catch(() => null)) as
-        | { action?: "publish" | "send_updates"; revision?: number; error?: string }
+        | {
+            action?: "publish" | "send_updates";
+            revision?: number;
+            affectedMemberCount?: number;
+            emailDelivery?: StaffRosterEmailDelivery;
+            error?: string;
+          }
         | null;
 
       if (!response.ok) {
@@ -918,11 +931,25 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
         );
       }
 
-      setPublicationNotice(
-        isInitialPublish
-          ? "Roster published. Staff can now see this week."
-          : "Roster updates published for affected staff.",
-      );
+      const action = body?.action ?? (isInitialPublish ? "publish" : "send_updates");
+      const feedback = rosterPublicationFeedback({
+        action,
+        affectedMemberCount:
+          body?.affectedMemberCount ??
+          (isInitialPublish
+            ? new Set(data.shifts.map((shift) => shift.memberId)).size
+            : data.publication.affectedMemberCount),
+        emailDelivery:
+          body?.emailDelivery ?? {
+            configured: false,
+            attempted: 0,
+            sent: 0,
+            failed: 0,
+            skippedUnlinked: 0,
+            lookupFailed: true,
+          },
+      });
+      setPublicationNotice(feedback);
       await refresh(anchorDate, view);
     } catch (caught) {
       setError(
@@ -1567,8 +1594,8 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
           ) : null}
 
           {publicationNotice ? (
-            <CovieNotice tone="teal" className="mb-4">
-              {publicationNotice}
+            <CovieNotice tone={publicationNotice.tone} className="mb-4">
+              {publicationNotice.text}
             </CovieNotice>
           ) : null}
 
