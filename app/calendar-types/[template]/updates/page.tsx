@@ -18,7 +18,7 @@ export async function generateMetadata({
   }
 
   return {
-    title: `Updates · ${getCalendarTemplateBySlug(template).name}`,
+    title: `${template === "staff-rosters" ? "Approvals" : "Updates"} · ${getCalendarTemplateBySlug(template).name}`,
   };
 }
 

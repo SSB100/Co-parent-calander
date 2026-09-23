@@ -140,7 +140,7 @@ export const calendarTemplateManifests: Record<
       },
       {
         key: "roles-locations",
-        label: "Departments/Locations",
+        label: "Locations",
         description: "Manage the places where staff can be rostered.",
         icon: "grid",
       },

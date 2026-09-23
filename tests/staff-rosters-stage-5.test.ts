@@ -191,7 +191,7 @@ test("Stage 5 Organiser stays small and production UI contains no mock Staff", a
   for (const label of [
     "Team",
     "Leave",
-    "Departments/Locations",
+    "Locations",
     "Time & attendance",
   ]) {
     assert.match(staffSection, new RegExp(label));
