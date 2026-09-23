@@ -52,7 +52,9 @@ test("calendar UI keeps split colours but exposes direct custody states instead 
   assert.match(shell, /parentTileName\(fullDayOwner\)/);
   assert.match(shell, /parentTileName\(assignment\.morning\)/);
   assert.match(shell, /parentTileName\(assignment\.afternoon\)/);
-  assert.match(shell, /title: "Handover"/);
+  assert.doesNotMatch(shell, /title: "Handover"/);
+  assert.match(panel, /Handover time/);
+  assert.match(panel, /Handover location/);
 
   assert.match(panel, /Full day you/);
   assert.match(panel, /them_full/);
@@ -61,14 +63,14 @@ test("calendar UI keeps split colours but exposes direct custody states instead 
   assert.doesNotMatch(panel, /Which part of the day\?/);
 });
 
-test("split half-days count as handovers in the API and calendar day events", async () => {
+test("split half-days count as handovers in the API while day tiles show custody without synthetic events", async () => {
   const loader = await source("lib/calendar/load-calendar.ts");
   const shell = await source("components/calendar/calendar-shell.tsx");
 
   assert.match(loader, /ne\(parentingAssignments\.parentId, parentingAssignments\.afternoonParentId\)/);
   assert.match(loader, /inferredSplitHandoverTime/);
-  assert.match(shell, /assignment\.morningParentId !== assignment\.afternoonParentId/);
-  assert.match(shell, /const splitDay = Boolean/);
-  assert.match(shell, /title: "Handover"/);
+  assert.match(shell, /assignment\?\.morning !== assignment\?\.afternoon/);
+  assert.match(shell, /const tileEvents = dayEvents/);
+  assert.doesNotMatch(shell, /title: "Handover"/);
   assert.doesNotMatch(shell, /Next handover:/);
 });

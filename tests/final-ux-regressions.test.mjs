@@ -10,9 +10,10 @@ async function source(file) {
 }
 
 test("public landing is concise, product-led and uses recognizable Covie previews", async () => {
-  const [home, previews] = await Promise.all([
+  const [home, previews, publicChrome] = await Promise.all([
     source("app/page.tsx"),
     source("components/marketing/product-previews.tsx"),
+    source("components/marketing/public-chrome.tsx"),
   ]);
 
   assert.match(home, /Life between two homes, made simpler/);
@@ -24,8 +25,9 @@ test("public landing is concise, product-led and uses recognizable Covie preview
   assert.match(home, /Expenses/);
   assert.match(home, /Responsibilities/);
   assert.match(home, /Agreements/);
-  assert.match(home, /Create an account/);
-  assert.match(home, /Log in/);
+  assert.match(home, /<PublicHeader \/>/);
+  assert.match(publicChrome, /href="\/auth\/sign-up"[\s\S]*Create an account/);
+  assert.match(publicChrome, /href="\/auth\/sign-in"[\s\S]*Log in/);
   assert.match(previews, /Alex/);
   assert.match(previews, /Sam/);
   assert.match(previews, /School show/);
@@ -129,16 +131,18 @@ test("multi-calendar controls remain bounded and accessible on smaller screens",
   assert.match(switcher, /aria-current=\{active \? "page"/);
 });
 
-test("PWA install affordance stays inside the authenticated Calendar workspace", async () => {
-  const [calendarPage, shell, install] = await Promise.all([
+test("PWA install affordance stays inside the authenticated workspace", async () => {
+  const [calendarPage, shell, nav, install] = await Promise.all([
     source("app/calendar/page.tsx"),
     source("components/calendar/calendar-shell.tsx"),
+    source("components/workspace/workspace-nav.tsx"),
     source("components/pwa/install-app.tsx"),
   ]);
 
   assert.doesNotMatch(calendarPage, /InstallApp/);
-  assert.match(shell, /import \{ InstallApp \}/);
-  assert.match(shell, /<InstallApp \/>/);
+  assert.match(shell, /WorkspaceNav/);
+  assert.match(nav, /import \{ InstallApp \}/);
+  assert.match(nav, /<InstallApp \/>/);
   assert.match(install, /Add Covie to your phone/);
   assert.match(install, /sm:hidden/);
   assert.match(install, /fixed bottom-/);
@@ -213,8 +217,9 @@ test("first invite panel remains usable on narrow screens", async () => {
 
 
 test("workspace rail prioritises organiser context and caps Your Events at three", async () => {
-  const [route, coming, shell, nav, styles] = await Promise.all([
+  const [route, loader, coming, shell, nav, styles] = await Promise.all([
     source("app/api/coming-up/route.ts"),
+    source("lib/workspace/load-summary.ts"),
     source("components/workspace/coming-up.tsx"),
     source("components/calendar/calendar-shell.tsx"),
     source("components/workspace/workspace-nav.tsx"),
@@ -222,14 +227,16 @@ test("workspace rail prioritises organiser context and caps Your Events at three
   ]);
 
   assert.match(coming, /Organiser/);
-  assert.match(coming, /Responsibilities/);
-  assert.match(coming, /Expenses/);
+  assert.match(coming, /Needs attention/);
+  assert.match(coming, /data\.organiser\.responsibilities\.map/);
+  assert.match(coming, /data\.organiser\.expenses\.map/);
   assert.match(coming, /Your Events/);
   assert.match(coming, /workspace-event-card/);
-  assert.match(route, /items: allEventItems\.slice\(0, 3\)/);
-  assert.match(route, /responsibilityTotal/);
-  assert.match(route, /expenseTotal/);
-  assert.match(route, /loadEffectiveAssignmentMap/);
+  assert.match(route, /loadComingUpContext\(session\)/);
+  assert.match(loader, /items: allEventItems\.slice\(0, 3\)/);
+  assert.match(loader, /responsibilityTotal/);
+  assert.match(loader, /expenseTotal/);
+  assert.match(loader, /loadEffectiveAssignmentMap/);
   assert.match(nav, /workspace-destinations[\s\S]*desktop-coming-up[\s\S]*ComingUp/);
   assert.match(styles, /width: 252px/);
   assert.match(shell, /max-w-none/);
@@ -277,13 +284,17 @@ test("day details put events before custody and delete events immediately", asyn
 });
 
 test("Updates navigation shows an actionable approval notification count on desktop and mobile", async () => {
-  const [route, nav, styles] = await Promise.all([
+  const [route, loader, nav, styles] = await Promise.all([
     source("app/api/notifications/route.ts"),
+    source("lib/workspace/load-summary.ts"),
     source("components/workspace/workspace-nav.tsx"),
     source("app/globals.css"),
   ]);
 
-  assert.match(route, /approverMembershipId === session\.membershipId/);
+  assert.match(route, /loadNotificationCount\(session\)/);
+  assert.match(loader, /eq\(approvalProposals\.approverMembershipId, session\.membershipId\)/);
+  assert.match(loader, /eq\(approvalProposals\.status, "waiting"\)/);
+  assert.match(nav, /\/api\/workspace-summary\?context=/);
   assert.match(nav, /notificationCount/);
   assert.match(nav, /workspace-notification-badge/);
   assert.match(styles, /workspace-notification-badge/);
@@ -397,10 +408,14 @@ test("calendar modal save controls stay outside the scrolling dialog body", asyn
     [events, "Create event"],
     [settings, "Save settings"],
   ]) {
-    const bodyEnd = text.lastIndexOf("</div>\n\n            <footer");
+    const bodyStart = text.indexOf('className="covie-dialog-body');
+    const footerStart = text.lastIndexOf('<footer className="covie-dialog-footer');
+    const bodyEnd = text.lastIndexOf("</div>", footerStart);
     const footerAction = text.lastIndexOf(action);
-    assert.ok(bodyEnd >= 0);
-    assert.ok(footerAction > bodyEnd);
+    assert.ok(bodyStart >= 0);
+    assert.ok(bodyEnd > bodyStart);
+    assert.ok(footerStart > bodyEnd);
+    assert.ok(footerAction > footerStart);
   }
 });
 
@@ -549,12 +564,11 @@ test("Calendar mobile header omits editor and repeating-schedule tags", async ()
 });
 
 test("workspace dropdowns dismiss when users click elsewhere or press Escape", async () => {
-  const [hook, switcher, nav, shell, coming] = await Promise.all([
+  const [hook, switcher, nav, shell] = await Promise.all([
     source("lib/client/use-details-dismiss.ts"),
     source("components/calendars/calendar-switcher.tsx"),
     source("components/workspace/workspace-nav.tsx"),
     source("components/calendar/calendar-shell.tsx"),
-    source("components/workspace/coming-up.tsx"),
   ]);
 
   assert.match(hook, /pointerdown/);
@@ -564,7 +578,9 @@ test("workspace dropdowns dismiss when users click elsewhere or press Escape", a
   assert.match(nav, /useDismissibleDetails\(accountRef\)/);
   assert.match(shell, /useDismissibleDetails\(toolsMenuRef\)/);
   assert.match(shell, /useDismissibleDetails\(settingsMenuRef\)/);
-  assert.match(coming, /mobileOnly: true/);
+  assert.match(nav, /<ComingUp[\s\S]*variant="menu"/);
+  assert.match(nav, /document\.addEventListener\("pointerdown", handlePointerDown\)/);
+  assert.match(nav, /event\.key === "Escape"/);
   assert.match(switcher, /name="calendar-management"/);
 });
 

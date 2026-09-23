@@ -8,12 +8,12 @@ This document is the re-baselined source for the Staff Rosters staged programme.
 
 - Repository: `SSB100/Co-parent-calander`
 - Production branch: `main`
-- Re-baselined Production SHA: `bf18c6da1ae0d360add9e45eef85cfc0caeb38d5`
+- Stage 10 starting Production SHA: `376dc73f4fada8e1106861661e5bc8e10d0519fa` (Stage 9, PR #125)
 - Vercel project: `co-parent-calander`
 - Vercel project ID: `prj_UNfHcQuLfhydY92COjd8OV2ZoGGv`
 - Vercel team: `team_vWDwkGoSk1NIOdKApGuukv0C`
 - Production region: `syd1`
-- Production deployment at re-baseline: `dpl_BjT49FfN22rRJscQsBcUr68TsfnQ`
+- Stage 10 starting Production deployment: `dpl_FqEH81TQGSWncCHUyoWcHmHV69mK`
 - Production alias: `co-parent-calander.vercel.app`
 
 The Production Vercel deployment is READY and references the same SHA as `main`.
@@ -25,9 +25,9 @@ The Production Vercel deployment is READY and references the same SHA as `main`.
 - Production branch: `main`
 - Production branch ID: `br-quiet-sea-a7duq4r3`
 - Region: `aws-ap-southeast-2`
-- Current migration: `0030`
+- Current migration: `0031` (already approved/applied; do not replay)
 
-The live migration ledger records `0000` through `0030`.
+The live migration ledger records `0000` through `0031`. Stage 10 is migration-free.
 
 At re-baseline, Production contained:
 
@@ -40,6 +40,7 @@ At re-baseline, Production contained:
 - 0 published roster weeks
 - 0 published-shift snapshots
 - 0 clock sessions
+- 0 break sessions
 - 0 leave requests
 - 0 Staff invitations
 
@@ -78,8 +79,10 @@ Production currently includes:
 - Staff account invitations that link to existing team profiles
 - separate Staff My Roster workspace
 - clock in / clock out
+- own-session Start break / End break, one active break, explicit End break before clock-out
 - unrostered clock confirmation
 - Staff and Manager timesheets
+- deterministic elapsed, break and worked durations; Manager break information is read-only
 - Staff correction requests
 - Manager correction review/direct correction
 - Staff leave requests and Manager review

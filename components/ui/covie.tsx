@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { DialogFocusScope } from "@/components/ui/dialog-focus-scope";
 import type {
   ButtonHTMLAttributes,
   HTMLAttributes,
@@ -400,6 +401,7 @@ export function CovieDialog({
   dismissOnBackdrop?: boolean;
 }) {
   return (
+    <DialogFocusScope enabled={!dialogRef}>
     <div
       className="covie-dialog-backdrop"
       onMouseDown={(event) => {
@@ -417,7 +419,7 @@ export function CovieDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={id}
-        aria-describedby={describedBy}
+        aria-describedby={describedBy ?? (description ? `${id}-description` : undefined)}
         aria-busy={busy || undefined}
         tabIndex={-1}
         onKeyDown={(event) => {
@@ -442,7 +444,7 @@ export function CovieDialog({
                 {title}
               </h2>
               {description ? (
-                <div className="covie-dialog-description">{description}</div>
+                <div id={`${id}-description`} className="covie-dialog-description">{description}</div>
               ) : null}
             </div>
           </div>
@@ -467,6 +469,7 @@ export function CovieDialog({
         {footer ? <footer className="covie-dialog-footer">{footer}</footer> : null}
       </section>
     </div>
+    </DialogFocusScope>
   );
 }
 

@@ -236,7 +236,7 @@ function TileEventStack({ events }: { events: TileEvent[] }) {
       {visibleEvents.map((event, index) => (
         <div
           key={`${event.category}-${event.title}-${index}`}
-          className={`flex h-[18px] min-w-0 items-center gap-1 overflow-hidden px-1 text-[9px] font-bold sm:h-6 sm:px-2 sm:text-[11px] ${eventCategoryBarClass(event.category ?? "other")}`}
+          className={`flex h-[18px] min-w-0 items-center gap-1 overflow-hidden px-1 text-[11px] font-bold sm:h-6 sm:px-2 sm:text-[11px] ${eventCategoryBarClass(event.category ?? "other")}`}
         >
           <span className="hidden shrink-0 sm:inline-flex" aria-hidden="true">
             {eventIcon(event.category ?? "other")}
@@ -412,15 +412,15 @@ function SwipeMonthPreview({
 
             {assignment ? (
               fullDayOwner ? (
-                <div className="absolute inset-x-1 top-8 z-10 truncate text-center text-[10px] font-bold leading-none text-slate-800 sm:text-[11px]">
+                <div className="absolute inset-x-1 top-8 z-10 truncate text-center text-[11px] font-bold leading-none text-slate-800 sm:text-[11px]">
                   {previewOwnerName(participants, fullDayOwner)}
                 </div>
               ) : (
                 <>
-                  <div className="absolute left-0 top-8 z-10 w-1/2 truncate px-0.5 text-center text-[10px] font-bold leading-none text-slate-800 sm:text-[11px]">
+                  <div className="absolute left-0 top-8 z-10 w-1/2 truncate px-0.5 text-center text-[11px] font-bold leading-none text-slate-800 sm:text-[11px]">
                     {previewOwnerName(participants, assignment.morning)}
                   </div>
-                  <div className="absolute right-0 top-8 z-10 w-1/2 truncate px-0.5 text-center text-[10px] font-bold leading-none text-slate-800 sm:text-[11px]">
+                  <div className="absolute right-0 top-8 z-10 w-1/2 truncate px-0.5 text-center text-[11px] font-bold leading-none text-slate-800 sm:text-[11px]">
                     {previewOwnerName(participants, assignment.afternoon)}
                   </div>
                 </>
@@ -1241,15 +1241,15 @@ export function CalendarShell({
 
                   {assignment ? (
                     fullDayOwner ? (
-                      <div className="pointer-events-none absolute inset-x-1 top-8 z-10 truncate text-center text-[10px] font-bold leading-none text-slate-800 sm:text-[11px]" title={parentTileName(fullDayOwner)}>
+                      <div className="pointer-events-none absolute inset-x-1 top-8 z-10 truncate text-center text-[11px] font-bold leading-none text-slate-800 sm:text-[11px]" title={parentTileName(fullDayOwner)}>
                         {parentTileName(fullDayOwner)}
                       </div>
                     ) : (
                       <>
-                        <div className="pointer-events-none absolute left-0 top-8 z-10 w-1/2 truncate px-0.5 text-center text-[10px] font-bold leading-none text-slate-800 sm:text-[11px]" title={parentTileName(assignment.morning)}>
+                        <div className="pointer-events-none absolute left-0 top-8 z-10 w-1/2 truncate px-0.5 text-center text-[11px] font-bold leading-none text-slate-800 sm:text-[11px]" title={parentTileName(assignment.morning)}>
                           {parentTileName(assignment.morning)}
                         </div>
-                        <div className="pointer-events-none absolute right-0 top-8 z-10 w-1/2 truncate px-0.5 text-center text-[10px] font-bold leading-none text-slate-800 sm:text-[11px]" title={parentTileName(assignment.afternoon)}>
+                        <div className="pointer-events-none absolute right-0 top-8 z-10 w-1/2 truncate px-0.5 text-center text-[11px] font-bold leading-none text-slate-800 sm:text-[11px]" title={parentTileName(assignment.afternoon)}>
                           {parentTileName(assignment.afternoon)}
                         </div>
                       </>

@@ -81,7 +81,8 @@ test("Manager calendar integrates availability into Week Month and mobile views"
   assert.match(roster, /filteredMemberIds/);
   assert.match(roster, /dayAvailability/);
   assert.match(roster, /selectedMobileAvailability/);
-  assert.match(roster, /unavailable\.memberName \+ " unavailable"/);
+  assert.match(roster, /title=\{\s*unavailable\.memberName \+\s*" unavailable"/);
+  assert.match(roster, /\{unavailable\.memberName\} unavailable/);
   assert.match(roster, /bg-\[#FFF8D8\]/);
   assert.match(roster, /monthShiftVisibility/);
   assert.match(roster, /rosterDaySummary/);
