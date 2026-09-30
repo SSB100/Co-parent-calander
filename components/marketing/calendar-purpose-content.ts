@@ -67,8 +67,7 @@ export const calendarPurposes: readonly CalendarPurpose[] = [
     question: "What are we doing, and who is coming?",
     description:
       "Give the next get-together a place to take shape. Keep events, meeting details and group plans easy for everyone to find.",
-    availabilityNote: "Event and RSVP tools are being added to Social Groups.",
-    uses: ["Meet-ups and group activities", "Event details and RSVP planning", "A shared calendar for the group"],
+    uses: ["Meet-ups and group activities", "Event details and RSVPs", "A shared calendar for the group"],
     primary: "#FF6B5F",
     secondary: "#765ED6",
     primaryText: "#243139",
