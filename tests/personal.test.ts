@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { canonicalPersonalItems, itemInPersonalMonth, normalisePersonalItem, personalCareItems, personalTimezone, personalWindow, type CareProjection } from "../lib/personal/model";
 import { personalQueries, personalSourcesSql } from "../lib/personal/queries";
 import { loadPersonalData, PersonalAccessError, type PersonalQuery } from "../lib/personal/service";
-import { safeSourceDate, sourceDestination } from "../lib/personal/source-navigation";
+import { safeSourceDate, safeSourceRecord, sourceDestination } from "../lib/personal/source-navigation";
 import type { PersonalItem } from "../lib/personal/contracts";
 
 const calendarId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -112,6 +112,8 @@ test("source destinations use an allowlist, real dates and safe records", () => 
   assert.equal(sourceDestination("shared_facilities", "expenses", sourceId, "2026-10-01"), null);
   assert.equal(sourceDestination("co_parenting", "https://evil.test", sourceId, "2026-10-01"), null);
   assert.equal(safeSourceDate("2026-02-30"), "");
+  assert.equal(safeSourceRecord(sourceId), sourceId);
+  assert.equal(safeSourceRecord("//evil"), "");
   assert.equal(sourceDestination("social_groups", "calendar", "//evil", "junk"), "/calendar-types/social-groups");
   assert.equal(sourceDestination("shared_facilities", "calendar", sourceId, "2026-10-01"), `/calendar-types/shared-facilities?date=2026-10-01&record=${sourceId}#record-${sourceId}`);
 });

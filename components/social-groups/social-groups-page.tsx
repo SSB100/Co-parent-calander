@@ -10,15 +10,14 @@ import { SocialMonthCalendar } from "./social-month-calendar";
 import { SocialAvailabilityForm, SocialSettingsForm } from "./social-organiser-forms";
 import { canOrganiseSocial, shiftSocialMonth, socialDateLabel, socialEventsByDay, socialMonthDays, socialResponses, socialTimestamp } from "./social-ui";
 import { useSocialGroups } from "./use-social-groups";
-import { initialSourceDate, initialSourceRecord } from "@/lib/client/calendar-source";
 import styles from "./social-groups.module.css";
 
-export function SocialGroupsPage({ calendarId, section, tool }: { calendarId: string; section: "calendar" | "updates" | "organiser"; tool?: string }) {
-  const [month, setMonth] = useState(() => initialSourceDate().slice(0, 7));
-  const [selectedDate, setSelectedDate] = useState(initialSourceDate);
+export function SocialGroupsPage({ calendarId, section, tool, initialDate = "", initialRecord = "" }: { calendarId: string; section: "calendar" | "updates" | "organiser"; tool?: string; initialDate?: string; initialRecord?: string }) {
+  const [month, setMonth] = useState(initialDate.slice(0, 7));
+  const [selectedDate, setSelectedDate] = useState(initialDate);
   const [showCancelled, setShowCancelled] = useState(false);
   const [editor, setEditor] = useState<{ event?: SocialEvent } | null>(null);
-  const [detailId, setDetailId] = useState<string | null>(initialSourceRecord);
+  const [detailId, setDetailId] = useState<string | null>(initialRecord || null);
   const [cancelTarget, setCancelTarget] = useState<SocialEvent | null>(null);
   const enabled = !(section === "organiser" && tool === "members");
   const { data, loading, loadError, error, notice, busy, mutationLock, refresh, save, clearMessages } = useSocialGroups(calendarId, month, enabled);
@@ -47,6 +46,7 @@ export function SocialGroupsPage({ calendarId, section, tool }: { calendarId: st
   </div>;
 
   return <div className={styles.stack} aria-busy={loading || busy}>
+    {initialRecord && !loading && !loadError && !data.events.some(event => event.id === initialRecord) ? <CovieNotice>This event is no longer available in the selected month. Refresh your Personal overview for the latest items.</CovieNotice> : null}
     {loadError ? <CovieNotice tone="danger">{loadError}<div className={styles.actions}><CovieButton tone="neutral" disabled={loading} onClick={() => void refresh()}>Try again</CovieButton><CovieButton tone="neutral" disabled={busy || loading} onClick={() => window.location.reload()}>Reload page</CovieButton></div></CovieNotice> : null}
     {error && !editor && !detail && !cancelTarget && section !== "organiser" ? <CovieNotice tone="danger">{error}<div className={styles.actions}><CovieButton tone="neutral" disabled={busy || loading} onClick={() => { clearMessages(); void refresh(); }}>Reload calendar</CovieButton></div></CovieNotice> : null}
     {notice && !detail ? <CovieNotice tone="teal">{notice}</CovieNotice> : null}
