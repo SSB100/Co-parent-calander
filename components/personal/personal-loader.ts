@@ -14,7 +14,7 @@ export class PersonalLoader {
   private sequence = 0;
   private controller: AbortController | null = null;
 
-  constructor(private readonly request: PersonalFetch = fetch) {}
+  constructor(private readonly request: PersonalFetch = (input, init) => fetch(input, init)) {}
 
   cancel() {
     this.sequence += 1;
