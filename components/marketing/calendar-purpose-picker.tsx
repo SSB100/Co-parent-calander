@@ -3,13 +3,18 @@
 import { Building2, CalendarDays, Check, Clock3, UsersRound } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 import { CovieMark } from "@/components/workspace/covie-brand";
-import { calendarPurposes } from "./calendar-purpose-content";
+import { calendarPurposes, type CalendarPurpose } from "./calendar-purpose-content";
 import styles from "./ecosystem-home.module.css";
 
-const purposeIcons = [CalendarDays, Clock3, Building2, UsersRound];
+const purposeIcons = {
+  staff_rosters: Clock3,
+  shared_facilities: Building2,
+  social_groups: UsersRound,
+  co_parenting: CalendarDays,
+} satisfies Record<CalendarPurpose["id"], typeof CalendarDays>;
 
 export function CalendarPurposePicker() {
-  const [selectedId, setSelectedId] = useState(calendarPurposes[0].id);
+  const [selectedId, setSelectedId] = useState<CalendarPurpose["id"]>("staff_rosters");
   const selected = calendarPurposes.find((purpose) => purpose.id === selectedId) ?? calendarPurposes[0];
   const colors = {
     "--purpose-primary": selected.primary,
@@ -20,8 +25,8 @@ export function CalendarPurposePicker() {
   return (
     <div className={styles.picker}>
       <div className={styles.purposeChoices} role="group" aria-label="Explore calendar types">
-        {calendarPurposes.map((purpose, index) => {
-          const Icon = purposeIcons[index];
+        {calendarPurposes.map((purpose) => {
+          const Icon = purposeIcons[purpose.id];
           return (
             <button
               key={purpose.id}

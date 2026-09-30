@@ -25,7 +25,7 @@ test("public landing explains the shared ecosystem and preserves authentication 
   assert.match(home, /CalendarPurposePicker/);
   assert.match(home, /<PublicHeader \/>/);
   assert.match(home, /<PublicFooter \/>/);
-  for (const name of ["Co-parenting", "Staff Rosters", "Shared Facilities", "Social Groups"]) {
+  for (const name of ["Staff Rosters", "Shared Facilities", "Social Groups", "Co-parenting"]) {
     assert.ok(content.includes(name));
   }
   assert.match(content, /Shared expenses and responsibilities/);

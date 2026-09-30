@@ -73,7 +73,7 @@ export function PublicFooter() {
             <CovieBrand />
           </Link>
           <p className="mt-3 max-w-lg text-sm font-medium leading-6 text-[#617077]">
-            Purpose-built calendars for the plans you share. Co-parenting, Staff Rosters, Shared Facilities and Social Groups, together in Covie.
+            Purpose-built calendars for the plans you share. Staff Rosters, Shared Facilities, Social Groups and Co-parenting, together in Covie.
           </p>
         </div>
 

@@ -25,24 +25,6 @@ export type CalendarPurpose = {
 
 export const calendarPurposes: readonly CalendarPurpose[] = [
   {
-    id: "co_parenting",
-    name: "Co-parenting",
-    audience: "For life between two homes",
-    question: "Who has the children, and what is the plan?",
-    description:
-      "Give parenting days, family events and everyday details a shared home. Start on your own and invite the other parent when you are ready.",
-    uses: ["Parenting schedules and handovers", "Shared expenses and responsibilities", "Child information and agreements"],
-    primary: "#FF6B5F",
-    secondary: "#19A897",
-    primaryText: "#243139",
-    exampleName: "Our family",
-    exampleEntries: [
-      { day: "Mon", date: "12", title: "With Alex", detail: "School pickup · 3:15 pm", accent: "primary" },
-      { day: "Wed", date: "14", title: "Handover to Sam", detail: "After school · 3:15 pm", accent: "secondary" },
-      { day: "Sat", date: "17", title: "Maya’s birthday", detail: "Family event · 2:00 pm", accent: "primary" },
-    ],
-  },
-  {
     id: "staff_rosters",
     name: "Staff Rosters",
     audience: "For teams and the people on shift",
@@ -95,6 +77,24 @@ export const calendarPurposes: readonly CalendarPurpose[] = [
       { day: "Mon", date: "12", title: "Book club", detail: "Library café · 6:30 pm", accent: "primary" },
       { day: "Wed", date: "14", title: "Evening walk", detail: "Meet by the park · 5:00 pm", accent: "secondary" },
       { day: "Sat", date: "17", title: "Community lunch", detail: "Bring something to share · 12:00 pm", accent: "primary" },
+    ],
+  },
+  {
+    id: "co_parenting",
+    name: "Co-parenting",
+    audience: "For life between two homes",
+    question: "Who has the children, and what is the plan?",
+    description:
+      "Give parenting days, family events and everyday details a shared home. Start on your own and invite the other parent when you are ready.",
+    uses: ["Parenting schedules and handovers", "Shared expenses and responsibilities", "Child information and agreements"],
+    primary: "#FF6B5F",
+    secondary: "#19A897",
+    primaryText: "#243139",
+    exampleName: "Our family",
+    exampleEntries: [
+      { day: "Mon", date: "12", title: "With Alex", detail: "School pickup · 3:15 pm", accent: "primary" },
+      { day: "Wed", date: "14", title: "Handover to Sam", detail: "After school · 3:15 pm", accent: "secondary" },
+      { day: "Sat", date: "17", title: "Maya’s birthday", detail: "Family event · 2:00 pm", accent: "primary" },
     ],
   },
 ];
