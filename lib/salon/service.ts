@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getSql } from "@/lib/db";
+import { reportServerFailure } from "@/lib/server-diagnostics";
 import type { TemplateSession } from "@/lib/calendar-sharing/access";
 import { localDateInTimeZone } from "@/lib/calendar/time";
 import { generateInviteCode, normalizeInviteCode } from "@/lib/security/invites";
@@ -257,7 +258,10 @@ export function salonErrorResponse(error: unknown): { error: string; status: num
   if (error instanceof RangeError) return { error: "Choose a valid date in the business’s timezone.", status: 400 };
   const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
   const constraint = error && typeof error === "object" && "constraint" in error ? error.constraint : undefined;
-  if (code === "42P01" || code === "42883" || code === "22P02") return { error: "Salon bookings are not available yet. Please try again later.", status: 503 };
+  if (code === "42P01" || code === "42883" || code === "22P02") {
+    reportServerFailure("salon", error);
+    return { error: "Salon bookings are not available yet. Please try again later.", status: 503 };
+  }
   if (code === "40001" || code === "40P01" || code === "23505") return { error: "Another change happened at the same time. Reload and try again.", status: 409 };
   if (constraint === "salon_terms") return { error: "The service or booking terms changed. Refresh and review the details before booking again.", status: 409 };
   if (constraint === "salon_idempotency") return { error: "The booking details changed. Reopen the form and review them before booking again.", status: 409 };
@@ -265,5 +269,6 @@ export function salonErrorResponse(error: unknown): { error: string; status: num
     if (typeof constraint === "string" && /access|owner|role/.test(constraint)) return { error: "Your access has changed. Reload the calendar or contact the business.", status: 403 };
     return { error: "This time or appointment is no longer available under the booking rules. Reload and choose another time.", status: 409 };
   }
+  reportServerFailure("salon", error);
   return { error: "We couldn’t complete that Salon request. Please try again.", status: 500 };
 }

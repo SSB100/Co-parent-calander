@@ -5,6 +5,8 @@ import { z } from "zod";
 import { auth } from "@/lib/auth/server";
 import { safeAuthReturnTo } from "@/lib/security/auth-return";
 import { normalizeInviteCode } from "@/lib/security/invites";
+import { signInFailure } from "@/lib/auth/sign-in-error";
+import { reportServerFailure } from "@/lib/server-diagnostics";
 
 export type AuthActionState = { error: string | null };
 
@@ -38,16 +40,17 @@ export async function signInWithEmail(
     return { error: parsed.error.issues[0]?.message ?? "Check your details." };
   }
 
-  const { error: signInError } = await auth.signIn.email(parsed.data);
+  let signInError: unknown;
+  try {
+    ({ error: signInError } = await auth.signIn.email(parsed.data));
+  } catch (error) {
+    reportServerFailure("sign-in", error);
+    return { error: signInFailure(error).message };
+  }
   if (signInError) {
-    const message = signInError.message?.toLocaleLowerCase("en-NZ") ?? "";
-    if (message.includes("verif")) {
-      return {
-        error:
-          "Verify your email using the message we sent you, then sign in.",
-      };
-    }
-    return { error: "The email or password is incorrect." };
+    const failure = signInFailure(signInError);
+    if (failure.category === "service") reportServerFailure("sign-in", signInError);
+    return { error: failure.message };
   }
 
   const invite = normalizeInviteCode(String(formData.get("invite") ?? ""));
