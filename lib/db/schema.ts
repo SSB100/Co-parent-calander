@@ -12,3 +12,5 @@ export * from "@/lib/db/schema/approvals";
 export * from "@/lib/db/schema/audit";
 export * from "@/lib/db/schema/retention";
 export * from "@/lib/db/schema/staff-rosters";
+
+export * from "@/lib/db/schema/shared-facilities";

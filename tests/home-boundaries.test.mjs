@@ -11,7 +11,7 @@ async function source(file) {
 
 test("public Covie chrome exposes branded FAQ contact and legal pages", async () => {
   const [home, chrome, help, terms, privacy, legalShell] = await Promise.all([
-    source("app/page.tsx"),
+    source("components/marketing/ecosystem-home.tsx"),
     source("components/marketing/public-chrome.tsx"),
     source("app/help/page.tsx"),
     source("app/terms/page.tsx"),

@@ -7,6 +7,8 @@ import { z } from "zod";
 import { auth } from "@/lib/auth/server";
 import { DEFAULT_CALENDAR_TIMEZONE } from "@/lib/calendar/time";
 import { getSql } from "@/lib/db";
+import { redeemMemberInvitation } from "@/lib/calendar-sharing/invitations";
+import { usesMemberInvitations } from "@/lib/calendar-sharing/policy";
 import { defaultParentColorKey } from "@/lib/parents/identity";
 import {
   generateInviteCode,
@@ -342,11 +344,17 @@ export async function joinCalendar(
     return { error: "This invitation can’t be used to join the calendar." };
   }
 
+  if (usesMemberInvitations(invite.calendar_type)) {
+    let joinedCalendarId: string | undefined;
+    try { joinedCalendarId = await redeemMemberInvitation(codeHash, user.id); }
+    catch { return { error: "This invitation could not be used. Ask the organiser for a new code." }; }
+    if (!joinedCalendarId) return { error: "This invitation is no longer available. Ask the organiser for a new code." };
+    const cookieStore = await cookies();
+    cookieStore.set(SELECTED_CALENDAR_COOKIE_NAME, joinedCalendarId, calendarCookieOptions());
+    redirect(calendarPathForType(invite.calendar_type));
+  }
   if (invite.calendar_type !== "co_parenting") {
-    return {
-      error:
-        "Invitations for this calendar type are not available yet. Ask the owner to try again after sharing is added.",
-    };
+    return { error: "Ask the roster owner for a Staff Roster invitation." };
   }
 
   let rows: Array<{ calendar_id: string }>;

@@ -239,9 +239,9 @@ test("the public root explains Covie and keeps authenticated workspace data priv
 
   assert.match(chrome, /\/auth\/sign-in/);
   assert.match(home + chrome, /\/auth\/sign-up/);
-  assert.match(home, /Life between two homes, made simpler/);
-  assert.match(home, /Create or join/);
-  assert.match(home, /The same screens you will actually use/);
+  assert.match(home, /EcosystemHome/);
+  assert.match(home, /auth\.getSession/);
+  assert.match(home, /redirect\(calendar \? "\/calendar" : "\/onboarding"\)/);
   assert.doesNotMatch(home, /CalendarShell/);
   assert.doesNotMatch(home, /\/api\/calendar/);
 });

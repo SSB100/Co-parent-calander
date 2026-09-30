@@ -7,12 +7,12 @@ export function PublicHeader() {
       className="border-b-2 border-[#243139] bg-[#FFF9F2]"
       aria-label="Main navigation"
     >
-      <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between gap-3 px-3 sm:px-6 lg:px-8">
         <Link href="/" aria-label="Covie home">
           <CovieBrand />
         </Link>
 
-        <div className="hidden items-center gap-6 md:flex">
+        <div className="hidden items-center gap-5 lg:flex">
           <Link
             href="/#how-it-works"
             className="text-sm font-semibold hover:text-[#D94D43]"
@@ -20,14 +20,14 @@ export function PublicHeader() {
             How it works
           </Link>
           <Link
-            href="/#features"
+            href="/#calendar-types"
             className="text-sm font-semibold hover:text-[#D94D43]"
           >
-            What Covie does
+            Calendar types
           </Link>
           <Link
             href="/help"
-            className="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[#243139] bg-white px-4 text-sm font-semibold transition hover:bg-[#F7EFE5]"
+            className="inline-flex min-h-11 items-center justify-center rounded-[10px] border border-[#243139] bg-white px-4 text-sm font-semibold transition hover:bg-[#F7EFE5]"
           >
             FAQ
           </Link>
@@ -39,22 +39,22 @@ export function PublicHeader() {
           </Link>
           <Link
             href="/auth/sign-up"
-            className="inline-flex min-h-11 items-center justify-center rounded-[10px] bg-[#243139] px-5 text-sm font-semibold text-white transition hover:bg-[#35474F]"
+            className="inline-flex min-h-11 items-center justify-center rounded-[10px] border border-[#243139] bg-[#FF6B5F] px-5 text-sm font-semibold text-[#243139] transition hover:bg-[#F35F54]"
           >
             Create an account
           </Link>
         </div>
 
-        <div className="flex items-center gap-2 md:hidden">
+        <div className="flex items-center gap-2 lg:hidden">
           <Link
             href="/help"
-            className="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[#243139] bg-white px-3 text-sm font-semibold"
+            className="inline-flex min-h-11 items-center justify-center rounded-[10px] border border-[#243139] bg-white px-3 text-sm font-semibold"
           >
             FAQ
           </Link>
           <Link
             href="/auth/sign-in"
-            className="inline-flex min-h-10 items-center justify-center rounded-[10px] bg-[#243139] px-3 text-sm font-semibold text-white"
+            className="inline-flex min-h-11 items-center justify-center rounded-[10px] border border-[#243139] bg-[#FFF9F2] px-3 text-sm font-semibold text-[#243139]"
           >
             Log in
           </Link>
@@ -67,13 +67,13 @@ export function PublicHeader() {
 export function PublicFooter() {
   return (
     <footer className="border-t-2 border-[#243139] bg-[#FFF9F2]">
-      <div className="mx-auto grid max-w-7xl gap-7 px-4 py-8 sm:px-6 md:grid-cols-[1fr_auto] md:items-end lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-7 px-3 py-8 sm:px-6 md:grid-cols-[1fr_auto] md:items-end lg:px-8">
         <div>
           <Link href="/" aria-label="Covie home">
             <CovieBrand />
           </Link>
           <p className="mt-3 max-w-lg text-sm font-medium leading-6 text-[#617077]">
-            A bright, simple shared organiser for co-parenting.
+            Purpose-built calendars for the plans you share. Staff Rosters, Shared Facilities, Social Groups and Co-parenting, together in Covie.
           </p>
         </div>
 
