@@ -34,3 +34,9 @@ test("facilities persistence serializes conflicts, scopes tenants and keeps priv
  assert.match(service,/b\.calendar_id = \$\{session\.calendarId\}/);assert.match(service,/ELSE '' END AS notes/);
  assert.match(service,/version=\$\{booking\.version!/);assert.doesNotMatch(service,/SELECT b\.\*/);
 });
+
+test("selected-day availability cannot be truncated by the upcoming list",async()=>{
+ const source=await readFile("lib/shared-facilities/service.ts","utf8");
+ assert.match(source,/WITH day_bookings AS/);assert.match(source,/SELECT id FROM day_bookings UNION SELECT id FROM personal_bookings/);
+ assert.doesNotMatch(source,/ORDER BY b\.start_at LIMIT/);assert.match(source,/bookingsTruncated: bookings\.some/);
+});

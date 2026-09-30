@@ -18,3 +18,11 @@ test("invitations keep role promotion owner-only and resource managers scoped",a
 test("all mutations require same-origin and authenticated selected calendar",async()=>{
  for(const file of ["app/api/shared-facilities/route.ts","app/api/template-members/route.ts"]){const source=await readFile(file,"utf8");assert.match(source,/isSameOriginMutation\(request\)/);assert.match(source,/getCalendarSession\(\)/);assert.doesNotMatch(source,/calendarId:z\.|calendarId: z\./);}
 });
+
+test("cross-tab selection changes cannot redirect new-template mutations",async()=>{
+ const {matchesExpectedCalendar}=await import("../lib/calendar-sharing/policy");
+ assert.equal(matchesExpectedCalendar("calendar-a","calendar-a"),true);
+ assert.equal(matchesExpectedCalendar("calendar-a","calendar-b"),false);
+ assert.equal(matchesExpectedCalendar(null,"calendar-a"),false);
+ for(const file of ["app/api/shared-facilities/route.ts","app/api/template-members/route.ts"]){const source=await readFile(file,"utf8");assert.match(source,/matchesExpectedCalendar\(request\.headers\.get\("x-covie-calendar-id"\), session\.calendarId\)/);}
+});

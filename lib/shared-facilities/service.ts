@@ -31,24 +31,33 @@ export async function loadFacilities(session: FacilitySession, date?: string): P
   const [resources, settings, bookings, updates] = await Promise.all([
     sql`SELECT id, name, description, location, capacity, active FROM facility_resources WHERE calendar_id = ${session.calendarId} AND (active OR ${owner} OR id=ANY(${managedResourceIds}::uuid[]) OR EXISTS (SELECT 1 FROM facility_bookings b WHERE b.resource_id=facility_resources.id AND b.calendar_id=${session.calendarId} AND b.user_id=${session.userId} AND b.end_at>=now()-interval '7 days')) ORDER BY active DESC, name`,
     sql`SELECT open_minute AS "openMinute", close_minute AS "closeMinute", open_days AS "openDays", min_duration AS "minDuration", max_duration AS "maxDuration", min_notice_hours AS "minNoticeHours", advance_days AS "advanceDays", cancellation_hours AS "cancellationHours", max_active_bookings AS "maxActiveBookings", require_approval AS "requireApproval", share_titles AS "shareTitles" FROM facility_settings WHERE calendar_id = ${session.calendarId}`,
-    sql`SELECT b.id, b.resource_id AS "resourceId",
+    sql`WITH day_bookings AS (
+      SELECT id FROM facility_bookings WHERE calendar_id=${session.calendarId}
+        AND start_at<${end}::timestamptz AND end_at>${start}::timestamptz
+        AND (status='confirmed' OR user_id=${session.userId} OR ${owner} OR resource_id=ANY(${managedResourceIds}::uuid[]))
+    ), personal_bookings AS (
+      SELECT id FROM facility_bookings WHERE calendar_id=${session.calendarId}
+        AND (user_id=${session.userId} OR ${owner} OR resource_id=ANY(${managedResourceIds}::uuid[]))
+        AND end_at>=now()-interval '7 days' ORDER BY start_at LIMIT 501
+    ), relevant AS (
+      SELECT id FROM day_bookings UNION SELECT id FROM personal_bookings
+    ) SELECT b.id, b.resource_id AS "resourceId",
       CASE WHEN b.user_id = ${session.userId} OR ${owner} OR b.resource_id=ANY(${managedResourceIds}::uuid[]) OR COALESCE(s.share_titles, false) THEN b.title ELSE '' END AS title,
       CASE WHEN b.user_id = ${session.userId} OR ${owner} OR b.resource_id=ANY(${managedResourceIds}::uuid[]) THEN b.notes ELSE '' END AS notes,
       b.start_at AS start, b.end_at AS "end", b.status,
       (b.user_id = ${session.userId}) AS own, b.version,
       (b.user_id = ${session.userId} OR ${owner} OR b.resource_id=ANY(${managedResourceIds}::uuid[])) AND ${session.permission !== "viewer"} AS "canManage"
-      FROM facility_bookings b LEFT JOIN facility_settings s ON s.calendar_id = b.calendar_id
-      WHERE b.calendar_id = ${session.calendarId} AND (
-        (b.start_at < ${end}::timestamptz AND b.end_at > ${start}::timestamptz AND b.status = 'confirmed')
-        OR ((b.user_id = ${session.userId} OR ${owner} OR b.resource_id=ANY(${managedResourceIds}::uuid[])) AND b.end_at >= now() - interval '7 days')
-      ) ORDER BY b.start_at LIMIT 500`,
+      , (SELECT count(*) FROM personal_bookings)>=501 AS "windowTruncated"
+      FROM facility_bookings b JOIN relevant ON relevant.id=b.id
+      LEFT JOIN facility_settings s ON s.calendar_id = b.calendar_id
+      WHERE b.calendar_id = ${session.calendarId} ORDER BY b.start_at`,
     sql`SELECT u.id, u.action, r.name AS "resourceName", u.created_at AS "createdAt"
       FROM facility_updates u JOIN facility_bookings b ON b.id = u.booking_id AND b.calendar_id = u.calendar_id
       JOIN facility_resources r ON r.id = b.resource_id AND r.calendar_id = u.calendar_id
       WHERE u.calendar_id = ${session.calendarId} AND (u.user_id = ${session.userId} OR ${owner} OR b.resource_id=ANY(${managedResourceIds}::uuid[]))
       ORDER BY u.created_at DESC LIMIT 100`,
   ]);
-  return { resources, bookings, rules: settings[0] ?? facilityDefaults, updates, owner, role: access.role, managedResourceIds, canBook: session.permission !== "viewer", timezone: session.calendarTimezone, date: selectedDate } as FacilityData;
+  return { calendarId: session.calendarId, resources, bookings, bookingsTruncated: bookings.some(b => b.windowTruncated), rules: settings[0] ?? facilityDefaults, updates, owner, role: access.role, managedResourceIds, canBook: session.permission !== "viewer", timezone: session.calendarTimezone, date: selectedDate } as FacilityData;
 }
 export async function saveFacilityRules(session: FacilitySession, rules: FacilityRules) {
   requireFacility(session, "owner"); const sql = getSql();

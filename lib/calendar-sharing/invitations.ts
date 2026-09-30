@@ -4,9 +4,12 @@ export async function redeemMemberInvitation(codeHash: string, userId: string) {
   const sql = getSql();
   const rows = await sql`WITH eligible AS (
     SELECT invite.id FROM calendar_invites invite JOIN calendars c ON c.id=invite.calendar_id
+    JOIN calendar_memberships inviter ON inviter.calendar_id=invite.calendar_id AND inviter.user_id=invite.created_by_user_id
+    LEFT JOIN template_member_roles inviter_role ON inviter_role.calendar_id=inviter.calendar_id AND inviter_role.user_id=inviter.user_id
     WHERE invite.code_hash=${codeHash} AND invite.revoked_at IS NULL AND invite.expires_at > now()
       AND invite.use_count < invite.max_uses AND invite.permission IN ('editor','viewer')
       AND c.calendar_type IN ('shared_facilities','social_groups') AND c.archived_at IS NULL
+      AND (inviter.permission='owner' OR (c.calendar_type='social_groups' AND inviter.permission='editor' AND inviter_role.role='admin'))
       AND NOT EXISTS (SELECT 1 FROM calendar_memberships m WHERE m.calendar_id=invite.calendar_id AND m.user_id=${userId})
     FOR UPDATE OF invite
   ), used AS (

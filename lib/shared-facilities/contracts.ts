@@ -56,4 +56,4 @@ export const facilityDecisionSchema = z.object({
 export type FacilityResource = { id: string; name: string; description: string; location: string; capacity: number | null; active: boolean };
 export type FacilityBooking = { id: string; resourceId: string; title: string; notes: string; start: string; end: string; status: "pending" | "confirmed" | "cancelled" | "declined"; own: boolean; version: number; canManage: boolean };
 export type FacilityUpdate = { id: string; action: string; resourceName: string; createdAt: string };
-export type FacilityData = { resources: FacilityResource[]; bookings: FacilityBooking[]; rules: FacilityRules; updates: FacilityUpdate[]; owner: boolean; role: "owner" | "manager" | "member" | "viewer"; managedResourceIds: string[]; canBook: boolean; timezone: string; date: string };
+export type FacilityData = { calendarId: string; resources: FacilityResource[]; bookings: FacilityBooking[]; bookingsTruncated?: boolean; rules: FacilityRules; updates: FacilityUpdate[]; owner: boolean; role: "owner" | "manager" | "member" | "viewer"; managedResourceIds: string[]; canBook: boolean; timezone: string; date: string };

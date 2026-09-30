@@ -112,7 +112,7 @@ BEGIN
   INSERT INTO facility_settings(calendar_id) VALUES (NEW.calendar_id) ON CONFLICT DO NOTHING;
   SELECT * INTO rules FROM facility_settings WHERE calendar_id = NEW.calendar_id;
   IF TG_OP = 'UPDATE' THEN
-    time_changed := NEW.resource_id <> OLD.resource_id OR NEW.start_at <> OLD.start_at OR NEW.end_at <> OLD.end_at;
+    time_changed := NEW.resource_id <> OLD.resource_id OR NEW.start_at <> OLD.start_at OR NEW.end_at <> OLD.end_at OR (OLD.status='pending' AND NEW.status='confirmed');
     IF OLD.status IN ('cancelled','declined') THEN RAISE EXCEPTION 'This booking has already ended. Make a new booking.' USING ERRCODE='23514', CONSTRAINT='facility_booking_rules'; END IF;
     IF actor_permission <> 'owner' AND NOT actor_manager AND OLD.start_at <= now() + make_interval(hours => rules.cancellation_hours) THEN
       RAISE EXCEPTION 'The change or cancellation cutoff has passed. Contact the organiser.' USING ERRCODE='23514', CONSTRAINT='facility_booking_rules';

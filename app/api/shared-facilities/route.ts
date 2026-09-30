@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getCalendarSession } from "@/lib/security/session";
+import { matchesExpectedCalendar } from "@/lib/calendar-sharing/policy";
 import { isSameOriginMutation } from "@/lib/security/request";
 import { facilityBookingSchema, facilityDecisionSchema, facilityResourceSchema, facilityRulesSchema } from "@/lib/shared-facilities/contracts";
 import { decideFacilityBooking, FacilityError, loadFacilities, saveFacilityBooking, saveFacilityResource, saveFacilityRules } from "@/lib/shared-facilities/service";
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
   if (!isSameOriginMutation(request)) return NextResponse.json({ error: "This request was blocked for safety." }, { status: 403 });
   const session = await getCalendarSession();
   if (!session) return NextResponse.json({ error: "Calendar access is required." }, { status: 401 });
+  if (!matchesExpectedCalendar(request.headers.get("x-covie-calendar-id"), session.calendarId)) return NextResponse.json({ error: "Your selected calendar changed. Reload this page before saving." }, { status: 409 });
   const parsed = mutationSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Check the details." }, { status: 400 });
   try {

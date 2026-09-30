@@ -71,7 +71,7 @@ export function FacilitiesPage({ section, tool }: { section: "calendar" | "updat
     mutationLock.current = true; setBusy(true); setMutationError(""); setNotice("");
     let responseReceived = false;
     try {
-      const response = await fetch("/api/shared-facilities", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, data: payload }) });
+      const response = await fetch("/api/shared-facilities", { method: "POST", headers: { "content-type": "application/json", "x-covie-calendar-id": data?.calendarId ?? "" }, body: JSON.stringify({ action, data: payload }) });
       responseReceived = true;
       const body = await response.json().catch(() => null) as { error?: string; ok?: boolean; status?: string } | null;
       if (!response.ok || !body?.ok) throw new Error(body?.error ?? "The save result could not be verified. Reload to check before trying again.");
@@ -133,7 +133,8 @@ export function FacilitiesPage({ section, tool }: { section: "calendar" | "updat
   return <div className={styles.stack} aria-busy={loading || busy}>
     {loadError ? <CovieNotice tone="danger">{loadError}<div className={styles.actions}><CovieButton tone="neutral" disabled={loading} onClick={() => void refresh()}>Try again</CovieButton></div></CovieNotice> : null}
     {mutationError && !bookingEditor && !resourceEditor && !confirmation ? <CovieNotice tone="danger">{mutationError}<div className={styles.actions}><CovieButton tone="neutral" disabled={disabled} onClick={() => { setMutationError(""); void refresh(); }}>Reload calendar</CovieButton></div></CovieNotice> : null}
-    {notice ? <CovieNotice tone="teal">{notice}</CovieNotice> : null}
+    {data?.bookingsTruncated ? <CovieNotice>Showing the first 501 recent and upcoming bookings. Choose a date to see every booking for that day.</CovieNotice> : null}
+      {notice ? <CovieNotice tone="teal">{notice}</CovieNotice> : null}
     {section === "calendar" ? <>
       <div className={styles.toolbar}>
         <CovieSegmentedControl value={view} onChange={(next) => { setView(next); if (next === "availability" && resourceId && !activeResources.some((resource) => resource.id === resourceId)) setResourceId(""); }} options={[{ value: "availability", label: "Availability" }, { value: "mine", label: "My bookings" }]} ariaLabel="Facilities view" />

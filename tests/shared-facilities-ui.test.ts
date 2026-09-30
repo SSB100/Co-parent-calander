@@ -6,7 +6,7 @@ import { bookingLocalFields, bookingResourceOptions, canChangeFacilityBooking, c
 
 const now = new Date("2026-10-10T00:00:00Z");
 const booking: FacilityBooking = { id: "booking", resourceId: "room-a", title: "Study group", notes: "", start: "2026-10-12T10:00:00Z", end: "2026-10-12T11:00:00Z", status: "confirmed", own: true, version: 3, canManage: true };
-const base: FacilityData = { resources: [{ id: "room-a", name: "Room A", location: "", description: "", capacity: null, active: true }, { id: "room-b", name: "Room B", location: "", description: "", capacity: null, active: true }, { id: "archived", name: "Old room", location: "", description: "", capacity: null, active: false }], bookings: [booking], rules: facilityDefaults, updates: [], owner: false, role: "member", managedResourceIds: [], canBook: true, timezone: "Pacific/Auckland", date: "2026-10-12" };
+const base: FacilityData = { resources: [{ id: "room-a", name: "Room A", location: "", description: "", capacity: null, active: true }, { id: "room-b", name: "Room B", location: "", description: "", capacity: null, active: true }, { id: "archived", name: "Old room", location: "", description: "", capacity: null, active: false }], bookings: [booking], rules: facilityDefaults, updates: [], calendarId: "calendar-a", owner: false, role: "member", managedResourceIds: [], canBook: true, timezone: "Pacific/Auckland", date: "2026-10-12" };
 
 test("resource editing is owner or explicitly scoped manager only", () => {
   assert.equal(canEditFacilityResource(base, "room-a"), false);
