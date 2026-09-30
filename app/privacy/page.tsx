@@ -12,14 +12,14 @@ export default function PrivacyPage() {
     <LegalPageShell
       eyebrow="Your information"
       title="Privacy Policy"
-      intro="Covie handles family information, so privacy needs to be understandable. This policy explains what we collect, why we need it and the choices available to you."
+      intro="Covie helps people organise work, services, groups and family plans. This policy explains what we collect, why we need it and the choices available to you."
     >
-      <p className="covie-legal-updated">Effective 21 September 2026</p>
+      <p className="covie-legal-updated">Effective 1 October 2026</p>
 
       <h2>1. What this policy covers</h2>
       <p>
         This policy explains how Covie handles personal information when you
-        use the website, create an account, join a shared calendar, contact us
+        use the website, create an account, join a shared calendar, book an appointment, contact us
         or use an optional integration.
       </p>
 
@@ -29,6 +29,9 @@ export default function PrivacyPage() {
         <li>your name, email address and account identifiers;</li>
         <li>calendar membership and permission information;</li>
         <li>parenting schedules, family events, tasks and shared costs;</li>
+        <li>staff profiles, published shifts, attendance records, timesheet corrections and leave requests;</li>
+        <li>facilities and resource bookings, group events, RSVPs and availability you choose to share;</li>
+        <li>salon services, practitioner profiles and working hours, appointment details, client names and optional contact details, and internal appointment notes entered by authorised salon staff;</li>
         <li>
           information about children that a parent chooses to add, which can
           include school, activity, health or practical information;
@@ -60,6 +63,9 @@ export default function PrivacyPage() {
         <li>create and secure accounts;</li>
         <li>show the correct shared calendar to authorised members;</li>
         <li>provide scheduling, costs, tasks, approvals and child profiles;</li>
+        <li>provide staff scheduling, resource and appointment bookings, group events and availability;</li>
+        <li>show your own relevant commitments in your private Personal overview;</li>
+        <li>show a salon’s chosen business details, offered services, practitioner profiles and available times on a client booking page when the owner enables it;</li>
         <li>send account, approval or service-related notifications;</li>
         <li>provide integrations that you choose to connect;</li>
         <li>respond to support, privacy and feature requests;</li>
@@ -69,22 +75,49 @@ export default function PrivacyPage() {
 
       <h2>4. Where information comes from</h2>
       <p>
-        Most information comes directly from you or from another authorised
-        member of the same Covie calendar. Some technical information is
+        Most information comes directly from you, from an authorised member of a
+        calendar, or from the business, practitioner or client involved in a booking. Some technical information is
         generated automatically when Covie authenticates a session or processes
         a request.
       </p>
 
-      <h2>5. Who can see shared family information</h2>
+      <h2>5. Who can see information</h2>
       <p>
-        Information inside a Covie calendar is available only to accounts that
-        have membership of that calendar, subject to their server-side
-        permission level. A member of one family calendar is not given access
-        to another family’s calendar.
+        Shared calendar workspaces are available to accounts with membership of
+        that calendar, subject to the permissions for that calendar type. Joining
+        one calendar does not give someone access to another calendar.
+        Co-parenting information may be visible to the other authorised parent
+        or viewer in that family calendar.
       </p>
       <p>
-        You should assume that information added to a shared calendar may be
-        visible to the other authorised parent or viewer on that calendar.
+        Staff Rosters separates manager tools from a staff member’s own schedule,
+        attendance and requests. Shared Facilities shows members resource
+        availability and their own bookings; an owner can choose how much of other
+        members’ booking information is shared. Private booking notes are limited
+        to the booking member and authorised organisers. Social Groups shares
+        group events, RSVPs and the availability members choose to add with the
+        group’s members.
+      </p>
+      <p>
+        Salon client booking pages start disabled. A salon owner can enable a
+        separate client booking page. That page shows
+        the business details, offered services and prices, enabled practitioner
+        profiles and available appointment times selected for publication. It
+        does not show other clients’ bookings, contact details, private notes or
+        unrelated calendars.
+      </p>
+      <p>
+        Salon owners and managers can manage business appointments. Practitioners
+        can access appointments assigned to them and the client details needed to
+        manage those appointments. Signed-in clients can access their own
+        appointment details without joining the salon’s shared workspace.
+        Internal salon notes are not included in the client view.
+      </p>
+      <p>
+        Personal is a private overview for your account. It reads relevant items
+        you can already access and links to their original records. It does not
+        publish your other commitments to employers, businesses, groups, clients
+        or co-parents, or automatically use them to block salon availability.
       </p>
 
       <h2>6. Service providers</h2>
@@ -110,6 +143,11 @@ export default function PrivacyPage() {
         intended to manage the calendar created by Covie. Connection
         credentials are encrypted before they are stored by Covie. You can
         disconnect the integration from Covie.
+      </p>
+
+      <p>
+        The current Google Calendar connection is optional, one-way output for
+        co-parenting calendars; Covie remains the source of truth.
       </p>
 
       <h2>8. Files and documents</h2>
@@ -146,6 +184,13 @@ export default function PrivacyPage() {
         of which field changed is sufficient.
       </p>
 
+      <p>
+        Cancelling a Facilities booking, Social event or Salon appointment retains
+        its history. Changing or filtering the Personal overview does not cancel
+        or delete the original item. Personal’s displayed commitments follow the
+        current source record and your current access.
+      </p>
+
       <h2>11. Access and correction</h2>
       <p>
         New Zealand privacy law gives people rights to ask for access to personal
@@ -157,7 +202,8 @@ export default function PrivacyPage() {
 
       <h2>12. Information about children</h2>
       <p>
-        Covie is used by adults to organise family information. Parents and
+        Covie accounts are for adults, including parents and caregivers organising
+        family information. Parents and
         caregivers should only add child information that is genuinely useful
         for co-parenting and that they are entitled to provide. Extra care
         should be taken with medical, school and identity information.

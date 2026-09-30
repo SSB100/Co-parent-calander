@@ -4,7 +4,7 @@ Calendar ecosystem boundaries reviewed: 30 September 2026.
 
 ## System boundaries
 
-Covie workspaces use one selected calendar at a time. Optional preset types are Staff Rosters, Salon Bookings, Shared Facilities, Social Groups and Co-parenting. Personal is a separate, account-private read projection across relevant commitments; it never copies source records or treats membership alone as participation. See `PERSONAL_CALENDAR.md` and the qualification-only `SALON_BOOKINGS_PLAN.md`.
+Covie workspaces use one selected calendar at a time. Optional preset types are Staff Rosters, Salon Bookings, Shared Facilities, Social Groups and Co-parenting. Personal is a separate, account-private read projection across relevant commitments; it never copies source records or treats membership alone as participation. See `PERSONAL_CALENDAR.md` and `SALON_BOOKINGS_PLAN.md`.
 
 Salon clients use their authenticated identity to book and manage their own appointments without becoming calendar members. An explicitly enabled public page exposes only allowed business/service/practitioner fields and available slots. It never exposes the shared workspace, other clients, private notes or unrelated calendars.
 
@@ -24,7 +24,7 @@ The primary business domains are:
 - Staff Rosters and attendance
 - Shared Facilities availability and bookings
 - Social Groups events, RSVPs and availability
-- Salon services, practitioners and appointments (migration `0035` qualification pending production)
+- Salon services, practitioners and appointments
 - private Personal projections
 
 ## Data ownership
@@ -114,15 +114,16 @@ Production Neon:
 
 - project: `delicate-sunset-36051658`
 - branch: `br-quiet-sea-a7duq4r3`
-- migrations through `0034` are applied in Production
-- migration `0035` is qualified only on an isolated branch and awaits specific production approval
+- migrations through `0035` are applied in Production after isolated qualification and specific approval
 - `covie_schema_migrations` is the authoritative migration ledger from `0012` onward
 - legacy `access_tokens`, `sessions`, `access_token_type` and first-generation recurrence storage were removed by migration `0017`
 
-Rollback snapshots currently retained:
+Recent rollback snapshots (verify live inventory before any release):
 
-- `backup-before-0013-0016-release` (`br-bitter-fire-a7p424x5`) — immediate pre-`0013`–`0016` Production snapshot
-- `backup-before-phase-8-release` (`br-orange-surf-a7znl10e`) — older pre-Phase-8 snapshot
+- `backup-before-0033-facilities-20260930` (`br-damp-dream-a7453iai`)
+- `backup-before-0034-social-20260930` (`br-soft-bonus-a7pgwbl2`)
+- `backup-before-0035-salon-20260930` (`br-solitary-dream-a7nujr7j`)
+- `backup-before-0035-salon-release-20260930-1758` (`br-square-truth-a74kmkrv`) — latest pre-`0035` production snapshot
 
 Do not replay migrations already recorded in `covie_schema_migrations`.
 

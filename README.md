@@ -8,7 +8,7 @@ Production uses:
 - Vercel project: `co-parent-calander`
 - Neon project: `delicate-sunset-36051658`
 - Production Neon branch: `main` (`br-quiet-sea-a7duq4r3`)
-- Production schema: migrations through `0034`; Salon migration `0035` is qualified on an isolated branch and awaits specific production approval
+- Production schema: migrations through `0035`, including the separately qualified and approved Salon additions
 
 ## Product model
 
@@ -105,7 +105,7 @@ SQL migrations live in `drizzle/`:
 - `0021_recurring_shared_costs.sql`
 - `0022_calendar_template_types.sql` — first-class calendar template identity
 
-The list above records the original foundation. Later migrations add Staff Rosters, Shared Facilities and Social Groups through `0034`; `0035_salon_bookings.sql` remains qualification-only. See `docs/MIGRATIONS.md` for current release status. The `covie_schema_migrations` ledger is authoritative; historical migrations `0000`–`0011` are baselined.
+The list above records the original foundation. Later migrations add Staff Rosters, Shared Facilities, Social Groups and Salon Bookings through `0035`. See `docs/MIGRATIONS.md` for current release status. The `covie_schema_migrations` ledger is authoritative; historical migrations `0000`–`0011` are baselined.
 
 Do not replay migrations already recorded in `covie_schema_migrations`.
 
@@ -132,4 +132,4 @@ Feature-branch Git deployments are disabled. Main-branch Git deployments are ena
 - Do not commit secrets or local environment files.
 - Production attachment storage must use a **Private** Blob store.
 - Keep Google credentials and token-encryption material server-side.
-- The rollback snapshots `backup-before-phase-8-release` and `backup-before-0013-0016-release` should remain untouched until a later cleanup explicitly retires them.
+- Verify the current rollback inventory before each release. Retain existing backups; permanently deleting a branch requires specific approval for that branch.

@@ -11,7 +11,8 @@
   "git": {
     "deploymentEnabled": {
       "**": false,
-      "main": true
+      "main": true,
+      "feat/salon-bookings": true
     }
   },
   "regions": [

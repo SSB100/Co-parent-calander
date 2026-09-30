@@ -219,10 +219,10 @@ Additive Social settings, events, RSVP responses, personal shared availability a
 
 Requires 0033 template roles. Qualify on the isolated branch, receive specific production approval, capture a fresh rollback point and verify runtime table access before rollout.
 
-## 0035 Salon Bookings (qualification only)
+## 0035 Salon Bookings
 
 Adds the optional `salon_bookings` enum value and nine tables: `salon_settings`, `salon_practitioners`, `salon_services`, `salon_practitioner_services`, `salon_working_hours`, `salon_time_blocks`, `salon_appointments`, `salon_updates`, and `salon_invite_roles`. Existing `covie_app` default CRUD privileges cover these tables; functions use invoker privileges. No new credential, account, payment access or public business publication is created.
 
 Salon-only serialization triggers also attach to the shared membership/invitation tables. They return without Salon changes for other calendar types. Generated co-parent fixtures test this boundary; existing co-parent records are not rewritten. Booking functions lock current calendar/practitioner authority, validate expected displayed terms, preserve service snapshots, enforce hours/buffers/conflicts and protect retry/version semantics.
 
-Applied only to isolated qualification branch `br-frosty-morning-a75bl7hs`. Rollback copy `br-solitary-dream-a7nujr7j` retains production at 2026-09-30 11:50 UTC. Production application remains pending specific approval including these shared-table triggers; take an appropriately current rollback point before applying. Actual login as the runtime role was unavailable because the connection lookup has no password and the owner cannot SET ROLE. Table/function ACL verification is distinct from successful application-role authentication.
+Qualified on isolated branch `br-frosty-morning-a75bl7hs`, then applied to Production on 30 September 2026 UTC (1 October in New Zealand) after specific approval. The approved temporary qualification branch was deleted after its tests finished. Fresh rollback `br-square-truth-a74kmkrv` (`backup-before-0035-salon-release-20260930-1758`) preserves main at LSN `0/38F91F0`, parent timestamp 2026-09-30 17:57:31 UTC. The earlier 11:50 Salon backup `br-solitary-dream-a7nujr7j` and existing backups remain. The production ledger, all nine tables, both shared triggers, runtime CRUD and invoker-function ACLs were verified. Direct runtime-role login was unavailable; actual application/browser qualification is a separate release check.
