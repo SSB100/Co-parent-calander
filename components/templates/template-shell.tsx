@@ -126,6 +126,7 @@ export function TemplateShell({
   section,
   activeToolKey,
   staffAccessRole,
+  initialDate,
 }: {
   slug: AdditionalCalendarTemplateSlug;
   calendars: CalendarOption[];
@@ -135,6 +136,7 @@ export function TemplateShell({
   section: TemplateSection;
   activeToolKey?: string;
   staffAccessRole?: "owner" | "manager" | "staff" | null;
+  initialDate?: string;
 }) {
   const template = getCalendarTemplateBySlug(slug);
   const currentPath = `/calendar-types/${slug}`;
@@ -244,9 +246,9 @@ export function TemplateShell({
             <SocialGroupsPage key={`${currentCalendarId}:${section}:${activeToolKey ?? ""}`} calendarId={currentCalendarId} section={section} tool={activeToolKey} />
           ) : template.id === "staff_rosters" && section === "calendar" ? (
             staffMode ? (
-              <StaffMyRosterPage />
+              <StaffMyRosterPage initialDate={initialDate} />
             ) : (
-              <StaffRosterCalendarPage
+              <StaffRosterCalendarPage initialDate={initialDate}
                 header={
                   <CalendarSwitcher
                     calendars={calendars}

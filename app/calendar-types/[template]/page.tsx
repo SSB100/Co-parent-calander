@@ -1,3 +1,4 @@
+import { safeSourceDate } from "@/lib/personal/source-navigation";
 import type { Metadata } from "next";
 import { TemplateRoute } from "@/components/templates/template-route";
 import {
@@ -26,10 +27,11 @@ export async function generateMetadata({
 }
 
 export default async function CalendarTypePage({
-  params,
+  params, searchParams,
 }: {
   params: Promise<{ template: string }>;
+  searchParams: Promise<{ date?: string }>;
 }) {
   const { template } = await params;
-  return <TemplateRoute template={template} section="calendar" />;
+  return <TemplateRoute template={template} section="calendar" initialDate={safeSourceDate((await searchParams).date)} />;
 }

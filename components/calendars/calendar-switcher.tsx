@@ -5,8 +5,10 @@ import {
   Check,
   ChevronDown,
   KeyRound,
+  LockKeyhole,
   Plus,
 } from "lucide-react";
+import Link from "next/link";
 import { useActionState, useRef, useState } from "react";
 import { useDismissibleDetails } from "@/lib/client/use-details-dismiss";
 import {
@@ -90,6 +92,10 @@ export function CalendarSwitcher({
       </summary>
 
       <div className="absolute left-0 top-full mt-2 max-h-[72vh] w-[min(92vw,28rem)] overflow-y-auto rounded-xl border-2 border-[#243139] bg-[#FFF9F2] p-3 shadow-[5px_5px_0_#F4C64E]">
+        <Link href="/personal" prefetch={false} className="mb-3 flex min-h-14 items-center gap-3 rounded-xl border border-[#E6DBCF] bg-white px-3 py-2 text-[#243139] hover:bg-[#F7EFE5]">
+          <LockKeyhole className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span><strong className="block text-sm">Personal</strong><span className="block text-xs text-[#526168]">Your commitments · only visible to you</span></span>
+        </Link>
         <div className="px-2 pb-2">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
             Your calendars
