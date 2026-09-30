@@ -112,6 +112,7 @@
   padding: 10px;
   text-align: left;
   font-size: 13px;
+  overflow-wrap: anywhere;
 }
 .slot:disabled {
   opacity: 0.6;
@@ -129,6 +130,8 @@
   padding: 12px;
   display: grid;
   gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .checkbox {
   display: flex;
@@ -168,6 +171,7 @@
   display: grid;
   gap: 10px;
   margin-block: 16px;
+  overflow-wrap: anywhere;
 }
 .hours {
   display: grid;

@@ -1,6 +1,6 @@
 # Covie
 
-Covie is a mobile-first shared-calendar ecosystem. Choose the optional preset you need: Co-parenting, Staff Rosters, Shared Facilities or Social Groups. Each calendar has its own people, permissions and purpose-specific tools.
+Covie is a mobile-first shared-calendar ecosystem. Choose the optional preset you need: Staff Rosters, Salon Bookings, Shared Facilities, Social Groups or Co-parenting. Each calendar has its own people, permissions and purpose-specific tools. Personal is a private account view of your relevant commitments, linking to their original records.
 
 Production uses:
 
@@ -8,7 +8,7 @@ Production uses:
 - Vercel project: `co-parent-calander`
 - Neon project: `delicate-sunset-36051658`
 - Production Neon branch: `main` (`br-quiet-sea-a7duq4r3`)
-- Production schema before the calendar-type release: migrations `0000` through `0021`
+- Production schema: migrations through `0034`; Salon migration `0035` is qualified on an isolated branch and awaits specific production approval
 
 ## Product model
 
@@ -20,7 +20,15 @@ A signed-in user can create or join one or more calendars without adopting every
 
 Parent profiles are separate from accounts so a co-parent can be represented in schedules even when they do not use Covie.
 
-Core features:
+Shared preset capabilities:
+
+- Staff Rosters: published shifts, leave, attendance and timesheets with manager/staff views
+- Shared Facilities: resources, booking rules, availability and member bookings
+- Social Groups: events, RSVPs, capacity and shared availability
+- Salon Bookings: services, practitioner hours and appointments, with explicitly enabled client booking pages
+- Personal: private source-linked commitments and items needing your attention
+
+Co-parenting features:
 
 - full-day and split-day parenting schedules
 - saved repeating parenting schedules plus manual date overrides
@@ -89,9 +97,15 @@ SQL migrations live in `drizzle/`:
 - `0013_parenting_schedules.sql`
 - `0014_retire_legacy_auth.sql` — non-destructive; legacy credential records are retained for recovery
 - `0015_parent_profile_identity.sql`
-- `0016_retention_foundation.sql`\n- `0017_remove_retired_schema.sql`\n- `0018_expense_share_payment_confirmation.sql`\n- `0019_expense_share_partial_payments.sql`\n- `0020_expense_share_payment_history.sql`\n- `0021_recurring_shared_costs.sql`\n- `0022_calendar_template_types.sql` — first-class calendar template identity
+- `0016_retention_foundation.sql`
+- `0017_remove_retired_schema.sql`
+- `0018_expense_share_payment_confirmation.sql`
+- `0019_expense_share_partial_payments.sql`
+- `0020_expense_share_payment_history.sql`
+- `0021_recurring_shared_costs.sql`
+- `0022_calendar_template_types.sql` — first-class calendar template identity
 
-Production has migrations through `0021` applied before the calendar-type release. The `covie_schema_migrations` ledger is authoritative: historical migrations `0000`–`0011` are baselined and `0012`–`0016` are recorded as normal applied migrations.
+The list above records the original foundation. Later migrations add Staff Rosters, Shared Facilities and Social Groups through `0034`; `0035_salon_bookings.sql` remains qualification-only. See `docs/MIGRATIONS.md` for current release status. The `covie_schema_migrations` ledger is authoritative; historical migrations `0000`–`0011` are baselined.
 
 Do not replay migrations already recorded in `covie_schema_migrations`.
 
