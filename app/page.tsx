@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { EcosystemHome } from "@/components/marketing/ecosystem-home";
 import { auth } from "@/lib/auth/server";
-import { getCalendarSession } from "@/lib/security/session";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -13,10 +12,7 @@ export const metadata: Metadata = {
 
 export default async function Home() {
   const { data: session } = await auth.getSession();
-  if (session?.user) {
-    const calendar = await getCalendarSession();
-    redirect(calendar ? "/calendar" : "/onboarding");
-  }
+  if (session?.user) redirect("/personal");
 
   return <EcosystemHome />;
 }

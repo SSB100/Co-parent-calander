@@ -4,7 +4,13 @@
 
 Personal is an account-private projection across optional Covie calendars. It is not a shared calendar type or a new membership container. A source commitment is the primary entity; source calendar identity remains visible and distinct from confirmed, tentative, care/background and needs-attention states. Coral remains the primary action. The overview uses canonical Covie page, controls, cards and dialogs, Fraunces/Geist, and solid brand colours.
 
-First release: interactive month/day and agenda, source filter, explicit timezone, confirmed commitments, tentative plans, care context and a separate needs-attention list. A source button rechecks current membership and opens the authoritative workspace. Source items are never copied or edited from Personal. There is no migration, persistent preference, new sharing or automatic source-calendar change on arrival. Existing login/default-calendar routing remains unchanged during initial verification.
+Personal is the signed-in starting point for new and existing accounts. Default email and Google sign-in land here; explicit invitation and private booking destinations retain priority. `/calendar` still opens the last selected accessible calendar. Arriving in Personal never changes that selection.
+
+The default Overview shows Today, Needs your attention and up to five upcoming confirmed or tentative plans in the selected month. Today is never inferred from a different loaded month. Care is distinct day context and remains available throughout Month and Agenda, without filling the upcoming list. Longer day and attention lists have explicit full-list controls. Source and display timezone remain visible in the collapsed filter control. Month/day keyboard navigation and Agenda remain available.
+
+A source button rechecks current membership and opens the authoritative workspace. Source items are never copied or edited from Personal. There is no migration, persistent preference, new sharing or automatic source-calendar change on arrival. The client resets when the authenticated account changes and rechecks access on refresh, focus and page restoration.
+
+Create or join is optional and accessible from Personal for every account through the existing onboarding flow. Onboarding has a direct return to Personal and keeps invitation entry intact. Co-parenting is an optional type, listed last; no family setup is required to use Personal.
 
 ## Inclusion and privacy
 

@@ -1,6 +1,11 @@
 .page { display: grid; align-content: start; gap: 20px; }
 .intro { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; color: var(--covie-text-secondary); font-size: 13px; line-height: 1.6; }
 .privateLabel { display: inline-flex; align-items: center; gap: 7px; color: var(--covie-ink); font-weight: 650; }
+.filterDisclosure { min-width: 0; border: 1px solid var(--covie-border); border-radius: 12px; background: white; }
+.filterDisclosure summary { min-height: 44px; padding: 11px 14px; color: var(--covie-ink); font-size: 13px; font-weight: 650; cursor: pointer; overflow-wrap: anywhere; }
+.filterSummary { margin-left: 12px; color: var(--covie-text-secondary); font-size: 12px; font-weight: 400; }
+.filterDisclosure[open] summary { border-bottom: 1px solid var(--covie-border); }
+.filterDisclosure .filters { padding: 14px; }
 .filters { display: grid; min-width: 0; gap: 14px; }
 .field { display: grid; min-width: 0; gap: 6px; font-size: 13px; font-weight: 650; }
 .field select { min-width: 0; width: 100%; }
@@ -52,6 +57,11 @@
 .agendaRecords { display: grid; min-width: 0; gap: 18px; }
 .attention { display: grid; min-width: 0; gap: 16px; margin-top: 4px; border-top: 2px solid var(--covie-ink); padding-top: 20px; }
 .attentionRecords { display: grid; align-items: start; min-width: 0; gap: 12px; }
+.overviewSection { display: grid; min-width: 0; align-content: start; gap: 16px; }
+.overviewSection + .overviewSection, .attention + .overviewSection { border-top: 2px solid var(--covie-ink); padding-top: 20px; }
+.todayRecords, .upcomingRecords { display: grid; min-width: 0; align-items: start; gap: 16px; }
+.sectionAction { justify-self: start; }
+.outsideMonth { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .loading { border: 1px solid var(--covie-border); border-radius: 10px; background: white; padding: 12px 16px; color: var(--covie-text-secondary); font-size: 13px; }
 .noticeActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .pageNotice { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -67,6 +77,7 @@
   .dayTitles [data-state="background"] { color: #57409F; }
   .attentionRecords { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .agendaDay { grid-template-columns: 180px minmax(0, 1fr); }
+  .todayRecords, .upcomingRecords { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (min-width: 1100px) {
   .schedule:has(.monthColumn) { grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr); gap: 24px; }
@@ -74,6 +85,7 @@
   .attentionRecords { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 374px) {
+  .filterSummary { display: block; margin-left: 0; margin-top: 4px; }
   .monthControls { width: 100%; }
   .monthControls > button:last-child { flex: 1 1 100%; }
   .monthDays > button { min-height: 82px; }

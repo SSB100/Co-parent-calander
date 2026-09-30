@@ -53,7 +53,7 @@ export function CredentialsForm({
 
     const callbackPath = inviteCode
       ? `/onboarding?invite=${encodeURIComponent(inviteCode)}`
-      : safeReturn || (isSignUp ? "/onboarding" : "/");
+      : safeReturn || "/personal";
     const callbackURL = new URL(callbackPath, window.location.origin).toString();
 
     try {
@@ -94,8 +94,8 @@ export function CredentialsForm({
           {inviteCode
             ? "You have been invited to a Covie calendar. Continue with your account to join."
             : isSignUp
-              ? "Create your account and verify your email, then choose whether to start or join a Covie calendar."
-              : "Log in to open your Covie calendar."}
+              ? "Start with your Personal overview. Create or join a shared calendar whenever you need one."
+              : "Log in to see your day in Personal."}
         </p>
 
         {verificationNotice ? (

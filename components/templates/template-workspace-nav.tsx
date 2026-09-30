@@ -51,7 +51,7 @@ export function TemplateWorkspaceNav({
       className="fixed z-50 bg-[#FFF9F2] lg:inset-y-0 lg:left-0 lg:w-[252px] lg:border-r-2 lg:border-[#243139] lg:p-4 max-lg:inset-x-0 max-lg:bottom-0 max-lg:border-t-2 max-lg:border-[#243139] max-lg:px-2 max-lg:pt-1 max-lg:pb-[max(8px,env(safe-area-inset-bottom))]"
       aria-label="Main navigation"
     >
-      <Link href="/calendar-types" className="mb-6 ml-3 hidden lg:block">
+      <Link href="/personal" prefetch={false} aria-label="Covie Personal" className="mb-6 ml-3 hidden min-h-11 lg:flex lg:items-center">
         <CovieBrand />
       </Link>
 

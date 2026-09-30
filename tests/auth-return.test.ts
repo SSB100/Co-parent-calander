@@ -1,7 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { safeAuthReturnTo } from "../lib/security/auth-return";
+import { inviteSignInPath } from "../lib/security/invites";
 const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+test("onboarding sign-in carries a complete normalized invite without redeeming it", () => {
+  assert.equal(inviteSignInPath("abcd-efgh-jklm"), "/auth/sign-in?invite=ABCDEFGHJKLM");
+  assert.equal(inviteSignInPath("ABCDEFGHJKLM"), "/auth/sign-in?invite=ABCDEFGHJKLM");
+  for (const value of [undefined, null, "", "ABCD", "ABCDEFGHJKLMN", "//evil.test", "A".repeat(1000)]) assert.equal(inviteSignInPath(value), "/auth/sign-in");
+});
 test("authentication can return only to known private/booking destinations", () => {
   assert.equal(safeAuthReturnTo("/personal"), "/personal");
   assert.equal(safeAuthReturnTo(`/booking/${id}`), `/booking/${id}`);

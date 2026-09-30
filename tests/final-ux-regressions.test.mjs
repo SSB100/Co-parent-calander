@@ -18,8 +18,8 @@ test("public landing explains the shared ecosystem and preserves authentication 
   ]);
 
   assert.match(route, /auth\.getSession\(\)/);
-  assert.match(route, /getCalendarSession\(\)/);
-  assert.match(route, /redirect\(calendar \? "\/calendar" : "\/onboarding"\)/);
+  assert.doesNotMatch(route, /getCalendarSession\(\)/);
+  assert.match(route, /session\?\.user\) redirect\("\/personal"\)/);
   assert.match(home, /Purpose-built calendars/);
   assert.match(home, /One shared place/);
   assert.match(home, /CalendarPurposePicker/);

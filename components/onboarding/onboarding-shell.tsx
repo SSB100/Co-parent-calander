@@ -84,10 +84,12 @@ export function OnboardingShell({
     <main className="mx-auto min-h-screen w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
       <header className="flex items-center justify-between gap-4">
         <CovieBrand />
-        {hasExistingCalendar ? (
+        <div className="flex flex-wrap justify-end gap-2">
+          <Link href="/personal" prefetch={false} className="covie-button covie-action-secondary">Back to Personal</Link>
+          {hasExistingCalendar ? (
           <Link
             href="/calendar"
-            className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-white hover:text-slate-950"
+            className="covie-button covie-action-secondary"
           >
             Back to calendar
           </Link>
@@ -101,7 +103,8 @@ export function OnboardingShell({
             <LogOut className="h-4 w-4" aria-hidden="true" />
             {signingOut ? "Logging out…" : "Log out"}
           </button>
-        )}
+          )}
+        </div>
       </header>
 
       {signOutError ? (
@@ -117,13 +120,10 @@ export function OnboardingShell({
         {mode === "choose" ? (
           <>
             <h1 className="covie-display text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-              How would you like to get started?
+              Add a calendar when you need one
             </h1>
             <p className="mt-4 max-w-xl text-base leading-7 text-slate-600">
-              Start a Covie calendar yourself, or join one someone has already shared with you.
-            </p>
-            <p className="mt-4 text-sm leading-7 text-slate-600">
-              Already booked an appointment? <Link href="/personal" prefetch={false} className="font-bold text-[#243139] underline">Open your Personal calendar</Link> to see your commitments.
+              Create a shared calendar or join with an invitation code. Your own commitments will appear in Personal.
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
