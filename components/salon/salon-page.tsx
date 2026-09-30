@@ -504,27 +504,14 @@ export function SalonPage({
         </>
       ) : tool === "services" ? (
         <>
-          <CovieSectionHeader
-            title="Services"
-            actions={
-              data.canOrganise ? (
-                <CovieButton
-                  disabled={disabled}
-                  onClick={() => {
-                    mutation.setError("");
-                    setServiceEditor({});
-                  }}
-                >
-                  Add service
-                </CovieButton>
-              ) : undefined
-            }
-          />
+          {data.canOrganise ? <div className={styles.actions}>
+            <CovieButton disabled={disabled} onClick={() => { mutation.setError(""); setServiceEditor({}); }}>Add service</CovieButton>
+          </div> : null}
           {data.services.length ? (
             <div className={styles.cards}>
               {data.services.map((item) => (
                 <CovieRecordCard key={item.id} className={styles.record}>
-                  <h3>{item.name}</h3>
+                  <h2>{item.name}</h2>
                   <p>
                     {item.durationMinutes} minutes ·{" "}
                     {salonPrice(item.priceMinor, item.currency)}
@@ -558,14 +545,13 @@ export function SalonPage({
             </div>
           ) : (
             <CovieEmptyState
-              title="No services yet"
-              description="Add the appointment types your team offers."
+              title={data.canOrganise ? "No services yet" : "No services assigned yet"}
+              description={data.canOrganise ? "Add the appointment types your team offers." : "Ask the owner or a manager to assign the services you provide."}
             />
           )}
         </>
       ) : tool === "booking-settings" ? (
         <>
-          <CovieSectionHeader title="Booking settings" />
           {data.settings.publicEnabled ? (
             <CovieNotice tone="teal">
               <Link
@@ -593,43 +579,22 @@ export function SalonPage({
         </>
       ) : (
         <>
-          <CovieSectionHeader
-            title={data.canOrganise ? "Team" : "My practitioner profile"}
-            actions={
-              <div className={styles.actions}>
-                {data.role === "owner" && !own ? (
-                  <CovieButton
-                    disabled={disabled}
-                    onClick={() => {
-                      mutation.setError("");
-                      setProfileTool({ kind: "profile" });
-                    }}
-                  >
-                    Add myself
-                  </CovieButton>
-                ) : null}
-                {data.canOrganise ? (
-                  <CovieButton
-                    disabled={disabled}
-                    onClick={() => {
-                      mutation.setError("");
-                      setInviting(true);
-                    }}
-                  >
-                    Invite team member
-                  </CovieButton>
-                ) : null}
-              </div>
-            }
-          />
+          {data.canOrganise ? (
+            <div className={styles.actions}>
+              {data.role === "owner" && !own ? (
+                <CovieButton disabled={disabled} onClick={() => { mutation.setError(""); setProfileTool({ kind: "profile" }); }}>Add myself</CovieButton>
+              ) : null}
+              <CovieButton disabled={disabled} onClick={() => { mutation.setError(""); setInviting(true); }}>Invite team member</CovieButton>
+            </div>
+          ) : null}
           {data.practitioners.length ? (
             <div className={styles.cards}>
               {data.practitioners.map((person) => (
                 <CovieRecordCard key={person.id} className={styles.record}>
-                  <h3>
+                  <h2>
                     {person.displayName}
                     {person.own ? " · You" : ""}
-                  </h3>
+                  </h2>
                   <p className={styles.help}>
                     {person.role} · {person.kind}
                   </p>

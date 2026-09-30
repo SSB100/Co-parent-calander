@@ -46,7 +46,7 @@
 .history strong { font-size: 14px; }
 .history p, .history time { color: var(--covie-text-secondary); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
 .resourceHeader { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
-.resourceHeader h3 { overflow-wrap: anywhere; font-size: 16px; font-weight: 750; }
+.resourceHeader h2 { overflow-wrap: anywhere; font-size: 16px; font-weight: 750; }
 @media (min-width: 640px) {
   .filters { grid-template-columns: minmax(180px, .8fr) minmax(0, 1.2fr); }
   .formColumns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
