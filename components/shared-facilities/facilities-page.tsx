@@ -11,6 +11,7 @@ import { canChangeFacilityBooking, canEditFacilityResource, canReviewFacilityBoo
 import { FacilityPlanner } from "./facility-planner";
 import { FacilitySlotConfirmation } from "./facility-slot-confirmation";
 import { facilitySlotProblem, type FacilitySlot } from "./facility-slots";
+import { initialSourceDate, initialSourceRecord } from "@/lib/client/calendar-source";
 import styles from "./facilities.module.css";
 
 type Confirmation = { kind: "cancel" | "decline"; booking: FacilityBooking } | { kind: "archive"; resource: FacilityResource };
@@ -25,7 +26,9 @@ function statusTone(status: FacilityBooking["status"]) {
 
 export function FacilitiesPage({ calendarId, section, tool }: { calendarId: string; section: "calendar" | "updates" | "organiser"; tool?: string }) {
   const [data, setData] = useState<FacilityData | null>(null);
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(initialSourceDate);
+  const [linkedRecordId, setLinkedRecordId] = useState(initialSourceRecord);
+  const sourceRecord = useRef(linkedRecordId);
   const [view, setView] = useState<FacilityView>("availability");
   const [resourceId, setResourceId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -35,7 +38,7 @@ export function FacilitiesPage({ calendarId, section, tool }: { calendarId: stri
   const [busy, setBusy] = useState(false);
   const [bookingEditor, setBookingEditor] = useState<BookingEditor | null>(null);
   const [bookingSlot, setBookingSlot] = useState<FacilitySlot | null>(null);
-  const selectionRef = useRef({ date: "", resourceId: "" });
+  const selectionRef = useRef({ date, resourceId: "" });
   const [resourceEditor, setResourceEditor] = useState<{ resource?: FacilityResource } | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const mounted = useRef(false);
@@ -59,6 +62,14 @@ export function FacilitiesPage({ calendarId, section, tool }: { calendarId: stri
       if (!mounted.current || sequence !== requestSequence.current) return;
       if (date && body.date !== date) throw new Error("The returned schedule does not match the selected day. Try again.");
       setData(requireCalendarContext(body, calendarId));
+      if (sourceRecord.current) {
+        const linked = body.bookings.find((booking) => booking.id === sourceRecord.current && booking.own);
+        if (linked) {
+          selectionRef.current.resourceId = linked.resourceId; setResourceId(linked.resourceId);
+          if (!body.resources.some((resource) => resource.id === linked.resourceId && resource.active)) setView("mine");
+        }
+        sourceRecord.current = "";
+      }
       if (selectionRef.current.resourceId && !body.resources.some((resource) => resource.id === selectionRef.current.resourceId)) {
         selectionRef.current.resourceId = ""; setResourceId("");
       }
@@ -147,6 +158,7 @@ export function FacilitiesPage({ calendarId, section, tool }: { calendarId: stri
   const activeResources = data.resources.filter((resource) => resource.active);
   const bookings = facilityBookingsForView(data, view, resourceId);
   const pendingReview = data.bookings.filter((booking) => canReviewFacilityBooking(data, booking));
+  const linkedBooking = data.bookings.find((booking) => booking.id === linkedRecordId && booking.own);
   const resourceName = (id: string) => data.resources.find((resource) => resource.id === id)?.name ?? "Resource";
 
   function renderBooking(booking: FacilityBooking, includeResource: boolean, includeDate = false) {
@@ -173,6 +185,7 @@ export function FacilitiesPage({ calendarId, section, tool }: { calendarId: stri
     {mutationError && !bookingEditor && !bookingSlot && !resourceEditor && !confirmation ? <CovieNotice tone="danger">{mutationError}<div className={styles.actions}><CovieButton tone="neutral" disabled={disabled} onClick={() => { setMutationError(""); void refresh(); }}>Reload calendar</CovieButton></div></CovieNotice> : null}
     {data?.bookingsTruncated ? <CovieNotice>The upcoming list is limited. Choose a date to see its full schedule.</CovieNotice> : null}
       {notice ? <CovieNotice tone="teal">{notice}</CovieNotice> : null}
+    {section === "calendar" && linkedRecordId && !loading ? <section className={styles.stack} aria-label="Booking from Personal" id={`record-${linkedRecordId}`}><CovieSectionHeader title="Booking from Personal" actions={<CovieButton tone="neutral" onClick={() => setLinkedRecordId("")}>Dismiss</CovieButton>} />{linkedBooking ? <CovieRecordCard><strong>{linkedBooking.title || "Your booking"}</strong><p>{resourceName(linkedBooking.resourceId)}</p><p>{facilityTime(linkedBooking.start, data.timezone, true)} to {facilityTime(linkedBooking.end, data.timezone, true)}</p><CovieStatusBadge tone={statusTone(linkedBooking.status)}>{linkedBooking.status}</CovieStatusBadge>{linkedBooking.notes ? <p className={styles.notes}>{linkedBooking.notes}</p> : null}<p className={styles.help}>Use My bookings to manage an upcoming booking.</p></CovieRecordCard> : <CovieNotice>This booking is no longer available in this calendar. Refresh your Personal overview for the latest items.</CovieNotice>}</section> : null}
     {section === "calendar" ? <>
       <div className={styles.toolbar}>
         <CovieSegmentedControl value={view} onChange={(next) => { if (mutationLock.current) return; setView(next); if (next === "availability" && resourceId && !activeResources.some((resource) => resource.id === resourceId)) chooseResource(""); }} options={[{ value: "availability", label: "Availability" }, { value: "mine", label: "My bookings" }]} ariaLabel="Facilities view" />

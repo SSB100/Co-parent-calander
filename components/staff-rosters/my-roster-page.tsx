@@ -1,5 +1,6 @@
 "use client";
 
+
 import {
   Bell,
   CalendarCheck2,
@@ -174,8 +175,8 @@ async function loadWeek(weekStart: string) {
   return body;
 }
 
-export function StaffMyRosterPage() {
-  const [anchorDate, setAnchorDate] = useState(todayValue);
+export function StaffMyRosterPage({ initialDate = "" }: { initialDate?: string }) {
+  const [anchorDate, setAnchorDate] = useState(() => initialDate || todayValue());
   const [view, setView] = useState<View>("week");
   const [data, setData] = useState<MyRosterPayload | null>(null);
   const [clock, setClock] = useState<ClockState | null>(null);

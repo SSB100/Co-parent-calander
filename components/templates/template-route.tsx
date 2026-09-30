@@ -19,10 +19,12 @@ export async function TemplateRoute({
   template,
   section,
   activeToolKey,
+  initialDate,
 }: {
   template: string;
   section: TemplateSection;
   activeToolKey?: string;
+  initialDate?: string;
 }) {
   if (!isAdditionalCalendarTemplateSlug(template)) notFound();
 
@@ -71,6 +73,7 @@ export async function TemplateRoute({
       defaultName={session.userName}
       section={section}
       activeToolKey={activeToolKey}
+      initialDate={initialDate}
       staffAccessRole={staffAccessRole}
     />
   );

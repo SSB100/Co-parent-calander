@@ -10,14 +10,15 @@ import { SocialMonthCalendar } from "./social-month-calendar";
 import { SocialAvailabilityForm, SocialSettingsForm } from "./social-organiser-forms";
 import { canOrganiseSocial, shiftSocialMonth, socialDateLabel, socialEventsByDay, socialMonthDays, socialResponses, socialTimestamp } from "./social-ui";
 import { useSocialGroups } from "./use-social-groups";
+import { initialSourceDate, initialSourceRecord } from "@/lib/client/calendar-source";
 import styles from "./social-groups.module.css";
 
 export function SocialGroupsPage({ calendarId, section, tool }: { calendarId: string; section: "calendar" | "updates" | "organiser"; tool?: string }) {
-  const [month, setMonth] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
+  const [month, setMonth] = useState(() => initialSourceDate().slice(0, 7));
+  const [selectedDate, setSelectedDate] = useState(initialSourceDate);
   const [showCancelled, setShowCancelled] = useState(false);
   const [editor, setEditor] = useState<{ event?: SocialEvent } | null>(null);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(initialSourceRecord);
   const [cancelTarget, setCancelTarget] = useState<SocialEvent | null>(null);
   const enabled = !(section === "organiser" && tool === "members");
   const { data, loading, loadError, error, notice, busy, mutationLock, refresh, save, clearMessages } = useSocialGroups(calendarId, month, enabled);

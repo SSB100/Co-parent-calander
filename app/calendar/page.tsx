@@ -1,3 +1,4 @@
+import { safeSourceDate } from "@/lib/personal/source-navigation";
 import { cookies } from "next/headers";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -22,7 +23,7 @@ export const metadata: Metadata = { title: "Calendar" };
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ welcome?: string }>;
+  searchParams: Promise<{ welcome?: string; date?: string }>;
 }) {
   const session = await getCalendarSession();
   if (!session) redirect("/onboarding");
@@ -32,7 +33,8 @@ export default async function CalendarPage({
 
   const params = await searchParams;
   const initialToday = localDateInTimeZone(session.calendarTimezone);
-  const initialRange = calendarRangeForDate(initialToday);
+  const requestedDate = safeSourceDate(params.date);
+  const initialRange = requestedDate ? calendarRangeForDate(requestedDate) : calendarRangeForDate(initialToday);
   const [calendarOptions, archivedCalendarOptions, initialData, cookieStore] =
     await Promise.all([
       listCalendarNavigationOptions(session.userId),

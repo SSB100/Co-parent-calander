@@ -1,5 +1,6 @@
 "use client";
 
+
 import {
   AlertTriangle,
   CalendarDays,
@@ -358,9 +359,9 @@ async function readRosterWeek(weekStart: string) {
   return body;
 }
 
-export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
-  const [anchorDate, setAnchorDate] = useState(todayValue);
-  const [mobileDay, setMobileDay] = useState(todayValue);
+export function StaffRosterCalendarPage({ header, initialDate = "" }: { header?: ReactNode; initialDate?: string }) {
+  const [anchorDate, setAnchorDate] = useState(() => initialDate || todayValue());
+  const [mobileDay, setMobileDay] = useState(() => initialDate || todayValue());
   const [view, setView] = useState<RosterView>("week");
   const [staffFilter, setStaffFilter] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
@@ -494,10 +495,10 @@ export function StaffRosterCalendarPage({ header }: { header?: ReactNode }) {
   useEffect(() => {
     if (!data || initialCalendarDateSynced.current) return;
     initialCalendarDateSynced.current = true;
-    const calendarToday = localDateInTimeZone(data.calendarTimezone);
+    const calendarToday = initialDate || localDateInTimeZone(data.calendarTimezone);
     setAnchorDate(calendarToday);
     setMobileDay(calendarToday);
-  }, [data]);
+  }, [data, initialDate]);
 
   useEffect(() => {
     if (view !== "week" || !data) return;
