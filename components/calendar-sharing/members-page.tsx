@@ -2,44 +2,84 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, UsersRound } from "lucide-react";
 import { CovieButton, CovieCard, CovieConfirmDialog, CovieDialog, CovieEmptyState, CovieNotice, CovieSelect, CovieStatusBadge } from "@/components/ui/covie";
-import { CalendarContextChangedError, calendarContextHeaders, requireCalendarContext, throwIfCalendarContextChanged } from "./calendar-context";
+import { CalendarAccessDeniedError, CalendarContextChangedError, calendarContextHeaders, requireCalendarContext, throwIfCalendarAccessDenied, throwIfCalendarContextChanged } from "./calendar-context";
 type Role="owner"|"manager"|"admin"|"member"|"viewer";
 type Data={calendarId:string;access:{role:Role;resourceIds:string[]};canInvite:boolean;members:{id:string;name:string;role:Role;isCurrentUser:boolean;resourceIds:string[]}[];invites:{id:string;role:Role;codeHint:string;expiresAt:string}[];resources:{id:string;name:string}[];calendarType:"shared_facilities"|"social_groups"};
 const label:Record<Role,string>={owner:"Owner",manager:"Resource manager",admin:"Group admin",member:"Member",viewer:"View only"};
 export function TemplateMembersPage({calendarId}:{calendarId:string}){
  const [data,setData]=useState<Data|null>(null),[error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[open,setOpen]=useState(false),[role,setRole]=useState<Exclude<Role,"owner">>("member"),[resources,setResources]=useState<string[]>([]),[editing,setEditing]=useState<string|null>(null),[invite,setInvite]=useState<{code:string;expiresAt:string}|null>(null),[revoke,setRevoke]=useState<string|null>(null),[copied,setCopied]=useState(false);
- const mounted=useRef(true),loading=useRef(0),sending=useRef(false);
+ const [refreshing,setRefreshing]=useState(true),[loadError,setLoadError]=useState<string|null>(null);
+ const mounted=useRef(false),loading=useRef(0),sending=useRef(false),editingRef=useRef<string|null>(null),currentRequest=useRef<AbortController|null>(null);
+ const clearAccess=useCallback(()=>{editingRef.current=null;setData(null);setOpen(false);setEditing(null);setRevoke(null);setInvite(null);setCopied(false);},[]);
  const load=useCallback(async()=>{
   const revision=++loading.current;
+  currentRequest.current?.abort();
+  const controller=new AbortController();currentRequest.current=controller;
+  setRefreshing(true);setLoadError(null);
   try {
-   const response=await fetch("/api/template-members",{cache:"no-store",headers:calendarContextHeaders(calendarId)});
+   const response=await fetch("/api/template-members",{cache:"no-store",headers:calendarContextHeaders(calendarId),signal:controller.signal});
    const result=await response.json();
+   throwIfCalendarAccessDenied(response.status,result);
    throwIfCalendarContextChanged(response.status,result);
    if(!response.ok)throw new Error(result.error??"Members could not be loaded.");
-   if(mounted.current&&revision===loading.current){setData(requireCalendarContext(result,calendarId));setError(null);}
+   if(!mounted.current||revision!==loading.current)return;
+   const next=requireCalendarContext(result,calendarId) as Data;
+   setData(next);
+   if(!next.canInvite){editingRef.current=null;setOpen(false);setEditing(null);setRevoke(null);setInvite(null);}
+   else {
+    if(editingRef.current&&(next.access.role!=="owner"||!next.members.some(member=>member.id===editingRef.current&&member.role!=="owner"))){editingRef.current=null;setOpen(false);setEditing(null);setInvite(null);}
+    setRevoke(current=>current&&next.invites.some(item=>item.id===current)?current:null);
+   }
   } catch(caught) {
-   if(mounted.current&&revision===loading.current&&caught instanceof CalendarContextChangedError){setData(null);setOpen(false);setRevoke(null);setInvite(null);}
-   throw caught;
-  }
- },[calendarId]);
- useEffect(()=>{mounted.current=true;void load().catch(e=>{if(mounted.current)setError(e.message);});return()=>{mounted.current=false;};},[load]);
- async function mutate(payload:unknown){if(sending.current)return false;sending.current=true;setBusy(true);setError(null);try{const response=await fetch("/api/template-members",{method:"POST",headers:{"content-type":"application/json",...calendarContextHeaders(calendarId)},body:JSON.stringify(payload)});const result=await response.json();throwIfCalendarContextChanged(response.status,result);if(!response.ok)throw new Error(result.error??"Members could not be updated.");if(!mounted.current)return false;if(result.code)setInvite({code:result.code,expiresAt:result.expiresAt});await load();return true;}catch(e){if(mounted.current){if(e instanceof CalendarContextChangedError){setData(null);setOpen(false);setRevoke(null);setInvite(null);}setError(e instanceof Error?e.message:"Please try again.");}return false;}finally{sending.current=false;if(mounted.current)setBusy(false);}}
- function start(id?:string){const member=data?.members.find(m=>m.id===id);setEditing(id??null);setRole(member&&member.role!=="owner"?member.role:"member");setResources(member?.resourceIds??[]);setInvite(null);setCopied(false);setError(null);setOpen(true);}
+   if(!controller.signal.aborted&&mounted.current&&revision===loading.current){
+    if(caught instanceof CalendarContextChangedError||caught instanceof CalendarAccessDeniedError)clearAccess();
+    setLoadError(caught instanceof Error?caught.message:"Members could not be loaded.");
+   }
+  } finally {if(mounted.current&&revision===loading.current)setRefreshing(false);}
+ },[calendarId,clearAccess]);
+ useEffect(()=>{
+  mounted.current=true;
+  const timer=window.setTimeout(()=>void load(),0);
+  const recheck=()=>{if(document.visibilityState==="visible"&&!sending.current)void load();};
+  window.addEventListener("focus",recheck);window.addEventListener("pageshow",recheck);document.addEventListener("visibilitychange",recheck);
+  return()=>{mounted.current=false;window.clearTimeout(timer);currentRequest.current?.abort();loading.current+=1;window.removeEventListener("focus",recheck);window.removeEventListener("pageshow",recheck);document.removeEventListener("visibilitychange",recheck);};
+ },[load]);
+ const disabled=busy||refreshing||Boolean(loadError),displayError=error||loadError;
+ async function mutate(payload:unknown){
+  if(sending.current||disabled)return false;
+  sending.current=true;setBusy(true);setError(null);
+  try {
+   const response=await fetch("/api/template-members",{method:"POST",headers:{"content-type":"application/json",...calendarContextHeaders(calendarId)},body:JSON.stringify(payload)});
+   const result=await response.json();
+   throwIfCalendarAccessDenied(response.status,result);throwIfCalendarContextChanged(response.status,result);
+   if(!response.ok)throw new Error(result.error??"Members could not be updated.");
+   if(!mounted.current)return false;
+   if(result.code)setInvite({code:result.code,expiresAt:result.expiresAt});
+   await load();return true;
+  } catch(caught) {
+   if(mounted.current){
+    if(caught instanceof CalendarContextChangedError||caught instanceof CalendarAccessDeniedError){currentRequest.current?.abort();loading.current+=1;clearAccess();setLoadError(caught.message);setRefreshing(false);}
+    setError(caught instanceof Error?caught.message:"Please try again.");
+   }
+   return false;
+  } finally {sending.current=false;if(mounted.current)setBusy(false);}
+ }
+ function start(id?:string){editingRef.current=id??null;const member=data?.members.find(m=>m.id===id);setEditing(id??null);setRole(member&&member.role!=="owner"?member.role:"member");setResources(member?.resourceIds??[]);setInvite(null);setCopied(false);setError(null);setOpen(true);}
  async function copy(){if(!invite)return;try{await navigator.clipboard.writeText(`${window.location.origin}/onboarding?invite=${encodeURIComponent(invite.code)}`);setCopied(true);}catch{setError("The link could not be copied. Select and copy the code below.");}}
  const facility=data?.calendarType==="shared_facilities";
  return <div className="space-y-4">
-  {error?<CovieNotice tone="danger">{error}<button className="ml-2 underline" onClick={()=>{setError(null);void load().catch(e=>setError(e.message));}}>Try again</button><button className="ml-2 underline" disabled={busy} onClick={()=>window.location.reload()}>Reload page</button></CovieNotice>:null}
-  {!data||data.calendarId!==calendarId?<p role="status">Loading members…</p>:<>
-   <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-[#526168]">Your access: <strong className="text-[#243139]">{label[data.access.role]}</strong></p>{data.canInvite?<CovieButton onClick={()=>start()}>Invite someone</CovieButton>:null}</div>
+  {displayError?<CovieNotice tone="danger">{displayError}<div className="mt-3 flex flex-wrap gap-2"><CovieButton tone="neutral" disabled={busy||refreshing} onClick={()=>{setError(null);void load();}}>Try again</CovieButton><CovieButton tone="neutral" disabled={busy} onClick={()=>window.location.reload()}>Reload page</CovieButton></div></CovieNotice>:null}
+  {!data||data.calendarId!==calendarId?refreshing?<p role="status">Loading members…</p>:null:<>
+   <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-[#526168]">Your access: <strong className="text-[#243139]">{label[data.access.role]}</strong></p>{data.canInvite?<CovieButton disabled={disabled} onClick={()=>start()}>Invite someone</CovieButton>:null}</div>
    {!data.canInvite?<CovieEmptyState icon={<UsersRound/>} title="Your calendar membership" description={data.access.role==="viewer"?"You can view this calendar. Ask the organiser if you need to take part.":facility?"You can book available resources and manage your own bookings. Ask the organiser to invite someone.":"You can respond to activities and share availability. Ask the organiser to invite someone."}/>:<>
-    <div className="space-y-3">{data.members.map(member=><CovieCard key={member.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><strong>{member.name}{member.isCurrentUser?" (you)":""}</strong><div className="mt-1"><CovieStatusBadge tone={member.role==="owner"||member.role==="manager"||member.role==="admin"?"violet":"neutral"}>{label[member.role]}</CovieStatusBadge></div>{member.role==="manager"?<p className="mt-2 text-xs text-[#526168]">{member.resourceIds.map(id=>data.resources.find(r=>r.id===id)?.name??"Assigned resource").join(", ")}</p>:null}</div>{data.access.role==="owner"&&member.role!=="owner"?<CovieButton tone="neutral" onClick={()=>start(member.id)}>Change access</CovieButton>:null}</CovieCard>)}</div>
-    {data.invites.length?<section className="space-y-3"><h2 className="text-lg font-bold">Pending invitations</h2>{data.invites.map(item=><CovieCard key={item.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><strong>{label[item.role]}</strong><p className="text-sm text-[#526168]">Code ending {item.codeHint} · expires {new Date(item.expiresAt).toLocaleDateString()}</p></div><CovieButton tone="neutral" onClick={()=>setRevoke(item.id)}>Revoke</CovieButton></CovieCard>)}</section>:null}
+    <div className="space-y-3">{data.members.map(member=><CovieCard key={member.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><strong>{member.name}{member.isCurrentUser?" (you)":""}</strong><div className="mt-1"><CovieStatusBadge tone={member.role==="owner"||member.role==="manager"||member.role==="admin"?"violet":"neutral"}>{label[member.role]}</CovieStatusBadge></div>{member.role==="manager"?<p className="mt-2 text-xs text-[#526168]">{member.resourceIds.map(id=>data.resources.find(r=>r.id===id)?.name??"Assigned resource").join(", ")}</p>:null}</div>{data.access.role==="owner"&&member.role!=="owner"?<CovieButton tone="neutral" disabled={disabled} onClick={()=>start(member.id)}>Change access</CovieButton>:null}</CovieCard>)}</div>
+    {data.invites.length?<section className="space-y-3"><h2 className="text-lg font-bold">Pending invitations</h2>{data.invites.map(item=><CovieCard key={item.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><strong>{label[item.role]}</strong><p className="text-sm text-[#526168]">Code ending {item.codeHint} · expires {new Date(item.expiresAt).toLocaleDateString()}</p></div><CovieButton tone="neutral" disabled={disabled} onClick={()=>setRevoke(item.id)}>Revoke</CovieButton></CovieCard>)}</section>:null}
    </>}
   </>}
-  {open&&data&&data.calendarId===calendarId?<CovieDialog id="template-invite-title" title={invite?"Invitation ready":editing?"Change access":"Invite someone"} description={invite?"Share this one-use invitation with the intended person.":facility?"Give each person the tools they need for your shared resources.":"Keep organising and taking part simple for your group."} onClose={()=>{if(!busy)setOpen(false);}} busy={busy} footer={<><CovieButton tone="neutral" disabled={busy} onClick={()=>setOpen(false)}>{invite?"Done":"Cancel"}</CovieButton>{!invite?<CovieButton disabled={busy||(role==="manager"&&!resources.length)} onClick={async()=>{if(await mutate(editing?{action:"role",id:editing,role,resourceIds:resources}:{action:"invite",role,resourceIds:resources})){if(editing)setOpen(false);}}}>{busy?"Saving…":editing?"Save access":"Create invitation"}</CovieButton>:null}</>}>
-   {error?<CovieNotice tone="danger">{error}</CovieNotice>:null}
-   {invite?<div className="space-y-4"><p className="select-all rounded-xl border-2 border-[#243139] bg-[#FFF9F2] p-4 text-center text-xl font-bold tracking-widest">{invite.code}</p><CovieButton tone="neutral" onClick={()=>void copy()}><Copy size={16}/>{copied?"Copied":"Copy invitation link"}</CovieButton><p className="text-sm text-[#526168]">This code expires {new Date(invite.expiresAt).toLocaleDateString()} and can be used once. It grants {label[role].toLowerCase()} access to this calendar only.</p></div>:<div className="space-y-4"><label className="block text-sm font-bold">Access<CovieSelect value={role} onChange={e=>setRole(e.target.value as Exclude<Role,"owner">)}><option value="member">Member</option><option value="viewer">View only</option>{data.access.role==="owner"?<option value={facility?"manager":"admin"}>{facility?"Resource manager":"Group admin"}</option>:null}</CovieSelect></label>{editing?<p className="text-sm text-[#526168]">Changing access also revokes unused invitations created by this person.</p>:null}<p className="text-sm text-[#526168]">{role==="manager"?"Can manage bookings and resource details for the selected resources. The owner controls booking rules and manager access.":role==="admin"?"Can organise group activities and invite members. Only the owner can appoint other admins.":role==="viewer"?"Can view the calendar, without creating bookings, activities or responses.":facility?"Can see availability, book within your rules and manage their own bookings.":"Can RSVP, share availability and create activities when group settings allow."}</p>{role==="manager"?<fieldset className="space-y-2"><legend className="mb-2 text-sm font-bold">Resources they manage</legend>{data.resources.length?data.resources.map(resource=><label className="flex min-h-11 items-center gap-3 text-sm" key={resource.id}><input type="checkbox" checked={resources.includes(resource.id)} onChange={e=>setResources(previous=>e.target.checked?[...previous,resource.id]:previous.filter(id=>id!==resource.id))}/>{resource.name}</label>):<p className="text-sm">Add a resource before inviting its manager.</p>}</fieldset>:null}</div>}
+  {open&&data&&data.calendarId===calendarId?<CovieDialog id="template-invite-title" title={invite?"Invitation ready":editing?"Change access":"Invite someone"} description={invite?"Share this one-use invitation with the intended person.":facility?"Give each person the tools they need for your shared resources.":"Keep organising and taking part simple for your group."} onClose={()=>{if(!busy)setOpen(false);}} busy={busy} footer={<><CovieButton tone="neutral" disabled={busy} onClick={()=>setOpen(false)}>{invite?"Done":"Cancel"}</CovieButton>{!invite?<CovieButton disabled={disabled||(role==="manager"&&!resources.length)} onClick={async()=>{if(await mutate(editing?{action:"role",id:editing,role,resourceIds:resources}:{action:"invite",role,resourceIds:resources})){if(editing)setOpen(false);}}}>{busy?"Saving…":editing?"Save access":"Create invitation"}</CovieButton>:null}</>}>
+   {displayError?<CovieNotice tone="danger">{displayError}</CovieNotice>:null}
+   {invite?<div className="space-y-4"><p className="select-all rounded-xl border-2 border-[#243139] bg-[#FFF9F2] p-4 text-center text-xl font-bold tracking-widest">{invite.code}</p><CovieButton tone="neutral" disabled={disabled} onClick={()=>void copy()}><Copy size={16}/>{copied?"Copied":"Copy invitation link"}</CovieButton><p className="text-sm text-[#526168]">This code expires {new Date(invite.expiresAt).toLocaleDateString()} and can be used once. It grants {label[role].toLowerCase()} access to this calendar only.</p></div>:<div className="space-y-4"><label className="block text-sm font-bold">Access<CovieSelect value={role} onChange={e=>setRole(e.target.value as Exclude<Role,"owner">)}><option value="member">Member</option><option value="viewer">View only</option>{data.access.role==="owner"?<option value={facility?"manager":"admin"}>{facility?"Resource manager":"Group admin"}</option>:null}</CovieSelect></label>{editing?<p className="text-sm text-[#526168]">Changing access also revokes unused invitations created by this person.</p>:null}<p className="text-sm text-[#526168]">{role==="manager"?"Can manage bookings and resource details for the selected resources. The owner controls booking rules and manager access.":role==="admin"?"Can organise group activities and invite members. Only the owner can appoint other admins.":role==="viewer"?"Can view the calendar, without creating bookings, activities or responses.":facility?"Can see availability, book within your rules and manage their own bookings.":"Can RSVP, share availability and create activities when group settings allow."}</p>{role==="manager"?<fieldset className="space-y-2"><legend className="mb-2 text-sm font-bold">Resources they manage</legend>{data.resources.length?data.resources.map(resource=><label className="flex min-h-11 items-center gap-3 text-sm" key={resource.id}><input type="checkbox" checked={resources.includes(resource.id)} onChange={e=>setResources(previous=>e.target.checked?[...previous,resource.id]:previous.filter(id=>id!==resource.id))}/>{resource.name}</label>):<p className="text-sm">Add a resource before inviting its manager.</p>}</fieldset>:null}</div>}
   </CovieDialog>:null}
-  <CovieConfirmDialog open={!!revoke} id="revoke-template-invite" title="Revoke this invitation?" description="The invitation code will stop working. People who already joined keep their current access." confirmLabel="Revoke invitation" busy={busy} onCancel={()=>setRevoke(null)} onConfirm={async()=>{if(revoke&&await mutate({action:"revoke",id:revoke}))setRevoke(null);}}/>
+  <CovieConfirmDialog open={!!revoke} id="revoke-template-invite" title="Revoke this invitation?" description="The invitation code will stop working. People who already joined keep their current access." confirmLabel="Revoke invitation" busy={busy} confirmDisabled={disabled} onCancel={()=>setRevoke(null)} onConfirm={async()=>{if(revoke&&await mutate({action:"revoke",id:revoke}))setRevoke(null);}}/>
  </div>;
 }

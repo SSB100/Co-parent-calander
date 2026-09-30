@@ -10,6 +10,8 @@ import {
   isAdditionalCalendarTemplateSlug,
 } from "@/lib/templates/calendar-templates";
 import { ensureStaffRosterMember } from "@/lib/staff-rosters/service";
+import { getNonStaffWorkspaceRole } from "@/lib/templates/workspace-access";
+import { workspaceOrganiserTools, type WorkspaceRole } from "@/lib/templates/workspace-navigation";
 import {
   TemplateShell,
   type TemplateSection,
@@ -47,9 +49,11 @@ export async function TemplateRoute({
   }
 
   let staffAccessRole: "owner" | "manager" | "staff" | null = null;
+  let workspaceRole: WorkspaceRole;
   if (manifest.id === "staff_rosters") {
     const staffMember = await ensureStaffRosterMember(session);
     staffAccessRole = staffMember.accessRole;
+    workspaceRole = staffAccessRole;
 
     if (
       staffAccessRole === "staff" &&
@@ -59,6 +63,9 @@ export async function TemplateRoute({
     ) {
       redirect("/calendar-types/staff-rosters");
     }
+  } else {
+    workspaceRole = await getNonStaffWorkspaceRole(session);
+    if (section === "organiser" && !workspaceOrganiserTools(manifest.id, workspaceRole).some((tool) => tool.key === activeToolKey)) redirect(calendarPathForType(session.calendarType));
   }
 
   const [calendars, archivedCalendars] = await Promise.all([
@@ -78,6 +85,7 @@ export async function TemplateRoute({
       initialDate={initialDate}
       initialRecord={initialRecord}
       staffAccessRole={staffAccessRole}
+      workspaceRole={workspaceRole}
     />
   );
 }

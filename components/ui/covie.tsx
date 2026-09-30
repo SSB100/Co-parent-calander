@@ -481,6 +481,7 @@ export function CovieConfirmDialog({
   confirmLabel,
   cancelLabel = "Cancel",
   busy = false,
+  confirmDisabled = false,
   destructive = true,
   icon,
   onCancel,
@@ -493,6 +494,7 @@ export function CovieConfirmDialog({
   confirmLabel: string;
   cancelLabel?: string;
   busy?: boolean;
+  confirmDisabled?: boolean;
   destructive?: boolean;
   icon?: ReactNode;
   onCancel: () => void;
@@ -522,7 +524,7 @@ export function CovieConfirmDialog({
           </button>
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             onClick={onConfirm}
             className={destructive ? "covie-dialog-danger" : "covie-dialog-primary"}
           >

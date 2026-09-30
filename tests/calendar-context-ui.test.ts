@@ -42,7 +42,7 @@ test("Facilities and Members bind both read and write requests to required route
     assert.match(source, /calendarId\s*:\s*string/, file);
     assert.match(source, /cache:\s*"no-store",\s*headers:\s*calendarContextHeaders\(calendarId\)/, file);
     assert.match(source, /"content-type":\s*"application\/json",\s*\.\.\.calendarContextHeaders\(calendarId\)/, file);
-    assert.match(source, /setData\(requireCalendarContext\((?:body|result),\s*calendarId\)\)/, file);
+    assert.match(source, /requireCalendarContext\((?:body|result),\s*calendarId\)/, file);
     assert.doesNotMatch(source, /"x-covie-calendar-id"\s*:\s*data\??\./, file);
   }
   for (const file of files) {
@@ -63,6 +63,6 @@ test("all clients discard stale records on a mismatched read or write", async ()
     const source = await readFile(file, "utf8");
     assert.equal((source.match(/throwIfCalendarContextChanged\(response.status,/g) ?? []).length, 2, `${file} checks both read and write responses`);
     assert.match(source, /instanceof CalendarContextChangedError/, file);
-    assert.match(source, /setData\(null\)/, file);
+    assert.match(source, /(?:setData|acceptSnapshot)\(null\)/, file);
   }
 });

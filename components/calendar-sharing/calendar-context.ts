@@ -5,6 +5,16 @@ export class CalendarContextChangedError extends Error {
   }
 }
 
+export class CalendarAccessDeniedError extends Error {
+  constructor(message: string) { super(message); this.name = "CalendarAccessDeniedError"; }
+}
+
+export function throwIfCalendarAccessDenied(status: number, body: unknown) {
+  if (status !== 401 && status !== 403) return;
+  const message = body && typeof body === "object" && "error" in body && typeof body.error === "string" ? body.error : "Your calendar access has changed. Reload or contact the organiser.";
+  throw new CalendarAccessDeniedError(message);
+}
+
 /** Bind requests to the calendar rendered by the route, never a later response. */
 export function calendarContextHeaders(calendarId: string) {
   if (!calendarId) throw new Error("Reload this page before continuing.");

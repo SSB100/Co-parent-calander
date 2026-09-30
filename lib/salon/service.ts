@@ -39,6 +39,13 @@ async function currentAccess(session: SalonSession): Promise<Access> {
   const role: SalonRole = row.permission === "owner" ? "owner" : row.role === "manager" ? "manager" : "practitioner";
   return { calendarId: row.id, userId: session.userId, calendarName: row.name, timezone: row.timezone, role, practitionerId: row.active ? row.practitioner_id : null, canOrganise: role !== "practitioner" };
 }
+export async function getSalonWorkspaceRole(session: SalonSession): Promise<SalonRole | "unavailable"> {
+  try { return (await currentAccess(session)).role; }
+  catch (error) {
+    if (error instanceof SalonError && error.status === 403) return "unavailable";
+    throw error;
+  }
+}
 async function verifyReadAccess(session: SalonSession, before: Access) {
   const after = await currentAccess(session);
   if (after.role !== before.role || after.practitionerId !== before.practitionerId || after.timezone !== before.timezone) {
