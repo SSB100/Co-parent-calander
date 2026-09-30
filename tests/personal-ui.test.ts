@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import type { PersonalData, PersonalItem } from "../lib/personal/contracts";
 import { PersonalLoader } from "../components/personal/personal-loader";
-import { isPersonalMonth, personalItemDates, personalItemTime, personalItemsByDay, personalMonthDays, personalQueryKey, personalTimezoneOptions, scopePersonalData, shiftPersonalDate, shiftPersonalMonth } from "../components/personal/personal-ui";
+import { isPersonalMonth, personalItemDates, personalItemTime, personalItemsByDay, personalMonthDays, personalOverview, personalQueryKey, personalTimezoneOptions, scopePersonalData, shiftPersonalDate, shiftPersonalMonth } from "../components/personal/personal-ui";
 
 const item: PersonalItem = { id: "cal-a:booking-a", calendarId: "cal-a", sourceId: "booking-a", kind: "facility", state: "confirmed", title: "Court booking", detail: "Your confirmed booking", date: "2026-10-01", endDate: "2026-10-01", start: "2026-10-01T10:00:00Z", end: "2026-10-01T11:00:00Z", timezone: "Pacific/Auckland", sourceTarget: "calendar" };
 const data: PersonalData = { month: "2026-10", timezone: "Pacific/Auckland", today: "2026-10-01", sources: [{ id: "cal-a", name: "Courts", type: "shared_facilities", timezone: "Pacific/Auckland" }], items: [item], attention: [], warnings: [] };
@@ -50,6 +50,37 @@ test("agenda keeps tentative and care status and excludes attention from booked 
   const shown = personalItemsByDay(items, ["2026-10-01"], "UTC").get("2026-10-01")!;
   assert.equal(shown.length, 3);
   assert.deepEqual(new Set(shown.map((entry) => entry.state)), new Set(["confirmed", "tentative", "background"]));
+});
+
+test("overview distinguishes today, future plans and care without repeating an overnight plan", () => {
+  const overnight = { ...item, id: "overnight", start: "2026-10-01T23:30:00Z", end: "2026-10-02T01:30:00Z" };
+  const future = { ...item, id: "future", date: "2026-10-02", endDate: "2026-10-02", start: "2026-10-02T10:00:00Z", end: "2026-10-02T11:00:00Z" };
+  const maybe = { ...future, id: "maybe", state: "tentative" as const, start: "2026-10-02T08:00:00Z" };
+  const care = { ...item, id: "care", state: "background" as const, start: null, end: null, endDate: "2026-10-31" };
+  const result = personalOverview({ ...data, timezone: "UTC", items: [future, overnight, care, maybe] });
+  assert.deepEqual(result.todayItems?.map((item) => item.id), ["care", "overnight"]);
+  assert.deepEqual(result.upcoming.map((item) => item.id), ["maybe", "future"]);
+  assert.equal(result.upcoming[0].state, "tentative");
+});
+
+test("overview never declares today empty from another loaded month or promises plans beyond it", () => {
+  const spanning = { ...item, id: "spanning", start: "2026-09-30T23:00:00Z", end: "2026-11-03T01:00:00Z" };
+  const afterMonth = { ...item, id: "next-month", start: "2026-11-01T10:00:00Z", end: "2026-11-01T11:00:00Z" };
+  const futureMonth = personalOverview({ ...data, timezone: "UTC", today: "2026-09-30", items: [item, spanning, afterMonth] });
+  assert.equal(futureMonth.todayItems, null);
+  assert.deepEqual(futureMonth.upcoming.map((item) => item.id), ["spanning", item.id]);
+  const pastMonth = personalOverview({ ...data, today: "2026-11-01", items: [spanning] });
+  assert.equal(pastMonth.todayItems, null);
+  assert.deepEqual(pastMonth.upcoming, []);
+});
+
+test("overview respects display timezone, exclusive midnight ends and removed sources", () => {
+  const midnight = { ...item, start: "2026-10-01T10:30:00Z", end: "2026-10-01T11:00:00Z" };
+  const followingDay = { ...item, id: "following", start: "2026-10-01T11:00:00Z", end: "2026-10-01T11:30:00Z" };
+  const result = personalOverview({ ...data, items: [midnight, followingDay, { ...followingDay, id: "removed", calendarId: "revoked" }] });
+  assert.deepEqual(result.todayItems?.map((item) => item.id), [item.id]);
+  assert.deepEqual(result.upcoming.map((item) => item.id), ["following"]);
+  assert.deepEqual(personalOverview({ ...data, sources: [] }).todayItems, []);
 });
 
 test("display scoping drops unavailable calendars and preserves source identity", () => {
@@ -127,7 +158,7 @@ test("the Personal surface exposes keyboard dates, private refresh and checked s
   assert.match(switcher, /href="\/personal" prefetch=\{false\}/);
   assert.match(calendar, /ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7/);
   assert.match(calendar, /tabIndex=\{date === selectedDate \? 0 : -1\}/);
-  assert.match(hook, /snapshot\?\.key === key \? snapshot.data : null/);
+  assert.match(hook, /snapshot\?\.initialData === initialData && snapshot.key === key \? snapshot.data : null/);
   assert.match(hook, /setSnapshot\(null\)/);
   assert.match(hook, /current !== revision.current/);
   assert.match(hook, /loader.current\?\.cancel\(\)/);

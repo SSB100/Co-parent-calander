@@ -15,5 +15,5 @@ export default async function PersonalPage({ searchParams }: { searchParams: Pro
   try { data = await loadPersonalData(session.user.id); } catch { data = null; }
   if (!data) return <CoviePage><CoviePageHeader accent="coral" title="Personal calendar" /><CovieNotice tone="danger">Your overview could not be loaded. <Link href="/personal">Try again</Link> or <Link href="/calendar">open your calendar</Link>.</CovieNotice></CoviePage>;
   const pageNotice = (await searchParams).notice === "unavailable" ? "That source is no longer available. Your overview has been refreshed with the calendars you can currently access." : undefined;
-  return <PersonalCalendar initialData={data} pageNotice={pageNotice} />;
+  return <PersonalCalendar key={session.user.id} initialData={data} pageNotice={pageNotice} />;
 }

@@ -191,7 +191,7 @@ export function WorkspaceNav({ active, actions }: { active?: WorkspaceSection; a
 
   return <>
     <nav className="workspace-nav" aria-label="Main navigation">
-      <Link href="/calendar" className="workspace-brand"><CovieBrand /></Link>
+      <Link href="/personal" prefetch={false} aria-label="Covie Personal" className="workspace-brand min-h-11"><CovieBrand /></Link>
       <div className="workspace-destinations">
         {items.map(({ key, href, label, icon: Icon }) => (
           <Link key={key} href={href} aria-current={section === key ? "page" : undefined}>

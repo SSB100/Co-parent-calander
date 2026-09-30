@@ -9,7 +9,7 @@ async function source(file) {
   return readFile(path.join(root, file), "utf8");
 }
 
-test("new accounts enter onboarding while existing calendar sessions bypass it", async () => {
+test("all signed-in accounts start in Personal and can optionally add a calendar", async () => {
   const [home, onboarding, calendar, proxy] = await Promise.all([
     source("app/page.tsx"),
     source("app/onboarding/page.tsx"),
@@ -17,13 +17,17 @@ test("new accounts enter onboarding while existing calendar sessions bypass it",
     source("proxy.ts"),
   ]);
 
-  assert.match(home, /calendar \? "\/calendar" : "\/onboarding"/);
+  assert.match(home, /session\?\.user\) redirect\("\/personal"\)/);
+  assert.doesNotMatch(home, /getCalendarSession/);
   assert.match(onboarding, /listCalendarNavigationOptions/);
   assert.match(onboarding, /listArchivedCalendarNavigationOptions/);
-  assert.match(onboarding, /activeCalendars\.length > 0 && !inviteCode/);
-  assert.match(onboarding, /redirect\("\/calendar"\)/);
+  assert.doesNotMatch(onboarding, /redirect\("\/calendar"\)/);
+  assert.match(onboarding, /hasExistingCalendar=\{activeCalendars.length > 0\}/);
   assert.match(calendar, /redirect\("\/onboarding"\)/);
   assert.match(proxy, /\/onboarding\/\:path\*/);
+  assert.match(onboarding, /if \(!session\?\.user\) redirect\(inviteSignInPath\(inviteCode\)\)/);
+  assert.match(proxy, /inviteSignInPath\(request.nextUrl.searchParams.get\("invite"\)\)/);
+  assert.match(proxy, /auth.middleware\(\{ loginUrl \}\)\(request\)/);
 });
 
 test("signup and login preserve a shared invite into onboarding", async () => {
@@ -35,12 +39,13 @@ test("signup and login preserve a shared invite into onboarding", async () => {
 
   assert.match(actions, /onboardingDestination/);
   assert.match(actions, /normalizeInviteCode/);
-  assert.match(actions, /redirect\(invite \? onboardingDestination\(formData\) : safeAuthReturnTo\(formData\.get\("returnTo"\)\) \|\| "\/"\)/);
+  assert.match(actions, /redirect\(invite \? onboardingDestination\(formData\) : safeAuthReturnTo\(formData\.get\("returnTo"\)\) \|\| "\/personal"\)/);
   assert.match(actions, /redirect\(verificationDestination\(formData\)\)/);
   assert.match(page, /searchParams/);
   assert.match(page, /inviteCode/);
   assert.match(form, /name="invite"/);
   assert.match(form, /\?invite=/);
+  assert.match(form, /safeReturn \|\| "\/personal"/);
 });
 
 test("onboarding offers one clear create or join choice", async () => {
@@ -48,6 +53,8 @@ test("onboarding offers one clear create or join choice", async () => {
 
   assert.match(shell, /Create a Covie calendar/);
   assert.match(shell, /Join a Covie calendar/);
+  assert.match(shell, /href="\/personal" prefetch=\{false\}/);
+  assert.match(shell, /Back to Personal/);
   assert.match(shell, /Archived calendars/);
   assert.match(shell, /restoreCalendar/);
   assert.match(shell, /name="flow" value="onboarding"/);
@@ -96,4 +103,10 @@ test("calendar sessions fall back safely when the selected calendar cookie is st
   assert.match(session, /selectedMembership/);
   assert.match(session, /membershipForUser\(accountSession\.user\.id, selectedCalendarId\)/);
   assert.match(session, /selectedMembership \?\? \(await membershipForUser\(accountSession\.user\.id\)\)/);
+});
+
+test("Covie brand links return to Personal without changing calendar workspace tabs", async () => {
+  for (const file of ["components/templates/template-workspace-nav.tsx", "components/workspace/workspace-nav.tsx"]) {
+    assert.match(await source(file), /href="\/personal" prefetch=\{false\} aria-label="Covie Personal"/);
+  }
 });

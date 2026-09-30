@@ -54,7 +54,7 @@ export async function signInWithEmail(
   }
 
   const invite = normalizeInviteCode(String(formData.get("invite") ?? ""));
-  redirect(invite ? onboardingDestination(formData) : safeAuthReturnTo(formData.get("returnTo")) || "/");
+  redirect(invite ? onboardingDestination(formData) : safeAuthReturnTo(formData.get("returnTo")) || "/personal");
 }
 
 export async function signUpWithEmail(

@@ -62,6 +62,27 @@ export function personalItemsByDay(items: PersonalItem[], days: string[], timezo
   return result;
 }
 
+/** An overview of the loaded month only. Care stays in Today and the full calendar. */
+export function personalOverview(data: PersonalData) {
+  const scoped = scopePersonalData(data, "");
+  const first = `${data.month}-01`;
+  const next = `${shiftPersonalMonth(data.month, 1)}-01`;
+  const todayItems = data.today.startsWith(data.month)
+    ? personalItemsByDay(scoped.items, [data.today], data.timezone).get(data.today)!
+    : null;
+  const todayIds = new Set(todayItems?.map((item) => item.id));
+  const upcoming = scoped.items.filter((item) => {
+    if (data.today >= next || item.state === "background" || todayIds.has(item.id)) return false;
+    const dates = personalItemDates(item, data.timezone);
+    return dates.last >= first && dates.first < next && dates.last > data.today;
+  }).sort((a, b) => {
+    const aDate = personalItemDates(a, data.timezone).first;
+    const bDate = personalItemDates(b, data.timezone).first;
+    return aDate.localeCompare(bDate) || (a.start ?? "").localeCompare(b.start ?? "") || a.title.localeCompare(b.title);
+  });
+  return { todayItems, upcoming };
+}
+
 export function personalItemTime(item: PersonalItem, timezone: string) {
   if (!item.start) {
     const date = item.date === item.endDate ? personalDateLabel(item.date) : `${personalDateLabel(item.date)} – ${personalDateLabel(item.endDate)}`;

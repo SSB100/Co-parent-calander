@@ -4,7 +4,7 @@ Covie uses ordered SQL migration files under `drizzle/`.
 
 ## Current production baseline
 
-Production currently contains migrations `0000` through `0030`. They must **not** be replayed. This baseline was re-verified against the Production Neon branch `br-quiet-sea-a7duq4r3` on 23 September 2026.
+Production currently contains migrations `0000` through `0035`. They must **not** be replayed. The ledger and migration `0035` objects were verified against the Production Neon branch `br-quiet-sea-a7duq4r3` on 30 September 2026.
 
 Migration `0012_schema_foundation.sql` introduced the first explicit Covie migration ledger:
 
