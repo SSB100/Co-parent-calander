@@ -23,12 +23,14 @@ export async function TemplateRoute({
   activeToolKey,
   initialDate,
   initialRecord,
+  showSetupGuide = false,
 }: {
   template: string;
   section: TemplateSection;
   activeToolKey?: string;
   initialDate?: string;
   initialRecord?: string;
+  showSetupGuide?: boolean;
 }) {
   if (!isAdditionalCalendarTemplateSlug(template)) notFound();
 
@@ -86,6 +88,7 @@ export async function TemplateRoute({
       initialRecord={initialRecord}
       staffAccessRole={staffAccessRole}
       workspaceRole={workspaceRole}
+      setupGuideAccount={showSetupGuide && workspaceRole === "owner" ? session.userId : undefined}
     />
   );
 }

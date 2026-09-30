@@ -12,6 +12,7 @@ import {
 } from "@/app/calendar/actions";
 import { CalendarTypeChoiceGrid } from "@/components/calendars/calendar-type-choice-grid";
 import { CovieBrand } from "@/components/workspace/covie-brand";
+import { calendarGuides } from "@/lib/onboarding/calendar-guides";
 import { authClient } from "@/lib/auth/client";
 import {
   calendarTemplateManifests,
@@ -28,7 +29,7 @@ type Mode = "choose" | "create" | "join";
 function calendarNamePlaceholder(type: CalendarTemplateId) {
   switch (type) {
     case "co_parenting":
-      return "e.g. Drake";
+      return "e.g. Our family";
     case "staff_rosters":
       return "e.g. Harbour Cafe";
     case "shared_facilities":
@@ -119,7 +120,7 @@ export function OnboardingShell({
       <section className="mx-auto mt-10 max-w-2xl sm:mt-16">
         {mode === "choose" ? (
           <>
-            <h1 className="covie-display text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
+            <h1 className="covie-display text-[30px] font-[650] tracking-tight text-slate-950 sm:text-4xl">
               Add a calendar when you need one
             </h1>
             <p className="mt-4 max-w-xl text-base leading-7 text-slate-600">
@@ -222,13 +223,14 @@ export function OnboardingShell({
                     What kind of calendar do you need?
                   </h1>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Choose the closest fit. Covie will set up the right schedule and tools.
+                    Pick only what you need. Each calendar has its own tools and invitations; your commitments come together in Personal.
                   </p>
                 </div>
                 <div className="mt-6">
                   <CalendarTypeChoiceGrid
                     selected={selectedType}
                     onSelect={setSelectedType}
+                    showExamples
                   />
                 </div>
               </>
@@ -249,6 +251,14 @@ export function OnboardingShell({
                       Just the basics. You can build out the details inside the calendar.
                     </p>
                   </div>
+                </div>
+
+                <div className="mt-5 rounded-xl border border-[#E6DBCF] bg-white p-4">
+                  <p className="text-sm leading-6 text-[#243139]">{calendarGuides[selectedType].purpose}</p>
+                  <details className="mt-2">
+                    <summary className="min-h-11 cursor-pointer py-3 text-sm font-bold text-[#243139]">What happens next</summary>
+                    <ol className="list-decimal space-y-2 pl-5 text-sm leading-6 text-[#526168]">{calendarGuides[selectedType].steps.map(step => <li key={step}>{step}</li>)}</ol>
+                  </details>
                 </div>
 
                 <form action={createAction} className="mt-7 space-y-5">

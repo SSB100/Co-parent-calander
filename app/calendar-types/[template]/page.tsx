@@ -30,9 +30,9 @@ export default async function CalendarTypePage({
   params, searchParams,
 }: {
   params: Promise<{ template: string }>;
-  searchParams: Promise<{ date?: string; record?: string }>;
+  searchParams: Promise<{ date?: string; record?: string; welcome?: string }>;
 }) {
   const { template } = await params;
   const query = await searchParams;
-  return <TemplateRoute template={template} section="calendar" initialDate={safeSourceDate(query.date)} initialRecord={safeSourceRecord(query.record)} />;
+  return <TemplateRoute template={template} section="calendar" showSetupGuide={query.welcome === "created"} initialDate={safeSourceDate(query.date)} initialRecord={safeSourceRecord(query.record)} />;
 }

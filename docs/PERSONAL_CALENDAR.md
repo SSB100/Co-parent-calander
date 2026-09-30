@@ -32,3 +32,9 @@ Qualification covers memberships, parent/member links, published-only shifts, ow
 ## Salon extension
 
 Salon client/practitioner projection requires migration0035 and ships with that batch. A client sees only their own appointments, without becoming a calendar member. An active practitioner sees only appointments assigned to them. The source action rechecks these relations and sends clients to private appointment management; practitioners enter the correctly selected business/day. Personal does not copy contact details, publish availability or change any source record.
+
+## Optional calendar setup guidance
+
+Calendar choice includes concrete examples and a short explanation of the selected calendar's purpose. An expandable “What happens next” lists three setup steps before creation. Existing invitation and booking return flows are unchanged.
+
+After creating a non-parenting calendar, its owner sees an inline setup guide with one contextual first action. It is shown only for the explicit creation welcome route, never as a recurring Personal banner. Dismissal or following its action stores only a versioned dismissal flag scoped to the current account and calendar in browser storage. The guide stays hidden during server rendering so a dismissed prompt does not flash back during hydration. Blocked storage falls back to the current tab; no tracking or notifications are added. Co-parenting's existing welcome flow stays separate.

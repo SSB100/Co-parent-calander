@@ -1,5 +1,7 @@
 "use client";
 
+import { calendarGuides } from "@/lib/onboarding/calendar-guides";
+
 import {
   calendarTemplateManifests,
   type CalendarTemplateId,
@@ -17,10 +19,12 @@ export function CalendarTypeChoiceGrid({
   selected,
   onSelect,
   compact = false,
+  showExamples = false,
 }: {
   selected: CalendarTemplateId | null;
   onSelect: (value: CalendarTemplateId) => void;
   compact?: boolean;
+  showExamples?: boolean;
 }) {
   return (
     <div className={compact ? "grid gap-2" : "grid gap-3 sm:grid-cols-2"}>
@@ -47,6 +51,7 @@ export function CalendarTypeChoiceGrid({
             <span className="mt-1 block text-xs leading-5 text-[#526168]">
               {template.coreQuestion}
             </span>
+            {showExamples ? <span className="mt-2 block text-xs leading-5 text-[#526168]">{calendarGuides[id].example}</span> : null}
           </button>
         );
       })}

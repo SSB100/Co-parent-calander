@@ -25,6 +25,7 @@ import {
   TemplateWorkspaceNav,
   type TemplateOrganiserNavItem,
 } from "@/components/templates/template-workspace-nav";
+import { CalendarSetupGuide } from "@/components/onboarding/calendar-setup-guide";
 import { SalonPage } from "@/components/salon/salon-page";
 import { workspaceOrganiserTools, type WorkspaceRole } from "@/lib/templates/workspace-navigation";
 import { SocialGroupsPage } from "@/components/social-groups/social-groups-page";
@@ -131,6 +132,7 @@ export function TemplateShell({
   activeToolKey,
   staffAccessRole,
   workspaceRole,
+  setupGuideAccount,
   initialDate,
   initialRecord,
 }: {
@@ -143,6 +145,7 @@ export function TemplateShell({
   activeToolKey?: string;
   staffAccessRole?: "owner" | "manager" | "staff" | null;
   workspaceRole: WorkspaceRole;
+  setupGuideAccount?: string;
   initialDate?: string;
   initialRecord?: string;
 }) {
@@ -236,6 +239,8 @@ export function TemplateShell({
             context={context}
           />
         )}
+
+        {section === "calendar" && setupGuideAccount && workspaceRole === "owner" && template.id !== "co_parenting" ? <CalendarSetupGuide accountScope={setupGuideAccount} calendarId={currentCalendarId} type={template.id} /> : null}
 
         <section
           className={
