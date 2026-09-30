@@ -582,7 +582,7 @@ test("a successful reduced-scope refresh dismisses another practitioner's open e
     ...container.querySelectorAll<HTMLElement>(".record"),
   ].find(
     (card) =>
-      card.querySelector("h3")?.textContent === "Synthetic Other Practitioner",
+      card.querySelector("h2")?.textContent === "Synthetic Other Practitioner",
   );
   assert.ok(otherCard);
   await click(button("Edit profile", otherCard));
@@ -598,7 +598,7 @@ test("a successful reduced-scope refresh dismisses another practitioner's open e
   await refreshOnFocus();
   await settle(() => {
     assert.equal(container.querySelector('[role="dialog"]'), null);
-    assert.match(container.textContent ?? "", /My practitioner profile/);
+    assert.match(container.textContent ?? "", /Alice · You/);
   });
   assert.doesNotMatch(
     container.textContent ?? "",
@@ -610,4 +610,14 @@ test("a successful reduced-scope refresh dismisses another practitioner's open e
     "Alice",
     "The remaining own profile stays usable after demotion",
   );
+});
+
+
+test("practitioner service empty state explains assignment without offering organiser controls", async () => {
+  const current = salon(); current.role = "practitioner"; current.canOrganise = false; current.canPublish = false;
+  globalThis.fetch = async () => json(current);
+  await render(<SalonPage calendarId={calendarId} section="organiser" tool="services" initialDate={date} />);
+  await settle(() => assert.match(container.textContent ?? "", /No services assigned yet/));
+  assert.match(container.textContent ?? "", /Ask the owner or a manager/);
+  assert.equal([...container.querySelectorAll("button")].some(value => value.textContent?.trim() === "Add service"), false);
 });
