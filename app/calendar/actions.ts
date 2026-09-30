@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { redeemSalonInvitation } from "@/lib/salon/service";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -344,6 +345,15 @@ export async function joinCalendar(
     return { error: "This invitation can’t be used to join the calendar." };
   }
 
+  if (invite.calendar_type === "salon_bookings") {
+    let joinedCalendarId: string | undefined;
+    try { joinedCalendarId = await redeemSalonInvitation(codeHash, user.id); }
+    catch { return { error: "This salon invitation could not be used. Ask the owner or manager for a new code." }; }
+    if (!joinedCalendarId) return { error: "This salon invitation is no longer available." };
+    const cookieStore = await cookies();
+    cookieStore.set(SELECTED_CALENDAR_COOKIE_NAME, joinedCalendarId, calendarCookieOptions());
+    redirect(calendarPathForType("salon_bookings"));
+  }
   if (usesMemberInvitations(invite.calendar_type)) {
     let joinedCalendarId: string | undefined;
     try { joinedCalendarId = await redeemMemberInvitation(codeHash, user.id); }

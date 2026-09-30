@@ -1,3 +1,4 @@
+import { safeAuthReturnTo } from "@/lib/security/auth-return";
 import { AuthView } from "@neondatabase/auth-ui";
 import type { Metadata } from "next";
 import { CredentialsForm } from "@/components/auth/credentials-form";
@@ -10,7 +11,7 @@ export default async function AuthPage({
   searchParams,
 }: {
   params: Promise<{ path: string }>;
-  searchParams: Promise<{ invite?: string; verify?: string }>;
+  searchParams: Promise<{ invite?: string; verify?: string; returnTo?: string }>;
 }) {
   const [{ path }, query] = await Promise.all([params, searchParams]);
   const inviteCode = query.invite ? normalizeInviteCode(query.invite) : "";
@@ -20,6 +21,7 @@ export default async function AuthPage({
       <CredentialsForm
         mode={path}
         inviteCode={inviteCode}
+        returnTo={safeAuthReturnTo(query.returnTo)}
         verificationNotice={path === "sign-in" && query.verify === "1"}
       />
     );

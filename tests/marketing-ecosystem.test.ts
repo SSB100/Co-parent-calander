@@ -7,7 +7,7 @@ import { calendarTemplateIds, calendarTemplateManifests } from "../lib/templates
 const palette = { coral: "#FF6B5F", teal: "#19A897", sunshine: "#F4C64E", violet: "#765ED6" };
 
 test("marketing covers exactly the supported purposes and authoritative accent pairs", () => {
-  assert.deepEqual(calendarPurposes.map((purpose) => purpose.id), ["staff_rosters", "shared_facilities", "social_groups", "co_parenting"]);
+  assert.deepEqual(calendarPurposes.map((purpose) => purpose.id), ["staff_rosters", "salon_bookings", "shared_facilities", "social_groups", "co_parenting"]);
   assert.deepEqual(new Set(calendarPurposes.map((purpose) => purpose.id)), new Set(calendarTemplateIds));
   for (const purpose of calendarPurposes) {
     const manifest = calendarTemplateManifests[purpose.id];
@@ -64,15 +64,15 @@ test("public copy leads with Staff Rosters and keeps Co-parenting last", async (
   ].map((file) => readFile(file, "utf8")));
   assert.match(picker, /useState<CalendarPurpose\["id"\]>\("staff_rosters"\)/);
   assert.match(picker, /purposeIcons\[purpose.id\]/);
-  for (const [id, icon] of Object.entries({ staff_rosters: "Clock3", shared_facilities: "Building2", social_groups: "UsersRound", co_parenting: "CalendarDays" })) {
+  for (const [id, icon] of Object.entries({ staff_rosters: "Clock3", salon_bookings: "Scissors", shared_facilities: "Building2", social_groups: "UsersRound", co_parenting: "CalendarDays" })) {
     assert.ok(picker.includes(`${id}: ${icon}`));
   }
   assert.doesNotMatch(picker, /purposeIcons\[index\]/);
-  assert.match(home, /Team shifts\. Shared spaces\. Time together\. Parenting days\./);
-  assert.match(home, /A team needs shifts\. A shared space needs bookings\. A group needs get-togethers\. Co-parents need handovers\./);
+  assert.match(home, /Team shifts\. Client appointments\. Shared spaces\. Time together\. Parenting days\./);
+  assert.match(home, /A team needs shifts\. A salon needs appointments\. A shared space needs bookings\. A group needs get-togethers\. Co-parents need handovers\./);
   assert.match(home, /calendarPurposes.map/);
   for (const source of descriptions) {
-    assert.match(source, /Staff Rosters, Shared Facilities, Social Groups (?:and|or) Co-parenting/);
+    assert.match(source, /Staff Rosters, Salon Bookings, Shared Facilities, Social Groups (?:and|or) Co-parenting/);
     assert.doesNotMatch(source, /Co-parenting, Staff Rosters/);
   }
 });

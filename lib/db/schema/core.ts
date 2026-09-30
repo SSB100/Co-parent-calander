@@ -31,6 +31,7 @@ export const calendarType = pgEnum("calendar_type", [
   "staff_rosters",
   "shared_facilities",
   "social_groups",
+  "salon_bookings",
 ]);
 
 export const calendars = pgTable(

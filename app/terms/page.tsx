@@ -4,7 +4,7 @@ import { LegalPageShell } from "@/components/marketing/legal-page-shell";
 
 export const metadata: Metadata = {
   title: "Terms & Conditions",
-  description: "The terms for using Covie, the shared co-parenting organiser.",
+  description: "The terms for using Covie’s shared calendars and Personal overview.",
 };
 
 export default function TermsPage() {
@@ -14,7 +14,7 @@ export default function TermsPage() {
       title="Terms & Conditions"
       intro="These terms explain what Covie is for, what we ask from you, and the limits of the service. They are written for everyday use rather than legal fine print."
     >
-      <p className="covie-legal-updated">Effective 21 September 2026</p>
+      <p className="covie-legal-updated">Effective 1 October 2026</p>
 
       <h2>1. About these terms</h2>
       <p>
@@ -26,9 +26,11 @@ export default function TermsPage() {
 
       <h2>2. What Covie is</h2>
       <p>
-        Covie is a shared co-parenting organiser for schedules, family events,
-        shared costs, practical tasks, child information and agreed changes. It
-        is designed for cooperative planning and everyday coordination.
+        Covie is a shared-calendar service with optional presets for Staff Rosters,
+        Salon Bookings, Shared Facilities, Social Groups and Co-parenting. Each
+        preset provides scheduling and coordination tools for its purpose.
+        Personal brings an account’s relevant commitments together and links to
+        the original records.
       </p>
       <p>
         Covie is not a law firm, legal evidence service, emergency service,
@@ -53,8 +55,9 @@ export default function TermsPage() {
       </p>
       <p>
         Account details should be accurate and kept reasonably up to date. You
-        must not impersonate another person, attempt to access another family’s
-        information, or share credentials in a way that undermines account
+        must not impersonate another person, attempt to access another person’s,
+        group’s, business’s or family’s information without permission, or share
+        credentials in a way that undermines account
         security.
       </p>
 
@@ -68,6 +71,19 @@ export default function TermsPage() {
         Some shared changes may require another member’s approval. Covie records
         the status of those proposals, but it does not decide what either parent
         should agree to.
+      </p>
+
+      <p>
+        Salon owners can choose to enable a client booking page showing selected
+        business details, services, practitioner profiles and available times.
+        Clients sign in to confirm and manage their own appointments. The
+        appointment view shows the business’s booking and cancellation rules.
+        Covie does not collect payment for salon appointments through this feature.
+      </p>
+      <p>
+        Personal does not create separate stored copies of shared bookings or
+        automatically grant access to another calendar. Changes to a commitment
+        are made through its original calendar or appointment workflow.
       </p>
 
       <h2>6. Content you add</h2>
@@ -87,8 +103,10 @@ export default function TermsPage() {
       <p>
         We handle personal information in accordance with our{" "}
         <Link href="/privacy">Privacy Policy</Link> and applicable New Zealand
-        privacy law. Covie may contain sensitive information about children, so
-        users should only add what is genuinely useful for co-parenting.
+        privacy law. Covie may contain personal work, booking, group and family
+        information, including sensitive information about children. Users should
+        only add information relevant to the calendar’s purpose that they are
+        entitled to provide.
       </p>
 
       <h2>8. Third-party services</h2>

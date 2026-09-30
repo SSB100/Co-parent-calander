@@ -1,5 +1,6 @@
 "use client";
 
+import { safeAuthReturnTo } from "@/lib/security/auth-return";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useState } from "react";
@@ -18,10 +19,12 @@ export function CredentialsForm({
   mode,
   inviteCode = "",
   verificationNotice = false,
+  returnTo = "",
 }: {
   mode: "sign-in" | "sign-up";
   inviteCode?: string;
   verificationNotice?: boolean;
+  returnTo?: string;
 }) {
   const isSignUp = mode === "sign-up";
   const [state, action, pending] = useActionState(
@@ -31,9 +34,11 @@ export function CredentialsForm({
   const [googlePending, setGooglePending] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const alternateHref = `${isSignUp ? "/auth/sign-in" : "/auth/sign-up"}${
-    inviteCode ? `?invite=${encodeURIComponent(inviteCode)}` : ""
-  }`;
+  const safeReturn = safeAuthReturnTo(returnTo);
+  const alternateParams = new URLSearchParams();
+  if (inviteCode) alternateParams.set("invite", inviteCode);
+  if (safeReturn) alternateParams.set("returnTo", safeReturn);
+  const alternateHref = `${isSignUp ? "/auth/sign-in" : "/auth/sign-up"}${alternateParams.size ? `?${alternateParams}` : ""}`;
 
   async function continueWithGoogle() {
     if (isSignUp && !termsAccepted) {
@@ -48,9 +53,7 @@ export function CredentialsForm({
 
     const callbackPath = inviteCode
       ? `/onboarding?invite=${encodeURIComponent(inviteCode)}`
-      : isSignUp
-        ? "/onboarding"
-        : "/";
+      : safeReturn || (isSignUp ? "/onboarding" : "/");
     const callbackURL = new URL(callbackPath, window.location.origin).toString();
 
     try {
@@ -162,6 +165,7 @@ export function CredentialsForm({
 
         <form action={action} className="space-y-5">
           {inviteCode ? <input type="hidden" name="invite" value={inviteCode} /> : null}
+          {safeReturn ? <input type="hidden" name="returnTo" value={safeReturn} /> : null}
           {isSignUp ? (
             <input
               type="hidden"

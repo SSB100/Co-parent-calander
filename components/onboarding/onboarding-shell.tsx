@@ -35,6 +35,8 @@ function calendarNamePlaceholder(type: CalendarTemplateId) {
       return "e.g. Community Courts";
     case "social_groups":
       return "e.g. Sunday Football";
+    case "salon_bookings":
+      return "e.g. Harbour Salon";
   }
 }
 
@@ -119,6 +121,9 @@ export function OnboardingShell({
             </h1>
             <p className="mt-4 max-w-xl text-base leading-7 text-slate-600">
               Start a Covie calendar yourself, or join one someone has already shared with you.
+            </p>
+            <p className="mt-4 text-sm leading-7 text-slate-600">
+              Already booked an appointment? <Link href="/personal" prefetch={false} className="font-bold text-[#243139] underline">Open your Personal calendar</Link> to see your commitments.
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">

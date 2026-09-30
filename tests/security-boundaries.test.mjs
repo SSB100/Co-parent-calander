@@ -175,9 +175,10 @@ test("global browser headers reduce common web attack surface and APIs are never
 });
 
 test("email password flow uses stronger new passwords without breaking existing sign-ins or enumerating accounts", async () => {
-  const [actions, form] = await Promise.all([
+  const [actions, form, failure] = await Promise.all([
     source("app/auth/actions.ts"),
     source("components/auth/credentials-form.tsx"),
+    source("lib/auth/sign-in-error.ts"),
   ]);
 
   assert.match(actions, /signInPassword[\s\S]*min\(1/);
@@ -187,9 +188,10 @@ test("email password flow uses stronger new passwords without breaking existing 
   assert.match(actions, /termsAccepted:\s*z\.literal\("yes"/);
   assert.match(actions, /The passwords do not match/);
   assert.match(actions, /Terms & Conditions before creating your account/);
-  assert.match(actions, /The email or password is incorrect/);
-  assert.match(actions, /Verify your email using the message we sent you/);
-  assert.match(actions, /message\.includes\("verif"\)/);
+  assert.match(actions, /signInFailure\(signInError\)/);
+  assert.match(failure, /The email or password is incorrect/);
+  assert.match(failure, /Verify your email using the message we sent you/);
+  assert.match(failure, /email_not_confirmed/);
   assert.doesNotMatch(actions, /status === 403/);
   assert.match(actions, /verificationDestination/);
   assert.match(actions, /\/auth\/sign-in\?/);

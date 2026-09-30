@@ -32,7 +32,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: { default: "Covie", template: "%s · Covie" },
   description:
-    "Purpose-built shared calendars for Staff Rosters, Shared Facilities, Social Groups and Co-parenting, together in one Covie account.",
+    "Purpose-built shared calendars for Staff Rosters, Salon Bookings, Shared Facilities, Social Groups and Co-parenting, together in one Covie account.",
   applicationName: "Covie",
   appleWebApp: {
     capable: true,

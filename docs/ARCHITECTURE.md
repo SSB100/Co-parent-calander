@@ -1,12 +1,14 @@
 # Covie architecture
 
-Last reviewed: 19 September 2026.
+Calendar ecosystem boundaries reviewed: 30 September 2026.
 
 ## System boundaries
 
-Covie is organised around one selected calendar. Each calendar has a first-class template type: Co-parenting, Staff Rosters, Shared Facilities or Social Groups.
+Covie workspaces use one selected calendar at a time. Optional preset types are Staff Rosters, Salon Bookings, Shared Facilities, Social Groups and Co-parenting. Personal is a separate, account-private read projection across relevant commitments; it never copies source records or treats membership alone as participation. See `PERSONAL_CALENDAR.md` and `SALON_BOOKINGS_PLAN.md`.
 
-Account identity comes from Managed Neon Auth. Application access is represented by `calendar_memberships`. Parent profiles in `participants` are domain records and can exist without an account. Legacy token/session authentication is retired from application runtime and recorded in migration `0014`; legacy credential tables are temporarily retained as recovery evidence until legacy-only calendars are recovered or explicitly archived.
+Salon clients use their authenticated identity to book and manage their own appointments without becoming calendar members. An explicitly enabled public page exposes only allowed business/service/practitioner fields and available slots. It never exposes the shared workspace, other clients, private notes or unrelated calendars.
+
+Account identity comes from Managed Neon Auth. Application access is represented by `calendar_memberships`. Parent profiles in `participants` are domain records and can exist without an account. Legacy token/session authentication was retired in migration `0014`; migration `0017` removed its retired credential tables after qualification.
 
 The primary business domains are:
 
@@ -18,7 +20,12 @@ The primary business domains are:
 - children and activities
 - attachments
 - related items
-- Google Calendar output
+- optional one-way co-parent Google Calendar output
+- Staff Rosters and attendance
+- Shared Facilities availability and bookings
+- Social Groups events, RSVPs and availability
+- Salon services, practitioners and appointments
+- private Personal projections
 
 ## Data ownership
 
@@ -32,7 +39,7 @@ Home is a derived read model and has no Home-specific persistence.
 
 The selected calendar's `timezone` is authoritative for date-sensitive application behaviour. `Pacific/Auckland` remains the default for newly created calendars, not a hidden runtime assumption.
 
-Saved parenting schedules use first-class `parenting_schedules`, `parenting_schedule_slots`, and `parenting_schedule_children` records introduced by migration `0013`. Manual `parenting_assignments` remain the date-specific override layer. Legacy `recurring_rules` metadata is retained only for migration/history compatibility and is no longer the intended runtime source of truth after `0013`.
+Saved parenting schedules use first-class `parenting_schedules`, `parenting_schedule_slots`, and `parenting_schedule_children` records introduced by migration `0013`. Manual `parenting_assignments` remain the date-specific override layer. Migration `0017` removed the retired first-generation `recurring_rules` storage.
 
 ## Database schema modules
 
@@ -51,10 +58,16 @@ Saved parenting schedules use first-class `parenting_schedules`, `parenting_sche
 - Google Calendar
 - audit
 - retention
+- Staff Rosters
+- Shared Facilities
+- Social Groups
+- Salon Bookings
 
 Application code can keep importing from `@/lib/db/schema`, while feature-level schema ownership stays explicit and the Drizzle entry point remains stable.
 
 ## Permission model
+
+Core membership is combined with each preset’s domain role. Staff manager/staff, Facilities resource scope, Social group roles and Salon practitioner/client capabilities are enforced by their services and transactional boundaries. Co-parent profiles are never created by joining another preset.
 
 - Owner: calendar administration plus editor capabilities.
 - Editor: shared data mutation.
@@ -101,20 +114,22 @@ Production Neon:
 
 - project: `delicate-sunset-36051658`
 - branch: `br-quiet-sea-a7duq4r3`
-- schema migrations applied in Production before this release: `0000` through `0021`\n- migration `0022` adds first-class calendar template identity and is applied only after its production migration gate
+- migrations through `0035` are applied in Production after isolated qualification and specific approval
 - `covie_schema_migrations` is the authoritative migration ledger from `0012` onward
-- legacy `access_tokens`, `sessions` and `access_token_type` remain temporarily retained as recovery data after non-destructive migration `0014`
+- legacy `access_tokens`, `sessions`, `access_token_type` and first-generation recurrence storage were removed by migration `0017`
 
-Rollback snapshots currently retained:
+Recent rollback snapshots (verify live inventory before any release):
 
-- `backup-before-0013-0016-release` (`br-bitter-fire-a7p424x5`) — immediate pre-`0013`–`0016` Production snapshot
-- `backup-before-phase-8-release` (`br-orange-surf-a7znl10e`) — older pre-Phase-8 snapshot
+- `backup-before-0033-facilities-20260930` (`br-damp-dream-a7453iai`)
+- `backup-before-0034-social-20260930` (`br-soft-bonus-a7pgwbl2`)
+- `backup-before-0035-salon-20260930` (`br-solitary-dream-a7nujr7j`)
+- `backup-before-0035-salon-release-20260930-1758` (`br-square-truth-a74kmkrv`) — latest pre-`0035` production snapshot
 
 Do not replay migrations already recorded in `covie_schema_migrations`.
 
 ## Release workflow
 
-Automatic Vercel Git deployment is disabled.
+Feature-branch Vercel Git deployments are disabled by default; `main` deployment is enabled in `vercel.json`. A specific preview branch may be enabled for approved qualification, without changing deployment protection. Merging to `main` therefore follows the tested-batch release gate.
 
 The intended release flow is:
 

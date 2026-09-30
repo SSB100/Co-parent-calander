@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, CalendarDays, Check, Clock3, UsersRound } from "lucide-react";
+import { Building2, CalendarDays, Check, Clock3, Scissors, UsersRound } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 import { CovieMark } from "@/components/workspace/covie-brand";
 import { calendarPurposes, type CalendarPurpose } from "./calendar-purpose-content";
@@ -8,6 +8,7 @@ import styles from "./ecosystem-home.module.css";
 
 const purposeIcons = {
   staff_rosters: Clock3,
+  salon_bookings: Scissors,
   shared_facilities: Building2,
   social_groups: UsersRound,
   co_parenting: CalendarDays,

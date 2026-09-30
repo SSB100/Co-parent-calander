@@ -12,12 +12,22 @@ const faqs = [
   {
     question: "What is Covie for?",
     answer:
-      "Covie brings four purpose-built calendar types into one account: Staff Rosters, Shared Facilities, Social Groups and Co-parenting. Each calendar keeps its own people and the details that fit its purpose.",
+      "Covie brings purpose-built calendar types into one account: Staff Rosters, Salon Bookings, Shared Facilities, Social Groups and Co-parenting. Each calendar keeps its own people and the details that fit its purpose.",
   },
   {
     question: "Can I have more than one calendar?",
     answer:
       "Yes. You can create or join multiple calendars and switch between them from one account. Membership and permissions are separate for each calendar.",
+  },
+  {
+    question: "What is my Personal calendar?",
+    answer:
+      "Personal brings your own commitments together, including assigned shifts, your bookings and events you are going to. It links back to the original calendar and stays private to your account. It does not share your other plans with a business or group.",
+  },
+  {
+    question: "How do Salon bookings work?",
+    answer:
+      "A salon can offer services and available practitioner times on its booking page. Choose a service, practitioner and day, then sign in to confirm. Your appointment appears in Personal, where you can open its details and change or cancel it within the salon’s rules. Covie does not collect payment for the appointment.",
   },
   {
     question: "How does co-parenting work?",
@@ -37,7 +47,7 @@ const faqs = [
   {
     question: "Who can see my calendar?",
     answer:
-      "Only signed-in accounts with membership of that calendar can access its information, subject to their permission level. Joining one calendar does not give someone access to your other calendars.",
+      "Shared workspaces use calendar membership and roles. A salon owner can also enable a separate public page showing offered services, practitioner profiles and available times. Clients can see only their own appointment details. Joining or booking with one calendar gives no access to your other calendars, and Personal stays private to you.",
   },
   {
     question: "What happens if I connect Google Calendar?",

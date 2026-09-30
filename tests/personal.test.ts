@@ -96,7 +96,8 @@ test("care expansion has an explicit disclosed output cap", async () => {
   assert.equal(data.items.length,1000);assert.match(data.warnings[0],/Care context/);
 });
 test("adapter SQL preserves explicit assignment, publication, tenancy and read-only boundaries", () => {
-  for (const query of Object.values(personalQueries)) {
+  for (const [name, query] of Object.entries(personalQueries)) {
+    if (name === "salon") assert.match(query, /a.client_user_id=\$1::uuid OR \(p.user_id=\$1::uuid/);
     assert.match(query, /m.user_id=\$1::uuid/); assert.match(query, /c.archived_at IS NULL/);
     assert.match(query, /c.id=\$4::uuid/); assert.doesNotMatch(query, /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|ALTER|DROP)\b/i);
   }

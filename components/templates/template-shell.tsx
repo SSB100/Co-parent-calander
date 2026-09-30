@@ -8,6 +8,7 @@ import {
   CalendarHeart,
   LayoutGrid,
   Settings,
+  Scissors,
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
@@ -24,6 +25,7 @@ import {
   TemplateWorkspaceNav,
   type TemplateOrganiserNavItem,
 } from "@/components/templates/template-workspace-nav";
+import { SalonPage } from "@/components/salon/salon-page";
 import { SocialGroupsPage } from "@/components/social-groups/social-groups-page";
 import { FacilitiesPage } from "@/components/shared-facilities/facilities-page";
 import { TemplateMembersPage } from "@/components/calendar-sharing/members-page";
@@ -71,6 +73,7 @@ const calendarViewByType: Record<
     icon: Building2,
     iconClassName: "text-[#765ED6]",
   },
+  salon_bookings: { emptyTitle: "No appointments yet", emptyDescription: "Appointments appear as your team and clients book available times.", icon: Scissors, iconClassName: "text-[#19A897]" },
   social_groups: {
     emptyTitle: "No events yet",
     emptyDescription: "Events will appear here when the group starts planning.",
@@ -240,7 +243,9 @@ export function TemplateShell({
               : "mt-6"
           }
         >
-          {template.id === "shared_facilities" ? (
+          {template.id === "salon_bookings" ? (
+            <SalonPage key={`${currentCalendarId}:${section}:${activeToolKey ?? ""}:${initialDate ?? ""}:${initialRecord ?? ""}`} calendarId={currentCalendarId} initialDate={initialDate} initialRecord={initialRecord} section={section} tool={activeToolKey} />
+          ) : template.id === "shared_facilities" ? (
             section === "organiser" && activeToolKey === "members" ? <TemplateMembersPage key={currentCalendarId} calendarId={currentCalendarId} /> :
             <FacilitiesPage key={`${currentCalendarId}:${section}:${activeToolKey ?? ""}:${initialDate ?? ""}:${initialRecord ?? ""}`} calendarId={currentCalendarId} initialDate={initialDate} initialRecord={initialRecord} section={section} tool={activeToolKey} />
           ) : template.id === "social_groups" ? (

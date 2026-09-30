@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  calendarTemplateIds,
   calendarTemplateManifests,
   type CalendarTemplateId,
 } from "@/lib/templates/calendar-templates";
@@ -11,6 +10,7 @@ const softBackgroundByType: Record<CalendarTemplateId, string> = {
   staff_rosters: "#BFEDE6",
   shared_facilities: "#DDD3FA",
   social_groups: "#FBECE8",
+  salon_bookings: "#BFEDE6",
 };
 
 export function CalendarTypeChoiceGrid({
@@ -24,7 +24,7 @@ export function CalendarTypeChoiceGrid({
 }) {
   return (
     <div className={compact ? "grid gap-2" : "grid gap-3 sm:grid-cols-2"}>
-      {calendarTemplateIds.map((id) => {
+      {(["staff_rosters", "salon_bookings", "shared_facilities", "social_groups", "co_parenting"] as const).map((id) => {
         const template = calendarTemplateManifests[id];
         const active = selected === id;
 
