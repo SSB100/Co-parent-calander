@@ -137,3 +137,20 @@ test("the Personal surface exposes keyboard dates, private refresh and checked s
   assert.match(css, /min-height: 44px/);
   assert.doesNotMatch(css, /gradient|backdrop-filter/);
 });
+
+
+test("default browser transport never invokes native fetch with a loader receiver", async () => {
+  const original = globalThis.fetch;
+  let requests = 0;
+  globalThis.fetch = async function (this: unknown) {
+    assert.ok(this === undefined || this === globalThis, "Browser fetch rejects a PersonalLoader receiver");
+    requests += 1;
+    return response(data);
+  };
+  try {
+    const loader = new PersonalLoader();
+    assert.deepEqual(await loader.load(query), data);
+    assert.deepEqual(await loader.load(query), data);
+    assert.equal(requests, 2);
+  } finally { globalThis.fetch = original; }
+});
