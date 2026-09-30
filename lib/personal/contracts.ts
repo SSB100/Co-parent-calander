@@ -1,6 +1,6 @@
 import type { CalendarTemplateId } from "@/lib/templates/calendar-templates";
 
-export type PersonalKind = "shift" | "facility" | "social" | "care" | "handover" | "task" | "expense" | "approval" | "organising";
+export type PersonalKind = "shift" | "facility" | "social" | "care" | "handover" | "task" | "expense" | "approval" | "organising" | "appointment";
 export type PersonalState = "confirmed" | "tentative" | "background" | "attention";
 export type PersonalSource = { id: string; name: string; type: CalendarTemplateId; timezone: string };
 export type PersonalItem = {
@@ -17,7 +17,7 @@ export type PersonalItem = {
   end: string | null;
   timezone: string;
   /** Opaque source identity; source navigation rechecks membership server-side. */
-  sourceTarget: "calendar" | "tasks" | "expenses" | "approvals";
+  sourceTarget: "calendar" | "tasks" | "expenses" | "approvals" | "appointment";
 };
 export type PersonalData = {
   month: string;

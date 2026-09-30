@@ -43,6 +43,18 @@ export const calendarPurposes: readonly CalendarPurpose[] = [
     ],
   },
   {
+    id: "salon_bookings", name: "Salon Bookings", audience: "For salons and independent practitioners",
+    question: "Who am I seeing, and when can someone book?",
+    description: "Give your team a clear appointment schedule and your clients a simple way to choose a service, practitioner and available time.",
+    uses: ["Services, hours and buffers", "Practitioner appointments and access", "Optional client booking page"],
+    primary: "#19A897", secondary: "#765ED6", primaryText: "#243139", exampleName: "The neighbourhood salon",
+    exampleEntries: [
+      { day: "Mon", date: "12", title: "Cut and finish", detail: "Alex · 10:00 am", accent: "primary" },
+      { day: "Wed", date: "14", title: "Colour appointment", detail: "Sam · 2:00 pm", accent: "secondary" },
+      { day: "Sat", date: "17", title: "Client booking", detail: "Choose an available time", accent: "primary" },
+    ],
+  },
+  {
     id: "shared_facilities",
     name: "Shared Facilities",
     audience: "For spaces and things you share",

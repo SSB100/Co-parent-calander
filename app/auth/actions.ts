@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/lib/auth/server";
+import { safeAuthReturnTo } from "@/lib/security/auth-return";
 import { normalizeInviteCode } from "@/lib/security/invites";
 
 export type AuthActionState = { error: string | null };
@@ -20,6 +21,8 @@ function verificationDestination(formData: FormData) {
   const invite = normalizeInviteCode(String(formData.get("invite") ?? ""));
   const params = new URLSearchParams({ verify: "1" });
   if (invite) params.set("invite", invite);
+  const returnTo = safeAuthReturnTo(formData.get("returnTo"));
+  if (returnTo) params.set("returnTo", returnTo);
   return `/auth/sign-in?${params.toString()}`;
 }
 
@@ -48,7 +51,7 @@ export async function signInWithEmail(
   }
 
   const invite = normalizeInviteCode(String(formData.get("invite") ?? ""));
-  redirect(invite ? onboardingDestination(formData) : "/");
+  redirect(invite ? onboardingDestination(formData) : safeAuthReturnTo(formData.get("returnTo")) || "/");
 }
 
 export async function signUpWithEmail(

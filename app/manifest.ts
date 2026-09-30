@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Covie",
     short_name: "Covie",
     description:
-      "Purpose-built shared calendars for Staff Rosters, Shared Facilities, Social Groups and Co-parenting, together in one Covie account.",
+      "Purpose-built shared calendars for Staff Rosters, Salon Bookings, Shared Facilities, Social Groups and Co-parenting, together in one Covie account.",
     start_url: "/",
     scope: "/",
     display: "standalone",

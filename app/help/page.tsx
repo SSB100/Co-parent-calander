@@ -12,7 +12,7 @@ const faqs = [
   {
     question: "What is Covie for?",
     answer:
-      "Covie brings four purpose-built calendar types into one account: Staff Rosters, Shared Facilities, Social Groups and Co-parenting. Each calendar keeps its own people and the details that fit its purpose.",
+      "Covie brings four purpose-built calendar types into one account: Staff Rosters, Salon Bookings, Shared Facilities, Social Groups and Co-parenting. Each calendar keeps its own people and the details that fit its purpose.",
   },
   {
     question: "Can I have more than one calendar?",

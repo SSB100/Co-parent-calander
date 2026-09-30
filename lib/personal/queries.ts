@@ -12,12 +12,16 @@ const access = `WITH bounds AS (SELECT $2::date AS first_day,$3::date AS next_mo
 )`;
 const identity = `p.id::text AS "calendarId", p.timezone`;
 const timedRange = `start_at < ($3::date + interval '2 days')::timestamptz AND end_at > ($2::date - interval '2 days')::timestamptz`;
-export const personalSourcesSql = `SELECT c.id::text,c.name,c.calendar_type AS type,c.timezone,
- concat_ws(':',m.id,m.permission,m.participant_id,m.updated_at,
+export const personalSourcesSql = `SELECT c.id::text,
+ CASE WHEN m.id IS NOT NULL THEN c.name ELSE COALESCE((SELECT NULLIF(s.business_name,'') FROM salon_settings s WHERE s.calendar_id=c.id),'Salon') END AS name,
+ c.calendar_type AS type,c.timezone,
+ concat_ws(':',COALESCE(m.id::text,'client'),m.permission,m.participant_id,m.updated_at,c.timezone,
  (SELECT p.updated_at::text || ':' || p.active::text FROM participants p WHERE p.id=m.participant_id AND p.calendar_id=c.id),
- (SELECT s.updated_at::text || ':' || s.active::text FROM staff_roster_members s WHERE s.membership_id=m.id AND s.calendar_id=c.id)) AS "accessKey"
- FROM calendars c JOIN calendar_memberships m ON m.calendar_id=c.id
- WHERE m.user_id=$1::uuid AND c.archived_at IS NULL ORDER BY m.created_at,c.id`;
+ (SELECT s.updated_at::text || ':' || s.active::text FROM staff_roster_members s WHERE s.membership_id=m.id AND s.calendar_id=c.id),
+ (SELECT p.updated_at::text || ':' || p.active::text FROM salon_practitioners p WHERE p.user_id=$1::uuid AND p.calendar_id=c.id)) AS "accessKey"
+ FROM calendars c LEFT JOIN calendar_memberships m ON m.calendar_id=c.id AND m.user_id=$1::uuid
+ WHERE c.archived_at IS NULL AND (m.id IS NOT NULL OR (c.calendar_type='salon_bookings' AND EXISTS(SELECT 1 FROM salon_appointments a WHERE a.calendar_id=c.id AND a.client_user_id=$1::uuid)))
+ ORDER BY m.created_at NULLS LAST,c.created_at,c.id`;
 export const personalQueries = {
  shifts: `${access} SELECT ${identity}, s.id::text AS "sourceId", 'shift' AS kind,
  'confirmed' AS state, COALESCE(r.name,'Work shift') AS title, COALESCE(l.name,'Published shift') AS detail,
@@ -84,6 +88,20 @@ export const personalQueries = {
  FROM permitted p JOIN approval_proposals a ON a.calendar_id=p.id AND a.approver_membership_id=p.membership_id
  WHERE p.calendar_type='co_parenting' AND p.permission<>'viewer' AND a.status='waiting'
  ORDER BY a.created_at,a.id LIMIT 1001`,
+ salon: `SELECT c.id::text AS "calendarId", c.timezone, a.id::text AS "sourceId", 'appointment' AS kind,
+   'confirmed' AS state,a.service_name AS title,
+   CASE WHEN a.client_user_id=$1::uuid THEN p.display_name || ' · Your appointment' ELSE 'Assigned to you. Open the source for client details.' END AS detail,
+   (a.start_at AT TIME ZONE c.timezone)::date::text AS date,
+   ((a.end_at-interval '1 millisecond') AT TIME ZONE c.timezone)::date::text AS "endDate",
+   a.start_at AS start,a.end_at AS "end",'appointment' AS "sourceTarget"
+   FROM salon_appointments a JOIN calendars c ON c.id=a.calendar_id
+   JOIN salon_practitioners p ON p.id=a.practitioner_id AND p.calendar_id=c.id
+   LEFT JOIN calendar_memberships m ON m.calendar_id=c.id AND m.user_id=$1::uuid
+   WHERE c.calendar_type='salon_bookings' AND c.archived_at IS NULL
+   AND ($4::uuid IS NULL OR c.id=$4::uuid) AND a.status='confirmed'
+   AND (a.client_user_id=$1::uuid OR (p.user_id=$1::uuid AND p.active AND m.permission IN ('owner','editor')))
+   AND a.start_at<($3::date+interval '2 days')::timestamptz AND a.end_at>($2::date-interval '2 days')::timestamptz
+   ORDER BY a.start_at,a.id LIMIT 1001`,
  care: `${access} SELECT ${identity}, p.participant_id::text AS "participantId",
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',c.id,'name',c.display_name)) FROM children c WHERE c.calendar_id=p.id AND c.active),'[]') AS children,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',a.id,'childId',a.child_id,'date',a.assignment_date,'morningParentId',a.parent_id,'afternoonParentId',a.afternoon_parent_id,'handoverTime',a.handover_time,'handoverLocation',NULL,'note',NULL)) FROM parenting_assignments a JOIN children c ON c.id=a.child_id AND c.calendar_id=p.id AND c.active WHERE a.calendar_id=p.id AND a.assignment_date >= $2::date AND a.assignment_date < $3::date),'[]') AS "manualAssignments",

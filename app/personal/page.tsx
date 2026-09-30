@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Personal calendar" };
 export default async function PersonalPage({ searchParams }: { searchParams: Promise<{ notice?: string }> }) {
   const { data: session } = await auth.getSession();
-  if (!session?.user) redirect("/auth/sign-in");
+  if (!session?.user) redirect("/auth/sign-in?returnTo=%2Fpersonal");
   let data;
   try { data = await loadPersonalData(session.user.id); } catch { data = null; }
   if (!data) return <CoviePage><CoviePageHeader accent="coral" title="Personal calendar" /><CovieNotice tone="danger">Your overview could not be loaded. <Link href="/personal">Try again</Link> or <Link href="/calendar">open your calendar</Link>.</CovieNotice></CoviePage>;

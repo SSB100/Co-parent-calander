@@ -3,6 +3,7 @@ export const calendarTemplateIds = [
   "staff_rosters",
   "shared_facilities",
   "social_groups",
+  "salon_bookings",
 ] as const;
 
 export type CalendarTemplateId = (typeof calendarTemplateIds)[number];
@@ -11,7 +12,8 @@ export type CalendarTemplateSlug =
   | "co-parenting"
   | "staff-rosters"
   | "shared-facilities"
-  | "social-groups";
+  | "social-groups"
+  | "salon-bookings";
 
 export type CovieAccent = "coral" | "teal" | "sunshine" | "violet";
 export type TemplateIconKey = "people" | "calendar" | "settings" | "grid";
@@ -316,12 +318,32 @@ export const calendarTemplateManifests: Record<
       "Shared availability stays lighter than dedicated polling software.",
     ],
   },
+  salon_bookings: {
+    id: "salon_bookings", slug: "salon-bookings", name: "Salon Bookings", accentPair: ["teal", "violet"],
+    purpose: "Appointments for a salon or independent practitioner, with a clear client booking view.",
+    coreQuestion: "Who am I seeing, and when can someone book?", primaryScheduledEntity: "Appointment",
+    identityTypes: ["Practitioner", "Client", "Service"], primaryCreateAction: "Book appointment",
+    organiserTools: [
+      { key: "team", label: "Team", description: "Practitioners, invitations, working hours and time off.", icon: "people" },
+      { key: "services", label: "Services", description: "Appointment durations, buffers and displayed prices.", icon: "grid" },
+      { key: "booking-settings", label: "Booking settings", description: "Booking rules and your optional client booking page.", icon: "settings" },
+    ],
+    eventCategoryMapping: [{ label: "Appointment", colour: "teal" }],
+    positiveStateMeaning: "Appointment confirmed.", attentionStateMeaning: "Booking rules or availability need attention.",
+    conflictRule: "A practitioner cannot have overlapping appointments or blocked time, including service buffers.",
+    approvalModel: "Available appointments confirm immediately. Only the owner enables the client booking page.",
+    scheduleUnit: "Practitioner time slot", defaultView: "Day appointments and available times",
+    requiredFields: ["Service", "Practitioner", "Time", "Client name"], optionalFields: ["Client contact details", "Displayed price", "Buffers"],
+    sharedComponents: ["CoviePage", "CoviePageHeader", "CovieDialog", "CovieInput", "CovieSelect", "CovieNotice"],
+    specialResponsiveConsiderations: ["Choose service, practitioner, day and time before confirming.", "Clients see available slots and their own bookings only."],
+  },
 };
 
 export const additionalCalendarTemplateSlugs = [
   "staff-rosters",
   "shared-facilities",
   "social-groups",
+  "salon-bookings",
 ] as const;
 
 export type AdditionalCalendarTemplateSlug =
