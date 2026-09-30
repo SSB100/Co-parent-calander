@@ -15,3 +15,13 @@ Paid/public checkout and recurring bookings remain separate integration work. Th
 ## Qualification
 
 Run the standard release gate plus `node --import tsx --test tests/shared-facilities.test.ts tests/calendar-sharing.test.ts`. Apply `0033_shared_facilities.sql` only to a verified development branch first. Database qualification must exercise concurrent overlaps, resource/calendar mismatch, member ownership, duplicate saves, approval conflicts, private projections, closed hours, duration/advance/cancellation limits and archive preservation.
+
+## Calendar-first booking
+
+Availability starts with a resource, an interactive month/day picker, and available start-time buttons. The chosen booking length determines each end time. Busy starts are visibly disabled. Confirmation shows the resource, local date, time, duration and timezone; title and notes are optional. Existing bookings retain their edit form.
+
+The planner uses the complete selected-day occupancy, not the capped upcoming list. Date/resource changes invalidate open selections, and refresh failures block confirmation. Availability, rules and permissions are checked again immediately before submission, then authoritatively in the existing server transaction. A confirmation keeps the same request ID through retries.
+
+Clock-change gaps, repeated local times and intervals crossing a timezone offset change are omitted because the current API accepts local times without an offset selector. This is explained beside the slots. Keyboard arrow keys move through days, mobile stacks the calendar above two-column time choices, and the existing cancellation and approval rules remain in force.
+
+The aggregate suite includes `tests/facility-slots.test.ts` for stale selection, overlap/gap boundaries, booking rules, timezone/DST and same-tick submission protection. No schema or API change is required for this refinement.
