@@ -1,14 +1,14 @@
 "use client";
 
 import { CalendarDays, ChevronLeft, ChevronRight, LoaderCircle, MapPin, Plus, RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { CovieButton, CovieConfirmDialog, CovieEmptyState, CovieIconButton, CovieInput, CovieNotice, CovieSectionHeader, CovieStatusBadge } from "@/components/ui/covie";
 import { localDateInTimeZone } from "@/lib/calendar/time";
-import type { SocialEvent } from "@/lib/social-groups/contracts";
+import type { SocialData, SocialEvent } from "@/lib/social-groups/contracts";
 import { SocialEventDetail, SocialEventEditor } from "./social-event-dialogs";
 import { SocialMonthCalendar } from "./social-month-calendar";
 import { SocialAvailabilityForm, SocialSettingsForm } from "./social-organiser-forms";
-import { canOrganiseSocial, shiftSocialMonth, socialDateLabel, socialEventsByDay, socialMonthDays, socialResponses, socialTimestamp } from "./social-ui";
+import { canEditSocialEvent, canOrganiseSocial, shiftSocialMonth, socialDateLabel, socialEventsByDay, socialMonthDays, socialResponses, socialTimestamp } from "./social-ui";
 import { useSocialGroups } from "./use-social-groups";
 import styles from "./social-groups.module.css";
 
@@ -19,8 +19,21 @@ export function SocialGroupsPage({ calendarId, section, tool, initialDate = "", 
   const [editor, setEditor] = useState<{ event?: SocialEvent } | null>(null);
   const [detailId, setDetailId] = useState<string | null>(initialRecord || null);
   const [cancelTarget, setCancelTarget] = useState<SocialEvent | null>(null);
+  const acceptSnapshot = useCallback((next: SocialData | null) => {
+    if (!next) { setEditor(null); setDetailId(null); setCancelTarget(null); return; }
+    setEditor((current) => {
+      if (!current) return null;
+      if (!current.event) return next.canCreate && next.role !== "viewer" ? current : null;
+      const event = next.events.find((item) => item.id === current.event!.id);
+      return event && canEditSocialEvent(next, event) ? current : null;
+    });
+    setCancelTarget((current) => {
+      const event = current && next.events.find((item) => item.id === current.id);
+      return event && canEditSocialEvent(next, event) ? current : null;
+    });
+  }, []);
   const enabled = !(section === "organiser" && tool === "members");
-  const { data, loading, loadError, error, notice, busy, mutationLock, refresh, save, clearMessages } = useSocialGroups(calendarId, month, enabled);
+  const { data, loading, loadError, error, notice, busy, mutationLock, refresh, save, clearMessages } = useSocialGroups(calendarId, month, enabled, acceptSnapshot);
   const days = useMemo(() => data ? socialMonthDays(data.month) : [], [data]);
   const byDay = useMemo(() => data ? socialEventsByDay(data.events, days, data.timezone, showCancelled) : new Map<string, SocialEvent[]>(), [data, days, showCancelled]);
   if (!enabled) return null;
@@ -36,7 +49,7 @@ export function SocialGroupsPage({ calendarId, section, tool, initialDate = "", 
   function chooseDate(date: string) { setSelectedDate(date); if (month || date.slice(0, 7) !== data!.month) setMonth(date.slice(0, 7)); clearMessages(); }
   function chooseMonth(next: string) { setMonth(next); setSelectedDate(`${next}-01`); clearMessages(); }
   function openEvent(event: SocialEvent) { clearMessages(); setDetailId(event.id); }
-  async function cancelEvent() { if (cancelTarget && await save("cancel", { id: cancelTarget.id, version: cancelTarget.version })) setCancelTarget(null); }
+  async function cancelEvent() { if (!disabled && cancelTarget && await save("cancel", { id: cancelTarget.id, version: cancelTarget.version })) setCancelTarget(null); }
 
   const monthControls = <div className={styles.monthControls}>
     <CovieIconButton aria-label="Previous month" disabled={busy} onClick={() => chooseMonth(shiftSocialMonth(month || data.month, -1))}><ChevronLeft size={20} aria-hidden="true" /></CovieIconButton>
@@ -62,8 +75,8 @@ export function SocialGroupsPage({ calendarId, section, tool, initialDate = "", 
         <section className={styles.stack} aria-label="Shared group availability"><CovieSectionHeader title="Shared availability" description="A simple view of who is free this month." />{data.availability.length ? <ol className={styles.availability}>{data.availability.map((item) => <li key={item.id}><div className={styles.availabilityHeading}><strong>{item.name}{item.own ? " · You" : ""}</strong><CovieStatusBadge tone={item.status === "available" ? "teal" : "neutral"}>{item.status === "available" ? "Available" : "Unavailable"}</CovieStatusBadge></div><p>{socialDateLabel(item.date)}</p>{item.note ? <p className={styles.notes}>{item.note}</p> : null}{item.own && item.date >= today && data.canRespond ? <CovieButton tone="neutral" disabled={disabled} onClick={() => chooseDate(item.date)}>Edit your response</CovieButton> : null}</li>)}</ol> : <CovieEmptyState title="No availability shared yet" description="Availability shared by your group for this month will appear here." />}</section>
       </>}
     </>}
-    {editor ? <SocialEventEditor data={data} event={editor.event} date={activeDate} busy={busy} error={error} onSave={save} onSaved={(date) => { setSelectedDate(date); if (month || date.slice(0, 7) !== data.month) setMonth(date.slice(0, 7)); setEditor(null); }} onClose={() => { if (!mutationLock.current) setEditor(null); }} /> : null}
+    {editor ? <SocialEventEditor data={data} event={editor.event} date={activeDate} busy={busy} blocked={disabled} error={error || loadError} onSave={save} onSaved={(date) => { setSelectedDate(date); if (month || date.slice(0, 7) !== data.month) setMonth(date.slice(0, 7)); setEditor(null); }} onClose={() => { if (!mutationLock.current) setEditor(null); }} /> : null}
     {detail ? <SocialEventDetail data={data} event={detail} busy={busy} loading={loading} blocked={Boolean(loadError)} error={error || loadError} notice={notice} onSave={save} onClose={() => { if (!mutationLock.current) setDetailId(null); }} onReload={() => { clearMessages(); void refresh(); }} onEdit={() => { clearMessages(); setDetailId(null); setEditor({ event: detail }); }} onCancel={() => { clearMessages(); setDetailId(null); setCancelTarget(detail); }} /> : null}
-    <CovieConfirmDialog open={Boolean(cancelTarget)} id="social-cancel-event" title="Cancel this event?" description={<div className={styles.stack}><p>{cancelTarget?.title} will be marked cancelled. Its details and responses stay in the group’s history.</p>{error ? <CovieNotice tone="danger">{error}</CovieNotice> : null}</div>} confirmLabel={busy ? "Cancelling…" : "Cancel event"} cancelLabel="Keep event" busy={busy} onCancel={() => { setCancelTarget(null); if (cancelTarget) setDetailId(cancelTarget.id); }} onConfirm={() => void cancelEvent()} />
+    <CovieConfirmDialog open={Boolean(cancelTarget)} id="social-cancel-event" title="Cancel this event?" description={<div className={styles.stack}><p>{cancelTarget?.title} will be marked cancelled. Its details and responses stay in the group’s history.</p>{error || loadError ? <CovieNotice tone="danger">{error || loadError}</CovieNotice> : null}</div>} confirmLabel={busy ? "Cancelling…" : "Cancel event"} cancelLabel="Keep event" busy={busy} confirmDisabled={disabled} onCancel={() => { setCancelTarget(null); if (cancelTarget) setDetailId(cancelTarget.id); }} onConfirm={() => void cancelEvent()} />
   </div>;
 }

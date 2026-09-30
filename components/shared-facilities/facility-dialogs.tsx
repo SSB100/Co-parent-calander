@@ -8,7 +8,7 @@ import { bookingLocalFields, bookingResourceOptions, facilityWeekdays, minuteInp
 import styles from "./facilities.module.css";
 
 export type FacilitySave = (action: "booking" | "resource" | "rules" | "decision", data: unknown) => Promise<boolean>;
-type DialogProps = { busy: boolean; error: string; onClose: () => void; onSave: FacilitySave };
+type DialogProps = { busy: boolean; blocked?: boolean; error: string; onClose: () => void; onSave: FacilitySave };
 
 export function FacilityRulesSummary({ rules, timezone }: { rules: FacilityRules; timezone: string }) {
   return (
@@ -25,7 +25,7 @@ export function FacilityRulesSummary({ rules, timezone }: { rules: FacilityRules
   );
 }
 
-export function FacilityBookingDialog({ data, booking, resourceId, busy, error, onClose, onSave }: DialogProps & { data: FacilityData; booking?: FacilityBooking; resourceId: string }) {
+export function FacilityBookingDialog({ data, booking, resourceId, busy, blocked = false, error, onClose, onSave }: DialogProps & { data: FacilityData; booking?: FacilityBooking; resourceId: string }) {
   const resources = bookingResourceOptions(data, booking);
   const [requestId] = useState(() => crypto.randomUUID());
   const [fields, setFields] = useState(() => ({
@@ -36,7 +36,7 @@ export function FacilityBookingDialog({ data, booking, resourceId, busy, error, 
   const [validation, setValidation] = useState("");
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || blocked) return;
     const parsed = facilityBookingSchema.safeParse({ ...fields, ...(booking ? { id: booking.id, version: booking.version } : { requestId }) });
     if (!parsed.success) { setValidation(parsed.error.issues[0]?.message ?? "Check the booking details."); return; }
     if (fields.end <= fields.start) { setValidation("End time must be after start time."); return; }
@@ -45,7 +45,7 @@ export function FacilityBookingDialog({ data, booking, resourceId, busy, error, 
   }
   return (
     <CovieDialog id="facility-booking-dialog" title={booking ? "Edit booking" : "Book a resource"} description={`All dates and times use ${data.timezone}.`} icon={<CalendarDays aria-hidden="true" />} busy={busy} onClose={onClose}
-      footer={<><CovieButton tone="neutral" disabled={busy} onClick={onClose}>Close</CovieButton><CovieButton type="submit" form="facility-booking-form" disabled={busy || resources.length === 0}>{busy ? "Saving…" : booking ? "Save changes" : "Save booking"}</CovieButton></>}>
+      footer={<><CovieButton tone="neutral" disabled={busy} onClick={onClose}>Close</CovieButton><CovieButton type="submit" form="facility-booking-form" disabled={busy || blocked || resources.length === 0}>{busy ? "Saving…" : booking ? "Save changes" : "Save booking"}</CovieButton></>}>
       <form id="facility-booking-form" onSubmit={submit} className={styles.form}>
         {validation || error ? <CovieNotice tone="danger">{validation || error}</CovieNotice> : null}
         <fieldset disabled={busy} className={styles.form}>
@@ -68,21 +68,21 @@ export function FacilityBookingDialog({ data, booking, resourceId, busy, error, 
   );
 }
 
-export function FacilityResourceDialog({ resource, busy, error, onClose, onSave }: DialogProps & { resource?: FacilityResource }) {
+export function FacilityResourceDialog({ resource, busy, blocked = false, error, onClose, onSave }: DialogProps & { resource?: FacilityResource }) {
   const [name, setName] = useState(resource?.name ?? "");
   const [description, setDescription] = useState(resource?.description ?? "");
   const [location, setLocation] = useState(resource?.location ?? "");
   const [capacity, setCapacity] = useState(resource?.capacity?.toString() ?? "");
   const [validation, setValidation] = useState("");
   async function submit(event: React.FormEvent) {
-    event.preventDefault(); if (busy) return;
+    event.preventDefault(); if (busy || blocked) return;
     const parsed = facilityResourceSchema.safeParse({ id: resource?.id, name, description, location, capacity: capacity === "" ? null : Number(capacity), active: resource?.active ?? true });
     if (!parsed.success) { setValidation(parsed.error.issues[0]?.message ?? "Check the resource details."); return; }
     setValidation(""); if (await onSave("resource", parsed.data)) onClose();
   }
   return (
     <CovieDialog id="facility-resource-dialog" title={resource ? "Edit resource" : "Add resource"} description="Add the details people need before they book." icon={<Building2 aria-hidden="true" />} busy={busy} onClose={onClose}
-      footer={<><CovieButton tone="neutral" disabled={busy} onClick={onClose}>Close</CovieButton><CovieButton type="submit" form="facility-resource-form" disabled={busy}>{busy ? "Saving…" : "Save resource"}</CovieButton></>}>
+      footer={<><CovieButton tone="neutral" disabled={busy} onClick={onClose}>Close</CovieButton><CovieButton type="submit" form="facility-resource-form" disabled={busy || blocked}>{busy ? "Saving…" : "Save resource"}</CovieButton></>}>
       <form id="facility-resource-form" onSubmit={submit} className={styles.form}>
         {validation || error ? <CovieNotice tone="danger">{validation || error}</CovieNotice> : null}
         <fieldset disabled={busy} className={styles.form}>

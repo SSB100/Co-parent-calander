@@ -7,18 +7,18 @@ import { socialEventSchema, type SocialData, type SocialEvent } from "@/lib/soci
 import { canEditSocialEvent, canRespondToSocialEvent, newSocialEventLocalFields, socialEventIsFull, socialEventLocalFields, socialResponses, socialTimestamp, type SocialSave } from "./social-ui";
 import styles from "./social-groups.module.css";
 
-export function SocialEventEditor({ data, event, date, busy, error, onSave, onSaved, onClose }: { data: SocialData; event?: SocialEvent; date: string; busy: boolean; error: string; onSave: SocialSave; onSaved: (date: string) => void; onClose: () => void }) {
+export function SocialEventEditor({ data, event, date, busy, blocked = false, error, onSave, onSaved, onClose }: { data: SocialData; event?: SocialEvent; date: string; busy: boolean; blocked?: boolean; error: string; onSave: SocialSave; onSaved: (date: string) => void; onClose: () => void }) {
   const [requestId] = useState(() => crypto.randomUUID());
   const [fields, setFields] = useState(() => ({ title: event?.title ?? "", location: event?.location ?? "", notes: event?.notes ?? "", capacity: event?.capacity?.toString() ?? "", ...(event ? socialEventLocalFields(event, data.timezone) : newSocialEventLocalFields(date, data.timezone)) }));
   const [validation, setValidation] = useState("");
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); if (busy) return;
+    e.preventDefault(); if (busy || blocked) return;
     const parsed = socialEventSchema.safeParse({ ...fields, capacity: fields.capacity === "" ? null : Number(fields.capacity), ...(event ? { id: event.id, version: event.version } : { requestId }) });
     if (!parsed.success) { setValidation(parsed.error.issues[0]?.message ?? "Check the event details."); return; }
     if (fields.end <= fields.start) { setValidation("End time must be after start time."); return; }
     setValidation(""); if (await onSave("event", parsed.data)) onSaved(fields.start.slice(0, 10));
   }
-  return <CovieDialog id="social-event-editor" title={event ? "Edit event" : "Create event"} description={`All dates and times use ${data.timezone}.`} icon={<CalendarDays aria-hidden="true" />} iconTone="coral" busy={busy} onClose={onClose} footer={<><CovieButton tone="neutral" disabled={busy} onClick={onClose}>Close</CovieButton><CovieButton type="submit" form="social-event-form" disabled={busy}>{busy ? "Saving…" : event ? "Save changes" : "Create event"}</CovieButton></>}>
+  return <CovieDialog id="social-event-editor" title={event ? "Edit event" : "Create event"} description={`All dates and times use ${data.timezone}.`} icon={<CalendarDays aria-hidden="true" />} iconTone="coral" busy={busy} onClose={onClose} footer={<><CovieButton tone="neutral" disabled={busy} onClick={onClose}>Close</CovieButton><CovieButton type="submit" form="social-event-form" disabled={busy || blocked}>{busy ? "Saving…" : event ? "Save changes" : "Create event"}</CovieButton></>}>
     <form id="social-event-form" onSubmit={submit} className={styles.form}>
       {validation || error ? <CovieNotice tone="danger">{validation || error}</CovieNotice> : null}
       <fieldset className={styles.form} disabled={busy}>

@@ -140,7 +140,7 @@ export function TemplateWorkspaceNav({
           </>
         ) : null}
 
-        {!staffRosterMode && !staffMode ? (
+        {!staffRosterMode && !staffMode && organiserItems.length > 0 ? (
           <details
           ref={organiserRef}
           className="relative flex-1 lg:flex-none"

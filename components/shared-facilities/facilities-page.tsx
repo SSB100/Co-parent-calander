@@ -3,7 +3,7 @@
 import { Building2, CalendarDays, LoaderCircle, Plus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CovieButton, CovieConfirmDialog, CovieEmptyState, CovieIconButton, CovieNotice, CovieRecordCard, CovieSectionHeader, CovieSegmentedControl, CovieSelect, CovieStatusBadge } from "@/components/ui/covie";
-import { CalendarContextChangedError, calendarContextHeaders, requireCalendarContext, throwIfCalendarContextChanged } from "@/components/calendar-sharing/calendar-context";
+import { CalendarAccessDeniedError, CalendarContextChangedError, calendarContextHeaders, requireCalendarContext, throwIfCalendarAccessDenied, throwIfCalendarContextChanged } from "@/components/calendar-sharing/calendar-context";
 import type { FacilityBooking, FacilityData, FacilityResource } from "@/lib/shared-facilities/contracts";
 import { FacilityBookingDialog, FacilityResourceDialog, FacilityRulesSummary, type FacilitySave } from "./facility-dialogs";
 import { FacilityRulesForm } from "./facility-rules-form";
@@ -46,6 +46,26 @@ export function FacilitiesPage({ calendarId, section, tool, initialDate = "", in
   const mutationLock = useRef(false);
   const enabled = !(section === "organiser" && tool === "members");
 
+  const acceptSnapshot = useCallback((next: FacilityData | null) => {
+    setData(next);
+    if (!next) {
+      setBookingEditor(null); setBookingSlot(null); setResourceEditor(null); setConfirmation(null);
+      return;
+    }
+    setBookingSlot((current) => current && next.canBook && next.resources.some((resource) => resource.id === current.resourceId && resource.active) ? current : null);
+    setBookingEditor((current) => {
+      const booking = current && next.bookings.find((item) => item.id === current.booking.id);
+      return booking && canChangeFacilityBooking(next, booking) ? current : null;
+    });
+    setResourceEditor((current) => current && (current.resource ? next.resources.some((resource) => resource.id === current.resource!.id && canEditFacilityResource(next, resource.id)) : next.owner) ? current : null);
+    setConfirmation((current) => {
+      if (!current) return null;
+      if (current.kind === "archive") return next.resources.some((resource) => resource.id === current.resource.id && resource.active && canEditFacilityResource(next, resource.id)) ? current : null;
+      const booking = next.bookings.find((item) => item.id === current.booking.id);
+      return booking && (current.kind === "decline" ? canReviewFacilityBooking(next, booking) : canChangeFacilityBooking(next, booking)) ? current : null;
+    });
+  }, []);
+
   const refresh = useCallback(async () => {
     if (!enabled) return;
     const sequence = ++requestSequence.current;
@@ -56,11 +76,12 @@ export function FacilitiesPage({ calendarId, section, tool, initialDate = "", in
     try {
       const response = await fetch(`/api/shared-facilities${date ? `?date=${encodeURIComponent(date)}` : ""}`, { cache: "no-store", headers: calendarContextHeaders(calendarId), signal: controller.signal });
       const body = await response.json().catch(() => null) as FacilityData | { error?: string } | null;
+      throwIfCalendarAccessDenied(response.status, body);
       throwIfCalendarContextChanged(response.status, body);
       if (!response.ok || !body || !("resources" in body)) throw new Error(body && "error" in body && body.error ? body.error : "Facilities could not be loaded.");
       if (!mounted.current || sequence !== requestSequence.current) return;
       if (date && body.date !== date) throw new Error("The returned schedule does not match the selected day. Try again.");
-      setData(requireCalendarContext(body, calendarId));
+      acceptSnapshot(requireCalendarContext(body, calendarId));
       if (sourceRecord.current) {
         const linked = body.bookings.find((booking) => booking.id === sourceRecord.current && booking.own);
         if (linked) {
@@ -74,18 +95,20 @@ export function FacilitiesPage({ calendarId, section, tool, initialDate = "", in
       }
     } catch (error) {
       if (!controller.signal.aborted && mounted.current && sequence === requestSequence.current) {
-        if (error instanceof CalendarContextChangedError) setData(null);
+        if (error instanceof CalendarContextChangedError || error instanceof CalendarAccessDeniedError) acceptSnapshot(null);
         setLoadError(messageFrom(error));
       }
     } finally {
       if (mounted.current && sequence === requestSequence.current) setLoading(false);
     }
-  }, [calendarId, date, enabled]);
+  }, [calendarId, date, enabled, acceptSnapshot]);
 
   useEffect(() => {
     mounted.current = true;
     const timer = window.setTimeout(() => { void refresh(); }, 0);
-    return () => { mounted.current = false; window.clearTimeout(timer); currentRequest.current?.abort(); requestSequence.current += 1; };
+    const recheck = () => { if (document.visibilityState === "visible" && !mutationLock.current) void refresh(); };
+    window.addEventListener("focus", recheck); window.addEventListener("pageshow", recheck); document.addEventListener("visibilitychange", recheck);
+    return () => { mounted.current = false; window.clearTimeout(timer); window.removeEventListener("focus", recheck); window.removeEventListener("pageshow", recheck); document.removeEventListener("visibilitychange", recheck); currentRequest.current?.abort(); requestSequence.current += 1; };
   }, [refresh]);
 
   const save: FacilitySave = async (action, payload) => {
@@ -96,6 +119,7 @@ export function FacilitiesPage({ calendarId, section, tool, initialDate = "", in
       const response = await fetch("/api/shared-facilities", { method: "POST", headers: { "content-type": "application/json", ...calendarContextHeaders(calendarId) }, body: JSON.stringify({ action, data: payload }) });
       responseReceived = true;
       const body = await response.json().catch(() => null) as { error?: string; ok?: boolean; status?: string } | null;
+      throwIfCalendarAccessDenied(response.status, body);
       throwIfCalendarContextChanged(response.status, body);
       if (!response.ok || !body?.ok) throw new Error(body?.error ?? "The save result could not be verified. Reload to check before trying again.");
       if (!mounted.current) return true;
@@ -104,7 +128,7 @@ export function FacilitiesPage({ calendarId, section, tool, initialDate = "", in
       return true;
     } catch (error) {
       if (mounted.current) {
-        if (error instanceof CalendarContextChangedError) { setData(null); setLoadError(error.message); }
+        if (error instanceof CalendarContextChangedError || error instanceof CalendarAccessDeniedError) { currentRequest.current?.abort(); requestSequence.current += 1; acceptSnapshot(null); setLoadError(error.message); setLoading(false); }
         setMutationError(responseReceived ? messageFrom(error) : "The connection was interrupted. The request may have reached Covie. Reload to check before trying again.");
       }
       return false;
@@ -143,7 +167,7 @@ export function FacilitiesPage({ calendarId, section, tool, initialDate = "", in
   }
   function requestConfirmation(target: Confirmation) { setMutationError(""); setConfirmation(target); }
   async function confirmChange() {
-    if (!confirmation) return;
+    if (!confirmation || loading || loadError || mutationLock.current) return;
     const success = confirmation.kind === "archive"
       ? await save("resource", { ...confirmation.resource, active: false })
       : await save("decision", { id: confirmation.booking.id, version: confirmation.booking.version, action: confirmation.kind });
@@ -204,8 +228,8 @@ export function FacilitiesPage({ calendarId, section, tool, initialDate = "", in
       {data.resources.length ? <div className={styles.resources}>{data.resources.map((resource) => <CovieRecordCard key={resource.id}><div className={styles.resourceHeader}><h3>{resource.name}</h3><CovieStatusBadge tone={resource.active ? "teal" : "neutral"}>{resource.active ? "Active" : "Archived"}</CovieStatusBadge></div>{resource.location ? <p className={styles.help}>{resource.location}</p> : null}{resource.capacity ? <p className={styles.help}>Capacity {resource.capacity}</p> : null}{resource.description ? <p className={styles.notes}>{resource.description}</p> : null}{canEditFacilityResource(data, resource.id) ? <div className={styles.actions}><CovieButton tone="neutral" disabled={disabled} onClick={() => { setMutationError(""); setResourceEditor({ resource }); }}>Edit resource</CovieButton>{resource.active ? <CovieButton tone="neutral" disabled={disabled} onClick={() => requestConfirmation({ kind: "archive", resource })}>Archive</CovieButton> : <CovieButton disabled={disabled} onClick={() => void save("resource", { ...resource, active: true })}>Restore</CovieButton>}</div> : null}</CovieRecordCard>)}</div> : <CovieEmptyState icon={<Building2 aria-hidden="true" />} title="No resources yet" description={data.owner ? "Add a room, shared space or piece of equipment to get started." : "Resources will appear here when the organiser adds them."} />}
     </>}
     {bookingSlot ? <FacilitySlotConfirmation data={data} slot={bookingSlot} busy={busy} blocked={disabled} error={mutationError || loadError} onSave={saveSlot} onClose={() => { if (!mutationLock.current) setBookingSlot(null); }} onRefresh={() => { if (!mutationLock.current) { setBookingSlot(null); setMutationError(""); void refresh(); } }} /> : null}
-    {bookingEditor ? <FacilityBookingDialog data={data} booking={bookingEditor.booking} resourceId={bookingEditor.resourceId} busy={busy} error={mutationError} onSave={save} onClose={() => { if (!mutationLock.current) setBookingEditor(null); }} /> : null}
-    {resourceEditor ? <FacilityResourceDialog resource={resourceEditor.resource} busy={busy} error={mutationError} onSave={save} onClose={() => { if (!mutationLock.current) setResourceEditor(null); }} /> : null}
-    <CovieConfirmDialog open={Boolean(confirmation)} id="facility-confirm-change" title={confirmation?.kind === "archive" ? "Archive this resource?" : confirmation?.kind === "decline" ? "Decline this request?" : "Cancel this booking?"} description={<div className={styles.stack}><p>{confirmation?.kind === "archive" ? `${confirmation.resource.name} will no longer accept new bookings. Existing bookings and history stay available.` : confirmation?.kind === "decline" ? "The request will be marked declined. The time slot is not reserved." : `This removes the booking from the active schedule. Cancellation rules still apply: at least ${data.rules.cancellationHours} hours before the start.`}</p>{mutationError ? <CovieNotice tone="danger">{mutationError}</CovieNotice> : null}</div>} confirmLabel={busy ? "Saving…" : confirmation?.kind === "archive" ? "Archive resource" : confirmation?.kind === "decline" ? "Decline request" : "Cancel booking"} cancelLabel="Keep it" busy={busy} onCancel={() => setConfirmation(null)} onConfirm={() => void confirmChange()} />
+    {bookingEditor ? <FacilityBookingDialog data={data} booking={bookingEditor.booking} resourceId={bookingEditor.resourceId} busy={busy} blocked={disabled} error={mutationError || loadError} onSave={save} onClose={() => { if (!mutationLock.current) setBookingEditor(null); }} /> : null}
+    {resourceEditor ? <FacilityResourceDialog resource={resourceEditor.resource} busy={busy} blocked={disabled} error={mutationError || loadError} onSave={save} onClose={() => { if (!mutationLock.current) setResourceEditor(null); }} /> : null}
+    <CovieConfirmDialog open={Boolean(confirmation)} id="facility-confirm-change" title={confirmation?.kind === "archive" ? "Archive this resource?" : confirmation?.kind === "decline" ? "Decline this request?" : "Cancel this booking?"} description={<div className={styles.stack}><p>{confirmation?.kind === "archive" ? `${confirmation.resource.name} will no longer accept new bookings. Existing bookings and history stay available.` : confirmation?.kind === "decline" ? "The request will be marked declined. The time slot is not reserved." : `This removes the booking from the active schedule. Cancellation rules still apply: at least ${data.rules.cancellationHours} hours before the start.`}</p>{mutationError || loadError ? <CovieNotice tone="danger">{mutationError || loadError}</CovieNotice> : null}</div>} confirmLabel={busy ? "Saving…" : confirmation?.kind === "archive" ? "Archive resource" : confirmation?.kind === "decline" ? "Decline request" : "Cancel booking"} cancelLabel="Keep it" busy={busy} confirmDisabled={disabled} onCancel={() => setConfirmation(null)} onConfirm={() => void confirmChange()} />
   </div>;
 }

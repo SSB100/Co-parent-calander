@@ -110,4 +110,4 @@ test("social mutations carry the calendar that the form rendered", async () => {
   assert.match(hook, /useSocialGroups\(calendarId: string/);
 });
 
-test("social reads and writes discard stale calendar context", async()=>{const source=await readFile("components/social-groups/use-social-groups.ts","utf8");assert.equal((source.match(/throwIfCalendarContextChanged\(response.status,/g)??[]).length,2);assert.match(source,/setData\(null\)/);assert.match(source,/CalendarContextChangedError/);});
+test("social reads and writes discard stale calendar context", async()=>{const source=await readFile("components/social-groups/use-social-groups.ts","utf8");assert.equal((source.match(/throwIfCalendarContextChanged\(response.status,/g)??[]).length,2);assert.match(source,/acceptSnapshot\(null\)/);assert.match(source,/CalendarContextChangedError/);});

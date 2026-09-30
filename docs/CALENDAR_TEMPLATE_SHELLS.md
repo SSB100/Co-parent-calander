@@ -140,3 +140,10 @@ Facilities adds resources, calendar booking rules, private/member and scoped-man
 Social Groups adds group-controlled event creation, owner/admin and member views, Going/Maybe/Cannot make it responses, transaction-safe capacity, shared personal availability and retained event updates. Event overlaps are allowed and attendee overlaps warn without blocking.
 
 Both types use dedicated invitation roles and stable rendered-calendar request binding, without creating co-parent profiles. Public links, paid bookings, recurrence and Google output for these templates remain separate work; the existing optional Google output applies to co-parenting.
+
+
+### Role-aware organiser navigation
+
+Non-parenting template routes resolve the existing domain role before building organiser links. Facilities owners see Resources, Booking rules and Members; scoped managers see Resources. Social owners/admins see Members, Availability and Group settings; members/viewers see Availability. Salon owners see Team, Services and Booking settings; managers see Team and Services; practitioners see My profile & hours and My services. Staff keeps its existing manager and staff navigation. Direct organiser URLs use the same role-to-tool predicate as navigation; API authority remains enforced independently.
+
+Facilities, Social and their Members screens refresh on returning to a visible tab. A denied read or write clears the snapshot and open editors; a newer response invalidates an older in-flight request. Demotion closes editors whose current capability was removed. A transient refresh failure keeps the existing draft visible with the error, disables saving, and leaves Close available. These transitions are covered with rendered synthetic tests; production memberships are not changed for qualification.

@@ -26,6 +26,7 @@ import {
   type TemplateOrganiserNavItem,
 } from "@/components/templates/template-workspace-nav";
 import { SalonPage } from "@/components/salon/salon-page";
+import { workspaceOrganiserTools, type WorkspaceRole } from "@/lib/templates/workspace-navigation";
 import { SocialGroupsPage } from "@/components/social-groups/social-groups-page";
 import { FacilitiesPage } from "@/components/shared-facilities/facilities-page";
 import { TemplateMembersPage } from "@/components/calendar-sharing/members-page";
@@ -129,6 +130,7 @@ export function TemplateShell({
   section,
   activeToolKey,
   staffAccessRole,
+  workspaceRole,
   initialDate,
   initialRecord,
 }: {
@@ -140,6 +142,7 @@ export function TemplateShell({
   section: TemplateSection;
   activeToolKey?: string;
   staffAccessRole?: "owner" | "manager" | "staff" | null;
+  workspaceRole: WorkspaceRole;
   initialDate?: string;
   initialRecord?: string;
 }) {
@@ -152,7 +155,7 @@ export function TemplateShell({
   const staffRosterMode = template.id === "staff_rosters";
 
   const organiserItems: readonly TemplateOrganiserNavItem[] =
-    template.organiserTools.map((tool) => ({
+    workspaceOrganiserTools(template.id, workspaceRole).map((tool) => ({
       key: tool.key,
       label: tool.label,
       description: tool.description,
