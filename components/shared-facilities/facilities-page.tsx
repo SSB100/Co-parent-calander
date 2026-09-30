@@ -11,7 +11,6 @@ import { canChangeFacilityBooking, canEditFacilityResource, canReviewFacilityBoo
 import { FacilityPlanner } from "./facility-planner";
 import { FacilitySlotConfirmation } from "./facility-slot-confirmation";
 import { facilitySlotProblem, type FacilitySlot } from "./facility-slots";
-import { initialSourceDate, initialSourceRecord } from "@/lib/client/calendar-source";
 import styles from "./facilities.module.css";
 
 type Confirmation = { kind: "cancel" | "decline"; booking: FacilityBooking } | { kind: "archive"; resource: FacilityResource };
@@ -24,10 +23,10 @@ function statusTone(status: FacilityBooking["status"]) {
   return status === "confirmed" ? "teal" as const : status === "pending" ? "sunshine" as const : "neutral" as const;
 }
 
-export function FacilitiesPage({ calendarId, section, tool }: { calendarId: string; section: "calendar" | "updates" | "organiser"; tool?: string }) {
+export function FacilitiesPage({ calendarId, section, tool, initialDate = "", initialRecord = "" }: { calendarId: string; section: "calendar" | "updates" | "organiser"; tool?: string; initialDate?: string; initialRecord?: string }) {
   const [data, setData] = useState<FacilityData | null>(null);
-  const [date, setDate] = useState(initialSourceDate);
-  const [linkedRecordId, setLinkedRecordId] = useState(initialSourceRecord);
+  const [date, setDate] = useState(initialDate);
+  const [linkedRecordId, setLinkedRecordId] = useState(initialRecord);
   const sourceRecord = useRef(linkedRecordId);
   const [view, setView] = useState<FacilityView>("availability");
   const [resourceId, setResourceId] = useState("");

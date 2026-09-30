@@ -127,6 +127,7 @@ export function TemplateShell({
   activeToolKey,
   staffAccessRole,
   initialDate,
+  initialRecord,
 }: {
   slug: AdditionalCalendarTemplateSlug;
   calendars: CalendarOption[];
@@ -137,6 +138,7 @@ export function TemplateShell({
   activeToolKey?: string;
   staffAccessRole?: "owner" | "manager" | "staff" | null;
   initialDate?: string;
+  initialRecord?: string;
 }) {
   const template = getCalendarTemplateBySlug(slug);
   const currentPath = `/calendar-types/${slug}`;
@@ -240,15 +242,15 @@ export function TemplateShell({
         >
           {template.id === "shared_facilities" ? (
             section === "organiser" && activeToolKey === "members" ? <TemplateMembersPage key={currentCalendarId} calendarId={currentCalendarId} /> :
-            <FacilitiesPage key={`${currentCalendarId}:${section}:${activeToolKey ?? ""}`} calendarId={currentCalendarId} section={section} tool={activeToolKey} />
+            <FacilitiesPage key={`${currentCalendarId}:${section}:${activeToolKey ?? ""}:${initialDate ?? ""}:${initialRecord ?? ""}`} calendarId={currentCalendarId} initialDate={initialDate} initialRecord={initialRecord} section={section} tool={activeToolKey} />
           ) : template.id === "social_groups" ? (
             section === "organiser" && activeToolKey === "members" ? <TemplateMembersPage key={currentCalendarId} calendarId={currentCalendarId} /> :
-            <SocialGroupsPage key={`${currentCalendarId}:${section}:${activeToolKey ?? ""}`} calendarId={currentCalendarId} section={section} tool={activeToolKey} />
+            <SocialGroupsPage key={`${currentCalendarId}:${section}:${activeToolKey ?? ""}:${initialDate ?? ""}:${initialRecord ?? ""}`} calendarId={currentCalendarId} initialDate={initialDate} initialRecord={initialRecord} section={section} tool={activeToolKey} />
           ) : template.id === "staff_rosters" && section === "calendar" ? (
             staffMode ? (
-              <StaffMyRosterPage initialDate={initialDate} />
+              <StaffMyRosterPage key={`${currentCalendarId}:${initialDate ?? ""}`} initialDate={initialDate} />
             ) : (
-              <StaffRosterCalendarPage initialDate={initialDate}
+              <StaffRosterCalendarPage key={`${currentCalendarId}:${initialDate ?? ""}`} initialDate={initialDate}
                 header={
                   <CalendarSwitcher
                     calendars={calendars}
