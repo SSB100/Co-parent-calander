@@ -65,3 +65,46 @@
 
 /* Keep timezone and confirmation details visible on short mobile screens. */
 .stack :global(.covie-dialog-description) { display: block; }
+
+.planner { display: grid; min-width: 0; gap: 20px; align-items: start; }
+.plannerCalendar { display: grid; min-width: 0; gap: 12px; border: 1px solid var(--covie-border); border-top: 4px solid var(--covie-violet); border-radius: 12px; padding: 12px; background: white; }
+.resourceContext { display: grid; gap: 4px; font-size: 13px; line-height: 1.6; color: var(--covie-text-secondary); overflow-wrap: anywhere; }
+.resourceContext p:first-child { display: flex; align-items: start; gap: 6px; }
+.resourceContext svg { flex-shrink: 0; }
+.monthHeading { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.monthHeading h2 { text-align: center; font-size: 16px; font-weight: 750; }
+.plannerStep { font-size: 13px; font-weight: 700; color: var(--covie-ink); }
+.dayGrid { display: grid; min-width: 0; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.weekday { padding-block: 4px; text-align: center; font-size: 11px; color: var(--covie-text-secondary); }
+.dayGrid button { position: relative; display: grid; place-content: center; min-width: 0; min-height: 44px; border: 1px solid transparent; border-radius: 7px; color: var(--covie-ink); font-size: 14px; font-weight: 650; }
+.dayGrid button[data-outside="true"] { color: var(--covie-text-secondary); font-weight: 400; }
+.dayGrid button[data-closed="true"] { text-decoration: line-through; text-decoration-color: var(--covie-text-secondary); }
+.dayGrid button[aria-pressed="true"] { background: var(--covie-violet); color: white; border-color: var(--covie-violet); }
+.dayGrid button[aria-current="date"] { border-color: var(--covie-teal); }
+.dayGrid button:focus-visible, .timeSlot:focus-visible { outline: 3px solid var(--covie-violet); outline-offset: 2px; }
+.dayGrid button:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--covie-cream); }
+.todayDot { position: absolute; bottom: 4px; left: calc(50% - 2px); width: 4px; height: 4px; border-radius: 50%; background: var(--covie-teal); }
+.jumpDate { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
+.jumpDate > label { flex: 1 1 160px; }
+.plannerTimes { display: grid; min-width: 0; gap: 14px; }
+.slotHeading { display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 12px; }
+.slotHeading h2 { margin-top: 5px; font-size: 18px; font-weight: 750; }
+.slotHeading > div > p:last-child { font-size: 12px; line-height: 1.7; color: var(--covie-text-secondary); overflow-wrap: anywhere; }
+.slotHeading > label { width: 160px; max-width: 100%; }
+.slotGrid { display: grid; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.timeSlot { display: grid; min-height: 80px; min-width: 0; gap: 3px; border: 1px solid var(--covie-teal); border-radius: 9px; background: white; padding: 10px; text-align: left; color: var(--covie-ink); }
+.timeSlot strong { font-size: 14px; }
+.timeSlot span, .timeSlot small { font-size: 12px; }
+.timeSlot small { color: #0D7A6D; font-weight: 650; }
+.timeSlot:hover:not(:disabled) { background: #EAF8F5; }
+.timeSlot[data-available="false"] { border-color: var(--covie-border); background: #F1F2F2; color: var(--covie-text-secondary); }
+.timeSlot[data-available="false"] small { color: var(--covie-text-secondary); }
+.timeSlot:disabled { cursor: default; }
+.slotSummary { display: grid; gap: 6px; border-left: 4px solid var(--covie-violet); padding: 8px 12px; background: var(--covie-cream); font-size: 14px; }
+.slotSummary strong { font-size: 18px; overflow-wrap: anywhere; }
+.slotSummary span { color: var(--covie-text-secondary); font-size: 12px; }
+.optionalDetails summary { min-height: 44px; padding-block: 12px; cursor: pointer; font-size: 13px; font-weight: 650; }
+.optionalDetails summary span { font-weight: 400; }
+.optionalDetails fieldset { padding-top: 8px; }
+@media (min-width: 640px) { .slotGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 960px) { .planner { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 24px; } }
