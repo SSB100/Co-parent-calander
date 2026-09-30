@@ -50,8 +50,8 @@ test("marketing avoids payment, sports, payroll and unverified traction promises
   assert.doesNotMatch(copy, /Covey|—/);
 });
 
-test("Social tools remain explicitly in development until their separate release",()=>{
-  assert.match(calendarPurposes.find(p=>p.id === "social_groups")?.availabilityNote??"",/being added/);
+test("released Social tools no longer carry the development note",()=>{
+  assert.equal(calendarPurposes.find(p=>p.id === "social_groups")?.availabilityNote,undefined);
 });
 
 

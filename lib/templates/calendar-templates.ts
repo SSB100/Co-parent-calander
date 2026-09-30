@@ -220,7 +220,7 @@ export const calendarTemplateManifests: Record<
         label: "Booking",
         colour: "violet",
         note:
-          "Shell baseline only. Resource identity and booking status remain separate from category colour.",
+          "Resource identity and booking status remain separate from the Booking category colour.",
       },
     ],
     positiveStateMeaning: "Available or confirmed.",
@@ -289,7 +289,7 @@ export const calendarTemplateManifests: Record<
         label: "Activity",
         colour: "coral",
         note:
-          "Shell baseline only. Detailed activity categories will be reviewed in the Social Groups feature pass.",
+          "Activity is the default category. Member identity and RSVP state are separate from category colour.",
       },
     ],
     positiveStateMeaning: "Going or confirmed.",

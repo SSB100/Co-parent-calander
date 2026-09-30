@@ -205,8 +205,14 @@ Any future Staff Rosters schema change must start at migration `0031` or later, 
 
 ## 0033 Shared Facilities and purpose-specific membership
 
-Additive release proposal: facility settings, resources, bookings and update history, plus purpose-specific member/invite roles. Owners can delegate selected resources to a manager; Social Groups can reuse the role primitive for group admins. Editor/viewer Core memberships are preserved and never create parent profiles in these templates.
+Migration 0033 was qualified and applied to Production on 30 September 2026 after explicit approval. Rollback branch: `backup-before-0033-facilities-20260930` (`br-damp-dream-a7453iai`). It adds facility settings, resources, bookings and update history, plus purpose-specific member/invite roles. Owners can delegate selected resources to a manager; Social Groups can reuse the role primitive for group admins. Editor/viewer Core memberships are preserved and never create parent profiles in these templates.
 
 Booking writes serialize resource conflicts and per-member limits, enforce local opening hours/duration/notice/cancellation rules, and keep version and duplicate-submit checks. Private booking notes are shown only to the creator or authorised organiser; shared-title visibility is opt-in.
 
 This migration is qualified on a fresh Production clone before release. Production approval is explicit and a rollback branch must be captured before applying. Existing runtime default table privileges apply to the new tables; no new account or credential is provisioned.
+
+## 0034 Social Groups
+
+Additive Social settings, events, RSVP responses, personal shared availability and update history. Event and RSVP triggers preserve member/organiser authority, serialize capacity and retain cancelled history. Events may overlap; RSVP conflicts are non-blocking notices. Existing tables and co-parenting data are not rewritten.
+
+Requires 0033 template roles. Qualify on the isolated branch, receive specific production approval, capture a fresh rollback point and verify runtime table access before rollout.

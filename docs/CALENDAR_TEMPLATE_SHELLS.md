@@ -1,6 +1,6 @@
 # Covie calendar template shells
 
-This document records the production template architecture for Covie's additional calendar types. Shared Facilities and Social Groups remain largely shell-level domains; Staff Rosters has since progressed into a persistent production roster, attendance, leave and Staff self-service domain while keeping the same template boundary.
+This document records the production template architecture for Covie's additional calendar types. Staff Rosters, Shared Facilities and Social Groups now have separate persistent domains while keeping the same template boundary and shared Covie Core.
 
 ## Authority
 
@@ -9,7 +9,7 @@ This document records the production template architecture for Covie's additiona
 3. The manifests in `lib/templates/calendar-templates.ts` translate those sources into implementation data.
 4. Feature-specific behaviour must stay inside those boundaries.
 
-Calendar navigation uses the shared Core field `calendars.calendar_type` so Covie can route each selected calendar to the correct template. Existing calendars were backfilled safely as `co_parenting`. Staff Rosters now has persistent production domain records; Shared Facilities and Social Groups must continue showing honest empty states until their own real persistence and actions are implemented. No template may substitute sample records, demo data or non-functional create controls.
+Calendar navigation uses the shared Core field `calendars.calendar_type` so Covie can route each selected calendar to the correct template. Existing calendars were backfilled safely as `co_parenting`. Each type uses its own persisted records and server-authoritative capabilities. Empty calendars show honest empty states until their members create real records. No template may substitute sample records, demo data or non-functional create controls.
 
 ## Architecture boundary
 
@@ -132,3 +132,11 @@ The production implementation now includes:
 These features change what the Staff Rosters calendar means, but not the shared Covie interaction grammar. Coral remains the global primary-action colour; Teal + Sunshine remains the Staff Rosters accent pair.
 
 The Staff Rosters domain must stay isolated from co-parenting participants, parenting schedules, children, Shared Costs, Tasks and approval assumptions except where an intentional Covie Core component is shared.
+
+## Facilities and Social workflow releases
+
+Facilities adds resources, calendar booking rules, private/member and scoped-manager views, versioned bookings, conflict-safe approval and retained cancellation/update history. Owners alone manage Facilities membership and resource-manager scope.
+
+Social Groups adds group-controlled event creation, owner/admin and member views, Going/Maybe/Cannot make it responses, transaction-safe capacity, shared personal availability and retained event updates. Event overlaps are allowed and attendee overlaps warn without blocking.
+
+Both types use dedicated invitation roles and stable rendered-calendar request binding, without creating co-parent profiles. Public links, paid bookings, recurrence and Google output for these templates remain separate work; the existing optional Google output applies to co-parenting.
