@@ -26,6 +26,7 @@ import {
   type TemplateOrganiserNavItem,
 } from "@/components/templates/template-workspace-nav";
 import { CalendarSetupGuide } from "@/components/onboarding/calendar-setup-guide";
+import ownerWorkspaceStyles from "@/components/workspace/owner-calendar-workspace.module.css";
 import { SalonPage } from "@/components/salon/salon-page";
 import { workspaceOrganiserTools, type WorkspaceRole } from "@/lib/templates/workspace-navigation";
 import { SocialGroupsPage } from "@/components/social-groups/social-groups-page";
@@ -156,6 +157,7 @@ export function TemplateShell({
   const compactStaffRosterCalendar =
     template.id === "staff_rosters" && section === "calendar" && !staffMode;
   const staffRosterMode = template.id === "staff_rosters";
+  const ownerSocialCalendar = template.id === "social_groups" && section === "calendar" && workspaceRole === "owner";
 
   const organiserItems: readonly TemplateOrganiserNavItem[] =
     workspaceOrganiserTools(template.id, workspaceRole).map((tool) => ({
@@ -213,12 +215,12 @@ export function TemplateShell({
 
       <CoviePage
         width="wide"
-        className={staffRosterMode && !staffMode ? "pb-[calc(156px+env(safe-area-inset-bottom))] lg:pb-6" : "pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6"}
+        className={ownerSocialCalendar ? `${ownerWorkspaceStyles.page} pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6` : staffRosterMode && !staffMode ? "pb-[calc(156px+env(safe-area-inset-bottom))] lg:pb-6" : "pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6"}
       >
         {compactStaffRosterCalendar ? null : (
           <div
             className={
-              section === "calendar"
+              ownerSocialCalendar ? ownerWorkspaceStyles.calendarHeader : section === "calendar"
                 ? "mb-5"
                 : "mb-3"
             }
@@ -244,7 +246,7 @@ export function TemplateShell({
 
         <section
           className={
-            section === "calendar"
+            ownerSocialCalendar ? ownerWorkspaceStyles.calendarSection : section === "calendar"
               ? compactStaffRosterCalendar
                 ? "mt-1"
                 : "mt-3"

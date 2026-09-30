@@ -1,4 +1,12 @@
 .stack { display: grid; min-width: 0; gap: 16px; }
+.ownerRoot { display: flex; min-width: 0; min-height: 0; flex: 1; flex-direction: column; gap: 12px; }
+.ownerTools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ownerRoot .eventList { grid-template-columns: minmax(0, 1fr); }
+.ownerRoot .eventCard { padding: 12px; }
+.ownerRoot .eventCardHeading strong { font-size: 14px; }
+.ownerRoot .calendarMeta { gap: 8px 12px; }
+.ownerRoot .monthField { max-width: 180px; }
+.ownerRoot :global(.covie-section-header) { gap: 8px; }
 .toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .monthControls { display: flex; align-items: center; flex-wrap: wrap; min-width: 0; gap: 6px; }
@@ -77,4 +85,12 @@
   .toolbar > .actions { width: 100%; justify-content: space-between; }
   .monthControls { width: 100%; }
   .monthControls > button:last-child { flex: 1 1 100%; }
+}
+@media (min-width: 1100px) and (min-height: 560px) {
+  .monthBoardFit { display: grid; height: 100%; min-height: 0; grid-template-rows: auto minmax(0, 1fr); }
+  .monthBoardFit .monthDays { min-height: 0; }
+  .monthBoardFit .monthDays > button { min-height: 44px; overflow: hidden; padding: 6px; gap: 3px; }
+  .monthBoardFit .dayTitles { gap: 1px; padding-top: 0; }
+  .monthBoardFit .dayTitles span { font-size: 11px; line-height: 1.4; }
+  .ownerRoot .monthControls { flex-wrap: nowrap; }
 }

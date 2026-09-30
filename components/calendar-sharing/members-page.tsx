@@ -6,11 +6,11 @@ import { CalendarAccessDeniedError, CalendarContextChangedError, calendarContext
 type Role="owner"|"manager"|"admin"|"member"|"viewer";
 type Data={calendarId:string;access:{role:Role;resourceIds:string[]};canInvite:boolean;members:{id:string;name:string;role:Role;isCurrentUser:boolean;resourceIds:string[]}[];invites:{id:string;role:Role;codeHint:string;expiresAt:string}[];resources:{id:string;name:string}[];calendarType:"shared_facilities"|"social_groups"};
 const label:Record<Role,string>={owner:"Owner",manager:"Resource manager",admin:"Group admin",member:"Member",viewer:"View only"};
-export function TemplateMembersPage({calendarId}:{calendarId:string}){
+export function TemplateMembersPage({calendarId,onAccessUnavailable}:{calendarId:string;onAccessUnavailable?:()=>void}){
  const [data,setData]=useState<Data|null>(null),[error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[open,setOpen]=useState(false),[role,setRole]=useState<Exclude<Role,"owner">>("member"),[resources,setResources]=useState<string[]>([]),[editing,setEditing]=useState<string|null>(null),[invite,setInvite]=useState<{code:string;expiresAt:string}|null>(null),[revoke,setRevoke]=useState<string|null>(null),[copied,setCopied]=useState(false);
  const [refreshing,setRefreshing]=useState(true),[loadError,setLoadError]=useState<string|null>(null);
  const mounted=useRef(false),loading=useRef(0),sending=useRef(false),editingRef=useRef<string|null>(null),currentRequest=useRef<AbortController|null>(null);
- const clearAccess=useCallback(()=>{editingRef.current=null;setData(null);setOpen(false);setEditing(null);setRevoke(null);setInvite(null);setCopied(false);},[]);
+ const clearAccess=useCallback(()=>{editingRef.current=null;setData(null);setOpen(false);setEditing(null);setRevoke(null);setInvite(null);setCopied(false);onAccessUnavailable?.();},[onAccessUnavailable]);
  const load=useCallback(async()=>{
   const revision=++loading.current;
   currentRequest.current?.abort();

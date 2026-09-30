@@ -5,7 +5,7 @@ import type { SocialEvent } from "@/lib/social-groups/contracts";
 import { shiftSocialDate, socialDateLabel } from "./social-ui";
 import styles from "./social-groups.module.css";
 
-export function SocialMonthCalendar({ month, days, eventsByDay, selectedDate, today, disabled, onSelectDate }: { month: string; days: string[]; eventsByDay: Map<string, SocialEvent[]>; selectedDate: string; today: string; disabled: boolean; onSelectDate: (date: string) => void }) {
+export function SocialMonthCalendar({ month, days, eventsByDay, selectedDate, today, disabled, onSelectDate, fitWorkspace = false }: { month: string; days: string[]; eventsByDay: Map<string, SocialEvent[]>; selectedDate: string; today: string; disabled: boolean; onSelectDate: (date: string) => void; fitWorkspace?: boolean }) {
   const root = useRef<HTMLDivElement>(null);
   const pendingFocus = useRef(false);
   useEffect(() => {
@@ -14,9 +14,9 @@ export function SocialMonthCalendar({ month, days, eventsByDay, selectedDate, to
       if (button) { button.focus(); pendingFocus.current = false; }
     }
   }, [selectedDate, month, days, disabled]);
-  return <div className={styles.monthBoard} ref={root}>
+  return <div className={`${styles.monthBoard}${fitWorkspace ? ` ${styles.monthBoardFit}` : ""}`} ref={root}>
     <div className={styles.weekdays} aria-hidden="true">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day}>{day}</span>)}</div>
-    <div className={styles.monthDays} role="group" aria-label="Choose a calendar day">
+    <div className={styles.monthDays} style={fitWorkspace ? { gridTemplateRows: `repeat(${days.length / 7}, minmax(0, 1fr))` } : undefined} role="group" aria-label="Choose a calendar day">
       {days.map((date) => {
         const inMonth = date.startsWith(month);
         const events = inMonth ? eventsByDay.get(date) ?? [] : [];
