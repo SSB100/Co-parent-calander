@@ -64,7 +64,7 @@ test("new Staff Rosters calendars open directly into the calendar", async () => 
     actions,
     /calendarType === "staff_rosters"[\s\S]*calendar-types\/staff-rosters\/setup/,
   );
-  assert.match(actions, /redirect\(calendarPathForType\(parsed\.data\.calendarType\)\)/);
+  assert.ok(actions.includes('redirect(`${calendarPathForType(parsed.data.calendarType)}?welcome=created`)'));
   assert.match(route, /session\.calendarType !== "staff_rosters"/);
   assert.match(route, /staffMember\.accessRole === "staff"/);
   assert.match(route, /redirect\("\/calendar-types\/staff-rosters"\)/);

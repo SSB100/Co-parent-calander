@@ -230,7 +230,7 @@ export async function createCalendar(
     redirect("/calendar?welcome=created");
   }
 
-  redirect(calendarPathForType(parsed.data.calendarType));
+  redirect(`${calendarPathForType(parsed.data.calendarType)}?welcome=created`);
 }
 
 export async function joinCalendar(
