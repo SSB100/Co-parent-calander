@@ -26,3 +26,5 @@ test("cross-tab selection changes cannot redirect new-template mutations",async(
  assert.equal(matchesExpectedCalendar(null,"calendar-a"),false);
  for(const file of ["app/api/shared-facilities/route.ts","app/api/template-members/route.ts"]){const source=await readFile(file,"utf8");assert.match(source,/matchesExpectedCalendar\(request\.headers\.get\("x-covie-calendar-id"\), session\.calendarId\)/);}
 });
+
+test("member names join Neon Auth UUID identifiers without text casts",async()=>{const source=await readFile("lib/calendar-sharing/service.ts","utf8");assert.match(source,/u\.id=m\.user_id/);assert.doesNotMatch(source,/user_id::text/);});

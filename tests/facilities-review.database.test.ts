@@ -10,7 +10,7 @@ test("Facilities independent-review regressions",{skip:!connection},async(t)=>{
  await sql`INSERT INTO calendar_memberships(calendar_id,user_id,permission) SELECT ${calendarId},gen_random_uuid(),'editor' FROM generate_series(1,7)`;
  await sql`INSERT INTO facility_resources(id,calendar_id,name) VALUES(${resourceId},${calendarId},'Review resource')`;
  await sql`INSERT INTO template_member_roles(calendar_id,user_id,role,resource_ids) VALUES(${calendarId},${managerId},'manager',${[resourceId]}::uuid[])`;
- await saveFacilityRules(owner,{...facilityDefaults,minDuration:15,maxDuration:60,advanceDays:365});
+ await saveFacilityRules(owner,{...facilityDefaults,minDuration:15,maxDuration:60,advanceDays:365,maxActiveBookings:100});
  const day=new Date(Date.now()+2*86400000).toISOString().slice(0,10),far=new Date(Date.now()+25*86400000).toISOString().slice(0,10);
  await t.test("selected-day occupancy remains complete after more than501 earlier upcoming bookings",async()=>{
   await sql`WITH users AS(SELECT user_id,row_number() OVER(ORDER BY user_id)-1 AS position FROM calendar_memberships WHERE calendar_id=${calendarId} AND user_id NOT IN (${ownerId},${managerId})), slots AS(SELECT n,${day}::date+((n/48)::int)+interval '8 hours'+(n%48)*interval '15 minutes' AS start FROM generate_series(0,501)n)

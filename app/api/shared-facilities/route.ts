@@ -18,6 +18,7 @@ function apiError(error: unknown) {
 export async function GET(request: NextRequest) {
   const session = await getCalendarSession();
   if (!session) return NextResponse.json({ error: "Calendar access is required." }, { status: 401 });
+  if (!matchesExpectedCalendar(request.headers.get("x-covie-calendar-id"), session.calendarId)) return NextResponse.json({ error: "Your selected calendar changed. Reload this page." }, { status: 409 });
   try { return NextResponse.json(await loadFacilities(session, request.nextUrl.searchParams.get("date") ?? undefined)); } catch (error) { return apiError(error); }
 }
 const mutationSchema = z.discriminatedUnion("action", [

@@ -236,10 +236,10 @@ export function TemplateShell({
           }
         >
           {template.id === "shared_facilities" ? (
-            section === "organiser" && activeToolKey === "members" ? <TemplateMembersPage key={currentCalendarId} /> :
-            <FacilitiesPage key={`${currentCalendarId}:${section}:${activeToolKey ?? ""}`} section={section} tool={activeToolKey} />
+            section === "organiser" && activeToolKey === "members" ? <TemplateMembersPage key={currentCalendarId} calendarId={currentCalendarId} /> :
+            <FacilitiesPage key={`${currentCalendarId}:${section}:${activeToolKey ?? ""}`} calendarId={currentCalendarId} section={section} tool={activeToolKey} />
           ) : template.id === "social_groups" && section === "organiser" && activeToolKey === "members" ? (
-            <TemplateMembersPage key={currentCalendarId} />
+            <TemplateMembersPage key={currentCalendarId} calendarId={currentCalendarId} />
           ) : template.id === "staff_rosters" && section === "calendar" ? (
             staffMode ? (
               <StaffMyRosterPage />

@@ -11,8 +11,7 @@
   "git": {
     "deploymentEnabled": {
       "**": false,
-      "main": true,
-      "feature/covie-facilities-ecosystem": true
+      "main": true
     }
   },
   "regions": [

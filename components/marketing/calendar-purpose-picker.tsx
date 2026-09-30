@@ -45,6 +45,7 @@ export function CalendarPurposePicker() {
           <p className={styles.eyebrow}>{selected.audience}</p>
           <h3 className={styles.purposeTitle}>{selected.question}</h3>
           <p className={styles.bodyCopy}>{selected.description}</p>
+          {selected.availabilityNote ? <p className={styles.setupNote}>{selected.availabilityNote}</p> : null}
           <ul className={styles.useList}>
             {selected.uses.map((use) => <li key={use}><Check size={17} aria-hidden="true" /><span>{use}</span></li>)}
           </ul>

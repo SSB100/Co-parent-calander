@@ -12,7 +12,7 @@ export async function loadTemplateMembers(session: TemplateSession) {
   const members = canInvite ? await sql`SELECT m.id, COALESCE(u.name, 'Calendar member') AS name,
     CASE WHEN m.permission='owner' THEN 'owner' WHEN m.permission='viewer' THEN 'viewer' ELSE COALESCE(r.role,'member') END AS role,
     m.user_id=${session.userId} AS "isCurrentUser", COALESCE(r.resource_ids,'{}'::uuid[]) AS "resourceIds"
-    FROM calendar_memberships m LEFT JOIN neon_auth."user" u ON u.id=m.user_id::text
+    FROM calendar_memberships m LEFT JOIN neon_auth."user" u ON u.id=m.user_id
     LEFT JOIN template_member_roles r ON r.calendar_id=m.calendar_id AND r.user_id=m.user_id
     WHERE m.calendar_id=${session.calendarId} ORDER BY m.created_at` : [];
   const invites = canInvite ? await sql`SELECT i.id, i.code_hint AS "codeHint", i.expires_at AS "expiresAt", COALESCE(r.role,CASE WHEN i.permission='viewer' THEN 'viewer' ELSE 'member' END) AS role

@@ -48,3 +48,7 @@ test("marketing avoids payment, sports, payroll and unverified traction promises
   assert.doesNotMatch(copy, /accept payments|payment processing|paid bookings|payroll|sports calendar|trusted by|thousands of|two-way/i);
   assert.doesNotMatch(copy, /Covey|—/);
 });
+
+test("Social tools remain explicitly in development until their separate release",()=>{
+  assert.match(calendarPurposes.find(p=>p.id === "social_groups")?.availabilityNote??"",/being added/);
+});

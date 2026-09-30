@@ -4,6 +4,7 @@ import { Building2, CalendarDays, ChevronLeft, ChevronRight, LoaderCircle, MapPi
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CovieButton, CovieConfirmDialog, CovieEmptyState, CovieIconButton, CovieInput, CovieNotice, CovieRecordCard, CovieSectionHeader, CovieSegmentedControl, CovieSelect, CovieStatusBadge } from "@/components/ui/covie";
 import { localDateInTimeZone } from "@/lib/calendar/time";
+import { CalendarContextChangedError, calendarContextHeaders, requireCalendarContext, throwIfCalendarContextChanged } from "@/components/calendar-sharing/calendar-context";
 import type { FacilityBooking, FacilityData, FacilityResource } from "@/lib/shared-facilities/contracts";
 import { FacilityBookingDialog, FacilityResourceDialog, FacilityRulesSummary, type FacilitySave } from "./facility-dialogs";
 import { FacilityRulesForm } from "./facility-rules-form";
@@ -20,7 +21,7 @@ function statusTone(status: FacilityBooking["status"]) {
   return status === "confirmed" ? "teal" as const : status === "pending" ? "sunshine" as const : "neutral" as const;
 }
 
-export function FacilitiesPage({ section, tool }: { section: "calendar" | "updates" | "organiser"; tool?: string }) {
+export function FacilitiesPage({ calendarId, section, tool }: { calendarId: string; section: "calendar" | "updates" | "organiser"; tool?: string }) {
   const [data, setData] = useState<FacilityData | null>(null);
   const [date, setDate] = useState("");
   const [view, setView] = useState<FacilityView>("availability");
@@ -47,18 +48,22 @@ export function FacilitiesPage({ section, tool }: { section: "calendar" | "updat
     currentRequest.current = controller;
     setLoading(true); setLoadError("");
     try {
-      const response = await fetch(`/api/shared-facilities${date ? `?date=${encodeURIComponent(date)}` : ""}`, { cache: "no-store", signal: controller.signal });
+      const response = await fetch(`/api/shared-facilities${date ? `?date=${encodeURIComponent(date)}` : ""}`, { cache: "no-store", headers: calendarContextHeaders(calendarId), signal: controller.signal });
       const body = await response.json().catch(() => null) as FacilityData | { error?: string } | null;
+      throwIfCalendarContextChanged(response.status, body);
       if (!response.ok || !body || !("resources" in body)) throw new Error(body && "error" in body && body.error ? body.error : "Facilities could not be loaded.");
       if (!mounted.current || sequence !== requestSequence.current) return;
-      setData(body);
+      setData(requireCalendarContext(body, calendarId));
       setResourceId((current) => current && !body.resources.some((resource) => resource.id === current) ? "" : current);
     } catch (error) {
-      if (!controller.signal.aborted && mounted.current && sequence === requestSequence.current) setLoadError(messageFrom(error));
+      if (!controller.signal.aborted && mounted.current && sequence === requestSequence.current) {
+        if (error instanceof CalendarContextChangedError) setData(null);
+        setLoadError(messageFrom(error));
+      }
     } finally {
       if (mounted.current && sequence === requestSequence.current) setLoading(false);
     }
-  }, [date, enabled]);
+  }, [calendarId, date, enabled]);
 
   useEffect(() => {
     mounted.current = true;
@@ -71,16 +76,20 @@ export function FacilitiesPage({ section, tool }: { section: "calendar" | "updat
     mutationLock.current = true; setBusy(true); setMutationError(""); setNotice("");
     let responseReceived = false;
     try {
-      const response = await fetch("/api/shared-facilities", { method: "POST", headers: { "content-type": "application/json", "x-covie-calendar-id": data?.calendarId ?? "" }, body: JSON.stringify({ action, data: payload }) });
+      const response = await fetch("/api/shared-facilities", { method: "POST", headers: { "content-type": "application/json", ...calendarContextHeaders(calendarId) }, body: JSON.stringify({ action, data: payload }) });
       responseReceived = true;
       const body = await response.json().catch(() => null) as { error?: string; ok?: boolean; status?: string } | null;
+      throwIfCalendarContextChanged(response.status, body);
       if (!response.ok || !body?.ok) throw new Error(body?.error ?? "The save result could not be verified. Reload to check before trying again.");
       if (!mounted.current) return true;
       setNotice(action === "booking" ? body.status === "pending" ? "Booking requested. It will hold the time once approved." : "Booking saved." : action === "rules" ? "Booking rules saved." : action === "resource" ? "Resource saved." : "Booking updated.");
       void refresh();
       return true;
     } catch (error) {
-      if (mounted.current) setMutationError(responseReceived ? messageFrom(error) : "The connection was interrupted. The request may have reached Covie. Reload to check before trying again.");
+      if (mounted.current) {
+        if (error instanceof CalendarContextChangedError) { setData(null); setLoadError(error.message); }
+        setMutationError(responseReceived ? messageFrom(error) : "The connection was interrupted. The request may have reached Covie. Reload to check before trying again.");
+      }
       return false;
     } finally {
       mutationLock.current = false;
@@ -101,7 +110,7 @@ export function FacilitiesPage({ section, tool }: { section: "calendar" | "updat
   }
 
   if (!enabled) return null;
-  if (!data) return <div className={styles.stack}>{loadError ? <CovieNotice tone="danger">{loadError}<div className={styles.actions}><CovieButton tone="neutral" onClick={() => void refresh()} disabled={loading}>Try again</CovieButton></div></CovieNotice> : <div className={styles.loading} role="status"><LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />Loading facilities…</div>}</div>;
+  if (!data || data.calendarId !== calendarId) return <div className={styles.stack}>{loadError ? <CovieNotice tone="danger">{loadError}<div className={styles.actions}><CovieButton tone="neutral" onClick={() => void refresh()} disabled={loading}>Try again</CovieButton><CovieButton tone="neutral" disabled={busy || loading} onClick={() => window.location.reload()}>Reload page</CovieButton></div></CovieNotice> : <div className={styles.loading} role="status"><LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />Loading facilities…</div>}</div>;
 
   const disabled = busy || loading || Boolean(loadError);
   const activeResources = data.resources.filter((resource) => resource.active);
@@ -112,7 +121,7 @@ export function FacilitiesPage({ section, tool }: { section: "calendar" | "updat
   const resourceName = (id: string) => data.resources.find((resource) => resource.id === id)?.name ?? "Resource";
 
   function renderBooking(booking: FacilityBooking, includeResource: boolean, includeDate = false) {
-    if (!data) return null;
+    if (!data || data.calendarId !== calendarId) return null;
     const changeable = canChangeFacilityBooking(data, booking);
     const reviewable = canReviewFacilityBooking(data, booking);
     return <article className={styles.booking} key={booking.id} data-status={booking.status}>
@@ -131,9 +140,9 @@ export function FacilitiesPage({ section, tool }: { section: "calendar" | "updat
   }
 
   return <div className={styles.stack} aria-busy={loading || busy}>
-    {loadError ? <CovieNotice tone="danger">{loadError}<div className={styles.actions}><CovieButton tone="neutral" disabled={loading} onClick={() => void refresh()}>Try again</CovieButton></div></CovieNotice> : null}
+    {loadError ? <CovieNotice tone="danger">{loadError}<div className={styles.actions}><CovieButton tone="neutral" disabled={loading} onClick={() => void refresh()}>Try again</CovieButton><CovieButton tone="neutral" disabled={busy || loading} onClick={() => window.location.reload()}>Reload page</CovieButton></div></CovieNotice> : null}
     {mutationError && !bookingEditor && !resourceEditor && !confirmation ? <CovieNotice tone="danger">{mutationError}<div className={styles.actions}><CovieButton tone="neutral" disabled={disabled} onClick={() => { setMutationError(""); void refresh(); }}>Reload calendar</CovieButton></div></CovieNotice> : null}
-    {data?.bookingsTruncated ? <CovieNotice>Showing the first 501 recent and upcoming bookings. Choose a date to see every booking for that day.</CovieNotice> : null}
+    {data?.bookingsTruncated ? <CovieNotice>The upcoming list is limited. Choose a date to see its full schedule.</CovieNotice> : null}
       {notice ? <CovieNotice tone="teal">{notice}</CovieNotice> : null}
     {section === "calendar" ? <>
       <div className={styles.toolbar}>
