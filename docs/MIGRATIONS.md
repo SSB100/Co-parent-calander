@@ -202,3 +202,11 @@ Migration `0030` was applied to Production on 23 September 2026 (NZ time).
 As of migration `0030`, Production includes the Staff Rosters foundation, one-off shifts, publication snapshots, roster updates, attendance, timesheet corrections, leave, account invitations, multi-role assignments and operational hours.
 
 Any future Staff Rosters schema change must start at migration `0031` or later, preserve current Production Staff records, and still requires explicit Production migration approval after qualification on a fresh Production clone.
+
+## 0033 Shared Facilities and purpose-specific membership
+
+Additive release proposal: facility settings, resources, bookings and update history, plus purpose-specific member/invite roles. Owners can delegate selected resources to a manager; Social Groups can reuse the role primitive for group admins. Editor/viewer Core memberships are preserved and never create parent profiles in these templates.
+
+Booking writes serialize resource conflicts and per-member limits, enforce local opening hours/duration/notice/cancellation rules, and keep version and duplicate-submit checks. Private booking notes are shown only to the creator or authorised organiser; shared-title visibility is opt-in.
+
+This migration is qualified on a fresh Production clone before release. Production approval is explicit and a rollback branch must be captured before applying. Existing runtime default table privileges apply to the new tables; no new account or credential is provisioned.

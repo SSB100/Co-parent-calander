@@ -226,9 +226,9 @@ export const calendarTemplateManifests: Record<
     positiveStateMeaning: "Available or confirmed.",
     attentionStateMeaning: "Needs approval or is awaiting confirmation.",
     conflictRule:
-      "A resource cannot have overlapping confirmed bookings. Booking creation must ultimately be transactional.",
+      "Confirmed bookings cannot overlap on the same resource. Creation and approval serialize database conflict checks.",
     approvalModel:
-      "Members can book within owner rules. Owners may optionally require approval for bookings.",
+      "Members book within owner rules. Owners and scoped resource managers review requests; only owners control rules and manager access.",
     scheduleUnit: "Time slot",
     defaultView: "Resource lanes with time slots",
     requiredFields: ["Resource", "Date", "Start time", "End time"],

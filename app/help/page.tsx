@@ -12,17 +12,17 @@ const faqs = [
   {
     question: "What is Covie for?",
     answer:
-      "Covie is a shared co-parenting organiser for parenting days, family events, shared costs, practical tasks, child information and changes that need agreement.",
+      "Covie brings four purpose-built calendar types into one account: Co-parenting, Staff Rosters, Shared Facilities and Social Groups. Each calendar keeps its own people and the details that fit its purpose.",
   },
   {
-    question: "Does the other parent need an account straight away?",
+    question: "Can I have more than one calendar?",
     answer:
-      "No. You can create a calendar first and invite the other parent later. Shared approval features become most useful once both parents have joined.",
+      "Yes. You can create or join multiple calendars and switch between them from one account. Membership and permissions are separate for each calendar.",
   },
   {
-    question: "Can one parent change shared information on their own?",
+    question: "How does co-parenting work?",
     answer:
-      "Changes that affect the shared plan can require approval from the other parent. The Updates area shows what is waiting, approved, declined or withdrawn.",
+      "Start a family calendar on your own and invite the other parent later. Parenting days, events, shared costs and responsibilities stay together. Changes that affect the shared plan can require approval, with decisions collected in Updates.",
   },
   {
     question: "Is Covie a legal record or court evidence service?",
@@ -35,14 +35,14 @@ const faqs = [
       "Covie uses managed authentication, email verification for new email/password accounts, signed sessions and server-side calendar permissions. Passwords are not stored by Covie as readable plain text.",
   },
   {
-    question: "Who can see my family calendar?",
+    question: "Who can see my calendar?",
     answer:
-      "Only authenticated accounts with membership of that specific calendar can access its information, subject to their permission level.",
+      "Only signed-in accounts with membership of that calendar can access its information, subject to their permission level. Joining one calendar does not give someone access to your other calendars.",
   },
   {
     question: "What happens if I connect Google Calendar?",
     answer:
-      "Covie creates and manages a separate Google calendar using a limited calendar permission. The connection is optional and can be disconnected from Covie.",
+      "For co-parenting calendars, the connection is optional, one-way output from Covie to a separate Google calendar. Covie stays the source of truth. Changes in Google Calendar do not update Covie, and you can disconnect the connection from Covie.",
   },
   {
     question: "Can I reset a forgotten password?",
@@ -67,12 +67,12 @@ export default function HelpPage() {
       <PublicHeader />
 
       <section className="border-b-2 border-[#243139] bg-[#BFEDE6]">
-        <div className="mx-auto grid max-w-7xl gap-7 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[0.8fr_1.2fr] lg:items-end lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-7 px-3 py-12 sm:px-6 sm:py-16 lg:grid-cols-[0.8fr_1.2fr] lg:items-end lg:px-8">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#0D7A6D]">
               FAQ & Contact
             </p>
-            <h1 className="covie-display mt-3 text-5xl font-semibold leading-[0.96] tracking-[-0.04em] sm:text-6xl">
+            <h1 className="covie-display mt-3 text-[30px] font-[650] leading-[1.16] tracking-[-0.025em] sm:text-[36px]">
               Start with the answer. Contact us if you still need a hand.
             </h1>
           </div>
@@ -84,13 +84,13 @@ export default function HelpPage() {
       </section>
 
       <section className="border-b-2 border-[#243139]">
-        <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+        <div className="mx-auto max-w-5xl px-3 py-12 sm:px-6 sm:py-16 lg:px-8">
           <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#D94D43]">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A23F39]">
                 Common questions
               </p>
-              <h2 className="covie-display mt-2 text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">
+              <h2 className="covie-display mt-2 text-[28px] font-[650] leading-[1.16] tracking-[-0.025em] sm:text-[32px]">
                 Quick answers about Covie.
               </h2>
             </div>
@@ -134,12 +134,12 @@ export default function HelpPage() {
       </section>
 
       <section id="contact" className="scroll-mt-6 bg-[#FFF9F2]">
-        <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+        <div className="mx-auto max-w-5xl px-3 py-12 sm:px-6 sm:py-16 lg:px-8">
           <div className="mb-7 max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6651B7]">
               Contact Covie
             </p>
-            <h2 className="covie-display mt-2 text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">
+            <h2 className="covie-display mt-2 text-[28px] font-[650] leading-[1.16] tracking-[-0.025em] sm:text-[32px]">
               What are you contacting us about?
             </h2>
             <p className="mt-3 text-base leading-7 text-[#526168]">

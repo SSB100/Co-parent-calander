@@ -87,6 +87,10 @@ export async function POST(request: NextRequest) {
     .safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Choose edit or view-only access." }, { status: 400 });
 
+  if (session.calendarType !== "co_parenting") {
+    return NextResponse.json({ error: "Use this calendar’s own invitation tools." }, { status: 409 });
+  }
+
   const code = generateInviteCode();
   const normalizedCode = normalizeInviteCode(code);
   const codeHash = hashToken(normalizedCode);
@@ -150,6 +154,11 @@ export async function PATCH(request: NextRequest) {
   const target = targetRows[0];
   if (!target || target.permission === "owner") {
     return NextResponse.json({ error: "The owner permission cannot be changed here." }, { status: 409 });
+  }
+
+  // Template roles must go through their own invitation and membership policy.
+  if (session.calendarType !== "co_parenting") {
+    return NextResponse.json({ error: session.calendarType === "staff_rosters" ? "Manage Staff Roster access from Team." : "Manage access from this calendar’s Members page." }, { status: 409 });
   }
 
   if (parsed.data.permission === "editor" && !target.participantId) {

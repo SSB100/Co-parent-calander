@@ -9,56 +9,57 @@ async function source(file) {
   return readFile(path.join(root, file), "utf8");
 }
 
-test("public landing is concise, product-led and uses recognizable Covie previews", async () => {
-  const [home, previews, publicChrome] = await Promise.all([
+test("public landing explains the shared ecosystem and preserves authentication routing", async () => {
+  const [route, home, content, publicChrome] = await Promise.all([
     source("app/page.tsx"),
-    source("components/marketing/product-previews.tsx"),
+    source("components/marketing/ecosystem-home.tsx"),
+    source("components/marketing/calendar-purpose-content.ts"),
     source("components/marketing/public-chrome.tsx"),
   ]);
 
-  assert.match(home, /Life between two homes, made simpler/);
-  assert.match(home, /Create or join/);
-  assert.match(home, /Add the plan/);
-  assert.match(home, /See what matters/);
-  assert.match(home, /Schedule/);
-  assert.match(home, /Updates/);
-  assert.match(home, /Expenses/);
-  assert.match(home, /Responsibilities/);
-  assert.match(home, /Agreements/);
+  assert.match(route, /auth\.getSession\(\)/);
+  assert.match(route, /getCalendarSession\(\)/);
+  assert.match(route, /redirect\(calendar \? "\/calendar" : "\/onboarding"\)/);
+  assert.match(home, /Purpose-built calendars/);
+  assert.match(home, /One shared place/);
+  assert.match(home, /CalendarPurposePicker/);
   assert.match(home, /<PublicHeader \/>/);
+  assert.match(home, /<PublicFooter \/>/);
+  for (const name of ["Co-parenting", "Staff Rosters", "Shared Facilities", "Social Groups"]) {
+    assert.ok(content.includes(name));
+  }
+  assert.match(content, /Shared expenses and responsibilities/);
+  assert.match(content, /Child information and agreements/);
   assert.match(publicChrome, /href="\/auth\/sign-up"[\s\S]*Create an account/);
   assert.match(publicChrome, /href="\/auth\/sign-in"[\s\S]*Log in/);
-  assert.match(previews, /Alex/);
-  assert.match(previews, /Sam/);
-  assert.match(previews, /School show/);
-  assert.match(previews, /Handover/);
 });
 
-test("landing hero fits the desktop viewport beneath navigation", async () => {
-  const home = await source("app/page.tsx");
+test("public layout follows the shared readable type scale and responsive gutters", async () => {
+  const styles = await source("components/marketing/ecosystem-home.module.css");
 
-  assert.match(home, /h-20/);
-  assert.match(home, /lg:h-\[calc\(100svh-5rem\)\]/);
-  assert.match(home, /lg:max-h-\[760px\]/);
-  assert.match(home, /lg:min-h-\[480px\]/);
-  assert.doesNotMatch(home, /lg:min-h-\[(?:570|720)px\]/);
+  assert.match(styles, /max-width: 1280px/);
+  for (const gutter of [12, 24, 32]) assert.ok(styles.includes(`padding-inline: ${gutter}px`));
+  assert.match(styles, /\.heroTitle \{[^}]*font-size: 30px/);
+  assert.match(styles, /\.heroTitle \{[^}]*font-size: 36px/);
+  assert.match(styles, /font-weight: 650/);
+  assert.match(styles, /repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /min-height: 48px/);
 });
 
-test("public brand uses solid Covie colours without decorative gradients", async () => {
-  const [home, previews, brand, brandGuide] = await Promise.all([
-    source("app/page.tsx"),
-    source("components/marketing/product-previews.tsx"),
+test("public brand uses shared solid Covie colours and coral primary actions", async () => {
+  const [styles, content, brand, brandGuide] = await Promise.all([
+    source("components/marketing/ecosystem-home.module.css"),
+    source("components/marketing/calendar-purpose-content.ts"),
     source("components/workspace/covie-brand.tsx"),
     source("docs/COVIE_BRAND.md"),
   ]);
 
-  const combined = home + previews;
-  for (const colour of ["#FF6B5F", "#19A897", "#F4C64E", "#765ED6", "#243139", "#FFF9F2"]) {
-    assert.match(combined, new RegExp(colour.replace("#", "\\#"), "i"));
+  for (const colour of ["#FF6B5F", "#19A897", "#F4C64E", "#765ED6", "#243139"]) {
+    assert.ok(content.includes(colour));
   }
-
-  assert.doesNotMatch(home, /gradient/i);
-  assert.doesNotMatch(previews, /gradient/i);
+  assert.match(styles, /var\(--covie-cream\)/);
+  assert.match(styles, /\.primaryAction \{ background: var\(--covie-coral\)/);
+  assert.doesNotMatch(styles, /gradient/i);
   assert.doesNotMatch(brand, /linearGradient|radialGradient/i);
   assert.match(brandGuide, /solid colours only/i);
   assert.match(brandGuide, /Covie Loop/i);

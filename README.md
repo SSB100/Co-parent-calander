@@ -1,6 +1,6 @@
 # Covie
 
-Covie is a mobile-first shared co-parenting organiser for schedules, expenses, responsibilities, agreements, child information, documents and related items.
+Covie is a mobile-first shared-calendar ecosystem. Choose the optional preset you need: Co-parenting, Staff Rosters, Shared Facilities or Social Groups. Each calendar has its own people, permissions and purpose-specific tools.
 
 Production uses:
 
@@ -12,7 +12,7 @@ Production uses:
 
 ## Product model
 
-A signed-in user can create or join one or more family calendars. Calendar membership controls access:
+A signed-in user can create or join one or more calendars without adopting every type. Calendar membership and the selected template’s roles control access. The existing co-parenting roles remain:
 
 - `owner` — full family/calendar administration
 - `editor` — can edit shared data
@@ -110,7 +110,7 @@ npm run build
 
 GitHub Actions runs the same gate. Release candidates are validated from the current combined `main` state before Production promotion.
 
-Automatic Git deployments are disabled. Production deployment should occur only after the intended commit has passed CI and the release has been explicitly approved.
+Feature-branch Git deployments are disabled. Main-branch Git deployments are enabled in `vercel.json`; merge only after the intended commit has passed CI and the release has been explicitly approved.
 
 ## Release safety
 

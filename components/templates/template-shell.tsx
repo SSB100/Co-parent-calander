@@ -24,6 +24,8 @@ import {
   TemplateWorkspaceNav,
   type TemplateOrganiserNavItem,
 } from "@/components/templates/template-workspace-nav";
+import { FacilitiesPage } from "@/components/shared-facilities/facilities-page";
+import { TemplateMembersPage } from "@/components/calendar-sharing/members-page";
 import { StaffRosterTeamPage } from "@/components/staff-rosters/team-page";
 import { StaffRosterAvailabilityPage } from "@/components/staff-rosters/availability-page";
 import { StaffRosterRolesLocationsPage } from "@/components/staff-rosters/roles-locations-page";
@@ -233,7 +235,12 @@ export function TemplateShell({
               : "mt-6"
           }
         >
-          {template.id === "staff_rosters" && section === "calendar" ? (
+          {template.id === "shared_facilities" ? (
+            section === "organiser" && activeToolKey === "members" ? <TemplateMembersPage key={currentCalendarId} /> :
+            <FacilitiesPage key={`${currentCalendarId}:${section}:${activeToolKey ?? ""}`} section={section} tool={activeToolKey} />
+          ) : template.id === "social_groups" && section === "organiser" && activeToolKey === "members" ? (
+            <TemplateMembersPage key={currentCalendarId} />
+          ) : template.id === "staff_rosters" && section === "calendar" ? (
             staffMode ? (
               <StaffMyRosterPage />
             ) : (

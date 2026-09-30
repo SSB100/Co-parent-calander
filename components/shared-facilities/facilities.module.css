@@ -1,0 +1,67 @@
+.stack { display: grid; min-width: 0; gap: 16px; }
+.toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.toolbar .actions { margin-top: 0; }
+.filters { display: grid; min-width: 0; gap: 12px; align-items: end; }
+.field { display: grid; min-width: 0; gap: 6px; color: var(--covie-ink); font-size: 13px; font-weight: 650; }
+.field small { color: var(--covie-text-secondary); font-size: 12px; font-weight: 400; }
+.field input, .field select, .field textarea { min-width: 0; max-width: 100%; width: 100%; }
+.dateFilter { display: flex; min-width: 0; align-items: end; flex-wrap: wrap; gap: 8px; }
+.dateFilter > label { flex: 1 1 170px; }
+.dateActions { display: flex; align-items: center; gap: 6px; }
+.loading { display: flex; min-height: 128px; align-items: center; justify-content: center; gap: 10px; border: 1px solid var(--covie-border); border-radius: 12px; background: white; padding: 20px; color: var(--covie-text-secondary); font-size: 14px; }
+.rulesSummary { border: 1px solid var(--covie-border); border-radius: 10px; background: var(--covie-cream); padding: 0 12px; font-size: 12px; }
+.rulesSummary summary { min-height: 44px; padding-block: 12px; cursor: pointer; font-weight: 650; overflow-wrap: anywhere; }
+.rulesSummary ul { display: grid; gap: 8px; padding: 0 0 14px 16px; color: var(--covie-text-secondary); line-height: 1.7; list-style: disc; }
+.lanes, .resources { display: grid; min-width: 0; gap: 16px; }
+.lane { min-width: 0; overflow: hidden; border: 1px solid var(--covie-border); border-top: 4px solid var(--covie-violet); border-radius: 12px; background: white; }
+.lane > header { display: flex; align-items: start; justify-content: space-between; gap: 12px; padding: 14px; border-bottom: 1px solid var(--covie-border); background: var(--covie-cream); }
+.lane h2 { font-size: 16px; font-weight: 750; overflow-wrap: anywhere; }
+.lane header p { display: flex; align-items: start; gap: 6px; margin-top: 4px; color: var(--covie-text-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.lane header svg { flex-shrink: 0; }
+.lane header button { flex-shrink: 0; }
+.laneBody { display: grid; gap: 10px; padding: 12px; }
+.resourceDescription { padding: 12px 14px 0; color: var(--covie-text-secondary); font-size: 13px; line-height: 1.65; overflow-wrap: anywhere; white-space: pre-wrap; }
+.booking { min-width: 0; border: 1px solid var(--covie-border); border-left: 4px solid var(--covie-teal); border-radius: 10px; background: white; padding: 12px; }
+.booking[data-status="pending"] { border-left-color: var(--covie-sunshine); }
+.bookingMain { min-width: 0; }
+.bookingHeading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.bookingHeading strong { overflow-wrap: anywhere; font-size: 14px; }
+.bookingMain > p { margin-top: 6px; font-size: 13px; line-height: 1.65; }
+.own { color: var(--covie-text-secondary); font-size: 12px; }
+.resourceName { color: var(--covie-text-secondary); font-weight: 650; }
+.notes { margin-top: 8px; color: var(--covie-text-secondary); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.7; }
+.help { color: var(--covie-text-secondary); font-size: 12px; font-weight: 400; line-height: 1.7; overflow-wrap: anywhere; }
+.available { padding: 8px 2px; color: var(--covie-text-secondary); font-size: 13px; line-height: 1.7; }
+.form { display: grid; min-width: 0; gap: 16px; }
+.formColumns { display: grid; min-width: 0; gap: 16px; }
+.rulesForm { max-width: 820px; border: 1px solid var(--covie-border); border-radius: 12px; background: white; padding: 16px; }
+.checkbox { display: flex; min-height: 44px; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; line-height: 1.5; }
+.checkbox input { width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--covie-violet); }
+.days legend { margin-bottom: 8px; font-size: 13px; font-weight: 650; }
+.days > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; }
+.history { display: grid; border: 1px solid var(--covie-border); border-radius: 12px; background: white; }
+.history li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 14px; }
+.history li + li { border-top: 1px solid var(--covie-border); }
+.history strong { font-size: 14px; }
+.history p, .history time { color: var(--covie-text-secondary); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.resourceHeader { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.resourceHeader h3 { overflow-wrap: anywhere; font-size: 16px; font-weight: 750; }
+@media (min-width: 640px) {
+  .filters { grid-template-columns: minmax(180px, .8fr) minmax(0, 1.2fr); }
+  .formColumns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .days > div { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .resources { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rulesForm { padding: 24px; }
+}
+@media (min-width: 1200px) {
+  .lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 374px) {
+  .toolbar > :first-child { width: 100%; }
+  .toolbar > .actions { width: 100%; justify-content: space-between; }
+  .booking > .actions > button { flex: 1 1 auto; }
+}
+
+/* Keep timezone and confirmation details visible on short mobile screens. */
+.stack :global(.covie-dialog-description) { display: block; }

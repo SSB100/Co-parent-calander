@@ -1,0 +1,162 @@
+"use client";
+
+import { Building2, CalendarDays, ChevronLeft, ChevronRight, LoaderCircle, MapPin, Plus, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CovieButton, CovieConfirmDialog, CovieEmptyState, CovieIconButton, CovieInput, CovieNotice, CovieRecordCard, CovieSectionHeader, CovieSegmentedControl, CovieSelect, CovieStatusBadge } from "@/components/ui/covie";
+import { localDateInTimeZone } from "@/lib/calendar/time";
+import type { FacilityBooking, FacilityData, FacilityResource } from "@/lib/shared-facilities/contracts";
+import { FacilityBookingDialog, FacilityResourceDialog, FacilityRulesSummary, type FacilitySave } from "./facility-dialogs";
+import { FacilityRulesForm } from "./facility-rules-form";
+import { canChangeFacilityBooking, canEditFacilityResource, canReviewFacilityBooking, facilityBookingsForView, facilityTime, facilityUpdateLabels, shiftFacilityDate, type FacilityView } from "./facilities-ui";
+import styles from "./facilities.module.css";
+
+type Confirmation = { kind: "cancel" | "decline"; booking: FacilityBooking } | { kind: "archive"; resource: FacilityResource };
+type BookingEditor = { booking?: FacilityBooking; resourceId: string };
+
+function messageFrom(error: unknown) {
+  return error instanceof Error ? error.message : "This request could not be completed. Please try again.";
+}
+function statusTone(status: FacilityBooking["status"]) {
+  return status === "confirmed" ? "teal" as const : status === "pending" ? "sunshine" as const : "neutral" as const;
+}
+
+export function FacilitiesPage({ section, tool }: { section: "calendar" | "updates" | "organiser"; tool?: string }) {
+  const [data, setData] = useState<FacilityData | null>(null);
+  const [date, setDate] = useState("");
+  const [view, setView] = useState<FacilityView>("availability");
+  const [resourceId, setResourceId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [mutationError, setMutationError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [bookingEditor, setBookingEditor] = useState<BookingEditor | null>(null);
+  const [resourceEditor, setResourceEditor] = useState<{ resource?: FacilityResource } | null>(null);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const mounted = useRef(false);
+  const requestSequence = useRef(0);
+  const currentRequest = useRef<AbortController | null>(null);
+  const mutationLock = useRef(false);
+  const enabled = !(section === "organiser" && tool === "members");
+
+  const refresh = useCallback(async () => {
+    if (!enabled) return;
+    const sequence = ++requestSequence.current;
+    currentRequest.current?.abort();
+    const controller = new AbortController();
+    currentRequest.current = controller;
+    setLoading(true); setLoadError("");
+    try {
+      const response = await fetch(`/api/shared-facilities${date ? `?date=${encodeURIComponent(date)}` : ""}`, { cache: "no-store", signal: controller.signal });
+      const body = await response.json().catch(() => null) as FacilityData | { error?: string } | null;
+      if (!response.ok || !body || !("resources" in body)) throw new Error(body && "error" in body && body.error ? body.error : "Facilities could not be loaded.");
+      if (!mounted.current || sequence !== requestSequence.current) return;
+      setData(body);
+      setResourceId((current) => current && !body.resources.some((resource) => resource.id === current) ? "" : current);
+    } catch (error) {
+      if (!controller.signal.aborted && mounted.current && sequence === requestSequence.current) setLoadError(messageFrom(error));
+    } finally {
+      if (mounted.current && sequence === requestSequence.current) setLoading(false);
+    }
+  }, [date, enabled]);
+
+  useEffect(() => {
+    mounted.current = true;
+    const timer = window.setTimeout(() => { void refresh(); }, 0);
+    return () => { mounted.current = false; window.clearTimeout(timer); currentRequest.current?.abort(); requestSequence.current += 1; };
+  }, [refresh]);
+
+  const save: FacilitySave = async (action, payload) => {
+    if (mutationLock.current) return false;
+    mutationLock.current = true; setBusy(true); setMutationError(""); setNotice("");
+    let responseReceived = false;
+    try {
+      const response = await fetch("/api/shared-facilities", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, data: payload }) });
+      responseReceived = true;
+      const body = await response.json().catch(() => null) as { error?: string; ok?: boolean; status?: string } | null;
+      if (!response.ok || !body?.ok) throw new Error(body?.error ?? "The save result could not be verified. Reload to check before trying again.");
+      if (!mounted.current) return true;
+      setNotice(action === "booking" ? body.status === "pending" ? "Booking requested. It will hold the time once approved." : "Booking saved." : action === "rules" ? "Booking rules saved." : action === "resource" ? "Resource saved." : "Booking updated.");
+      void refresh();
+      return true;
+    } catch (error) {
+      if (mounted.current) setMutationError(responseReceived ? messageFrom(error) : "The connection was interrupted. The request may have reached Covie. Reload to check before trying again.");
+      return false;
+    } finally {
+      mutationLock.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  };
+
+  function openBooking(resource = resourceId, booking?: FacilityBooking) {
+    setMutationError(""); setBookingEditor({ resourceId: resource, booking });
+  }
+  function requestConfirmation(target: Confirmation) { setMutationError(""); setConfirmation(target); }
+  async function confirmChange() {
+    if (!confirmation) return;
+    const success = confirmation.kind === "archive"
+      ? await save("resource", { ...confirmation.resource, active: false })
+      : await save("decision", { id: confirmation.booking.id, version: confirmation.booking.version, action: confirmation.kind });
+    if (success) setConfirmation(null);
+  }
+
+  if (!enabled) return null;
+  if (!data) return <div className={styles.stack}>{loadError ? <CovieNotice tone="danger">{loadError}<div className={styles.actions}><CovieButton tone="neutral" onClick={() => void refresh()} disabled={loading}>Try again</CovieButton></div></CovieNotice> : <div className={styles.loading} role="status"><LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />Loading facilities…</div>}</div>;
+
+  const disabled = busy || loading || Boolean(loadError);
+  const activeResources = data.resources.filter((resource) => resource.active);
+  const selectedDayIsOpen = data.rules.openDays.includes(new Date(`${data.date}T12:00:00Z`).getUTCDay());
+  const filteredResources = activeResources.filter((resource) => !resourceId || resource.id === resourceId);
+  const bookings = facilityBookingsForView(data, view, resourceId);
+  const pendingReview = data.bookings.filter((booking) => canReviewFacilityBooking(data, booking));
+  const resourceName = (id: string) => data.resources.find((resource) => resource.id === id)?.name ?? "Resource";
+
+  function renderBooking(booking: FacilityBooking, includeResource: boolean, includeDate = false) {
+    if (!data) return null;
+    const changeable = canChangeFacilityBooking(data, booking);
+    const reviewable = canReviewFacilityBooking(data, booking);
+    return <article className={styles.booking} key={booking.id} data-status={booking.status}>
+      <div className={styles.bookingMain}>
+        <div className={styles.bookingHeading}><strong>{booking.title || (booking.own ? "Your booking" : "Reserved")}</strong><CovieStatusBadge tone={statusTone(booking.status)}>{booking.status === "pending" ? "Awaiting approval" : booking.status === "confirmed" ? "Confirmed" : booking.status === "cancelled" ? "Cancelled" : "Declined"}</CovieStatusBadge>{booking.own ? <span className={styles.own}>Yours</span> : null}</div>
+        {includeResource ? <p className={styles.resourceName}>{resourceName(booking.resourceId)}</p> : null}
+        <p>{facilityTime(booking.start, data.timezone, includeDate)} to {facilityTime(booking.end, data.timezone, includeDate)}</p>
+        {booking.notes ? <p className={styles.notes}>{booking.notes}</p> : null}
+        {booking.status === "pending" ? <p className={styles.help}>This request does not hold the time slot.</p> : null}
+      </div>
+      {changeable || reviewable ? <div className={styles.actions}>
+        {reviewable ? <><CovieButton disabled={disabled} onClick={() => void save("decision", { id: booking.id, version: booking.version, action: "confirm" })}>Approve</CovieButton><CovieButton tone="neutral" disabled={disabled} onClick={() => requestConfirmation({ kind: "decline", booking })}>Decline</CovieButton></> : null}
+        {changeable ? <><CovieButton tone="neutral" disabled={disabled} onClick={() => openBooking(booking.resourceId, booking)}>Edit</CovieButton><CovieButton tone="neutral" disabled={disabled} onClick={() => requestConfirmation({ kind: "cancel", booking })}>Cancel booking</CovieButton></> : null}
+      </div> : null}
+    </article>;
+  }
+
+  return <div className={styles.stack} aria-busy={loading || busy}>
+    {loadError ? <CovieNotice tone="danger">{loadError}<div className={styles.actions}><CovieButton tone="neutral" disabled={loading} onClick={() => void refresh()}>Try again</CovieButton></div></CovieNotice> : null}
+    {mutationError && !bookingEditor && !resourceEditor && !confirmation ? <CovieNotice tone="danger">{mutationError}<div className={styles.actions}><CovieButton tone="neutral" disabled={disabled} onClick={() => { setMutationError(""); void refresh(); }}>Reload calendar</CovieButton></div></CovieNotice> : null}
+    {notice ? <CovieNotice tone="teal">{notice}</CovieNotice> : null}
+    {section === "calendar" ? <>
+      <div className={styles.toolbar}>
+        <CovieSegmentedControl value={view} onChange={(next) => { setView(next); if (next === "availability" && resourceId && !activeResources.some((resource) => resource.id === resourceId)) setResourceId(""); }} options={[{ value: "availability", label: "Availability" }, { value: "mine", label: "My bookings" }]} ariaLabel="Facilities view" />
+        <div className={styles.actions}>{data.canBook ? <CovieButton disabled={disabled || activeResources.length === 0} onClick={() => openBooking()}><Plus size={17} aria-hidden="true" />Book resource</CovieButton> : <CovieStatusBadge>View only</CovieStatusBadge>}<CovieIconButton aria-label="Refresh facilities" disabled={disabled} onClick={() => void refresh()}><RefreshCw size={18} aria-hidden="true" /></CovieIconButton></div>
+      </div>
+      <div className={styles.filters}>
+        <label className={styles.field}><span>Resource</span><CovieSelect disabled={busy} value={resourceId} onChange={(event) => setResourceId(event.target.value)}><option value="">All resources</option>{(view === "mine" ? data.resources : activeResources).map((resource) => <option key={resource.id} value={resource.id}>{resource.name}{resource.active ? "" : " · archived"}</option>)}</CovieSelect></label>
+        {view === "availability" ? <div className={styles.dateFilter}><label className={styles.field}><span>Date · {data.timezone}</span><CovieInput type="date" value={date || data.date} disabled={busy} onChange={(event) => { if (event.target.value) { setDate(event.target.value); setNotice(""); } }} /></label><div className={styles.dateActions}><CovieIconButton aria-label="Previous day" disabled={busy} onClick={() => setDate(shiftFacilityDate(date || data.date, -1))}><ChevronLeft size={19} aria-hidden="true" /></CovieIconButton><CovieButton tone="neutral" disabled={busy} onClick={() => setDate(localDateInTimeZone(data.timezone))}>Today</CovieButton><CovieIconButton aria-label="Next day" disabled={busy} onClick={() => setDate(shiftFacilityDate(date || data.date, 1))}><ChevronRight size={19} aria-hidden="true" /></CovieIconButton></div></div> : <p className={styles.help}>Your upcoming confirmed bookings and requests. Times use {data.timezone}.</p>}
+      </div>
+      <FacilityRulesSummary rules={data.rules} timezone={data.timezone} />
+      {loading || (date && data.date !== date) ? <div className={styles.loading} role="status">Loading schedule…</div> : activeResources.length === 0 && view === "availability" ? <CovieEmptyState icon={<Building2 aria-hidden="true" />} title="No resources available" description={data.owner ? "Add the first room, space or piece of equipment in Organiser → Resources." : "The organiser has not made any resources available yet."} /> : view === "mine" ? bookings.length ? <div className={styles.stack}>{bookings.map((booking) => renderBooking(booking, true, true))}</div> : <CovieEmptyState icon={<CalendarDays aria-hidden="true" />} title="No upcoming bookings" description="Your confirmed bookings and pending requests will appear here." /> : <div className={styles.lanes}>{filteredResources.map((resource) => {
+        const entries = bookings.filter((booking) => booking.resourceId === resource.id);
+        return <section className={styles.lane} key={resource.id} aria-label={`${resource.name} schedule`}><header><div><h2>{resource.name}</h2>{resource.location ? <p><MapPin size={14} aria-hidden="true" />{resource.location}</p> : null}{resource.capacity ? <p>Capacity {resource.capacity}</p> : null}</div>{data.canBook ? <CovieButton disabled={disabled || !selectedDayIsOpen} onClick={() => openBooking(resource.id)}>Book</CovieButton> : null}</header>{resource.description ? <p className={styles.resourceDescription}>{resource.description}</p> : null}<div className={styles.laneBody}>{entries.length ? entries.map((booking) => renderBooking(booking, false)) : <p className={styles.available}>{selectedDayIsOpen ? "No bookings for this date. Choose a time within the booking rules." : "Closed for bookings on this day."}</p>}</div></section>;
+      })}</div>}
+    </> : section === "updates" ? <>
+      {pendingReview.length ? <section className={styles.stack} aria-label="Booking requests"><CovieSectionHeader title="Requests to review" description="Pending requests do not hold a slot. Approval checks availability again." />{pendingReview.map((booking) => renderBooking(booking, true, true))}</section> : null}
+      {data.updates.length ? <section className={styles.stack} aria-label="Booking history"><CovieSectionHeader title="Recent changes" /><ol className={styles.history}>{data.updates.map((update) => <li key={update.id}><div><strong>{facilityUpdateLabels[update.action] ?? "Booking changed"}</strong><p>{update.resourceName}</p></div><time dateTime={update.createdAt}>{facilityTime(update.createdAt, data.timezone, true)}</time></li>)}</ol><p className={styles.help}>Showing recent changes you can access · {data.timezone}</p></section> : <CovieEmptyState title="No updates yet" description="Changes to your bookings and resources you manage will appear here." />}
+    </> : tool === "booking-rules" ? data.owner ? <FacilityRulesForm key={JSON.stringify(data.rules)} rules={data.rules} timezone={data.timezone} busy={disabled} error={mutationError} onSave={save} /> : <><CovieNotice>Only the calendar owner can change booking rules.</CovieNotice><FacilityRulesSummary rules={data.rules} timezone={data.timezone} /></> : <>
+      <CovieSectionHeader title="Resources" description="Keep rooms, shared spaces and equipment ready to book." actions={data.owner ? <CovieButton disabled={disabled} onClick={() => { setMutationError(""); setResourceEditor({}); }}><Plus size={17} aria-hidden="true" />Add resource</CovieButton> : undefined} />
+      {data.resources.length ? <div className={styles.resources}>{data.resources.map((resource) => <CovieRecordCard key={resource.id}><div className={styles.resourceHeader}><h3>{resource.name}</h3><CovieStatusBadge tone={resource.active ? "teal" : "neutral"}>{resource.active ? "Active" : "Archived"}</CovieStatusBadge></div>{resource.location ? <p className={styles.help}>{resource.location}</p> : null}{resource.capacity ? <p className={styles.help}>Capacity {resource.capacity}</p> : null}{resource.description ? <p className={styles.notes}>{resource.description}</p> : null}{canEditFacilityResource(data, resource.id) ? <div className={styles.actions}><CovieButton tone="neutral" disabled={disabled} onClick={() => { setMutationError(""); setResourceEditor({ resource }); }}>Edit resource</CovieButton>{resource.active ? <CovieButton tone="neutral" disabled={disabled} onClick={() => requestConfirmation({ kind: "archive", resource })}>Archive</CovieButton> : <CovieButton disabled={disabled} onClick={() => void save("resource", { ...resource, active: true })}>Restore</CovieButton>}</div> : null}</CovieRecordCard>)}</div> : <CovieEmptyState icon={<Building2 aria-hidden="true" />} title="No resources yet" description={data.owner ? "Add a room, shared space or piece of equipment to get started." : "Resources will appear here when the organiser adds them."} />}
+    </>}
+    {bookingEditor ? <FacilityBookingDialog data={data} booking={bookingEditor.booking} resourceId={bookingEditor.resourceId} busy={busy} error={mutationError} onSave={save} onClose={() => { if (!mutationLock.current) setBookingEditor(null); }} /> : null}
+    {resourceEditor ? <FacilityResourceDialog resource={resourceEditor.resource} busy={busy} error={mutationError} onSave={save} onClose={() => { if (!mutationLock.current) setResourceEditor(null); }} /> : null}
+    <CovieConfirmDialog open={Boolean(confirmation)} id="facility-confirm-change" title={confirmation?.kind === "archive" ? "Archive this resource?" : confirmation?.kind === "decline" ? "Decline this request?" : "Cancel this booking?"} description={<div className={styles.stack}><p>{confirmation?.kind === "archive" ? `${confirmation.resource.name} will no longer accept new bookings. Existing bookings and history stay available.` : confirmation?.kind === "decline" ? "The request will be marked declined. The time slot is not reserved." : `This removes the booking from the active schedule. Cancellation rules still apply: at least ${data.rules.cancellationHours} hours before the start.`}</p>{mutationError ? <CovieNotice tone="danger">{mutationError}</CovieNotice> : null}</div>} confirmLabel={busy ? "Saving…" : confirmation?.kind === "archive" ? "Archive resource" : confirmation?.kind === "decline" ? "Decline request" : "Cancel booking"} cancelLabel="Keep it" busy={busy} onCancel={() => setConfirmation(null)} onConfirm={() => void confirmChange()} />
+  </div>;
+}
