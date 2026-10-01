@@ -11,6 +11,7 @@ import {
   CovieStatusBadge,
 } from "@/components/ui/covie";
 import type { OwnSalonAppointment, SalonSlot } from "@/lib/salon/contracts";
+import { SalonAvailableTimes } from "./salon-available-times";
 import { SalonDayPicker } from "./salon-day-picker";
 import { useSalonMutation, useSalonResource } from "./use-salon-resource";
 import { salonPrice, salonTime } from "./salon-ui";
@@ -71,7 +72,7 @@ export function OwnAppointmentPage({
         accent="teal"
         title="Your appointment"
         actions={
-          <Link href="/personal" className={styles.link}>
+          <Link href="/personal" className="covie-button covie-action-secondary">
             Personal calendar
           </Link>
         }
@@ -186,28 +187,10 @@ export function OwnAppointmentPage({
                 {loading ? (
                   <p role="status">Checking available times…</p>
                 ) : data.slots.length ? (
-                  <div className={styles.slots}>
-                    {data.slots.map((slot) => (
-                      <button
-                        key={slot.start}
-                        className={styles.slot}
-                        type="button"
-                        disabled={mutation.busy || loading}
-                        onClick={() => {
-                          setReviewedAppointment({
-                            id: appointment.id,
-                            version: appointment.version,
-                            start: appointment.start,
-                            end: appointment.end,
-                          });
-                          setReplacement(slot);
-                        }}
-                      >
-                        <strong>{salonTime(slot.start, data.timezone)}</strong>
-                        <small>to {salonTime(slot.end, data.timezone)}</small>
-                      </button>
-                    ))}
-                  </div>
+                  <SalonAvailableTimes key={data.date} slots={data.slots} timezone={data.timezone} disabled={mutation.busy || loading} onChoose={slot => {
+                    setReviewedAppointment({ id: appointment.id, version: appointment.version, start: appointment.start, end: appointment.end });
+                    setReplacement(slot);
+                  }} />
                 ) : (
                   <p>No times available on this day. Choose another day.</p>
                 )}
@@ -281,3 +264,4 @@ export function OwnAppointmentPage({
     </CoviePage>
   );
 }
+

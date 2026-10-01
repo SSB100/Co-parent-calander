@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarDays, Clock3 } from "lucide-react";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { CovieButton, CovieDialog, CovieNotice } from "@/components/ui/covie";
 import type { FacilityData } from "@/lib/shared-facilities/contracts";
 import { facilityTime } from "./facilities-ui";
@@ -26,6 +26,7 @@ export function FacilityOwnerSchedule(props: Props) {
 }
 
 function FacilityOwnerScheduleCanvas({ data, date, resourceId, duration, disabled, onSlot, onBooking }: Props) {
+  const canvas = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(() => new Date());
   const [choice, setChoice] = useState<Choice | null>(null);
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 30_000); return () => window.clearInterval(timer); }, []);
@@ -50,12 +51,17 @@ function FacilityOwnerScheduleCanvas({ data, date, resourceId, duration, disable
   return <section className={styles.schedule} aria-label="Resource day schedule" aria-busy={disabled} data-facility-owner-schedule>
     <div className={styles.context}>
       <div><h2>{facilityDateLabel(date)}</h2><p>{resourceId ? model.columns[0]?.resource.name ?? "Selected resource" : "All active resources"} · {data.timezone}</p></div>
+      <CovieButton tone="neutral" disabled={!ready || !canBook || !model.columns.some(column => column.hours.some(hour => hour.slots.length))} onClick={() => {
+        const target = canvas.current?.querySelector<HTMLButtonElement>('button[data-available-start]:not(:disabled)');
+        target?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+        target?.focus({ preventScroll: true });
+      }}>Next available time</CovieButton>
       <p className={styles.legend}><span className={styles.busyKey} aria-hidden="true" />Confirmed busy time <span className={styles.availableKey} aria-hidden="true" />Available starts</p>
     </div>
     {data.date !== date ? <CovieNotice>Loading this day’s complete schedule…</CovieNotice> : <>
       {model.message ? <CovieNotice>{model.message}</CovieNotice> : null}
       {!canBook ? <CovieNotice>Available times are shown for reference. Booking is unavailable with your current access.</CovieNotice> : null}
-      {model.columns.length ? <div className={styles.canvas} tabIndex={0} role="region" aria-label={`${facilityDateLabel(date)} timetable. Scroll for more times or resources.`}>
+      {model.columns.length ? <div ref={canvas} className={styles.canvas} tabIndex={0} role="region" aria-label={`${facilityDateLabel(date)} timetable. Scroll for more times or resources.`}>
         <table className={styles.table} style={{ "--resource-count": model.columns.length } as CSSProperties}>
           <caption className={styles.srOnly}>Resource availability for {facilityDateLabel(date)}. Times use {data.timezone}. Each row shows one hour; coloured marks show exact confirmed occupancy. Available starts use a {duration}-minute booking.</caption>
           <thead><tr><th scope="col" className={styles.timeHeading}>Time</th>{model.columns.map(({ resource }) => <th scope="col" key={resource.id} data-selected={resource.id === resourceId}><strong>{resource.name}</strong>{resource.location ? <span>{resource.location}</span> : <span>{resource.capacity ? `Capacity ${resource.capacity}` : "Room, space or equipment"}</span>}</th>)}</tr></thead>
@@ -73,7 +79,7 @@ function FacilityOwnerScheduleCanvas({ data, date, resourceId, duration, disable
                     <strong>{item.bookings.length === 1 ? first.status === "pending" ? "Request" : "Booked" : `${item.bookings.length} bookings`}</strong>
                     <span>{item.bookings.length === 1 ? `${facilityTime(first.start, data.timezone)}–${facilityTime(first.end, data.timezone)}` : pending ? `${pending} pending` : "View times"}</span>
                   </button> : null}
-                  {item.slots.length ? <button type="button" className={styles.start} disabled={!ready || !canBook} aria-label={`${resource.name}, ${item.slots.length} available ${duration}-minute ${item.slots.length === 1 ? "start" : "starts"} from ${facilityTime(item.slots[0].startInstant, data.timezone)}. Choose time.`} onClick={() => chooseHour(resource.id, item, "slots")}>
+                  {item.slots.length ? <button type="button" className={styles.start} data-available-start disabled={!ready || !canBook} aria-label={`${resource.name}, ${item.slots.length} available ${duration}-minute ${item.slots.length === 1 ? "start" : "starts"} from ${facilityTime(item.slots[0].startInstant, data.timezone)}. Choose time.`} onClick={() => chooseHour(resource.id, item, "slots")}>
                     <strong>{item.slots.length === 1 ? facilityTime(item.slots[0].startInstant, data.timezone) : "Choose start"}</strong><span>{item.slots.length === 1 ? "Available" : `${item.slots.length} available`}</span>
                   </button> : <span className={styles.noStarts}>No starts</span>}
                 </div>
@@ -89,3 +95,4 @@ function FacilityOwnerScheduleCanvas({ data, date, resourceId, duration, disable
     </CovieDialog> : null}
   </section>;
 }
+

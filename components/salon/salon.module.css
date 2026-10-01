@@ -83,7 +83,7 @@
 }
 .dayGrid > button[aria-pressed="true"] {
   background: var(--covie-teal);
-  color: white;
+  color: var(--covie-ink);
 }
 .dayGrid > button:focus-visible,
 .slot:focus-visible {
@@ -272,4 +272,14 @@
   .ownerFilters, .ownerBookingFilters { width: 100%; }
   .ownerPractitioner { flex: 1 1 180px; }
   .ownerTools > button { flex: 1 1 auto; }
+}
+
+
+.availableTimes, .timeGroups, .timeGroup { display: grid; min-width: 0; gap: 16px; }
+.timeGroup + .timeGroup { border-top: 1px solid var(--covie-border); padding-top: 16px; }
+.customerBooking .publicIntro { margin-block: 4px; }
+.customerBooking > div { min-width: 0; }
+@media (min-width: 1000px) and (min-height: 700px) {
+  .customerBooking .planner { grid-template-columns: minmax(300px, 360px) minmax(0, 1fr); gap: 32px; }
+  .customerBooking .timeGroups { max-height: max(360px, calc(100dvh - 430px)); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 4px; }
 }

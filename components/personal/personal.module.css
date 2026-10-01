@@ -1,4 +1,4 @@
-.page { display: grid; align-content: start; gap: 20px; }
+.page { display: grid; align-content: start; gap: 12px; }
 .intro { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; color: var(--covie-text-secondary); font-size: 13px; line-height: 1.6; }
 .privateLabel { display: inline-flex; align-items: center; gap: 7px; color: var(--covie-ink); font-weight: 650; }
 .filterDisclosure { min-width: 0; border: 1px solid var(--covie-border); border-radius: 12px; background: white; }
@@ -37,7 +37,10 @@
 .dayMarkers { display: flex; justify-content: center; flex-wrap: wrap; gap: 3px; }
 .dayMarkers > span { display: inline-flex; justify-content: center; min-width: 15px; padding: 0 3px; border: 1px solid var(--covie-ink); border-radius: 4px; font-size: 11px; font-weight: 650; line-height: 1.4; }
 .dayTitles { display: none; }
-.dayPanel { border-top: 2px solid var(--covie-ink); padding-top: 16px; }
+.dayPanel { border: 1px solid var(--covie-border); border-radius: 16px; background: white; padding: 16px; }
+.dayPanel .attention { border-top: 0; margin-top: 0; padding-top: 0; }
+.dayPanel .attentionRecords { grid-template-columns: minmax(0, 1fr); }
+.dayPanel .record { border: 0; border-bottom: 1px solid var(--covie-border); border-radius: 0; padding: 0 0 16px; }
 .dayControls { display: flex; gap: 6px; }
 .stateGroup { display: grid; min-width: 0; gap: 10px; }
 .groupTitle { display: flex; align-items: center; gap: 8px; color: var(--covie-ink); font-size: 13px; font-weight: 750; }
@@ -80,9 +83,16 @@
   .todayRecords, .upcomingRecords { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (min-width: 1100px) {
-  .schedule:has(.monthColumn) { grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr); gap: 24px; }
-  .dayPanel { border-top: 0; border-left: 1px solid var(--covie-border); padding-top: 0; padding-left: 24px; }
+  .schedule:has(.monthColumn) { grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; }
   .attentionRecords { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1100px) and (min-height: 700px) {
+  .schedule:has(.monthColumn) { align-items: stretch; }
+  .monthColumn { grid-template-rows: auto minmax(0, 1fr) auto; }
+  .monthBoard { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+  .monthDays { grid-auto-rows: minmax(76px, 1fr); }
+  .monthDays > button { min-height: 76px; }
+  .dayPanel { max-height: max(480px, calc(100dvh - 340px)); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 }
 @media (max-width: 374px) {
   .filterSummary { display: block; margin-left: 0; margin-top: 4px; }

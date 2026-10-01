@@ -14,12 +14,12 @@ import { isPersonalMonth, personalDateLabel, personalFirstMonth, personalItemTim
 import { usePersonalCalendar } from "./use-personal-calendar";
 import styles from "./personal.module.css";
 
-const viewOptions = [{ value: "overview", label: "Overview" }, { value: "month", label: "Month" }, { value: "agenda", label: "Agenda" }] as const;
+const viewOptions = [{ value: "month", label: "Month" }, { value: "agenda", label: "Agenda" }, { value: "overview", label: "Overview" }] as const;
 const stateInfo = {
   confirmed: { title: "Confirmed commitments", label: "Confirmed", tone: "teal" },
   tentative: { title: "Tentative plans", label: "Tentative", tone: "sunshine" },
   background: { title: "Care context", label: "Care", tone: "violet" },
-  attention: { title: "Needs your attention", label: "Needs attention", tone: "coral" },
+  attention: { title: "Needs your attention", label: "Needs attention", tone: "sunshine" },
 } as const;
 const visibleStates = ["confirmed", "tentative", "background"] as const;
 const subscribeToBrowserZone = () => () => {};
@@ -84,7 +84,8 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
   const [timezone, setTimezone] = useState(initialData.timezone);
   const [source, setSource] = useState("");
   const [selectedDate, setSelectedDate] = useState(initialData.today.startsWith(initialData.month) ? initialData.today : `${initialData.month}-01`);
-  const [view, setView] = useState<"overview" | "month" | "agenda">("overview");
+  const [view, setView] = useState<"overview" | "month" | "agenda">("month");
+  const [dayContext, setDayContext] = useState<"day" | "attention">("day");
   const [dismissedNotice, setDismissedNotice] = useState("");
   const { data, sources, loading, error, refresh } = usePersonalCalendar(initialData, { month, timezone, source });
   const browserZone = useSyncExternalStore(subscribeToBrowserZone, readBrowserZone, serverBrowserZone);
@@ -97,7 +98,7 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
   const today = data?.today ?? (timezone === initialData.timezone ? initialData.today : "");
   const selectedItems = itemsByDay.get(selectedDate) ?? [];
   const agendaDays = days.filter((day) => day.startsWith(month) && (itemsByDay.get(day)?.length ?? 0) > 0);
-  const selectDate = (date: string) => { if (isPersonalMonth(date.slice(0, 7))) { setSelectedDate(date); setMonth(date.slice(0, 7)); } };
+  const selectDate = (date: string) => { if (isPersonalMonth(date.slice(0, 7))) { setSelectedDate(date); setMonth(date.slice(0, 7)); setDayContext("day"); } };
   const selectMonth = (next: string) => {
     if (!isPersonalMonth(next)) return;
     setMonth(next);
@@ -107,8 +108,8 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
 
   return <CoviePage className={styles.page}>
     <CoviePageHeader accent="coral" title="Personal" context="Your commitments, together in one place." actions={<CoviePageActions>
-      <Link href="/calendar" prefetch={false} className="covie-button covie-action-secondary">Your calendars<ArrowUpRight size={16} aria-hidden="true" /></Link>
-      <Link href="/onboarding" prefetch={false} className="covie-button covie-primary-action"><Plus size={16} aria-hidden="true" />Add a calendar</Link>
+      <Link href="/calendar" prefetch={false} className="covie-button covie-primary-action">Your calendars<ArrowUpRight size={16} aria-hidden="true" /></Link>
+      <Link href="/onboarding" prefetch={false} className="covie-button covie-action-secondary"><Plus size={16} aria-hidden="true" />Add a calendar</Link>
       <CovieIconButton aria-label={loading ? "Refreshing Personal" : "Refresh Personal"} onClick={() => void refresh()} disabled={loading}><RefreshCw size={17} aria-hidden="true" /></CovieIconButton>
     </CoviePageActions>} />
 
@@ -180,8 +181,11 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
             <p className={styles.help}>Choose a day to see your commitments. Use arrow keys to move around the calendar.</p>
           </div>
           <section className={styles.dayPanel} aria-label="Selected day">
+            <CovieSegmentedControl value={dayContext} onChange={setDayContext} ariaLabel="Personal day context" options={[{ value: "day", label: "Your day" }, { value: "attention", label: `Attention${data?.attention.length ? ` (${data.attention.length})` : ""}` }]} />
+            {dayContext === "attention" ? <PersonalAttention data={data} sources={sourceMap} timezone={timezone} loading={loading} compact={false} /> : <>
             <CovieSectionHeader title={personalDateLabel(selectedDate)} actions={<div className={styles.dayControls}><CovieIconButton aria-label="Previous day" disabled={selectedDate === `${personalFirstMonth}-01`} onClick={() => selectDate(shiftPersonalDate(selectedDate, -1))}><ChevronLeft size={18} aria-hidden="true" /></CovieIconButton><CovieIconButton aria-label="Next day" disabled={selectedDate === `${personalLastMonth}-31`} onClick={() => selectDate(shiftPersonalDate(selectedDate, 1))}><ChevronRight size={18} aria-hidden="true" /></CovieIconButton></div>} />
             {data ? selectedItems.length ? visibleStates.map((state) => <StateRecords key={state} state={state} items={selectedItems} sources={sourceMap} timezone={timezone} />) : <CovieEmptyState title="Room in your day" description="No personal commitments or care context from the selected calendars on this day." /> : <p className={styles.help}>{loading ? "Your day is loading." : "Refresh to see this day’s items."}</p>}
+            </>}
           </section>
         </> : <section className={styles.agenda} aria-label="Monthly agenda">
           <CovieSectionHeader title={`${personalMonthLabel(month)} agenda`} description="Your confirmed plans, tentative plans and care context, day by day." />
@@ -189,7 +193,7 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
         </section>}
       </section>
 
-      <PersonalAttention data={data} sources={sourceMap} timezone={timezone} loading={loading} compact={false} />
+      {view === "agenda" ? <PersonalAttention data={data} sources={sourceMap} timezone={timezone} loading={loading} compact={false} /> : null}
       </>}
     </>}
   </CoviePage>;

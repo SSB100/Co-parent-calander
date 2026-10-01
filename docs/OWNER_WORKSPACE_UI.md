@@ -70,3 +70,14 @@ Each slice requires role/history regression checks and visual measurements befor
 - Data: no schema, environment, security, public-booking, recurrence, Staff or co-parenting changes
 
 Focused verification: `npm run test:salon-owner` covers the pure model, timeline DOM and owner page/history/authority flows. The existing Salon schema/slot/interface/component suites also remain relevant. DOM tests do not measure browser layout. Production-first hosted checks and browser QA must separately verify 1440×900, 1100×560, narrow and short windows, zoom, long names, many practitioners, overlapping appointments, selected-detail overflow and keyboard navigation before release is considered verified.
+
+## Creative refinement checkpoint, 1 October 2026
+
+Production screens were inspected in an authenticated cloud browser at 1363 × 936. Personal, Social, Facilities, Salon, co-parenting and Staff were captured. The latter two remain reference-only. Brand Bible v2 takes precedence over older family-only repository wording.
+
+Decisions: calendar-first Personal with adjacent day/attention context instead of a default stacked overview; a month and selected-event panel for Social members with strict owner-only tools; a next-available jump for Facilities owners and available-first member start selection; grouped exact Salon client candidates with time-of-day filtering, retaining the owner timetable handoff. Overview remains an explicit Personal option.
+
+No domain rules, APIs, schema, auth, recurrence or environment changes. Source navigation and existing confirmation/mutation boundaries remain. Time filters classify server-returned instants in the salon timezone and pass the original candidate unchanged. Short/narrow layouts use document flow.
+
+Verification pending: hosted release gate, synthetic browser layouts and interactions, and exact production commit verification. Browser controls lack native viewport resizing; the QA-only iframe harness supplies exact CSS viewport sizes without claiming physical-device testing.
+
