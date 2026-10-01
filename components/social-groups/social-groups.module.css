@@ -17,8 +17,8 @@
 .checkbox { display: flex; align-items: center; gap: 9px; min-height: 44px; font-size: 13px; line-height: 1.6; }
 .checkbox input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--covie-violet); }
 .loading { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 120px; padding: 20px; border: 1px solid var(--covie-border); border-radius: 12px; background: white; color: var(--covie-text-secondary); font-size: 14px; }
-.monthBoard { min-width: 0; overflow: hidden; border: 1px solid var(--covie-ink); border-radius: 12px; background: white; }
-.weekdays, .monthDays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.monthBoard { min-width: 0; overflow: auto; border: 1px solid var(--covie-ink); border-radius: 12px; background: white; }
+.weekdays, .monthDays { min-width: 308px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .weekdays { border-bottom: 1px solid var(--covie-ink); background: var(--covie-cream); }
 .weekdays span { padding: 10px 1px; color: var(--covie-text-secondary); font-size: 11px; font-weight: 650; text-align: center; }
 .monthDays > button { display: flex; position: relative; min-width: 0; min-height: 62px; flex-direction: column; align-items: center; gap: 5px; border: 0; border-right: 1px solid var(--covie-border); border-bottom: 1px solid var(--covie-border); padding: 7px 2px; background: white; color: var(--covie-ink); cursor: pointer; }
@@ -102,5 +102,5 @@
 .memberDay { min-width: 0; border: 1px solid var(--covie-border); border-radius: 16px; background: white; padding: 16px; }
 .memberDay .eventList { grid-template-columns: minmax(0, 1fr); }
 .memberDay .eventCard { padding: 12px; }
-@media (min-width: 1100px) { .memberWorkspace { grid-template-columns: minmax(0, 1fr) 280px; } }
+@media (min-width: 900px) { .memberWorkspace { grid-template-columns: minmax(0, 1fr) 280px; } }
 @media (min-width: 1100px) and (min-height: 700px) { .memberDay { max-height: calc(100dvh - 240px); overflow-y: auto; overscroll-behavior: contain; } }
