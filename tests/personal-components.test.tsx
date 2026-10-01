@@ -72,7 +72,7 @@ test("Overview keeps useful sections, capped plans and visible collapsed filter 
   await settle(() => assert.match(container.textContent!, /Today’s court/));
   assert.equal(button("Overview").getAttribute("aria-pressed"), "true");
   assert.equal(container.querySelector(".monthBoard"), null);
-  assert.deepEqual([...container.querySelectorAll("main > section")].map((section) => section.getAttribute("aria-label")), ["Today", "Needs your attention", "Upcoming"]);
+  assert.deepEqual([...container.querySelectorAll(".content > section")].map((section) => section.getAttribute("aria-label")), ["Today", "Needs your attention", "Upcoming"]);
   assert.match(element("summary").textContent!, /All calendars · UTC/);
   assert.equal(element<HTMLDetailsElement>("details").open, false);
   const upcoming = element('section[aria-label="Upcoming"]');
@@ -198,4 +198,23 @@ test("Personal footer switches views and returns to source calendars", async () 
     assert.equal(nav.querySelector('a')?.getAttribute('href'), '/calendar');
     assert.ok(container.querySelector('a[aria-label="Covie Personal"]'));
   } finally { window.scrollTo = scroll; window.requestAnimationFrame = frame; }
+});
+
+
+test("desktop sidebar controls keep the selected day and source context together", async () => {
+  await render();
+  await settle(() => assert.match(container.textContent!, /Today’s court/));
+  const sidebar = element('aside[aria-label="Personal workspace"]');
+  const nav = element('nav[aria-label="Personal desktop navigation"]', sidebar);
+  assert.ok(sidebar.querySelector('#personal-day-context'));
+  assert.ok(sidebar.querySelector('select'));
+  assert.equal(nav.querySelector('a[aria-label="Covie Personal"]')?.getAttribute('href'), '/personal');
+  const controls = [...nav.querySelectorAll('button')];
+  await click(controls[1]);
+  assert.ok(container.querySelector('section[aria-label="Monthly agenda"]'));
+  assert.equal(sidebar.querySelector('#personal-day-context'), null);
+  await click(controls[2]);
+  assert.match(element('#personal-day-context', sidebar).textContent!, /Review task/);
+  await click(controls[0]);
+  assert.match(element('#personal-day-context', sidebar).textContent!, /Today’s court/);
 });
