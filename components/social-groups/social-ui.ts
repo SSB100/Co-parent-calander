@@ -50,6 +50,17 @@ export function socialDateLabel(date: string, long = false) {
 export function socialTimestamp(value: string, timezone: string) {
   return new Intl.DateTimeFormat("en-NZ", { timeZone: timezone, day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(new Date(value));
 }
+export function socialEventCardTime(event: Pick<SocialEvent, "start" | "end">, timezone: string) {
+  const sameDay = localDateInTimeZone(timezone, new Date(event.start)) === localDateInTimeZone(timezone, new Date(event.end));
+  if (!sameDay) return `${socialTimestamp(event.start, timezone)} to ${socialTimestamp(event.end, timezone)}`;
+  const format = new Intl.DateTimeFormat("en-NZ", { timeZone: timezone, hour: "numeric", minute: "2-digit" });
+  return `${format.format(new Date(event.start))} to ${format.format(new Date(event.end))}`;
+}
+export function socialEventCardLabel(event: SocialEvent, timezone: string) {
+  return [event.title, event.cancelled ? "Cancelled" : socialResponses.find(response => response.value === event.myResponse)?.label,
+    `${socialTimestamp(event.start, timezone)} to ${socialTimestamp(event.end, timezone)}`, event.location,
+    `${event.going} going${event.capacity !== null ? `, ${event.capacity} places` : ""}`, "View event"].filter(Boolean).join(". ");
+}
 export function socialEventLocalFields(event: SocialEvent, timezone: string) {
   return { start: localDateTimeInputInTimeZone(timezone, event.start), end: localDateTimeInputInTimeZone(timezone, event.end) };
 }

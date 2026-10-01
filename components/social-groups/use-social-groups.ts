@@ -17,6 +17,11 @@ export function useSocialGroups(calendarId: string, month: string, enabled: bool
   const currentRequest = useRef<AbortController | null>(null);
   const mutationLock = useRef(false);
   const acceptSnapshot = useCallback((next: SocialData | null) => { setData(next); onSnapshot?.(next); }, [onSnapshot]);
+  const invalidateAccess = useCallback(() => {
+    currentRequest.current?.abort(); requestSequence.current += 1;
+    acceptSnapshot(null); setLoading(false);
+    setLoadError("Your calendar access changed. Reload to check the access you have now.");
+  }, [acceptSnapshot]);
 
   const refresh = useCallback(async () => {
     if (!enabled) return;
@@ -74,5 +79,5 @@ export function useSocialGroups(calendarId: string, month: string, enabled: bool
       if (mounted.current) setBusy(false);
     }
   };
-  return { data, loading, loadError, error, notice, busy, mutationLock, refresh, save, clearMessages: () => { setError(""); setNotice(""); } };
+  return { data, loading, loadError, error, notice, busy, mutationLock, refresh, save, invalidateAccess, clearMessages: () => { setError(""); setNotice(""); } };
 }
