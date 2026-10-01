@@ -62,6 +62,7 @@ export function PublicBookingPage({
   const returnTo = `/booking/${calendarId}${signInQuery.size ? `?${signInQuery}` : ""}`;
   return (
     <CoviePage className={`${styles.publicPage} ${styles.customerBooking}`}>
+      <CalendarIdentity />
       <CoviePageHeader
         accent="teal"
         title={data?.businessName || "Book an appointment"}
@@ -239,4 +240,3 @@ export function PublicBookingPage({
     </CoviePage>
   );
 }
-
