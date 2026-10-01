@@ -111,3 +111,13 @@ test("social mutations carry the calendar that the form rendered", async () => {
 });
 
 test("social reads and writes discard stale calendar context", async()=>{const source=await readFile("components/social-groups/use-social-groups.ts","utf8");assert.equal((source.match(/throwIfCalendarContextChanged\(response.status,/g)??[]).length,2);assert.match(source,/acceptSnapshot\(null\)/);assert.match(source,/CalendarContextChangedError/);});
+
+
+test("owner day cards use concise local time ranges while cross-day events and accessible labels retain dates", async () => {
+  const { socialEventCardTime, socialEventCardLabel } = await import("../components/social-groups/social-ui");
+  const timed = { ...event, start: "2026-10-02T09:00:00Z", end: "2026-10-02T10:00:00Z" };
+  assert.equal(socialEventCardTime(timed, "UTC"), "9:00 am to 10:00 am");
+  assert.match(socialEventCardLabel(timed, "UTC"), /2 Oct, 9:00 am to 2 Oct, 10:00 am/);
+  assert.equal(socialEventCardTime({ ...timed, start: "2026-10-01T23:00:00Z", end: "2026-10-02T00:00:00Z" }, "Pacific/Auckland"), "12:00 pm to 1:00 pm");
+  assert.match(socialEventCardTime({ ...timed, end: "2026-10-03T00:00:00Z" }, "UTC"), /2 Oct, 9:00 am to 3 Oct, 12:00 am/);
+});
