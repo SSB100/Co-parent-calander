@@ -82,19 +82,6 @@
   .agendaDay { grid-template-columns: 180px minmax(0, 1fr); }
   .todayRecords, .upcomingRecords { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (min-width: 1100px) {
-  .schedule:has(.monthColumn) { grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; }
-  .attentionRecords { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-@media (min-width: 1100px) and (min-height: 700px) {
-  .schedule:has(.monthColumn) { align-items: start; }
-  .monthColumn { min-height: 0; }
-  .monthBoard { display: grid; grid-template-rows: auto auto; }
-  .monthDays { grid-auto-rows: minmax(110px, 1fr); }
-  .monthDays > button { min-height: 110px; gap: 4px; }
-  .dayMarkers { position: absolute; top: 12px; right: 8px; max-width: calc(100% - 42px); }
-  .dayPanel { max-height: max(480px, calc(100dvh - 340px)); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-}
 @media (max-width: 374px) {
   .filterSummary { display: block; margin-left: 0; margin-top: 4px; }
   .monthControls { width: 100%; }
@@ -122,3 +109,55 @@
 .monthControls > button:last-child { background: var(--covie-teal-soft); }
 @media (max-width: 1023px) { .page { padding-bottom: calc(100px + env(safe-area-inset-bottom)); } .desktopCalendarLink { display: none; } }
 @media (max-width: 639px) { .headerActions { display: flex; width: auto; } }
+
+/* Personal owns its layout; other calendar shells are unchanged. */
+.page { display: flex; flex-direction: column; }
+.sidebar, .sidebarBody { display: contents; }
+.desktopNav { display: none; }
+.pageHeader { order: 1; }
+.intro { order: 2; }
+.filterDisclosure { order: 3; }
+.toolbar { order: 4; }
+.legend { order: 5; }
+.notices { order: 6; display: grid; gap: 8px; min-width: 0; }
+.content { order: 7; display: grid; min-width: 0; gap: 16px; align-content: start; }
+.dayPanel { order: 8; }
+@media (min-width: 1024px) {
+  .page { display: grid; grid-template-columns: clamp(260px, 23vw, 320px) minmax(0, 1fr); grid-template-rows: 52px auto auto auto minmax(0, 1fr); gap: 8px 16px; height: 100dvh; min-height: 0; max-width: none; padding: 0 16px 12px 0; overflow: hidden; }
+  .sidebar { grid-column: 1; grid-row: 1 / -1; display: flex; flex-direction: column; min-height: 0; height: calc(100% + 12px); border-right: 2px solid var(--covie-ink); background: var(--covie-cream); }
+  .desktopNav { display: grid; flex: 0 0 auto; gap: 8px; padding: 12px; }
+  .sidebarBrand { display: flex; align-items: center; min-height: 44px; padding: 0 12px 8px; }
+  .navViews, .navLinks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .navViews button, .navLinks a { display: flex; align-items: center; gap: 8px; min-height: 44px; min-width: 0; border-radius: 10px; padding: 8px; text-align: left; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .navViews button:hover, .navLinks a:hover { background: var(--covie-muted); }
+  .navViews button[aria-pressed="true"] { background: var(--covie-coral); }
+  .navViews svg, .navLinks svg { flex-shrink: 0; }
+  .navLinks { border-top: 1px solid var(--covie-border); padding-top: 8px; }
+  .sidebarBody { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 0 12px 16px; gap: 12px; }
+  .sidebarBody > * { flex-shrink: 0; }
+  .sidebar .intro { display: grid; gap: 4px; font-size: 12px; }
+  .sidebar .filters { grid-template-columns: minmax(0, 1fr); padding: 10px; }
+  .sidebar .filterSummary { display: block; margin: 4px 0 0; }
+  .sidebar .dayPanel { max-height: none; overflow: visible; padding: 12px 0 0; border-left: 0; border-right: 0; border-bottom: 0; border-radius: 0; background: transparent; }
+  .sidebar .dayPanel :global(.covie-section-header) { flex-wrap: wrap; gap: 10px; }
+  .sidebar .dayPanel .attentionRecords { grid-template-columns: minmax(0, 1fr); }
+  .pageHeader { grid-column: 2; grid-row: 1; align-self: center; padding: 8px 0 0; border: 0; }
+  .pageHeader :global(.covie-page-title) { font-size: 28px; }
+  .pageHeader :global(.covie-page-accent), .pageHeader :global(.covie-page-context), .headerActions, .viewControls :global(.covie-segmented-control) { display: none; }
+  .toolbar { grid-column: 2; grid-row: 2; flex-wrap: nowrap; }
+  .viewControls > :first-child { display: none; }
+  .legend { grid-column: 2; grid-row: 3; gap: 6px 12px; }
+  .notices { grid-column: 2; grid-row: 4; max-height: 25dvh; overflow-y: auto; }
+  .content { grid-column: 2; grid-row: 5; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+  .content:has(.monthColumn) { display: block; overflow: hidden; }
+  .schedule:has(.monthColumn), .monthColumn { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100%; min-height: 0; gap: 0; }
+  .monthHeading, .monthColumn > .help { display: none; }
+  .monthBoard { display: grid; grid-template-rows: 24px minmax(0, 1fr); padding: 6px; min-height: 0; height: 100%; }
+  .weekdays, .monthDays { min-width: 0; }
+  .weekdays span { padding: 4px 1px; }
+  .monthDays { grid-auto-rows: minmax(44px, 1fr); min-height: 0; row-gap: 4px; }
+  .monthDays > button { min-height: 44px; gap: 3px; padding: 6px; overflow: hidden; }
+  .dayMarkers { position: absolute; top: 8px; right: 6px; max-width: calc(100% - 40px); min-height: 0; }
+  .dayTitles { min-height: 0; overflow: hidden; }
+  .agendaDay { grid-template-columns: 150px minmax(0, 1fr); }
+}

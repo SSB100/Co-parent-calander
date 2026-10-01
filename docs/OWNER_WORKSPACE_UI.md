@@ -89,3 +89,8 @@ Follow-up to PR #142: match the co-parenting calendar’s colourful rounded tile
 Mobile navigation: Personal has Month, Agenda, Attention and Calendars. Shared template calendars use Calendar, Personal, Updates and role-filtered Organiser tools; members without tools get three equal destinations. Staff keep their existing My roster/Timesheet/Leave/Updates destinations; manager secondary destinations remain directly accessible on desktop and move into the mobile Organiser menu. Footer menus open above navigation, safe-area padding remains, and the footer hides for the mobile keyboard. No domain, permission or scheduling changes. Co-parenting stays the reference and its components are unchanged.
 
 Verification is recorded in the follow-up PR; the synthetic browser harness remains separate from production.
+
+
+## Personal desktop fit checkpoint, 1 October 2026
+
+Personal now uses the co-parenting shell as the desktop reference: a branded left rail contains view navigation, calendar links, source/timezone controls and the selected-day/attention context. The remaining width is dedicated to the month. Desktop grid height uses the available dynamic viewport; month rows divide the remaining space with 44px minimum day targets, while long sidebar content and agenda/overview lists scroll independently. Mobile keeps its logo, footer and details below the month. No shared styles, domain logic or source actions change. Browser and hosted release evidence is recorded in the follow-up PR.
