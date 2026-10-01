@@ -161,3 +161,11 @@
   .dayTitles { min-height: 0; overflow: hidden; }
   .agendaDay { grid-template-columns: 150px minmax(0, 1fr); }
 }
+/* Keep whole summaries in compact day cells; full details remain in the rail. */
+@media (min-width: 1024px) and (max-height: 680px) {
+  .dayTitles { display: block; }
+  .dayTitles span:not(:first-child) { display: none; }
+}
+@media (min-width: 1024px) and (max-height: 540px) {
+  .dayTitles { display: none; }
+}
