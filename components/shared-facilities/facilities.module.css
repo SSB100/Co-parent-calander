@@ -129,5 +129,4 @@
 
 
 /* Keep independent date targets usable at 320px; overflow belongs to the date grid. */
-.plannerCalendar { overflow-x: auto; }
-.dayGrid { min-width: 320px; }
+.dayGrid { min-width: 0; grid-template-columns: repeat(7, minmax(44px, 1fr)); overflow-x: auto; }
