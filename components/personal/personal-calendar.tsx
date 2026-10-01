@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, List, Bell, House, CalendarDays, ChevronLeft, ChevronRight, LockKeyhole, Plus, RefreshCw, X } from "lucide-react";
+import { ArrowUpRight, List, Bell, House, LayoutGrid, CalendarDays, ChevronLeft, ChevronRight, LockKeyhole, Plus, RefreshCw, X } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { useFormStatus } from "react-dom";
@@ -14,6 +14,7 @@ import { isPersonalMonth, personalDateLabel, personalFirstMonth, personalItemTim
 import { usePersonalCalendar } from "./use-personal-calendar";
 import styles from "./personal.module.css";
 import { CalendarIdentity } from "@/components/workspace/calendar-identity";
+import { CovieBrand } from "@/components/workspace/covie-brand";
 import identityStyles from "@/components/workspace/calendar-identity.module.css";
 
 const viewOptions = [{ value: "month", label: "Month" }, { value: "agenda", label: "Agenda" }, { value: "overview", label: "Overview" }] as const;
@@ -108,22 +109,33 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
   };
   const openToday = () => { selectDate(localDateInTimeZone(timezone)); setView("month"); };
 
-  return <CoviePage className={styles.page}>
-    <CalendarIdentity />
-    <CoviePageHeader accent="coral" title="Personal" context="Your commitments, together in one place." actions={<CoviePageActions className={styles.headerActions}>
-      <Link href="/calendar" prefetch={false} className={`covie-button covie-primary-action ${styles.desktopCalendarLink}`}>Your calendars</Link>
+  return <CoviePage width="wide" className={styles.page}>
+    <CalendarIdentity mobileOnly />
+    <CoviePageHeader className={styles.pageHeader} accent="coral" title="Personal" context="Your commitments, together in one place." actions={<CoviePageActions className={styles.headerActions}>
       <Link href="/onboarding" prefetch={false} className="covie-button covie-action-secondary"><Plus size={16} aria-hidden="true" />Add calendar</Link>
 
     </CoviePageActions>} />
 
+    <aside className={styles.sidebar} aria-label="Personal workspace">
+      <nav className={styles.desktopNav} aria-label="Personal desktop navigation">
+        <Link className={styles.sidebarBrand} href="/personal" prefetch={false} aria-label="Covie Personal"><CovieBrand /></Link>
+        <div className={styles.navViews}>
+          <button type="button" aria-pressed={view === "month" && dayContext === "day"} onClick={() => { setView("month"); setDayContext("day"); }}><CalendarDays size={19} aria-hidden="true" />Month</button>
+          <button type="button" aria-pressed={view === "agenda"} onClick={() => setView("agenda")}><List size={19} aria-hidden="true" />Agenda</button>
+          <button type="button" aria-pressed={view === "month" && dayContext === "attention"} onClick={() => { setView("month"); setDayContext("attention"); }}><Bell size={19} aria-hidden="true" />Attention</button>
+          <button type="button" aria-pressed={view === "overview"} onClick={() => setView("overview")}><LayoutGrid size={19} aria-hidden="true" />Overview</button>
+        </div>
+        <div className={styles.navLinks}>
+          <Link href="/calendar" prefetch={false}><House size={17} aria-hidden="true" />Calendars</Link>
+          <Link href="/onboarding" prefetch={false}><Plus size={17} aria-hidden="true" />Add calendar</Link>
+        </div>
+      </nav>
+      <div className={styles.sidebarBody}>
     <div className={styles.intro}>
       <span className={styles.privateLabel}><LockKeyhole size={15} aria-hidden="true" />Only visible to you</span>
       <p>Open an item’s source to make a change.</p>
     </div>
-
-    {pageNotice && pageNotice !== dismissedNotice ? <CovieNotice tone="sunshine"><div className={styles.pageNotice}><p>{pageNotice}</p><CovieIconButton aria-label="Dismiss notice" onClick={() => setDismissedNotice(pageNotice)}><X size={17} aria-hidden="true" /></CovieIconButton></div></CovieNotice> : null}
-
-    {sources.length > 0 || source ? <>
+        {sources.length > 0 || source ? <>
     <details className={styles.filterDisclosure}>
       <summary><span>Sources &amp; timezone</span><span className={styles.filterSummary}>{source ? sources.find((entry) => entry.id === source)?.name ?? "Selected calendar (unavailable)" : "All calendars"} · {timezone}</span></summary>
       <div className={styles.filters}>
@@ -138,6 +150,20 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
       <p className={styles.filterNote}>Times follow your display timezone. Care and due dates keep their source calendar’s date.</p>
       </div>
     </details>
+        </> : null}
+        {view === "month" && !(data && !data.sources.length) ? (
+          <section id="personal-day-context" className={styles.dayPanel} aria-label="Selected day">
+            <CovieSegmentedControl value={dayContext} onChange={setDayContext} ariaLabel="Personal day context" options={[{ value: "day", label: "Your day" }, { value: "attention", label: `Attention${data?.attention.length ? ` (${data.attention.length})` : ""}` }]} />
+            {dayContext === "attention" ? <PersonalAttention data={data} sources={sourceMap} timezone={timezone} loading={loading} compact={false} /> : <>
+            <CovieSectionHeader title={personalDateLabel(selectedDate)} actions={<div className={styles.dayControls}><CovieIconButton aria-label="Previous day" disabled={selectedDate === `${personalFirstMonth}-01`} onClick={() => selectDate(shiftPersonalDate(selectedDate, -1))}><ChevronLeft size={18} aria-hidden="true" /></CovieIconButton><CovieIconButton aria-label="Next day" disabled={selectedDate === `${personalLastMonth}-31`} onClick={() => selectDate(shiftPersonalDate(selectedDate, 1))}><ChevronRight size={18} aria-hidden="true" /></CovieIconButton></div>} />
+            {data ? selectedItems.length ? visibleStates.map((state) => <StateRecords key={state} state={state} items={selectedItems} sources={sourceMap} timezone={timezone} />) : <CovieEmptyState title="Room in your day" description="No personal commitments or care context from the selected calendars on this day." /> : <p className={styles.help}>{loading ? "Your day is loading." : "Refresh to see this day’s items."}</p>}
+            </>}
+          </section>
+        ) : null}
+      </div>
+    </aside>
+
+    {sources.length > 0 || source ? <>
 
     <div className={styles.toolbar}>
       <div className={styles.monthControls}>
@@ -154,10 +180,13 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
     {view !== "overview" ? <div className={styles.legend} aria-label="Calendar legend">{visibleStates.map((state) => <span key={state}><i data-state={state} aria-hidden="true" />{stateInfo[state].label}</span>)}<span className={styles.help}>Care is context for your day.</span></div> : null}
     </> : null}
 
+    <div className={styles.notices}>
+    {pageNotice && pageNotice !== dismissedNotice ? <CovieNotice tone="sunshine"><div className={styles.pageNotice}><p>{pageNotice}</p><CovieIconButton aria-label="Dismiss notice" onClick={() => setDismissedNotice(pageNotice)}><X size={17} aria-hidden="true" /></CovieIconButton></div></CovieNotice> : null}
     {error ? <CovieNotice tone="danger"><p>{error}</p><div className={styles.noticeActions}><CovieButton tone="neutral" onClick={() => void refresh()}>Try again</CovieButton>{source ? <CovieButton tone="neutral" onClick={() => setSource("")}>All calendars</CovieButton> : null}</div></CovieNotice> : null}
     {data?.warnings.map((warning, index) => <CovieNotice key={`${index}-${warning}`} tone="sunshine">{warning}</CovieNotice>)}
     <div role="status" aria-live="polite" className={loading ? styles.loading : "sr-only"}>{loading ? "Refreshing your personal calendar…" : data ? `${personalMonthLabel(month)} loaded. ${data.items.length} calendar items and ${data.attention.length} items needing attention.` : "Calendar items are unavailable."}</div>
-
+    </div>
+    <div className={styles.content}>
     {data && !data.sources.length ? <CovieEmptyState icon={<CalendarDays aria-hidden="true" />} title="Welcome to Personal" description="Your own shifts, appointments and shared plans will appear here. Create or join a calendar whenever you’re ready." action={<Link href="/onboarding" prefetch={false} className="covie-button covie-primary-action">Create or join a calendar</Link>} /> : <>
       {view === "overview" ? <>
         <section className={styles.overviewSection} aria-label="Today" aria-busy={loading}>
@@ -185,13 +214,7 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
             <PersonalMonthCalendar month={month} days={days} itemsByDay={itemsByDay} selectedDate={selectedDate} today={today} onSelectDate={selectDate} />
             <p className={styles.help}>Choose a day to see your commitments. Use arrow keys to move around the calendar.</p>
           </div>
-          <section id="personal-day-context" className={styles.dayPanel} aria-label="Selected day">
-            <CovieSegmentedControl value={dayContext} onChange={setDayContext} ariaLabel="Personal day context" options={[{ value: "day", label: "Your day" }, { value: "attention", label: `Attention${data?.attention.length ? ` (${data.attention.length})` : ""}` }]} />
-            {dayContext === "attention" ? <PersonalAttention data={data} sources={sourceMap} timezone={timezone} loading={loading} compact={false} /> : <>
-            <CovieSectionHeader title={personalDateLabel(selectedDate)} actions={<div className={styles.dayControls}><CovieIconButton aria-label="Previous day" disabled={selectedDate === `${personalFirstMonth}-01`} onClick={() => selectDate(shiftPersonalDate(selectedDate, -1))}><ChevronLeft size={18} aria-hidden="true" /></CovieIconButton><CovieIconButton aria-label="Next day" disabled={selectedDate === `${personalLastMonth}-31`} onClick={() => selectDate(shiftPersonalDate(selectedDate, 1))}><ChevronRight size={18} aria-hidden="true" /></CovieIconButton></div>} />
-            {data ? selectedItems.length ? visibleStates.map((state) => <StateRecords key={state} state={state} items={selectedItems} sources={sourceMap} timezone={timezone} />) : <CovieEmptyState title="Room in your day" description="No personal commitments or care context from the selected calendars on this day." /> : <p className={styles.help}>{loading ? "Your day is loading." : "Refresh to see this day’s items."}</p>}
-            </>}
-          </section>
+
         </> : <section className={styles.agenda} aria-label="Monthly agenda">
           <CovieSectionHeader title={`${personalMonthLabel(month)} agenda`} description="Your confirmed plans, tentative plans and care context, day by day." />
           {data ? agendaDays.length ? agendaDays.map((day) => <section key={day} className={styles.agendaDay} aria-label={personalDateLabel(day, true)}><button type="button" className={styles.agendaDate} onClick={() => { selectDate(day); setView("month"); }}>{personalDateLabel(day)}<ArrowUpRight size={16} aria-hidden="true" /><span className="sr-only">Open day</span></button><div className={styles.agendaRecords}>{visibleStates.map((state) => <StateRecords key={state} state={state} items={itemsByDay.get(day)!} sources={sourceMap} timezone={timezone} />)}</div></section>) : <CovieEmptyState title="No plans in this month" description="Your own confirmed commitments, tentative plans and care context will appear here when they’re added in a source calendar." /> : <p className={styles.help}>{loading ? "Your agenda is loading." : "Refresh to see your agenda."}</p>}
@@ -201,6 +224,7 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
       {view === "agenda" ? <PersonalAttention data={data} sources={sourceMap} timezone={timezone} loading={loading} compact={false} /> : null}
       </>}
     </>}
+    </div>
     <nav className={identityStyles.footer} aria-label="Personal navigation">
       <button type="button" aria-pressed={view === "month" && dayContext !== "attention"} onClick={() => { setView("month"); setDayContext("day"); window.scrollTo({ top: 0, behavior: "instant" }); }}><CalendarDays size={20} aria-hidden="true" />Month</button>
       <button type="button" aria-pressed={view === "agenda"} onClick={() => { setView("agenda"); window.scrollTo({ top: 0, behavior: "instant" }); }}><List size={20} aria-hidden="true" />Agenda</button>
