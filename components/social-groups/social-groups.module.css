@@ -120,3 +120,6 @@
 .monthControls > button:last-child { background: var(--covie-teal-soft); }
 .ownerTools[role="group"] > button { background: var(--covie-violet-soft); }
 .ownerTools[role="group"] > button:last-child { background: var(--covie-sunshine-soft); }
+
+/* Mobile organiser destinations live in the persistent footer. */
+@media (max-width: 1023px) { .ownerTools[role="group"] { display: none; } }

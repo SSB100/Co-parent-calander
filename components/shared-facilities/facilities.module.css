@@ -133,3 +133,6 @@
 
 .ownerTools[role="group"] > button { background: var(--covie-violet-soft); }
 .ownerTools[role="group"] > button:nth-child(2) { background: var(--covie-sunshine-soft); }
+
+/* Mobile organiser destinations live in the persistent footer. */
+@media (max-width: 1023px) { .ownerTools[role="group"] { display: none; } }
