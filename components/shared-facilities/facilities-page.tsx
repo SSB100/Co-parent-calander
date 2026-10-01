@@ -30,6 +30,33 @@ function statusTone(status: FacilityBooking["status"]) {
   return status === "confirmed" ? "teal" as const : status === "pending" ? "sunshine" as const : "neutral" as const;
 }
 
+function FacilityBookingCard({ booking, data, disabled, includeResource, includeDate, onSave, onEdit, onConfirm }: {
+  booking: FacilityBooking;
+  data: FacilityData;
+  disabled: boolean;
+  includeResource: boolean;
+  includeDate: boolean;
+  onSave: FacilitySave;
+  onEdit: (resourceId: string, booking: FacilityBooking) => void;
+  onConfirm: (target: Confirmation) => void;
+}) {
+  const changeable = canChangeFacilityBooking(data, booking);
+  const reviewable = canReviewFacilityBooking(data, booking);
+  return <article className={styles.booking} key={booking.id} data-status={booking.status}>
+    <div className={styles.bookingMain}>
+      <div className={styles.bookingHeading}><strong>{booking.title || (booking.own ? "Your booking" : "Reserved")}</strong><CovieStatusBadge tone={statusTone(booking.status)}>{booking.status === "pending" ? "Awaiting approval" : booking.status === "confirmed" ? "Confirmed" : booking.status === "cancelled" ? "Cancelled" : "Declined"}</CovieStatusBadge>{booking.own ? <span className={styles.own}>Yours</span> : null}</div>
+      {includeResource ? <p className={styles.resourceName}>{data.resources.find((resource) => resource.id === booking.resourceId)?.name ?? "Resource"}</p> : null}
+      <p>{facilityTime(booking.start, data.timezone, includeDate)} to {facilityTime(booking.end, data.timezone, includeDate)}</p>
+      {booking.notes ? <p className={styles.notes}>{booking.notes}</p> : null}
+      {booking.status === "pending" ? <p className={styles.help}>This request does not hold the time slot.</p> : null}
+    </div>
+    {changeable || reviewable ? <div className={styles.actions}>
+      {reviewable ? <><CovieButton disabled={disabled} onClick={() => void onSave("decision", { id: booking.id, version: booking.version, action: "confirm" })}>Approve</CovieButton><CovieButton tone="neutral" disabled={disabled} onClick={() => onConfirm({ kind: "decline", booking })}>Decline</CovieButton></> : null}
+      {changeable ? <><CovieButton tone="neutral" disabled={disabled} onClick={() => onEdit(booking.resourceId, booking)}>Edit</CovieButton><CovieButton tone="neutral" disabled={disabled} onClick={() => onConfirm({ kind: "cancel", booking })}>Cancel booking</CovieButton></> : null}
+    </div> : null}
+  </article>;
+}
+
 export function FacilitiesPage({ calendarId, section, tool, initialDate = "", initialRecord = "" }: { calendarId: string; section: "calendar" | "updates" | "organiser"; tool?: string; initialDate?: string; initialRecord?: string }) {
   const [ownerBookingId, setOwnerBookingId] = useState(initialRecord);
   const [duration, setDuration] = useState(60);
@@ -215,21 +242,7 @@ export function FacilitiesPage({ calendarId, section, tool, initialDate = "", in
 
   function renderBooking(booking: FacilityBooking, includeResource: boolean, includeDate = false) {
     if (!data || data.calendarId !== calendarId) return null;
-    const changeable = canChangeFacilityBooking(data, booking);
-    const reviewable = canReviewFacilityBooking(data, booking);
-    return <article className={styles.booking} key={booking.id} data-status={booking.status}>
-      <div className={styles.bookingMain}>
-        <div className={styles.bookingHeading}><strong>{booking.title || (booking.own ? "Your booking" : "Reserved")}</strong><CovieStatusBadge tone={statusTone(booking.status)}>{booking.status === "pending" ? "Awaiting approval" : booking.status === "confirmed" ? "Confirmed" : booking.status === "cancelled" ? "Cancelled" : "Declined"}</CovieStatusBadge>{booking.own ? <span className={styles.own}>Yours</span> : null}</div>
-        {includeResource ? <p className={styles.resourceName}>{resourceName(booking.resourceId)}</p> : null}
-        <p>{facilityTime(booking.start, data.timezone, includeDate)} to {facilityTime(booking.end, data.timezone, includeDate)}</p>
-        {booking.notes ? <p className={styles.notes}>{booking.notes}</p> : null}
-        {booking.status === "pending" ? <p className={styles.help}>This request does not hold the time slot.</p> : null}
-      </div>
-      {changeable || reviewable ? <div className={styles.actions}>
-        {reviewable ? <><CovieButton disabled={disabled} onClick={() => void save("decision", { id: booking.id, version: booking.version, action: "confirm" })}>Approve</CovieButton><CovieButton tone="neutral" disabled={disabled} onClick={() => requestConfirmation({ kind: "decline", booking })}>Decline</CovieButton></> : null}
-        {changeable ? <><CovieButton tone="neutral" disabled={disabled} onClick={() => openBooking(booking.resourceId, booking)}>Edit</CovieButton><CovieButton tone="neutral" disabled={disabled} onClick={() => requestConfirmation({ kind: "cancel", booking })}>Cancel booking</CovieButton></> : null}
-      </div> : null}
-    </article>;
+    return <FacilityBookingCard key={booking.id} booking={booking} data={data} disabled={disabled} includeResource={includeResource} includeDate={includeDate} onSave={save} onEdit={openBooking} onConfirm={requestConfirmation} />;
   }
 
   const myBookingsPanel = <>
