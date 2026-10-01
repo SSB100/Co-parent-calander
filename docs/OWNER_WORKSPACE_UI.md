@@ -38,3 +38,17 @@ All three shared-calendar owner screens put their organiser tools in a menu and 
 3. Personal: calendar-centred view with compact Today/attention/upcoming context and visible source controls
 
 Each slice requires role/history regression checks and visual measurements before release. Synthetic browser fixtures establish layout behavior; authenticated production QA establishes real data/API behavior. They are separate kinds of evidence. Actual phone-device testing has not been completed.
+
+## Facilities owner slice manifest
+
+- Primary entity: a persisted resource booking or an exact candidate start returned by the existing slot engine
+- Identity: existing resources; Violet and Teal accents, Coral confirmation actions
+- Visible controls: Resources, Booking rules, Members, My bookings, Requests to review, Refresh, day navigation, resource filter and booking duration
+- Main view: one selected-day timetable with sticky resource/time headers; long days and resource sets scroll inside the calendar canvas
+- Scheduling: hour bands group exact candidate starts without rounding or dropping off-grid availability; a precise-start chooser leads to the existing confirmation dialog
+- Busy state: confirmed bookings alone reserve time; pending requests stay distinct and remain reviewable through existing authority checks
+- Context: selected-day booking summaries and selected booking actions stay beside the timetable; source links retain cancelled/archived booking detail and honest unavailable fallback
+- Organising: existing resource/rule/member/request flows open from labelled buttons in Covie dialogs; direct organiser routes and non-owner views retain their current behavior
+- Authority: current owner role required; stale selection, changed membership, removed resources and failed refresh disable slot confirmation; denied embedded access clears the parent workspace
+- Data: no schema changes, copied events, recurrence, backfill or new permissions
+- Responsive behavior: shared fluid owner layout, readable hour bands and at least44px controls; narrow and short windows use natural flow

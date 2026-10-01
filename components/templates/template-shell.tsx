@@ -157,7 +157,7 @@ export function TemplateShell({
   const compactStaffRosterCalendar =
     template.id === "staff_rosters" && section === "calendar" && !staffMode;
   const staffRosterMode = template.id === "staff_rosters";
-  const ownerSocialCalendar = template.id === "social_groups" && section === "calendar" && workspaceRole === "owner";
+  const ownerCalendarWorkspace = (template.id === "social_groups" || template.id === "shared_facilities") && section === "calendar" && workspaceRole === "owner";
 
   const organiserItems: readonly TemplateOrganiserNavItem[] =
     workspaceOrganiserTools(template.id, workspaceRole).map((tool) => ({
@@ -215,12 +215,12 @@ export function TemplateShell({
 
       <CoviePage
         width="wide"
-        className={ownerSocialCalendar ? `${ownerWorkspaceStyles.page} pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6` : staffRosterMode && !staffMode ? "pb-[calc(156px+env(safe-area-inset-bottom))] lg:pb-6" : "pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6"}
+        className={ownerCalendarWorkspace ? `${ownerWorkspaceStyles.page} pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6` : staffRosterMode && !staffMode ? "pb-[calc(156px+env(safe-area-inset-bottom))] lg:pb-6" : "pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6"}
       >
         {compactStaffRosterCalendar ? null : (
           <div
             className={
-              ownerSocialCalendar ? ownerWorkspaceStyles.calendarHeader : section === "calendar"
+              ownerCalendarWorkspace ? ownerWorkspaceStyles.calendarHeader : section === "calendar"
                 ? "mb-5"
                 : "mb-3"
             }
@@ -246,7 +246,7 @@ export function TemplateShell({
 
         <section
           className={
-            ownerSocialCalendar ? ownerWorkspaceStyles.calendarSection : section === "calendar"
+            ownerCalendarWorkspace ? ownerWorkspaceStyles.calendarSection : section === "calendar"
               ? compactStaffRosterCalendar
                 ? "mt-1"
                 : "mt-3"
