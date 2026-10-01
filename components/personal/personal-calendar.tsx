@@ -107,15 +107,15 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
   const openToday = () => { selectDate(localDateInTimeZone(timezone)); setView("month"); };
 
   return <CoviePage className={styles.page}>
-    <CoviePageHeader accent="coral" title="Personal" context="Your commitments, together in one place." actions={<CoviePageActions>
-      <Link href="/calendar" prefetch={false} className="covie-button covie-primary-action">Your calendars<ArrowUpRight size={16} aria-hidden="true" /></Link>
-      <Link href="/onboarding" prefetch={false} className="covie-button covie-action-secondary"><Plus size={16} aria-hidden="true" />Add a calendar</Link>
-      <CovieIconButton aria-label={loading ? "Refreshing Personal" : "Refresh Personal"} onClick={() => void refresh()} disabled={loading}><RefreshCw size={17} aria-hidden="true" /></CovieIconButton>
+    <CoviePageHeader accent="coral" title="Personal" context="Your commitments, together in one place." actions={<CoviePageActions className={styles.headerActions}>
+      <Link href="/calendar" prefetch={false} className="covie-button covie-primary-action">Your calendars</Link>
+      <Link href="/onboarding" prefetch={false} className="covie-button covie-action-secondary"><Plus size={16} aria-hidden="true" />Add calendar</Link>
+
     </CoviePageActions>} />
 
     <div className={styles.intro}>
       <span className={styles.privateLabel}><LockKeyhole size={15} aria-hidden="true" />Only visible to you</span>
-      <p>Shared calendars stay separate. Open an item’s source to make a change.</p>
+      <p>Open an item’s source to make a change.</p>
     </div>
 
     {pageNotice && pageNotice !== dismissedNotice ? <CovieNotice tone="sunshine"><div className={styles.pageNotice}><p>{pageNotice}</p><CovieIconButton aria-label="Dismiss notice" onClick={() => setDismissedNotice(pageNotice)}><X size={17} aria-hidden="true" /></CovieIconButton></div></CovieNotice> : null}
@@ -143,7 +143,9 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
         <CovieIconButton aria-label="Next month" disabled={month === personalLastMonth} onClick={() => selectMonth(shiftPersonalMonth(month, 1))}><ChevronRight size={19} aria-hidden="true" /></CovieIconButton>
         <CovieButton tone="neutral" onClick={() => selectDate(localDateInTimeZone(timezone))}>Today</CovieButton>
       </div>
-      <CovieSegmentedControl value={view} options={viewOptions} onChange={setView} ariaLabel="Personal calendar view" tone="coral" />
+      <div className={styles.viewControls}><CovieSegmentedControl value={view} options={viewOptions} onChange={setView} ariaLabel="Personal calendar view" tone="coral" />
+      <CovieIconButton aria-label={loading ? "Refreshing Personal" : "Refresh Personal"} onClick={() => void refresh()} disabled={loading}><RefreshCw size={17} aria-hidden="true" /></CovieIconButton>
+      </div>
     </div>
 
     {view !== "overview" ? <div className={styles.legend} aria-label="Calendar legend">{visibleStates.map((state) => <span key={state}><i data-state={state} aria-hidden="true" />{stateInfo[state].label}</span>)}<span className={styles.help}>Care is context for your day.</span></div> : null}

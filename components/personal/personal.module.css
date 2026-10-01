@@ -22,8 +22,8 @@
 .legend [data-state="background"], .groupTitle [data-state="background"], .dayMarkers [data-state="background"] { background: var(--covie-violet); color: white; }
 .schedule, .monthColumn, .dayPanel, .agenda { display: grid; min-width: 0; align-content: start; gap: 16px; }
 .monthHeading { color: var(--covie-ink); font-family: var(--font-covie-display), Georgia, serif; font-size: 25px; line-height: 1.2; }
-.monthBoard { min-width: 0; overflow: hidden; border: 1px solid var(--covie-ink); border-radius: 12px; background: white; }
-.weekdays, .monthDays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.monthBoard { min-width: 0; overflow: auto; border: 1px solid var(--covie-ink); border-radius: 12px; background: white; }
+.weekdays, .monthDays { min-width: 308px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .weekdays { border-bottom: 1px solid var(--covie-ink); background: var(--covie-cream); }
 .weekdays span { padding: 11px 1px; color: var(--covie-text-secondary); font-size: 11px; font-weight: 650; text-align: center; }
 .monthDays > button { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 0; min-height: 76px; gap: 7px; border-right: 1px solid var(--covie-border); border-bottom: 1px solid var(--covie-border); padding: 7px 1px; background: white; color: var(--covie-ink); cursor: pointer; }
@@ -37,7 +37,7 @@
 .dayMarkers { display: flex; justify-content: center; flex-wrap: wrap; gap: 3px; }
 .dayMarkers > span { display: inline-flex; justify-content: center; min-width: 15px; padding: 0 3px; border: 1px solid var(--covie-ink); border-radius: 4px; font-size: 11px; font-weight: 650; line-height: 1.4; }
 .dayTitles { display: none; }
-.dayPanel { border: 1px solid var(--covie-border); border-radius: 16px; background: white; padding: 16px; }
+.dayPanel { min-height: 0; grid-auto-rows: max-content; border: 1px solid var(--covie-border); border-radius: 16px; background: white; padding: 16px; }
 .dayPanel .attention { border-top: 0; margin-top: 0; padding-top: 0; }
 .dayPanel .attentionRecords { grid-template-columns: minmax(0, 1fr); }
 .dayPanel .record { border: 0; border-bottom: 1px solid var(--covie-border); border-radius: 0; padding: 0 0 16px; }
@@ -87,8 +87,8 @@
   .attentionRecords { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (min-width: 1100px) and (min-height: 700px) {
-  .schedule:has(.monthColumn) { align-items: stretch; }
-  .monthColumn { grid-template-rows: auto minmax(0, 1fr) auto; }
+  .schedule:has(.monthColumn) { align-items: stretch; height: max(480px, calc(100dvh - 340px)); }
+  .monthColumn { min-height: 0; grid-template-rows: auto minmax(0, 1fr) auto; }
   .monthBoard { display: grid; grid-template-rows: auto minmax(0, 1fr); }
   .monthDays { grid-auto-rows: minmax(76px, 1fr); }
   .monthDays > button { min-height: 76px; }
@@ -100,3 +100,6 @@
   .monthControls > button:last-child { flex: 1 1 100%; }
   .monthDays > button { min-height: 82px; }
 }
+
+.viewControls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+@media (max-width: 639px) { .headerActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; } .headerActions > a { padding-inline: 8px; } }

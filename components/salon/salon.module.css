@@ -47,6 +47,7 @@
   min-width: 0;
 }
 .datePicker {
+  overflow-x: auto;
   display: grid;
   gap: 12px;
   background: white;
@@ -61,6 +62,7 @@
   font-weight: 750;
 }
 .dayGrid {
+  min-width: 320px;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 2px;
