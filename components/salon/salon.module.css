@@ -253,3 +253,23 @@
     flex: 1 1 auto;
   }
 }
+
+/* Owner-only calendar canvas; shared shell supplies remaining desktop height. */
+.ownerRoot { display: flex; min-width: 0; min-height: 0; flex: 1; flex-direction: column; gap: 12px; }
+.ownerTools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ownerDateControls { display: flex; min-width: 0; flex-wrap: wrap; align-items: end; gap: 6px; }
+.ownerDateControls > label { width: 180px; max-width: 100%; }
+.ownerFilters, .ownerBookingFilters { display: flex; min-width: 0; flex-wrap: wrap; align-items: end; gap: 10px; }
+.ownerPractitioner { width: 210px; max-width: 100%; }
+.ownerAppointmentList { display: grid; gap: 8px; min-width: 0; }
+.ownerAppointmentSummary { display: grid; gap: 4px; min-width: 44px; min-height: 44px; width: 100%; padding: 10px 12px; text-align: left; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; border: 1px solid var(--covie-border); border-radius: 10px; background: var(--covie-violet-pale); color: var(--covie-ink); }
+.ownerAppointmentSummary strong { font-weight: 700; }
+.ownerAppointmentSummary span { font-size: 12px; }
+.ownerAppointmentSummary:hover:not(:disabled) { border-color: var(--covie-violet); }
+.ownerAppointmentSummary:focus-visible { outline: 3px solid var(--covie-focus); outline-offset: 2px; }
+.ownerAppointmentSummary:disabled { opacity: .65; }
+@media (max-width: 639px) {
+  .ownerFilters, .ownerBookingFilters { width: 100%; }
+  .ownerPractitioner { flex: 1 1 180px; }
+  .ownerTools > button { flex: 1 1 auto; }
+}

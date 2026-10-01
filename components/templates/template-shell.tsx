@@ -157,7 +157,7 @@ export function TemplateShell({
   const compactStaffRosterCalendar =
     template.id === "staff_rosters" && section === "calendar" && !staffMode;
   const staffRosterMode = template.id === "staff_rosters";
-  const ownerCalendarWorkspace = (template.id === "social_groups" || template.id === "shared_facilities") && section === "calendar" && workspaceRole === "owner";
+  const ownerCalendarWorkspace = (template.id === "social_groups" || template.id === "shared_facilities" || template.id === "salon_bookings") && section === "calendar" && workspaceRole === "owner";
 
   const organiserItems: readonly TemplateOrganiserNavItem[] =
     workspaceOrganiserTools(template.id, workspaceRole).map((tool) => ({

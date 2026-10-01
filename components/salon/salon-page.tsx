@@ -1,9 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import {
   CovieButton,
   CovieConfirmDialog,
+  CovieDialog,
+  CovieIconButton,
+  CovieInput,
   CovieEmptyState,
   CovieNotice,
   CovieRecordCard,
@@ -33,8 +37,14 @@ import {
 } from "./salon-team-editors";
 import { SalonTimeBlockEditor } from "./salon-time-block-editor";
 import { SalonRescheduleDialog } from "./salon-reschedule-dialog";
-import { salonDateLabel, salonPrice, salonTime } from "./salon-ui";
+import { salonDateLabel, salonPrice, salonTime, salonToday, shiftSalonDate } from "./salon-ui";
+import { SalonOwnerSchedule } from "./salon-owner-schedule";
+import { salonOwnerScheduleModel } from "./salon-owner-schedule-model";
+import { OwnerCalendarWorkspace } from "@/components/workspace/owner-calendar-workspace";
+import { useOwnerWorkspacePanel } from "@/lib/client/use-owner-workspace-panel";
+import { workspaceOrganiserTools } from "@/lib/templates/workspace-navigation";
 import styles from "./salon.module.css";
+const ownerPanelKeys = ["team", "services", "booking-settings", "book", "updates"] as const;
 type ProfileTool = {
   kind: "profile" | "services" | "hours" | "block";
   profile?: SalonPractitioner;
@@ -56,6 +66,7 @@ export function SalonPage({
   initialDate?: string;
   initialRecord?: string;
 }) {
+  const [ownerAppointmentId, setOwnerAppointmentId] = useState(initialRecord);
   const [date, setDate] = useState(initialDate),
     [serviceId, setService] = useState(""),
     [practitionerId, setPractitioner] = useState(""),
@@ -70,6 +81,16 @@ export function SalonPage({
     [confirmation, setConfirmation] = useState<Confirmation | null>(null),
     [reschedule, setReschedule] = useState<SalonAppointment | null>(null),
     [showCancelled, setShowCancelled] = useState(false);
+  const closeOwnerChildren = useCallback(() => {
+    setSlot(null);
+    setServiceEditor(null);
+    setProfileTool(null);
+    setInviting(false);
+    setConfirmation(null);
+    setReschedule(null);
+  }, []);
+  const ownerPanel = useOwnerWorkspacePanel(calendarId, ownerPanelKeys, closeOwnerChildren);
+  const clearOwnerPanel = ownerPanel.clear;
   const resource = useSalonResource<SalonData>(
       `/api/salon${date ? `?date=${date}` : ""}`,
       { calendarId, date },
@@ -93,7 +114,14 @@ export function SalonPage({
     { calendarId, date: selectedDate },
     calendarId,
   );
+  useEffect(() => {
+    if (resource.error || data && data.role !== "owner") clearOwnerPanel();
+  }, [data, resource.error, clearOwnerPanel]);
   const save: SalonSave = async (action, payload) => {
+    if (section === "calendar" && data?.role === "owner" && (resource.loading || data.date !== selectedDate)) {
+      mutation.setError("Wait for the latest salon schedule before saving.");
+      return false;
+    }
     const result = await mutation.save({ action, data: payload });
     if (!result) return false;
     setNotice(
@@ -111,11 +139,18 @@ export function SalonPage({
     return true;
   };
   function chooseDate(next: string) {
+    if (mutation.busy || next === selectedDate) return;
+    setOwnerAppointmentId("");
     setDate(next);
     setSlot(null);
     setNotice("");
     mutation.setError("");
   }
+  const ownerSchedule = useMemo(() => section === "calendar" && data?.role === "owner" && !resource.loading && data.date === selectedDate ? salonOwnerScheduleModel({
+    date: selectedDate, timezone: data.timezone, practitioners: data.practitioners,
+    hours: data.hours, timeBlocks: data.timeBlocks, appointments: data.appointments,
+    practitionerId: "", showCancelled,
+  }) : null, [section, data, resource.loading, selectedDate, showCancelled]);
   if (!data)
     return (
       <div className={styles.stack}>
@@ -144,7 +179,13 @@ export function SalonPage({
         )}
       </div>
     );
-  const disabled = mutation.busy || resource.loading,
+  const ownerWorkspace = section === "calendar" && data.role === "owner";
+  const ownerReady = !resource.loading && data.date === selectedDate;
+  const ownerTools = workspaceOrganiserTools("salon_bookings", data.role);
+  const ownerTool = ownerTools.find(item => item.key === ownerPanel.panel);
+  const ownerToolOpen = ownerWorkspace && ownerPanel.panel && ownerPanelKeys.includes(ownerPanel.panel as typeof ownerPanelKeys[number]);
+  const editorContextAllowed = !ownerPanel.panel || ownerWorkspace;
+  const disabled = mutation.busy || resource.loading || (ownerWorkspace && !ownerReady),
     service = data.services.find((value) => value.id === serviceId),
     practitioner = data.practitioners.find(
       (value) => value.id === slot?.practitionerId,
@@ -272,143 +313,8 @@ export function SalonPage({
             });
     if (saved) setConfirmation(null);
   }
-  return (
-    <div className={styles.stack} aria-busy={disabled}>
-      {notice ? <CovieNotice tone="teal">{notice}</CovieNotice> : null}
-      {mutation.error &&
-      !slot &&
-      !serviceEditor &&
-      !profileTool &&
-      !inviting &&
-      !confirmation &&
-      !reschedule ? (
-        <CovieNotice tone="danger">{mutation.error}</CovieNotice>
-      ) : null}
-      {data.appointmentsTruncated ? (
-        <CovieNotice>
-          The upcoming list is limited. Choose a date for its full schedule.
-        </CovieNotice>
-      ) : null}
-      {inviteCode && data.canOrganise ? (
-        <CovieNotice tone="violet">
-          <p>Single-use team invitation. Share it with the intended person.</p>
-          <p className={styles.code}>{inviteCode}</p>
-          <CovieButton tone="neutral" onClick={() => setInviteCode("")}>
-            Dismiss code
-          </CovieButton>
-        </CovieNotice>
-      ) : null}
-      {section === "calendar" ? (
-        <>
-          <div className={styles.toolbar}>
-            <p className={styles.help}>
-              {data.canOrganise ? "Business appointments" : "Your appointments"}{" "}
-              · {data.timezone}
-            </p>
-            <CovieButton
-              tone="neutral"
-              disabled={disabled}
-              onClick={() => {
-                void resource.refresh();
-                void slots.refresh();
-              }}
-            >
-              Refresh salon
-            </CovieButton>
-          </div>
-          {initialRecord ? (
-            <section
-              className={styles.stack}
-              aria-label="Appointment from Personal"
-            >
-              {resource.loading ? (
-                <p role="status">Checking the latest appointment…</p>
-              ) : linked ? (
-                appointmentCard(linked)
-              ) : (
-                <CovieNotice>
-                  This appointment is no longer available here. Refresh Personal
-                  for the latest items.
-                </CovieNotice>
-              )}
-            </section>
-          ) : null}
-          <div className={styles.planner}>
-            <SalonDayPicker
-              date={selectedDate}
-              timezone={data.timezone}
-              disabled={mutation.busy}
-              onChange={chooseDate}
-            />
-            <div className={styles.stack}>
-              <CovieSectionHeader title={salonDateLabel(selectedDate)} />
-              <label className={styles.field}>
-                <span>Practitioner</span>
-                <CovieSelect
-                  value={practitionerId}
-                  disabled={disabled}
-                  onChange={(event) => {
-                    setPractitioner(event.target.value);
-                    setSlot(null);
-                  }}
-                >
-                  <option value="">
-                    {data.canOrganise ? "All practitioners" : "My appointments"}
-                  </option>
-                  {activeProfiles.map((person) => (
-                    <option key={person.id} value={person.id}>
-                      {person.displayName}
-                    </option>
-                  ))}
-                </CovieSelect>
-              </label>
-              <label className={styles.checkbox}>
-                <input
-                  type="checkbox"
-                  checked={showCancelled}
-                  onChange={(event) => setShowCancelled(event.target.checked)}
-                />
-                Show cancelled appointments
-              </label>
-              {resource.loading ? (
-                <p role="status">Loading this day’s appointments…</p>
-              ) : entries.length ? (
-                <section className={styles.stack} aria-label="Day appointments">
-                  {entries.map(appointmentCard)}
-                </section>
-              ) : (
-                <CovieEmptyState
-                  title="No appointments on this day"
-                  description="Choose a service below to find a time."
-                />
-              )}
-              {!resource.loading &&
-                data.timeBlocks
-                  .filter(
-                    (block) =>
-                      !practitionerId ||
-                      block.practitionerId === practitionerId,
-                  )
-                  .map((block) => (
-                    <CovieRecordCard key={block.id}>
-                      <strong>
-                        Blocked time ·{" "}
-                        {
-                          data.practitioners.find(
-                            (person) => person.id === block.practitionerId,
-                          )?.displayName
-                        }
-                      </strong>
-                      <p>
-                        {salonTime(block.start, data.timezone, true)} to{" "}
-                        {salonTime(block.end, data.timezone, true)}
-                      </p>
-                      {block.reason ? (
-                        <p className={styles.help}>{block.reason}</p>
-                      ) : null}
-                    </CovieRecordCard>
-                  ))}
-              <CovieSectionHeader title="Book an appointment" />
+  const bookingPanel = <div className={styles.stack}>
+              {!ownerWorkspace ? <CovieSectionHeader title="Book an appointment" /> : null}
               <label className={styles.field}>
                 <span>Service</span>
                 <CovieSelect
@@ -480,11 +386,8 @@ export function SalonPage({
                   </p>
                 )
               ) : null}
-            </div>
-          </div>
-        </>
-      ) : section === "updates" ? (
-        <>
+  </div>;
+  const updatesPanel = <>
           <CovieSectionHeader title="Appointment updates" />
           {data.updates.length ? (
             <ol className={styles.history}>
@@ -501,9 +404,8 @@ export function SalonPage({
               description="Appointment changes appear here."
             />
           )}
-        </>
-      ) : tool === "services" ? (
-        <>
+        </>;
+  const servicesPanel = <>
           {data.canOrganise ? <div className={styles.actions}>
             <CovieButton disabled={disabled} onClick={() => { mutation.setError(""); setServiceEditor({}); }}>Add service</CovieButton>
           </div> : null}
@@ -549,9 +451,8 @@ export function SalonPage({
               description={data.canOrganise ? "Add the appointment types your team offers." : "Ask the owner or a manager to assign the services you provide."}
             />
           )}
-        </>
-      ) : tool === "booking-settings" ? (
-        <>
+        </>;
+  const settingsPanel = <>
           {data.settings.publicEnabled ? (
             <CovieNotice tone="teal">
               <Link
@@ -576,9 +477,8 @@ export function SalonPage({
             error={mutation.error}
             onSave={save}
           />
-        </>
-      ) : (
-        <>
+        </>;
+  const teamPanel = <>
           {data.canOrganise ? (
             <div className={styles.actions}>
               {data.role === "owner" && !own ? (
@@ -748,8 +648,224 @@ export function SalonPage({
               )}
             </section>
           ) : null}
+        </>;
+  // Resolve selection against every new authorized snapshot; never retain a private record object.
+  const selectedOwnerAppointment = ownerReady ? data.appointments.find(appointment => appointment.id === ownerAppointmentId) : undefined;
+  const ownerProfiles = ownerSchedule?.columns.map(column => column.practitioner) ?? data.practitioners.filter(person => person.active || person.id === practitionerId);
+  for (const person of data.practitioners) {
+    if ((person.id === practitionerId || person.id === selectedOwnerAppointment?.practitionerId) && !ownerProfiles.some(profile => profile.id === person.id)) ownerProfiles.push(person);
+  }
+  const ownerAppointments = ownerSchedule?.appointments.filter(appointment => !practitionerId || appointment.practitionerId === practitionerId) ?? [];
+  function choosePractitioner(next: string) {
+    setPractitioner(next);
+    setSlot(null);
+    setOwnerAppointmentId("");
+    mutation.setError("");
+  }
+  function openOwnerPanel(panel: string) {
+    if (disabled) return;
+    mutation.setError("");
+    ownerPanel.open(panel);
+  }
+  const ownerDateControls = <div className={styles.ownerDateControls}>
+    <CovieIconButton aria-label="Previous day" disabled={mutation.busy} onClick={() => chooseDate(shiftSalonDate(selectedDate, -1))}><ChevronLeft size={18} aria-hidden="true" /></CovieIconButton>
+    <label className={styles.field}><span>Date</span><CovieInput type="date" value={selectedDate} disabled={mutation.busy} onChange={event => { if (event.target.value) chooseDate(event.target.value); }} /></label>
+    <CovieIconButton aria-label="Next day" disabled={mutation.busy} onClick={() => chooseDate(shiftSalonDate(selectedDate, 1))}><ChevronRight size={18} aria-hidden="true" /></CovieIconButton>
+    <CovieButton tone="neutral" disabled={mutation.busy} onClick={() => chooseDate(salonToday(data.timezone))}>Today</CovieButton>
+  </div>;
+  const ownerPractitionerControl = <label className={`${styles.field} ${styles.ownerPractitioner}`}><span>Practitioner</span><CovieSelect value={practitionerId} disabled={disabled} onChange={event => choosePractitioner(event.target.value)}>
+    <option value="">All practitioners</option>
+    {ownerProfiles.map(person => <option key={person.id} value={person.id}>{person.displayName}{person.active === false ? " · inactive" : person.active === null ? " · profile not listed" : ""}</option>)}
+  </CovieSelect></label>;
+  const ownerDayPanel = <div className={styles.stack}>
+    <CovieSectionHeader title={ownerAppointmentId ? ownerAppointmentId === initialRecord ? "Appointment from Personal" : "Appointment details" : "Appointments this day"} />
+    {!ownerReady ? <p role="status">Loading this day’s appointments…</p> : ownerAppointmentId ? <>
+      {selectedOwnerAppointment ? appointmentCard(selectedOwnerAppointment) : <CovieNotice>This appointment is no longer available here. Refresh Personal for the latest items.</CovieNotice>}
+      <CovieButton tone="neutral" onClick={() => setOwnerAppointmentId("")}>Show this day’s appointments</CovieButton>
+    </> : ownerAppointments.length ? <div className={styles.ownerAppointmentList}>{ownerAppointments.map(appointment => <button
+      type="button" key={appointment.id} className={styles.ownerAppointmentSummary} disabled={disabled}
+      onClick={() => { mutation.setError(""); setOwnerAppointmentId(appointment.id); }}
+      aria-label={`${appointment.serviceName} for ${appointment.clientName}, with ${appointment.practitionerName}. ${salonTime(new Date(appointment.serviceStart).toISOString(), data.timezone, true)}. ${appointment.status}. View appointment details.`}
+    >
+      <strong>{appointment.serviceName} · {appointment.clientName}</strong>
+      <span>{appointment.practitionerName}</span>
+      <span>{salonTime(new Date(appointment.serviceStart).toISOString(), data.timezone)} to {salonTime(new Date(appointment.serviceEnd).toISOString(), data.timezone)}</span>
+      {appointment.status === "cancelled" ? <span>Cancelled · time not held</span> : null}
+      {appointment.bufferOnlyOnDay ? <span>Buffer only on this day</span> : null}
+    </button>)}</div> : <CovieEmptyState title="No appointments on this day" description="Use Book an appointment to check service times." />}
+  </div>;
+  return (
+    <div className={ownerWorkspace ? styles.ownerRoot : styles.stack} aria-busy={disabled}>
+      {notice ? <CovieNotice tone="teal">{notice}</CovieNotice> : null}
+      {mutation.error &&
+      !slot &&
+      !serviceEditor &&
+      !profileTool &&
+      !inviting &&
+      !confirmation &&
+      !reschedule ? (
+        <CovieNotice tone="danger">{mutation.error}</CovieNotice>
+      ) : null}
+      {data.appointmentsTruncated ? (
+        <CovieNotice>
+          The upcoming list is limited. Choose a date for its full schedule.
+        </CovieNotice>
+      ) : null}
+      {inviteCode && data.canOrganise ? (
+        <CovieNotice tone="violet">
+          <p>Single-use team invitation. Share it with the intended person.</p>
+          <p className={styles.code}>{inviteCode}</p>
+          <CovieButton tone="neutral" onClick={() => setInviteCode("")}>
+            Dismiss code
+          </CovieButton>
+        </CovieNotice>
+      ) : null}
+      {ownerWorkspace ? <OwnerCalendarWorkspace
+        toolbar={<>
+          <div className={styles.ownerTools} role="group" aria-label="Salon organiser tools">{ownerTools.map(item => <CovieButton key={item.key} tone="neutral" aria-haspopup="dialog" disabled={disabled} onClick={() => openOwnerPanel(item.key)}>{item.label}</CovieButton>)}<CovieButton tone="neutral" aria-haspopup="dialog" disabled={disabled} onClick={() => openOwnerPanel("updates")}>Updates</CovieButton></div>
+          <div className={styles.ownerTools}><CovieButton aria-haspopup="dialog" disabled={disabled} onClick={() => openOwnerPanel("book")}>Book an appointment</CovieButton><CovieIconButton aria-label="Refresh salon" disabled={disabled} onClick={() => { void resource.refresh(); void slots.refresh(); }}><RefreshCw size={18} aria-hidden="true" /></CovieIconButton></div>
+        </>}
+        navigation={<>{ownerDateControls}<div className={styles.ownerFilters}>{ownerPractitionerControl}<label className={styles.checkbox}><input type="checkbox" checked={showCancelled} disabled={disabled} onChange={event => { setShowCancelled(event.target.checked); setOwnerAppointmentId(""); }} />Show cancelled appointments</label></div></>}
+        calendar={ownerReady ? <SalonOwnerSchedule
+          date={selectedDate} timezone={data.timezone} practitioners={data.practitioners}
+          hours={data.hours} timeBlocks={data.timeBlocks} appointments={data.appointments}
+          practitionerId={practitionerId} showCancelled={showCancelled}
+          selectedAppointmentId={selectedOwnerAppointment?.id ?? null} disabled={disabled}
+          onSelectAppointment={id => { if (!disabled && data.appointments.some(appointment => appointment.id === id)) { mutation.setError(""); setOwnerAppointmentId(id); } }}
+        /> : <p className={styles.loading} role="status">Loading this day’s schedule…</p>}
+        day={ownerDayPanel}
+      /> : section === "calendar" ? (
+        <>
+          <div className={styles.toolbar}>
+            <p className={styles.help}>
+              {data.canOrganise ? "Business appointments" : "Your appointments"}{" "}
+              · {data.timezone}
+            </p>
+            <CovieButton
+              tone="neutral"
+              disabled={disabled}
+              onClick={() => {
+                void resource.refresh();
+                void slots.refresh();
+              }}
+            >
+              Refresh salon
+            </CovieButton>
+          </div>
+          {initialRecord ? (
+            <section
+              className={styles.stack}
+              aria-label="Appointment from Personal"
+            >
+              {resource.loading ? (
+                <p role="status">Checking the latest appointment…</p>
+              ) : linked ? (
+                appointmentCard(linked)
+              ) : (
+                <CovieNotice>
+                  This appointment is no longer available here. Refresh Personal
+                  for the latest items.
+                </CovieNotice>
+              )}
+            </section>
+          ) : null}
+          <div className={styles.planner}>
+            <SalonDayPicker
+              date={selectedDate}
+              timezone={data.timezone}
+              disabled={mutation.busy}
+              onChange={chooseDate}
+            />
+            <div className={styles.stack}>
+              <CovieSectionHeader title={salonDateLabel(selectedDate)} />
+              <label className={styles.field}>
+                <span>Practitioner</span>
+                <CovieSelect
+                  value={practitionerId}
+                  disabled={disabled}
+                  onChange={(event) => {
+                    setPractitioner(event.target.value);
+                    setSlot(null);
+                  }}
+                >
+                  <option value="">
+                    {data.canOrganise ? "All practitioners" : "My appointments"}
+                  </option>
+                  {activeProfiles.map((person) => (
+                    <option key={person.id} value={person.id}>
+                      {person.displayName}
+                    </option>
+                  ))}
+                </CovieSelect>
+              </label>
+              <label className={styles.checkbox}>
+                <input
+                  type="checkbox"
+                  checked={showCancelled}
+                  onChange={(event) => setShowCancelled(event.target.checked)}
+                />
+                Show cancelled appointments
+              </label>
+              {resource.loading ? (
+                <p role="status">Loading this day’s appointments…</p>
+              ) : entries.length ? (
+                <section className={styles.stack} aria-label="Day appointments">
+                  {entries.map(appointmentCard)}
+                </section>
+              ) : (
+                <CovieEmptyState
+                  title="No appointments on this day"
+                  description="Choose a service below to find a time."
+                />
+              )}
+              {!resource.loading &&
+                data.timeBlocks
+                  .filter(
+                    (block) =>
+                      !practitionerId ||
+                      block.practitionerId === practitionerId,
+                  )
+                  .map((block) => (
+                    <CovieRecordCard key={block.id}>
+                      <strong>
+                        Blocked time ·{" "}
+                        {
+                          data.practitioners.find(
+                            (person) => person.id === block.practitionerId,
+                          )?.displayName
+                        }
+                      </strong>
+                      <p>
+                        {salonTime(block.start, data.timezone, true)} to{" "}
+                        {salonTime(block.end, data.timezone, true)}
+                      </p>
+                      {block.reason ? (
+                        <p className={styles.help}>{block.reason}</p>
+                      ) : null}
+                    </CovieRecordCard>
+                  ))}
+              {bookingPanel}
+            </div>
+          </div>
         </>
-      )}
+      ) : section === "updates" ? updatesPanel : tool === "services" ? servicesPanel : tool === "booking-settings" ? settingsPanel : teamPanel}
+      {ownerToolOpen ? <CovieDialog
+        id="salon-owner-tool" title={ownerTool?.label ?? (ownerPanel.panel === "book" ? "Book an appointment" : "Appointment updates")}
+        size="lg" busy={mutation.busy} onClose={ownerPanel.close}
+        footer={<CovieButton tone="neutral" disabled={mutation.busy} onClick={ownerPanel.close}>Back to calendar</CovieButton>}
+      >
+        <div className={styles.stack}>
+          {mutation.error ? <CovieNotice tone="danger">{mutation.error}</CovieNotice> : null}
+          {notice ? <CovieNotice tone="teal">{notice}</CovieNotice> : null}
+          {inviteCode && ownerPanel.panel === "team" ? <CovieNotice tone="violet"><p>Single-use team invitation. Share it with the intended person.</p><p className={styles.code}>{inviteCode}</p><CovieButton tone="neutral" onClick={() => setInviteCode("")}>Dismiss code</CovieButton></CovieNotice> : null}
+          {ownerPanel.panel === "team" ? teamPanel : ownerPanel.panel === "services" ? servicesPanel : ownerPanel.panel === "booking-settings" ? settingsPanel : ownerPanel.panel === "updates" ? updatesPanel : <>
+            <div className={styles.ownerBookingFilters}>{ownerDateControls}{ownerPractitionerControl}</div>
+            <p className={styles.help}>Choose a service to check available times for {salonDateLabel(selectedDate)}. Times use {data.timezone}.</p>
+            {bookingPanel}
+          </>}
+        </div>
+      </CovieDialog> : null}
+      {editorContextAllowed ? <>
       {slot && service && practitioner ? (
         <AppointmentConfirmation
           slot={slot}
@@ -905,9 +1021,11 @@ export function SalonPage({
         }
         cancelLabel="Keep it"
         busy={mutation.busy}
+        confirmDisabled={disabled}
         onCancel={() => setConfirmation(null)}
         onConfirm={() => void confirm()}
       />
+      </> : null}
     </div>
   );
 }

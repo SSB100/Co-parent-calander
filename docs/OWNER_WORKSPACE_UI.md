@@ -52,3 +52,21 @@ Each slice requires role/history regression checks and visual measurements befor
 - Authority: current owner role required; stale selection, changed membership, removed resources and failed refresh disable slot confirmation; denied embedded access clears the parent workspace
 - Data: no schema changes, copied events, recurrence, backfill or new permissions
 - Responsive behavior: shared fluid owner layout, readable hour bands and at least44px controls; narrow and short windows use natural flow
+
+
+## Salon owner slice manifest
+
+- Scope: strict `role === "owner"` calendar branch; managers and practitioners keep the existing planner and direct organiser pages
+- Visible controls: Team, Services, Booking settings, Updates, Book an appointment, Refresh, day navigation, Today, labelled date/practitioner filters and cancelled appointments
+- Main view: practitioner/day timetable with sticky time/practitioner headings, a bounded desktop scroll region and a current authorized appointment detail panel
+- Timeline records: service and buffer intervals use the complete `busyStart`/`busyEnd` overlap, exclusive endpoints and actual timezone instants, including DST folds/gaps; inactive and missing profiles with retained records remain visible
+- Density and access: one full appointment card at its first displayed row; subsequent rows use compact selectable controls with client identity and exact row segment ranges. Full date, offset, status and practitioner remain in accessible labels. Appointment segments use explicit labels rather than incorrectly proportioned strips within stacked cards
+- Privacy: timeline and day summaries project display fields at runtime; contact details, notes and block reasons stay outside the timeline. Selected detail resolves its record against each authorized snapshot, preserving current capabilities
+- Booking authority: blank timetable space is descriptive, never an available slot. The existing service/practitioner selection calls the existing slot endpoint; its exact returned candidate opens the existing confirmation. Reviewed terms, versions, request IDs, reschedule and cancellation flows remain authoritative
+- Organising: the existing team, services, settings, booking and update content is reused in history-backed Covie dialogs. Back, Forward, Close and direct panel URLs preserve the calendar/source query; leaving a panel drops nested drafts
+- Freshness: the owner timeline mounts only when loading has finished and the snapshot date matches the selected date; old private detail is hidden during a day change. Failed revalidation clears the workspace; role reduction closes owner tools and restores the existing non-owner planner
+- Source links: Personal-selected appointments remain inspectable even if cancelled or on an inactive profile; removed records show an unavailable message instead of stale details
+- Responsive behavior: the shared owner shell supplies remaining viewport height at widths at least 1100px and heights at least 560px. Narrower, shorter and zoomed windows use natural document flow; horizontal timeline overflow stays contained and controls remain at least 44px
+- Data: no schema, environment, security, public-booking, recurrence, Staff or co-parenting changes
+
+Focused verification: `npm run test:salon-owner` covers the pure model, timeline DOM and owner page/history/authority flows. The existing Salon schema/slot/interface/component suites also remain relevant. DOM tests do not measure browser layout. Production-first hosted checks and browser QA must separately verify 1440×900, 1100×560, narrow and short windows, zoom, long names, many practitioners, overlapping appointments, selected-detail overflow and keyboard navigation before release is considered verified.

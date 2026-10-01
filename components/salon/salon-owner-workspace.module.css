@@ -1,0 +1,68 @@
+.schedule { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; color: var(--covie-ink); }
+.context { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 8px 16px; min-width: 0; }
+.context h2 { margin: 0; font-size: 18px; font-weight: 750; line-height: 1.4; }
+.context p { margin: 4px 0 0; font-size: 14px; color: var(--covie-text-secondary); overflow-wrap: anywhere; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 0; margin: 0; list-style: none; }
+.legend li { display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1.5; }
+.serviceKey, .bufferKey, .blockKey, .workingKey { display: inline-block; width: 12px; height: 12px; flex: 0 0 12px; border: 1px solid var(--covie-violet); border-radius: 3px; background: var(--covie-violet-soft); }
+.bufferKey { border: 2px dashed var(--covie-text-secondary); background: var(--covie-cream); }
+.blockKey { border-color: var(--covie-ink); background: var(--covie-muted); }
+.workingKey { border-color: var(--covie-teal); background: var(--covie-teal-pale); }
+.help, .notice { margin: 0; color: var(--covie-text-secondary); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.notice { padding: 10px 12px; border: 1px solid var(--covie-border); border-radius: var(--covie-radius-compact-card); background: var(--covie-cream); font-size: 14px; }
+.canvas { min-width: 0; overflow-x: auto; overscroll-behavior: contain; scrollbar-gutter: stable; border: 1px solid var(--covie-border); border-radius: var(--covie-radius-compact-card); background: white; }
+.canvas:focus-visible { outline: 3px solid var(--covie-focus); outline-offset: 2px; }
+.table { width: 100%; min-width: calc(96px + var(--practitioner-count) * 264px); table-layout: fixed; border-spacing: 0; border-collapse: separate; text-align: left; font-size: 14px; }
+.table th, .table td { border-right: 1px solid var(--covie-border); border-bottom: 1px solid var(--covie-border); vertical-align: top; }
+.table th:last-child, .table td:last-child { border-right: 0; }
+.table tbody tr:last-child > * { border-bottom: 0; }
+.table thead th { position: sticky; top: 0; z-index: 3; padding: 10px 12px; background: var(--covie-violet-pale); }
+.table thead strong { display: block; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.table thead span { display: block; margin-top: 3px; font-size: 12px; font-weight: 400; line-height: 1.5; color: var(--covie-text-secondary); overflow-wrap: anywhere; }
+.table thead .profileStatus { color: var(--covie-ink); font-weight: 650; }
+.table .timeHeading { width: 96px; left: 0; z-index: 4; }
+.table .time { position: sticky; left: 0; z-index: 2; width: 96px; padding: 10px 8px; background: var(--covie-cream); }
+.time strong { display: block; font-size: 14px; line-height: 1.5; }
+.time > span:not(.srOnly) { display: block; margin-top: 2px; font-size: 12px; font-weight: 400; line-height: 1.5; color: var(--covie-text-secondary); }
+.table td { padding: 0; }
+.cell { position: relative; display: grid; min-width: 0; min-height: 76px; height: 100%; align-content: start; gap: 6px; padding: 6px 6px 6px 16px; }
+.working { position: absolute; inset: 0 auto 0 0; width: 5px; }
+.working > span { position: absolute; left: 0; width: 100%; background: var(--covie-teal-pale); border-left: 2px solid var(--covie-teal); }
+.record { position: relative; min-width: 0; }
+.appointment, .block { display: flex; flex-direction: column; align-items: stretch; gap: 3px; width: 100%; min-width: 44px; min-height: 52px; padding: 8px 10px; border: 1px solid var(--covie-violet-soft); border-radius: var(--covie-radius-sm); background: var(--covie-violet-pale); color: var(--covie-ink); font: inherit; line-height: 1.4; text-align: left; overflow-wrap: anywhere; }
+.appointment { cursor: pointer; }
+.recordHeading, .block strong { font-size: 14px; line-height: 1.5; }
+.recordHeading strong, .block strong { font-weight: 700; }
+.clientName { font-size: 14px; font-weight: 500; }
+.exactTime, .status, .bufferOnly { font-size: 12px; line-height: 1.5; }
+.status, .bufferOnly { font-weight: 650; }
+.appointment[data-status="cancelled"] { border-color: var(--covie-text-secondary); border-style: dashed; background: var(--covie-cream); }
+.appointment[aria-pressed="true"] { border-color: var(--covie-ink); box-shadow: inset 0 0 0 1px var(--covie-ink); }
+.appointment:hover:not(:disabled) { border-color: var(--covie-violet); background: var(--covie-violet-soft); }
+.appointment:focus-visible { outline: 3px solid var(--covie-focus); outline-offset: 2px; }
+.appointment:disabled { cursor: default; opacity: .65; }
+.block { border-color: var(--covie-border); background: var(--covie-muted); }
+.continuation, .blockContinuation { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 2px; min-width: 44px; min-height: 44px; width: 100%; margin: 0; padding: 5px 8px; font-size: 12px; line-height: 1.5; color: var(--covie-text-secondary); overflow-wrap: anywhere; text-align: left; }
+.continuation { border: 1px solid var(--covie-violet-soft); border-radius: var(--covie-radius-sm); background: var(--covie-violet-pale); cursor: pointer; }
+.continuation strong { font-size: 13px; color: var(--covie-ink); font-weight: 650; }
+.continuation:hover:not(:disabled) { border-color: var(--covie-violet); background: var(--covie-violet-soft); }
+.continuation:focus-visible { outline: 3px solid var(--covie-focus); outline-offset: 2px; }
+.continuation:disabled { opacity: .65; cursor: default; }
+.continuation[aria-pressed="true"] { border-color: var(--covie-ink); box-shadow: inset 0 0 0 1px var(--covie-ink); }
+.continuation[data-status="cancelled"] { border-style: dashed; border-color: var(--covie-text-secondary); background: var(--covie-cream); }
+.segmentSummary { font-size: 12px; line-height: 1.5; color: var(--covie-text-secondary); }
+.blockContinuation { border-left: 2px solid var(--covie-ink); background: var(--covie-warm); }
+.record[data-selected="true"] .continuation { color: var(--covie-ink); background: var(--covie-violet-pale); }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* The parent OwnerCalendarWorkspace supplies the bounded remaining height.
+   Smaller/shorter windows retain normal vertical document flow. */
+@media (min-width: 1100px) and (min-height: 560px) {
+  .schedule { height: 100%; }
+  .context, .help, .notice { flex: 0 0 auto; }
+  .canvas { min-height: 180px; flex: 1 1 0; overflow: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas { scroll-behavior: auto; }
+}
