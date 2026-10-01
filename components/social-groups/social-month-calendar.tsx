@@ -20,7 +20,7 @@ export function SocialMonthCalendar({ month, days, eventsByDay, selectedDate, to
       {days.map((date) => {
         const inMonth = date.startsWith(month);
         const events = inMonth ? eventsByDay.get(date) ?? [] : [];
-        return <button key={date} type="button" data-date={date} data-in-month={inMonth} aria-current={date === today ? "date" : undefined} aria-pressed={date === selectedDate} tabIndex={date === selectedDate ? 0 : -1} disabled={disabled} aria-label={inMonth ? `${socialDateLabel(date, true)}, ${events.length} ${events.length === 1 ? "event" : "events"}` : `View ${socialDateLabel(date, true)}`} onClick={() => onSelectDate(date)} onKeyDown={(event) => {
+        return <button key={date} type="button" data-date={date} data-in-month={inMonth} data-has-events={events.length > 0} aria-current={date === today ? "date" : undefined} aria-pressed={date === selectedDate} tabIndex={date === selectedDate ? 0 : -1} disabled={disabled} aria-label={inMonth ? `${socialDateLabel(date, true)}, ${events.length} ${events.length === 1 ? "event" : "events"}` : `View ${socialDateLabel(date, true)}`} onClick={() => onSelectDate(date)} onKeyDown={(event) => {
           const direction = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key];
           if (direction !== undefined) { event.preventDefault(); pendingFocus.current = true; onSelectDate(shiftSocialDate(date, direction)); }
         }}>
@@ -31,3 +31,4 @@ export function SocialMonthCalendar({ month, days, eventsByDay, selectedDate, to
     </div>
   </div>;
 }
+

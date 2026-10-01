@@ -23,7 +23,7 @@ export function PersonalMonthCalendar({ month, days, itemsByDay, selectedDate, t
         const confirmed = items.filter((item) => item.state === "confirmed").length;
         const tentative = items.filter((item) => item.state === "tentative").length;
         const care = items.filter((item) => item.state === "background").length;
-        return <button key={date} type="button" data-date={date} data-in-month={inMonth} disabled={!isPersonalMonth(date.slice(0, 7))} aria-current={date === today ? "date" : undefined} aria-pressed={date === selectedDate} tabIndex={date === selectedDate ? 0 : -1} aria-label={`${personalDateLabel(date, true)}${inMonth ? `, ${confirmed} confirmed, ${tentative} tentative, ${care} care` : ", view month"}`} onClick={() => onSelectDate(date)} onKeyDown={(event) => {
+        return <button key={date} type="button" data-date={date} data-in-month={inMonth} data-state={confirmed ? "confirmed" : tentative ? "tentative" : care ? "background" : "empty"} disabled={!isPersonalMonth(date.slice(0, 7))} aria-current={date === today ? "date" : undefined} aria-pressed={date === selectedDate} tabIndex={date === selectedDate ? 0 : -1} aria-label={`${personalDateLabel(date, true)}${inMonth ? `, ${confirmed} confirmed, ${tentative} tentative, ${care} care` : ", view month"}`} onClick={() => onSelectDate(date)} onKeyDown={(event) => {
           let direction = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key];
           if (event.key === "Home") direction = -(new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7;
           if (event.key === "End") direction = 6 - (new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7;
@@ -37,3 +37,4 @@ export function PersonalMonthCalendar({ month, days, itemsByDay, selectedDate, t
     </div>
   </div>;
 }
+

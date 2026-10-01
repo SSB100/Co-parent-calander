@@ -2,6 +2,7 @@
 
 import {
   Bell,
+  House,
   CalendarCheck2,
   CalendarDays,
   Building2,
@@ -48,6 +49,7 @@ export function TemplateWorkspaceNav({
 
   return (
     <nav
+      data-calendar-navigation
       className="fixed z-50 bg-[#FFF9F2] lg:inset-y-0 lg:left-0 lg:w-[252px] lg:border-r-2 lg:border-[#243139] lg:p-4 max-lg:inset-x-0 max-lg:bottom-0 max-lg:border-t-2 max-lg:border-[#243139] max-lg:px-2 max-lg:pt-1 max-lg:pb-[max(8px,env(safe-area-inset-bottom))]"
       aria-label="Main navigation"
     >
@@ -55,7 +57,7 @@ export function TemplateWorkspaceNav({
         <CovieBrand />
       </Link>
 
-      <div className={staffRosterMode ? `grid ${staffMode ? "grid-cols-4" : "grid-cols-3"} gap-1 lg:flex lg:flex-col lg:gap-2` : "flex gap-2 lg:flex-col max-lg:justify-around"}>
+      <div className={staffRosterMode ? `grid ${staffMode ? "grid-cols-4" : "grid-cols-4"} gap-1 lg:flex lg:flex-col lg:gap-2` : "flex gap-2 lg:flex-col max-lg:justify-around"}>
         <Link
           href={basePath}
           aria-current={activeSection === "calendar" ? "page" : undefined}
@@ -68,6 +70,8 @@ export function TemplateWorkspaceNav({
           <CalendarDays size={20} aria-hidden="true" />
           <span>{staffMode ? "My roster" : "Calendar"}</span>
         </Link>
+
+        {!staffMode ? <Link href="/personal" prefetch={false} className={`${destinationClass} lg:hidden`}><House size={20} aria-hidden="true" /><span>Personal</span></Link> : null}
 
         {staffRosterMode && staffMode ? (
           <>
@@ -131,7 +135,7 @@ export function TemplateWorkspaceNav({
                 key={key}
                 href={`${basePath}/organiser/${key}`}
                 aria-current={activeSection === "organiser" && activeToolKey === key ? "page" : undefined}
-                className={`${destinationClass} ${activeSection === "organiser" && activeToolKey === key ? "bg-[#FF6B5F] text-[#243139]" : ""}`}
+                className={`${destinationClass} max-lg:hidden ${activeSection === "organiser" && activeToolKey === key ? "bg-[#FF6B5F] text-[#243139]" : ""}`}
               >
                 <Icon size={20} aria-hidden="true" />
                 <span className="min-w-0 break-words text-center text-[11px] leading-3 lg:text-left lg:text-sm lg:leading-normal">{label}</span>
@@ -140,10 +144,10 @@ export function TemplateWorkspaceNav({
           </>
         ) : null}
 
-        {!staffRosterMode && !staffMode && organiserItems.length > 0 ? (
+        {!staffMode && organiserItems.length > 0 ? (
           <details
           ref={organiserRef}
-          className="relative flex-1 lg:flex-none"
+          className={`relative flex-1 lg:flex-none ${staffRosterMode ? "lg:hidden" : ""}`}
         >
           <summary
             aria-current={organiserActive ? "page" : undefined}
@@ -188,3 +192,4 @@ export function TemplateWorkspaceNav({
     </nav>
   );
 }
+

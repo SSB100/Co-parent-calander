@@ -175,3 +175,27 @@ test("Personal opens on the month and keeps attention beside the chosen day", as
   assert.match(panel.textContent!, /Today’s court/);
   assert.equal(element<HTMLInputElement>('input[name="sourceId"]', panel).value, "today");
 });
+
+test("Personal footer switches views and returns to source calendars", async () => {
+  await render();
+  await settle(() => assert.match(container.textContent!, /Today’s court/));
+  const nav = element('nav[aria-label="Personal navigation"]');
+  const controls = [...nav.querySelectorAll('button')];
+  const scroll = window.scrollTo;
+  const frame = window.requestAnimationFrame;
+  window.scrollTo = () => {};
+  window.requestAnimationFrame = () => 0;
+  try {
+    await click(controls[1]);
+    assert.ok(container.querySelector('section[aria-label="Monthly agenda"]'));
+    assert.equal(controls[1].getAttribute('aria-pressed'), 'true');
+    await click(controls[2]);
+    assert.match(element('#personal-day-context').textContent!, /Review task/);
+    assert.equal(controls[2].getAttribute('aria-pressed'), 'true');
+    await click(controls[0]);
+    assert.match(element('#personal-day-context').textContent!, /Today’s court/);
+    assert.doesNotMatch(element('#personal-day-context').textContent!, /Review task/);
+    assert.equal(nav.querySelector('a')?.getAttribute('href'), '/calendar');
+    assert.ok(container.querySelector('a[aria-label="Covie Personal"]'));
+  } finally { window.scrollTo = scroll; window.requestAnimationFrame = frame; }
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, LockKeyhole, Plus, RefreshCw, X } from "lucide-react";
+import { ArrowUpRight, List, Bell, House, CalendarDays, ChevronLeft, ChevronRight, LockKeyhole, Plus, RefreshCw, X } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { useFormStatus } from "react-dom";
@@ -13,6 +13,8 @@ import { PersonalMonthCalendar } from "./personal-month-calendar";
 import { isPersonalMonth, personalDateLabel, personalFirstMonth, personalItemTime, personalItemsByDay, personalLastMonth, personalMonthDays, personalMonthLabel, personalOverview, personalTimezoneOptions, shiftPersonalDate, shiftPersonalMonth } from "./personal-ui";
 import { usePersonalCalendar } from "./use-personal-calendar";
 import styles from "./personal.module.css";
+import { CalendarIdentity } from "@/components/workspace/calendar-identity";
+import identityStyles from "@/components/workspace/calendar-identity.module.css";
 
 const viewOptions = [{ value: "month", label: "Month" }, { value: "agenda", label: "Agenda" }, { value: "overview", label: "Overview" }] as const;
 const stateInfo = {
@@ -107,8 +109,9 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
   const openToday = () => { selectDate(localDateInTimeZone(timezone)); setView("month"); };
 
   return <CoviePage className={styles.page}>
+    <CalendarIdentity />
     <CoviePageHeader accent="coral" title="Personal" context="Your commitments, together in one place." actions={<CoviePageActions className={styles.headerActions}>
-      <Link href="/calendar" prefetch={false} className="covie-button covie-primary-action">Your calendars</Link>
+      <Link href="/calendar" prefetch={false} className={`covie-button covie-primary-action ${styles.desktopCalendarLink}`}>Your calendars</Link>
       <Link href="/onboarding" prefetch={false} className="covie-button covie-action-secondary"><Plus size={16} aria-hidden="true" />Add calendar</Link>
 
     </CoviePageActions>} />
@@ -182,7 +185,7 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
             <PersonalMonthCalendar month={month} days={days} itemsByDay={itemsByDay} selectedDate={selectedDate} today={today} onSelectDate={selectDate} />
             <p className={styles.help}>Choose a day to see your commitments. Use arrow keys to move around the calendar.</p>
           </div>
-          <section className={styles.dayPanel} aria-label="Selected day">
+          <section id="personal-day-context" className={styles.dayPanel} aria-label="Selected day">
             <CovieSegmentedControl value={dayContext} onChange={setDayContext} ariaLabel="Personal day context" options={[{ value: "day", label: "Your day" }, { value: "attention", label: `Attention${data?.attention.length ? ` (${data.attention.length})` : ""}` }]} />
             {dayContext === "attention" ? <PersonalAttention data={data} sources={sourceMap} timezone={timezone} loading={loading} compact={false} /> : <>
             <CovieSectionHeader title={personalDateLabel(selectedDate)} actions={<div className={styles.dayControls}><CovieIconButton aria-label="Previous day" disabled={selectedDate === `${personalFirstMonth}-01`} onClick={() => selectDate(shiftPersonalDate(selectedDate, -1))}><ChevronLeft size={18} aria-hidden="true" /></CovieIconButton><CovieIconButton aria-label="Next day" disabled={selectedDate === `${personalLastMonth}-31`} onClick={() => selectDate(shiftPersonalDate(selectedDate, 1))}><ChevronRight size={18} aria-hidden="true" /></CovieIconButton></div>} />
@@ -198,5 +201,11 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
       {view === "agenda" ? <PersonalAttention data={data} sources={sourceMap} timezone={timezone} loading={loading} compact={false} /> : null}
       </>}
     </>}
+    <nav className={identityStyles.footer} aria-label="Personal navigation">
+      <button type="button" aria-pressed={view === "month" && dayContext !== "attention"} onClick={() => { setView("month"); setDayContext("day"); window.scrollTo({ top: 0, behavior: "instant" }); }}><CalendarDays size={20} aria-hidden="true" />Month</button>
+      <button type="button" aria-pressed={view === "agenda"} onClick={() => { setView("agenda"); window.scrollTo({ top: 0, behavior: "instant" }); }}><List size={20} aria-hidden="true" />Agenda</button>
+      <button type="button" aria-pressed={view === "month" && dayContext === "attention"} onClick={() => { setView("month"); setDayContext("attention"); window.requestAnimationFrame(() => document.getElementById("personal-day-context")?.scrollIntoView({ block: "start", behavior: "instant" })); }}><Bell size={20} aria-hidden="true" />Attention</button>
+      <Link href="/calendar" prefetch={false}><House size={20} aria-hidden="true" />Calendars</Link>
+    </nav>
   </CoviePage>;
 }
