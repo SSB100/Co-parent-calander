@@ -7,7 +7,7 @@
 .serviceKey, .bufferKey, .blockKey, .workingKey { display: inline-block; width: 12px; height: 12px; flex: 0 0 12px; border: 1px solid var(--covie-violet); border-radius: 3px; background: var(--covie-violet-soft); }
 .bufferKey { border: 2px dashed var(--covie-text-secondary); background: var(--covie-cream); }
 .blockKey { border-color: var(--covie-ink); background: var(--covie-muted); }
-.workingKey { border-color: var(--covie-teal); background: var(--covie-teal-pale); }
+.workingKey { border-color: var(--covie-teal); background: var(--covie-teal-soft); }
 .help, .notice { margin: 0; color: var(--covie-text-secondary); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .notice { padding: 10px 12px; border: 1px solid var(--covie-border); border-radius: var(--covie-radius-compact-card); background: var(--covie-cream); font-size: 14px; }
 .canvas { min-width: 0; overflow-x: auto; overscroll-behavior: contain; scrollbar-gutter: stable; border: 1px solid var(--covie-border); border-radius: var(--covie-radius-compact-card); background: white; }
@@ -16,7 +16,7 @@
 .table th, .table td { border-right: 1px solid var(--covie-border); border-bottom: 1px solid var(--covie-border); vertical-align: top; }
 .table th:last-child, .table td:last-child { border-right: 0; }
 .table tbody tr:last-child > * { border-bottom: 0; }
-.table thead th { position: sticky; top: 0; z-index: 3; padding: 10px 12px; background: var(--covie-violet-pale); }
+.table thead th { position: sticky; top: 0; z-index: 3; padding: 10px 12px; background: var(--covie-violet-soft); }
 .table thead strong { display: block; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
 .table thead span { display: block; margin-top: 3px; font-size: 12px; font-weight: 400; line-height: 1.5; color: var(--covie-text-secondary); overflow-wrap: anywhere; }
 .table thead .profileStatus { color: var(--covie-ink); font-weight: 650; }
@@ -27,9 +27,9 @@
 .table td { padding: 0; }
 .cell { position: relative; display: grid; min-width: 0; min-height: 76px; height: 100%; align-content: start; gap: 6px; padding: 6px 6px 6px 16px; }
 .working { position: absolute; inset: 0 auto 0 0; width: 5px; }
-.working > span { position: absolute; left: 0; width: 100%; background: var(--covie-teal-pale); border-left: 2px solid var(--covie-teal); }
+.working > span { position: absolute; left: 0; width: 100%; background: var(--covie-teal-soft); border-left: 2px solid var(--covie-teal); }
 .record { position: relative; min-width: 0; }
-.appointment, .block { display: flex; flex-direction: column; align-items: stretch; gap: 3px; width: 100%; min-width: 44px; min-height: 52px; padding: 8px 10px; border: 1px solid var(--covie-violet-soft); border-radius: var(--covie-radius-sm); background: var(--covie-violet-pale); color: var(--covie-ink); font: inherit; line-height: 1.4; text-align: left; overflow-wrap: anywhere; }
+.appointment, .block { display: flex; flex-direction: column; align-items: stretch; gap: 3px; width: 100%; min-width: 44px; min-height: 52px; padding: 8px 10px; border: 1px solid var(--covie-violet-soft); border-radius: var(--covie-radius-sm); background: var(--covie-violet-soft); color: var(--covie-ink); font: inherit; line-height: 1.4; text-align: left; overflow-wrap: anywhere; }
 .appointment { cursor: pointer; }
 .recordHeading, .block strong { font-size: 14px; line-height: 1.5; }
 .recordHeading strong, .block strong { font-weight: 700; }
@@ -43,7 +43,7 @@
 .appointment:disabled { cursor: default; opacity: .65; }
 .block { border-color: var(--covie-border); background: var(--covie-muted); }
 .continuation, .blockContinuation { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 2px; min-width: 44px; min-height: 44px; width: 100%; margin: 0; padding: 5px 8px; font-size: 12px; line-height: 1.5; color: var(--covie-text-secondary); overflow-wrap: anywhere; text-align: left; }
-.continuation { border: 1px solid var(--covie-violet-soft); border-radius: var(--covie-radius-sm); background: var(--covie-violet-pale); cursor: pointer; }
+.continuation { border: 1px solid var(--covie-violet-soft); border-radius: var(--covie-radius-sm); background: var(--covie-violet-soft); cursor: pointer; }
 .continuation strong { font-size: 13px; color: var(--covie-ink); font-weight: 650; }
 .continuation:hover:not(:disabled) { border-color: var(--covie-violet); background: var(--covie-violet-soft); }
 .continuation:focus-visible { outline: 3px solid var(--covie-focus); outline-offset: 2px; }
@@ -52,7 +52,7 @@
 .continuation[data-status="cancelled"] { border-style: dashed; border-color: var(--covie-text-secondary); background: var(--covie-cream); }
 .segmentSummary { font-size: 12px; line-height: 1.5; color: var(--covie-text-secondary); }
 .blockContinuation { border-left: 2px solid var(--covie-ink); background: var(--covie-warm); }
-.record[data-selected="true"] .continuation { color: var(--covie-ink); background: var(--covie-violet-pale); }
+.record[data-selected="true"] .continuation { color: var(--covie-ink); background: var(--covie-violet-soft); }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 /* The parent OwnerCalendarWorkspace supplies the bounded remaining height.
@@ -66,3 +66,4 @@
 @media (prefers-reduced-motion: reduce) {
   .canvas { scroll-behavior: auto; }
 }
+

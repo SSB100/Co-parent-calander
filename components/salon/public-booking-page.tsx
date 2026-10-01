@@ -17,6 +17,7 @@ import { AppointmentConfirmation } from "./appointment-confirmation";
 import { useSalonMutation, useSalonResource } from "./use-salon-resource";
 import { salonDateLabel, salonPrice, salonTime } from "./salon-ui";
 import styles from "./salon.module.css";
+import { CalendarIdentity } from "@/components/workspace/calendar-identity";
 export function PublicBookingPage({
   calendarId,
   signedIn,
@@ -61,6 +62,7 @@ export function PublicBookingPage({
   const returnTo = `/booking/${calendarId}${signInQuery.size ? `?${signInQuery}` : ""}`;
   return (
     <CoviePage className={`${styles.publicPage} ${styles.customerBooking}`}>
+      <CalendarIdentity />
       <CoviePageHeader
         accent="teal"
         title={data?.businessName || "Book an appointment"}
@@ -238,4 +240,3 @@ export function PublicBookingPage({
     </CoviePage>
   );
 }
-

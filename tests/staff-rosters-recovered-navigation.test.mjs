@@ -14,7 +14,7 @@ test("Staff Rosters has direct manager destinations and personal staff destinati
   assert.match(nav, /staffRosterMode && !staffMode/);
   assert.match(nav, /staffRosterMode && staffMode/);
   assert.match(nav, /Approvals" : "Updates"/);
-  assert.match(nav, /!staffRosterMode && !staffMode/);
+  assert.match(nav, /!staffMode && organiserItems.length > 0/);
   assert.doesNotMatch(nav, /Start your roster|showStaffRosterGuide/);
 });
 
@@ -40,3 +40,4 @@ test("Leave and Locations screens retain existing endpoints without showing lega
   assert.match(availabilityRoute, /getAvailability/);
   assert.match(structureRoute, /getRolesAndLocations/);
 });
+

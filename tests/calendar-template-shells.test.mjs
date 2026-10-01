@@ -50,7 +50,7 @@ test("new calendar pages reuse Covie Core while remaining separate from co-paren
   assert.match(templateNav, /useDismissibleDetails/);
   assert.match(templateNav, /<span>\{staffMode \? "My roster" : "Calendar"\}<\/span>/);
   assert.match(templateNav, /staffRosterMode && !staffMode \? "Approvals" : "Updates"/);
-  assert.match(templateNav, /!staffRosterMode && !staffMode && organiserItems.length > 0 \? \([\s\S]*<span>Organiser<\/span>/);
+  assert.match(templateNav, /!staffMode && organiserItems.length > 0 \? \([\s\S]*<span>Organiser<\/span>/);
   assert.match(templateNav, /bottom-\[calc\(100%\+10px\)\]/);
 
   assert.match(coParentNav, /export function WorkspaceNav\(\{ active, actions \}/);
@@ -162,3 +162,4 @@ test("template shells remain bound to selected typed calendars", async () => {
   assert.match(core, /export const calendarType = pgEnum/);
   assert.match(core, /type: calendarType\("calendar_type"\)/);
 });
+
