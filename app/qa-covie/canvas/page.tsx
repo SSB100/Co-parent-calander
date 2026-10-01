@@ -7,6 +7,9 @@ import { SalonPage } from "@/components/salon/salon-page";
 import { PublicBookingPage } from "@/components/salon/public-booking-page";
 import { OwnAppointmentPage } from "@/components/salon/own-appointment-page";
 import { TemplateWorkspaceNav } from "@/components/templates/template-workspace-nav";
+import { CalendarIdentity } from "@/components/workspace/calendar-identity";
+import { workspaceOrganiserTools } from "@/lib/templates/workspace-navigation";
+import { UsersRound, CalendarDays, Settings, LayoutGrid } from "lucide-react";
 import { CoviePage } from "@/components/ui/covie";
 import { calendarId, date, personalFixture, socialFixture, facilitiesFixture, salonFixture } from "./fixtures";
 import styles from "@/components/workspace/owner-calendar-workspace.module.css";
@@ -63,7 +66,11 @@ export default function Canvas() {
   const content = kind === "personal" ? <PersonalCalendar initialData={personal} /> : kind === "salon-customer" ? <PublicBookingPage calendarId={calendarId} signedIn defaultName="Synthetic Client" initialDate={date} initialService="30000000-0000-4000-8000-000000000001" /> : kind === "appointment" ? <OwnAppointmentPage appointmentId="40000000-0000-4000-8000-000000000001" /> : kind.startsWith("social") ? <SocialGroupsPage calendarId={calendarId} section="calendar" initialDate={date} /> : kind.startsWith("facilities") ? <FacilitiesPage calendarId={calendarId} section="calendar" initialDate={date} /> : <SalonPage calendarId={calendarId} section="calendar" initialDate={date} />;
   const standalone = ["personal", "salon-customer", "appointment"].includes(kind);
   const basePath = `/calendar-types/${kind.startsWith("social") ? "social-groups" : kind.startsWith("facilities") ? "shared-facilities" : "salon-bookings"}`;
+  const calendarType = kind.startsWith("social") ? "social_groups" : kind.startsWith("facilities") ? "shared_facilities" : "salon_bookings";
+  const role = kind.endsWith("viewer") ? "viewer" : kind.endsWith("member") ? "member" : "owner";
+  const icons = { people: UsersRound, calendar: CalendarDays, settings: Settings, grid: LayoutGrid };
+  const organiserItems = workspaceOrganiserTools(calendarType, role).map(tool => ({ ...tool, icon: icons[tool.icon] }));
   return <div onClickCapture={event => { if (event.target instanceof HTMLElement && event.target.closest("a")) event.preventDefault(); }} onSubmitCapture={event => { if (kind === "personal") event.preventDefault(); }} className={standalone ? "min-h-screen bg-[#FFF9F2]" : "min-h-screen bg-[#FFF9F2] lg:pl-[252px]"}>
-    {standalone ? content : <><TemplateWorkspaceNav basePath={basePath} organiserItems={[]} activeSection="calendar" /><CoviePage width="wide" className={`${styles.page} pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6`}><div className={styles.calendarHeader}><h1 className="text-2xl font-semibold">{kind.startsWith("social") ? "Neighbourhood group" : kind.startsWith("facilities") ? "Community spaces" : "Willow Salon"}</h1></div><section className={styles.calendarSection}>{content}</section></CoviePage></>}
+    {standalone ? content : <><TemplateWorkspaceNav basePath={basePath} organiserItems={organiserItems} activeSection="calendar" /><CoviePage width="wide" className={`${styles.page} pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6`}><CalendarIdentity mobileOnly /><div className={styles.calendarHeader}><h1 className="text-2xl font-semibold">{kind.startsWith("social") ? "Neighbourhood group" : kind.startsWith("facilities") ? "Community spaces" : "Willow Salon"}</h1></div><section className={styles.calendarSection}>{content}</section></CoviePage></>}
   </div>;
 }

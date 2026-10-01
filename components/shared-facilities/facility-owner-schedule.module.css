@@ -11,7 +11,7 @@
 .table th, .table td { border-right: 1px solid var(--covie-border); border-bottom: 1px solid var(--covie-border); }
 .table th:last-child, .table td:last-child { border-right: 0; }
 .table tr:last-child td, .table tr:last-child .hour { border-bottom: 0; }
-.table thead th { position: sticky; top: 0; z-index: 3; padding: 12px; background: var(--covie-violet-pale); vertical-align: top; }
+.table thead th { position: sticky; top: 0; z-index: 3; padding: 12px; background: var(--covie-violet-soft); vertical-align: top; }
 .table thead th strong { display: block; font-size: 14px; overflow-wrap: anywhere; }
 .table thead th span { display: block; margin-top: 3px; color: var(--covie-text-secondary); font-weight: 400; overflow-wrap: anywhere; }
 .table thead th[data-selected="true"] { box-shadow: inset 0 3px var(--covie-violet); }
@@ -22,11 +22,11 @@
 .cell { position: relative; display: flex; min-height: 76px; height: 100%; align-items: center; gap: 6px; padding: 8px 8px 8px 17px; }
 .occupancy { position: absolute; top: 0; bottom: 0; left: 0; width: 8px; background: var(--covie-muted); }
 .occupancy span { position: absolute; width: 100%; left: 0; background: var(--covie-violet); }
-.booking, .start { display: flex; min-width: 0; min-height: 48px; flex: 1 1 0; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; padding: 7px 8px; border: 1px solid var(--covie-violet-soft); border-radius: 7px; background: var(--covie-violet-pale); color: var(--covie-ink); cursor: pointer; text-align: left; line-height: 1.3; }
+.booking, .start { display: flex; min-width: 0; min-height: 48px; flex: 1 1 0; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; padding: 7px 8px; border: 1px solid var(--covie-violet-soft); border-radius: 7px; background: var(--covie-violet-soft); color: var(--covie-ink); cursor: pointer; text-align: left; line-height: 1.3; }
 .booking strong, .start strong { font-size: 14px; font-weight: 700; }
 .booking span, .start span { width: 100%; font-size: 12px; overflow-wrap: anywhere; }
 .booking[data-pending-only="true"] { border-style: dashed; border-color: var(--covie-sunshine); background: var(--covie-sunshine-pale); }
-.start { border-color: var(--covie-teal-soft); background: var(--covie-teal-pale); }
+.start { border-color: var(--covie-teal-soft); background: var(--covie-teal-soft); }
 .booking:hover:not(:disabled) { border-color: var(--covie-violet); background: var(--covie-violet-soft); }
 .start:hover:not(:disabled) { border-color: var(--covie-teal); background: var(--covie-teal-soft); }
 .booking:focus-visible, .start:focus-visible { outline: 2px solid var(--covie-violet); outline-offset: 2px; }
@@ -44,3 +44,4 @@
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @media (min-width: 1100px) and (min-height: 560px) { .canvas { max-height: none; } }
 @media (max-width: 600px) { .table { min-width: calc(66px + var(--resource-count) * 232px); } .table .timeHeading, .table .hour { width: 66px; } .context h2 { font-size: 16px; } }
+

@@ -16,6 +16,7 @@ import { SalonDayPicker } from "./salon-day-picker";
 import { useSalonMutation, useSalonResource } from "./use-salon-resource";
 import { salonPrice, salonTime } from "./salon-ui";
 import styles from "./salon.module.css";
+import { CalendarIdentity } from "@/components/workspace/calendar-identity";
 export function OwnAppointmentPage({
   appointmentId,
 }: {
@@ -68,6 +69,7 @@ export function OwnAppointmentPage({
   }
   return (
     <CoviePage className={styles.publicPage}>
+      <CalendarIdentity />
       <CoviePageHeader
         accent="teal"
         title="Your appointment"

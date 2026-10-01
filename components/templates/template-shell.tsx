@@ -27,6 +27,7 @@ import {
 } from "@/components/templates/template-workspace-nav";
 import { CalendarSetupGuide } from "@/components/onboarding/calendar-setup-guide";
 import ownerWorkspaceStyles from "@/components/workspace/owner-calendar-workspace.module.css";
+import { CalendarIdentity } from "@/components/workspace/calendar-identity";
 import { SalonPage } from "@/components/salon/salon-page";
 import { workspaceOrganiserTools, type WorkspaceRole } from "@/lib/templates/workspace-navigation";
 import { SocialGroupsPage } from "@/components/social-groups/social-groups-page";
@@ -217,6 +218,7 @@ export function TemplateShell({
         width="wide"
         className={ownerCalendarWorkspace ? `${ownerWorkspaceStyles.page} pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6` : staffRosterMode && !staffMode ? "pb-[calc(156px+env(safe-area-inset-bottom))] lg:pb-6" : "pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6"}
       >
+        <CalendarIdentity mobileOnly />
         {compactStaffRosterCalendar ? null : (
           <div
             className={
@@ -311,3 +313,4 @@ export function TemplateShell({
     </div>
   );
 }
+

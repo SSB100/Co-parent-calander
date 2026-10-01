@@ -19,3 +19,6 @@
 /* First-run guidance and unusually large messages may extend the page safely. */
 .page:has([aria-label="Set up this calendar"]) { height: auto; min-height: 100dvh; }
 .page:has([aria-label="Set up this calendar"]) .canvas { min-height: 480px; }
+
+
+.day { border-top: 4px solid var(--covie-violet); }

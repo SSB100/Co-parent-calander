@@ -79,5 +79,13 @@ Decisions: calendar-first Personal with adjacent day/attention context instead o
 
 No domain rules, APIs, schema, auth, recurrence or environment changes. Source navigation and existing confirmation/mutation boundaries remain. Time filters classify server-returned instants in the salon timezone and pass the original candidate unchanged. Short/narrow layouts use document flow.
 
-Verification pending: hosted release gate, synthetic browser layouts and interactions, and exact production commit verification. Browser controls lack native viewport resizing; the QA-only iframe harness supplies exact CSS viewport sizes without claiming physical-device testing.
+Verification milestone: the first refinement commit eb9bf30 passed hosted lint, full TypeScript, 629 configured tests, audit and production build (run 36823002499). Browser QA exercised Personal date keyboard navigation, Social member/viewer boundaries and Escape, Facilities next-start focus and exact 8:07 confirmation, available/unavailable filtering, Salon candidate filtering and failed-submit recovery, and organiser Back/Forward. Synthetic layouts were inspected at 1440×900, 1100×560, 1000×700, 1440×480, 390×844 and 320×568. This found and corrected compressed Personal context controls, clipped month summaries and calendar overflow affecting booking controls. The QA-only branch contains fabricated records and intercepts mutations; it must never be merged into production. Browser controls lack native viewport resizing, so these are exact CSS iframe viewports, not physical-device tests. Final responsive commit CI and exact deployment verification are recorded in PR #142. Live database suites and authenticated write journeys remain separate from these fixture checks.
 
+
+## Calendar identity and mobile navigation checkpoint, 1 October 2026
+
+Follow-up to PR #142: match the co-parenting calendar’s colourful rounded tiles and balanced spacing. Personal and Social now use softly coloured day cells with white date markers. Booking timetables keep their occupancy meanings with clearer teal/violet surfaces. Canonical Covie branding is visible above mobile calendar pages and standalone Personal/customer views.
+
+Mobile navigation: Personal has Month, Agenda, Attention and Calendars. Shared template calendars use Calendar, Personal, Updates and role-filtered Organiser tools; members without tools get three equal destinations. Staff keep their existing My roster/Timesheet/Leave/Updates destinations; manager secondary destinations remain directly accessible on desktop and move into the mobile Organiser menu. Footer menus open above navigation, safe-area padding remains, and the footer hides for the mobile keyboard. No domain, permission or scheduling changes. Co-parenting stays the reference and its components are unchanged.
+
+Verification is recorded in the follow-up PR; the synthetic browser harness remains separate from production.
