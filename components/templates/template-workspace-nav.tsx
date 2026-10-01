@@ -57,7 +57,7 @@ export function TemplateWorkspaceNav({
         <CovieBrand />
       </Link>
 
-      <div className={staffRosterMode ? `grid ${staffMode ? "grid-cols-4" : "grid-cols-4"} gap-1 lg:flex lg:flex-col lg:gap-2` : "flex gap-2 lg:flex-col max-lg:justify-around"}>
+      <div className={staffRosterMode ? "grid grid-cols-4 gap-1 lg:flex lg:flex-col lg:gap-2" : "flex gap-2 lg:flex-col max-lg:justify-around"}>
         <Link
           href={basePath}
           aria-current={activeSection === "calendar" ? "page" : undefined}
@@ -192,4 +192,3 @@ export function TemplateWorkspaceNav({
     </nav>
   );
 }
-
