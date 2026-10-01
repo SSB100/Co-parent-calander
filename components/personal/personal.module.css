@@ -87,9 +87,9 @@
   .attentionRecords { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (min-width: 1100px) and (min-height: 700px) {
-  .schedule:has(.monthColumn) { align-items: stretch; height: max(480px, calc(100dvh - 340px)); }
-  .monthColumn { min-height: 0; grid-template-rows: auto minmax(0, 1fr) auto; }
-  .monthBoard { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+  .schedule:has(.monthColumn) { align-items: start; }
+  .monthColumn { min-height: 0; }
+  .monthBoard { display: grid; grid-template-rows: auto auto; }
   .monthDays { grid-auto-rows: minmax(110px, 1fr); }
   .monthDays > button { min-height: 110px; gap: 4px; }
   .dayMarkers { position: absolute; top: 12px; right: 8px; max-width: calc(100% - 42px); }
