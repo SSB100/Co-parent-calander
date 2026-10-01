@@ -58,6 +58,14 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // QA-only synthetic canvas. Real application routes retain DENY.
+      ...(process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "qa/covie-creative-review" ? [{
+        source: "/qa-covie/canvas",
+        headers: [
+          { key: "Content-Security-Policy", value: "base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+        ],
+      }] : []),
       ...[
         "/dashboard/:path*",
         "/calendar/:path*",
