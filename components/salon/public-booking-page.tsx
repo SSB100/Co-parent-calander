@@ -11,6 +11,7 @@ import {
   CovieSelect,
 } from "@/components/ui/covie";
 import type { PublicSalonData, SalonSlot } from "@/lib/salon/contracts";
+import { SalonAvailableTimes } from "./salon-available-times";
 import { SalonDayPicker } from "./salon-day-picker";
 import { AppointmentConfirmation } from "./appointment-confirmation";
 import { useSalonMutation, useSalonResource } from "./use-salon-resource";
@@ -59,13 +60,13 @@ export function PublicBookingPage({
   if (date || data?.date) signInQuery.set("date", date || data!.date);
   const returnTo = `/booking/${calendarId}${signInQuery.size ? `?${signInQuery}` : ""}`;
   return (
-    <CoviePage className={styles.publicPage}>
+    <CoviePage className={`${styles.publicPage} ${styles.customerBooking}`}>
       <CoviePageHeader
         accent="teal"
         title={data?.businessName || "Book an appointment"}
         context="Choose a service, practitioner and available time."
         actions={
-          <Link className={styles.link} href="/personal">
+          <Link className="covie-button covie-action-secondary" href="/personal">
             My commitments
           </Link>
         }
@@ -173,36 +174,7 @@ export function PublicBookingPage({
                   description="Available times follow its duration and eligible practitioners."
                 />
               ) : data.slots.length ? (
-                <div className={styles.slots}>
-                  {data.slots
-                    .filter(
-                      (item) =>
-                        !practitionerId ||
-                        item.practitionerId === practitionerId,
-                    )
-                    .map((item) => (
-                      <button
-                        key={`${item.practitionerId}:${item.start}`}
-                        type="button"
-                        className={styles.slot}
-                        disabled={mutation.busy || loading}
-                        onClick={() => {
-                          mutation.setError("");
-                          setSlot(item);
-                        }}
-                      >
-                        <strong>{salonTime(item.start, data.timezone)}</strong>
-                        <span>
-                          {
-                            data.practitioners.find(
-                              (person) => person.id === item.practitionerId,
-                            )?.displayName
-                          }
-                        </span>
-                        <small>to {salonTime(item.end, data.timezone)}</small>
-                      </button>
-                    ))}
-                </div>
+                <SalonAvailableTimes key={`${data.date}:${serviceId}:${practitionerId}`} slots={data.slots.filter(item => !practitionerId || item.practitionerId === practitionerId)} timezone={data.timezone} practitioners={data.practitioners} disabled={mutation.busy || loading} onChoose={item => { mutation.setError(""); setSlot(item); }} />
               ) : (
                 <CovieEmptyState
                   title="No times available on this day"
@@ -266,3 +238,4 @@ export function PublicBookingPage({
     </CoviePage>
   );
 }
+

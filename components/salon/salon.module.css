@@ -47,6 +47,7 @@
   min-width: 0;
 }
 .datePicker {
+  overflow-x: auto;
   display: grid;
   gap: 12px;
   background: white;
@@ -61,8 +62,10 @@
   font-weight: 750;
 }
 .dayGrid {
+  min-width: 0;
+  overflow-x: auto;
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(44px, 1fr));
   gap: 2px;
 }
 .dayGrid > span {
@@ -83,7 +86,7 @@
 }
 .dayGrid > button[aria-pressed="true"] {
   background: var(--covie-teal);
-  color: white;
+  color: var(--covie-ink);
 }
 .dayGrid > button:focus-visible,
 .slot:focus-visible {
@@ -252,4 +255,34 @@
   .actions > button {
     flex: 1 1 auto;
   }
+}
+
+/* Owner-only calendar canvas; shared shell supplies remaining desktop height. */
+.ownerRoot { display: flex; min-width: 0; min-height: 0; flex: 1; flex-direction: column; gap: 12px; }
+.ownerTools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ownerDateControls { display: flex; min-width: 0; flex-wrap: wrap; align-items: end; gap: 6px; }
+.ownerDateControls > label { width: 180px; max-width: 100%; }
+.ownerFilters, .ownerBookingFilters { display: flex; min-width: 0; flex-wrap: wrap; align-items: end; gap: 10px; }
+.ownerPractitioner { width: 210px; max-width: 100%; }
+.ownerAppointmentList { display: grid; gap: 8px; min-width: 0; }
+.ownerAppointmentSummary { display: grid; gap: 4px; min-width: 44px; min-height: 44px; width: 100%; padding: 10px 12px; text-align: left; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; border: 1px solid var(--covie-border); border-radius: 10px; background: var(--covie-violet-pale); color: var(--covie-ink); }
+.ownerAppointmentSummary strong { font-weight: 700; }
+.ownerAppointmentSummary span { font-size: 12px; }
+.ownerAppointmentSummary:hover:not(:disabled) { border-color: var(--covie-violet); }
+.ownerAppointmentSummary:focus-visible { outline: 3px solid var(--covie-focus); outline-offset: 2px; }
+.ownerAppointmentSummary:disabled { opacity: .65; }
+@media (max-width: 639px) {
+  .ownerFilters, .ownerBookingFilters { width: 100%; }
+  .ownerPractitioner { flex: 1 1 180px; }
+  .ownerTools > button { flex: 1 1 auto; }
+}
+
+
+.availableTimes, .timeGroups, .timeGroup { display: grid; min-width: 0; gap: 16px; }
+.timeGroup + .timeGroup { border-top: 1px solid var(--covie-border); padding-top: 16px; }
+.customerBooking .publicIntro { margin-block: 4px; }
+.customerBooking > div { min-width: 0; }
+@media (min-width: 1000px) and (min-height: 700px) {
+  .customerBooking .planner { grid-template-columns: minmax(300px, 360px) minmax(0, 1fr); gap: 32px; }
+  .customerBooking .timeGroups { max-height: max(360px, calc(100dvh - 430px)); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 4px; }
 }

@@ -66,8 +66,9 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); globalThis.fetch = originalFetch; });
 after(() => { if (savedActions) require.cache[actionPath] = savedActions; else delete require.cache[actionPath]; styleHooks.deregister(); dom.window.close(); });
 
-test("Overview defaults to useful sections, capped plans and visible collapsed filter context", async () => {
+test("Overview keeps useful sections, capped plans and visible collapsed filter context", async () => {
   await render();
+  await click(button("Overview"));
   await settle(() => assert.match(container.textContent!, /Today’s court/));
   assert.equal(button("Overview").getAttribute("aria-pressed"), "true");
   assert.equal(container.querySelector(".monthBoard"), null);
@@ -87,6 +88,7 @@ test("Overview defaults to useful sections, capped plans and visible collapsed f
 
 test("browsing a different month does not claim Today is empty", async () => {
   await render();
+  await click(button("Overview"));
   await click(element('[aria-label="Next month"]'));
   await settle(() => assert.match(element('section[aria-label="Today"]').textContent!, /Today is outside November 2026/));
   assert.doesNotMatch(element('section[aria-label="Today"]').textContent!, /No commitments/);
@@ -115,6 +117,7 @@ test("revoked source on page restoration clears every overview section", async (
 
 test("a newer source choice cancels refresh and cannot restore its old items", async () => {
   await render();
+  await click(button("Overview"));
   await settle(() => assert.match(container.textContent!, /Today’s court/));
   let finish!: (response: Response) => void;
   globalThis.fetch = async () => new Promise((resolve) => { finish = resolve; });
@@ -154,4 +157,21 @@ test("a server refresh for the same account hides superseded records before rech
   await settle(() => assert.equal(typeof finish, "function"));
   await act(async () => { finish(json(refreshed)); });
   await settle(() => assert.match(container.textContent!, /Welcome to Personal/));
+});
+
+
+
+test("Personal opens on the month and keeps attention beside the chosen day", async () => {
+  await render();
+  await settle(() => assert.match(container.textContent!, /Today’s court/));
+  assert.equal(button("Month").getAttribute("aria-pressed"), "true");
+  assert.ok(container.querySelector(".monthBoard"));
+  await click(button("Attention (4)"));
+  const panel = element('section[aria-label="Selected day"]');
+  assert.equal(panel.querySelectorAll("article").length, 4);
+  assert.doesNotMatch(panel.textContent!, /Today’s court/);
+  await click(element('[data-date="2026-10-01"]'));
+  assert.equal(button("Your day").getAttribute("aria-pressed"), "true");
+  assert.match(panel.textContent!, /Today’s court/);
+  assert.equal(element<HTMLInputElement>('input[name="sourceId"]', panel).value, "today");
 });

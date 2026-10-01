@@ -12,6 +12,7 @@ import styles from "./facilities.module.css";
 type Props = { data: FacilityData; selection: FacilitySelection; busy: boolean; loading: boolean; loadError: string; onDate: (date: string) => void; onResource: (id: string) => void; onSlot: (slot: FacilitySlot) => void; renderBooking: (booking: FacilityData["bookings"][number], includeResource: boolean) => ReactNode };
 
 export function FacilityPlanner({ data, selection, busy, loading, loadError, onDate, onResource, onSlot, renderBooking }: Props) {
+  const [showUnavailable, setShowUnavailable] = useState(false);
   const [duration, setDuration] = useState(() => data.rules.minDuration <= 60 && data.rules.maxDuration >= 60 ? 60 : data.rules.minDuration);
   const [now, setNow] = useState(() => new Date());
   const grid = useRef<HTMLDivElement>(null);
@@ -57,7 +58,7 @@ export function FacilityPlanner({ data, selection, busy, loading, loadError, onD
       {!resource ? <p className={styles.available}>Choose a resource to see available times.</p> : !ready ? <div className={styles.loading} role="status">{loadError ? "The schedule could not be refreshed. Use Try again above before choosing a time." : "Loading this day’s times…"}</div> : <>
         {!data.canBook ? <CovieNotice>You have view-only access. Available times are shown for reference.</CovieNotice> : null}
         {plan?.message ? <CovieNotice>{plan.message}</CovieNotice> : null}
-        {plan?.slots.length ? <div className={styles.slotGrid} role="group" aria-label={`${resource.name} start times`}>{plan.slots.map((slot) => <button key={slot.start} type="button" className={styles.timeSlot} data-available={slot.available} disabled={busy || !data.canBook || !slot.available} aria-label={`${facilityTime(slot.startInstant, data.timezone)} to ${facilityTime(slot.endInstant, data.timezone)}, ${slot.available ? "available" : "unavailable"}`} onClick={() => onSlot(slot)}><strong>{facilityTime(slot.startInstant, data.timezone)}</strong><span>to {facilityTime(slot.endInstant, data.timezone)}</span><small>{slot.available ? "Available" : "Busy"}</small></button>)}</div> : null}
+        {plan?.slots.length ? <><label className={styles.checkbox}><input type="checkbox" checked={showUnavailable} onChange={event => setShowUnavailable(event.target.checked)} />Show unavailable times</label><p className={styles.help}>{plan.slots.filter(slot => slot.available).length} available starts for a {selectedDuration}-minute booking.</p><div className={styles.slotGrid} role="group" aria-label={`${resource.name} start times`}>{plan.slots.filter(slot => showUnavailable || slot.available).map((slot) => <button key={slot.start} type="button" className={styles.timeSlot} data-available={slot.available} disabled={busy || !data.canBook || !slot.available} aria-label={`${facilityTime(slot.startInstant, data.timezone)} to ${facilityTime(slot.endInstant, data.timezone)}, ${slot.available ? "available" : "unavailable"}`} onClick={() => onSlot(slot)}><strong>{facilityTime(slot.startInstant, data.timezone)}</strong><span>to {facilityTime(slot.endInstant, data.timezone)}</span><small>{slot.available ? "Available" : "Busy"}</small></button>)}</div></> : null}
         {plan?.dstOmitted ? <p className={styles.help}>Clock-change times that repeat, do not exist, or cross a clock change are not offered. Choose another time.</p> : null}
         <p className={styles.help}>Times are checked again when you confirm. Pending requests do not hold a slot.</p>
         {bookings.length ? <section className={styles.stack} aria-label="Selected day bookings"><h3 className={styles.plannerStep}>On this day</h3>{bookings.map((booking) => renderBooking(booking, false))}</section> : null}
@@ -65,3 +66,4 @@ export function FacilityPlanner({ data, selection, busy, loading, loadError, onD
     </section>
   </div>;
 }
+

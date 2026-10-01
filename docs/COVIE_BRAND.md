@@ -1,12 +1,12 @@
 # Covie brand direction
 
-This file is the source of truth for Covie's visual identity.
+Covie Brand Bible v2.0 (22 September 2026) is authoritative. This repository guide summarises its multi-calendar identity; template manifests and canonical controls implement it.
 
 ## Brand idea
 
-Covie should feel like a modern family product rather than generic SaaS. The tone is **bright calm**: optimistic, organised, warm and dependable.
+Covie is a shared-calendar ecosystem, with Personal, Social Groups, Shared Facilities, Salon Bookings, Staff Rosters and Co-parenting. The tone is **bright calm**: optimistic, organised, warm and dependable.
 
-Covie is for everyday coordination between two homes. It should not look legal, clinical, corporate or childish.
+Covie is for everyday coordination between people, groups and businesses. It should not look legal, clinical, corporate or childish.
 
 ## Solid-colour rule
 
@@ -37,18 +37,18 @@ Use Ink text on Coral, Teal and Sunshine. Use white text on Violet. This keeps n
 The Covie Loop mark is made from two solid coloured halves that form one continuous loop.
 
 Meaning:
-- two homes
-- two parents
-- one shared family plan
+- people and shared commitments
+- connected calendars
+- one dependable coordination system
 
 Do not replace the mark with a house, heart, family silhouette or calendar icon.
 
 ## Typography
 
-- Marketing display: Fraunces
+- Display hierarchy: Fraunces
 - Product and body UI: Geist
 
-Fraunces should be used selectively for large brand statements, not throughout the authenticated workspace.
+Use Fraunces for page and dialog titles. Use Geist for interface labels, records and operational content. Preserve the canonical controls, minimum 44px independent targets and visible focus.
 
 ## Marketing composition
 
@@ -67,3 +67,4 @@ Avoid repeating grids of identical feature cards. Schedule, Expenses, Responsibi
 When Covie introduces photography, prefer candid everyday family logistics: school bags, sports, pickups, meals, birthday preparation and handovers. Avoid staged "happy divorced family" stock imagery.
 
 Only add photography when we have an appropriate licensed or owned image set.
+
