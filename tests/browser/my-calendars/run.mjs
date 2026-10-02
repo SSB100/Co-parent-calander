@@ -43,7 +43,7 @@ try {
     const bounds=await dialog.boundingBox(); assert(bounds.x>=0 && bounds.y>=0 && bounds.x+bounds.width<=width+1 && bounds.y+bounds.height<=height+1, JSON.stringify(bounds));
     const active=dialog.locator('[aria-current="page"]'); assert.match(await active.innerText(),/Personal/);
     const smallest=await dialog.locator('button').evaluateAll(nodes=>Math.min(...nodes.map(n=>n.getBoundingClientRect().height))); assert(smallest>=44);
-    await page.screenshot({path:path.join(out,`${width}x${height}.png`),fullPage:true});
+    await page.screenshot({path:path.join(out,`${width}x${height}.png`),fullPage:false});
     // Small synthetic-only image previews in logs let reviewers inspect pixels
     // through read-only CI tools; full PNGs remain in the artifact.
     if (process.env.CI && (width===1440 || width===390)) {
