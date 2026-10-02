@@ -17,6 +17,12 @@ const actionModule = new Module(actionPath);
 actionModule.exports = { openPersonalSource: async () => {} };
 actionModule.loaded = true;
 require.cache[actionPath] = actionModule;
+const calendarActionPath = require.resolve("../app/calendar/actions.ts");
+const savedCalendarActions = require.cache[calendarActionPath];
+const calendarActionModule = new Module(calendarActionPath);
+calendarActionModule.exports = { openCalendar: async () => {} };
+calendarActionModule.loaded = true;
+require.cache[calendarActionPath] = calendarActionModule;
 let PersonalCalendar: typeof import("../components/personal/personal-calendar").PersonalCalendar;
 let root: Root;
 let container: HTMLDivElement;
@@ -64,7 +70,7 @@ beforeEach(() => {
   };
 });
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); globalThis.fetch = originalFetch; });
-after(() => { if (savedActions) require.cache[actionPath] = savedActions; else delete require.cache[actionPath]; styleHooks.deregister(); dom.window.close(); });
+after(() => { if (savedActions) require.cache[actionPath] = savedActions; else delete require.cache[actionPath]; if (savedCalendarActions) require.cache[calendarActionPath] = savedCalendarActions; else delete require.cache[calendarActionPath]; styleHooks.deregister(); dom.window.close(); });
 
 test("Overview keeps useful sections, capped plans and visible collapsed filter context", async () => {
   await render();
@@ -195,7 +201,8 @@ test("Personal footer switches views and returns to source calendars", async () 
     await click(controls[0]);
     assert.match(element('#personal-day-context').textContent!, /Today’s court/);
     assert.doesNotMatch(element('#personal-day-context').textContent!, /Review task/);
-    assert.equal(nav.querySelector('a')?.getAttribute('href'), '/calendar');
+    assert.equal(controls[3].textContent?.trim(), 'My calendars');
+    assert.equal(controls[3].getAttribute('aria-haspopup'), 'dialog');
     assert.ok(container.querySelector('a[aria-label="Covie Personal"]'));
   } finally { window.scrollTo = scroll; window.requestAnimationFrame = frame; }
 });
@@ -217,4 +224,93 @@ test("desktop sidebar controls keep the selected day and source context together
   assert.match(element('#personal-day-context', sidebar).textContent!, /Review task/);
   await click(controls[0]);
   assert.match(element('#personal-day-context', sidebar).textContent!, /Today’s court/);
+});
+
+const navigationCalendar = { id: "source-a", name: "Synthetic courts", calendarType: "shared_facilities", permission: "owner", displayName: "QA" };
+function switcher(mobile = false) { return element<HTMLButtonElement>(`nav[aria-label="${mobile ? "Personal navigation" : "Personal desktop navigation"}"] button[aria-haspopup="dialog"]`); }
+function navigationResponse(value: unknown, status = 200) {
+  const personalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => String(input) === "/api/calendars/navigation" ? json(value, status) : personalFetch(input, init);
+}
+
+test("My calendars opens in place with current Personal and authorized active choices", async () => {
+  navigationResponse({ calendars: [navigationCalendar] });
+  await render();
+  const trigger = switcher();
+  await click(trigger);
+  await settle(() => assert.match(document.querySelector('[role="dialog"]')!.textContent!, /Synthetic courts/));
+  assert.equal(trigger.getAttribute('aria-expanded'), 'true');
+  assert.equal(document.querySelector('[role="dialog"]')?.getAttribute('aria-modal'), null);
+  assert.match(document.querySelector('[aria-current="page"]')!.textContent!, /Personal/);
+  assert.equal(element<HTMLInputElement>('[role="dialog"] input[name="calendarId"]', document).value, 'source-a');
+  await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(document.activeElement, trigger);
+});
+
+test("desktop dropdown toggles, closes outside and closes on navigation and resize", async () => {
+  navigationResponse({ calendars: [] });
+  await render();
+  const trigger = switcher();
+  await click(trigger); await click(trigger);
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  for (const event of ['popstate', 'resize', 'orientationchange', 'pageshow', 'blur']) {
+    await click(trigger);
+    await act(async () => window.dispatchEvent(new Event(event)));
+    assert.equal(document.querySelector('[role="dialog"]'), null, event);
+  }
+  await click(trigger);
+  await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+});
+
+test("mobile uses the canonical modal and restores focus and scrolling on close", async () => {
+  navigationResponse({ calendars: [] });
+  await render();
+  const trigger = switcher(true);
+  await act(async () => trigger.focus());
+  await click(trigger);
+  await settle(() => assert.match(document.querySelector('[role="dialog"]')!.textContent!, /don’t have any active/));
+  assert.equal(document.querySelector('[role="dialog"]')?.getAttribute('aria-modal'), 'true');
+  assert.equal(document.body.style.overflow, 'hidden');
+  await click(element('[aria-label="Close dialog"]', document));
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(document.body.style.overflow, '');
+  assert.equal(document.activeElement, trigger);
+});
+
+test("failure has retry and reopening never shows old calendar membership", async () => {
+  let fail = true;
+  let calls = 0;
+  const personalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    if (String(input) !== '/api/calendars/navigation') return personalFetch(input, init);
+    calls++;
+    return fail ? json({}, 500) : json({ calendars: calls === 2 ? [navigationCalendar] : [] });
+  };
+  await render(); await click(switcher());
+  await settle(() => assert.match(document.querySelector('[role="alert"]')!.textContent!, /could not be loaded/));
+  fail = false;
+  await click(element('[role="alert"] button', document));
+  await settle(() => assert.match(document.querySelector('[role="dialog"]')!.textContent!, /Synthetic courts/));
+  await click(switcher()); await click(switcher());
+  assert.doesNotMatch(document.querySelector('[role="dialog"]')!.textContent!, /Synthetic courts/);
+  await settle(() => assert.match(document.querySelector('[role="dialog"]')!.textContent!, /don’t have any active/));
+});
+
+test("closing aborts a slow calendar list and ignores its late result", async () => {
+  let signal: AbortSignal | null | undefined;
+  let finish!: (response: Response) => void;
+  const personalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    if (String(input) !== '/api/calendars/navigation') return personalFetch(input, init);
+    signal = init?.signal;
+    return new Promise<Response>((resolve) => { finish = resolve; });
+  };
+  await render(); await click(switcher());
+  assert.match(document.querySelector('[role="status"].message')!.textContent!, /Loading/);
+  await click(switcher());
+  assert.equal(signal?.aborted, true);
+  await act(async () => finish(json({ calendars: [navigationCalendar] })));
+  assert.equal(document.querySelector('[role="dialog"]'), null);
 });
