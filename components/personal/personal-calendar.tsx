@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, List, Bell, House, LayoutGrid, CalendarDays, ChevronLeft, ChevronRight, LockKeyhole, Plus, RefreshCw, X } from "lucide-react";
+import { ArrowUpRight, List, Bell, LayoutGrid, CalendarDays, ChevronLeft, ChevronRight, LockKeyhole, Plus, RefreshCw, X } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { useFormStatus } from "react-dom";
@@ -9,6 +9,7 @@ import { CovieButton, CovieEmptyState, CovieIconButton, CovieInput, CovieNotice,
 import { localDateInTimeZone } from "@/lib/calendar/time";
 import type { PersonalData, PersonalItem, PersonalSource, PersonalState } from "@/lib/personal/contracts";
 import { calendarTemplateManifests } from "@/lib/templates/calendar-templates";
+import { MyCalendars } from "./my-calendars";
 import { PersonalMonthCalendar } from "./personal-month-calendar";
 import { isPersonalMonth, personalDateLabel, personalFirstMonth, personalItemTime, personalItemsByDay, personalLastMonth, personalMonthDays, personalMonthLabel, personalOverview, personalTimezoneOptions, shiftPersonalDate, shiftPersonalMonth } from "./personal-ui";
 import { usePersonalCalendar } from "./use-personal-calendar";
@@ -126,7 +127,7 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
           <button type="button" aria-pressed={view === "overview"} onClick={() => setView("overview")}><LayoutGrid size={19} aria-hidden="true" />Overview</button>
         </div>
         <div className={styles.navLinks}>
-          <Link href="/calendar" prefetch={false}><House size={17} aria-hidden="true" />Calendars</Link>
+          <MyCalendars />
           <Link href="/onboarding" prefetch={false}><Plus size={17} aria-hidden="true" />Add calendar</Link>
         </div>
       </nav>
@@ -229,7 +230,7 @@ export function PersonalCalendar({ initialData, pageNotice }: { initialData: Per
       <button type="button" aria-pressed={view === "month" && dayContext !== "attention"} onClick={() => { setView("month"); setDayContext("day"); window.scrollTo({ top: 0, behavior: "instant" }); }}><CalendarDays size={20} aria-hidden="true" />Month</button>
       <button type="button" aria-pressed={view === "agenda"} onClick={() => { setView("agenda"); window.scrollTo({ top: 0, behavior: "instant" }); }}><List size={20} aria-hidden="true" />Agenda</button>
       <button type="button" aria-pressed={view === "month" && dayContext === "attention"} onClick={() => { setView("month"); setDayContext("attention"); window.requestAnimationFrame(() => document.getElementById("personal-day-context")?.scrollIntoView({ block: "start", behavior: "instant" })); }}><Bell size={20} aria-hidden="true" />Attention</button>
-      <Link href="/calendar" prefetch={false}><House size={20} aria-hidden="true" />Calendars</Link>
+      <MyCalendars mobile />
     </nav>
   </CoviePage>;
 }
