@@ -44,6 +44,12 @@ try {
     const active=dialog.locator('[aria-current="page"]'); assert.match(await active.innerText(),/Personal/);
     const smallest=await dialog.locator('button').evaluateAll(nodes=>Math.min(...nodes.map(n=>n.getBoundingClientRect().height))); assert(smallest>=44);
     await page.screenshot({path:path.join(out,`${width}x${height}.png`),fullPage:true});
+    // Small synthetic-only image previews in logs let reviewers inspect pixels
+    // through read-only CI tools; full PNGs remain in the artifact.
+    if (process.env.CI && (width===1440 || width===390)) {
+      const preview=(await page.screenshot({type:'jpeg',quality:55})).toString('base64');
+      for(let offset=0;offset<preview.length;offset+=6000) console.log(`COVIE_IMAGE ${width}x${height} ${offset} ${preview.slice(offset,offset+6000)}`);
+    }
     if(width>=1024) { const anchor=await trigger.boundingBox(); assert(Math.abs(bounds.x-anchor.x)<2); await trigger.click(); assert.equal(await dialog.count(),0); await trigger.click(); }
     await page.keyboard.press('Escape'); await dialog.waitFor({state:'detached'}); assert(await trigger.evaluate(n=>document.activeElement===n));
     await trigger.focus(); await page.keyboard.press('Enter'); await dialog.waitFor();
