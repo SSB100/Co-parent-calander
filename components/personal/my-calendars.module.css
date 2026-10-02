@@ -1,6 +1,6 @@
 .popover { position: fixed; z-index: 80; width: min(360px, calc(100vw - 24px)); overflow-y: auto; overscroll-behavior: contain; padding: 12px; border: 2px solid var(--covie-ink); border-radius: 16px; background: var(--covie-cream); box-shadow: 4px 4px 0 var(--covie-sunshine); color: var(--covie-ink); }
 .header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 0 8px 8px; }
-.header h2 { font-family: var(--font-fraunces), Georgia, serif; font-size: 22px; }
+.header h2 { font-family: var(--font-covie-display, Georgia), serif; font-size: 22px; }
 .choices { display: grid; gap: 6px; min-width: 0; }
 .choice { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 12px; border: 1px solid var(--covie-border); border-radius: 10px; background: white; color: var(--covie-ink); text-align: left; cursor: pointer; }
 .choice > svg { flex-shrink: 0; }
