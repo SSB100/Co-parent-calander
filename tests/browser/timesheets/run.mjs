@@ -160,8 +160,15 @@ try {
           assert.doesNotMatch(await page.locator("main").innerText(), /Jamie Patel|Add staff member/);
         } else { assert.equal(await page.getByLabel("Show work for").count(), 0); }
         if (width <= 640) {
-          const title = await page.locator('.calendar-switcher > summary').boundingBox();
-          assert(title.width > width * .75, `Calendar identity is prematurely truncated: ${JSON.stringify(title)}`);
+          const title = await page.locator('.calendar-switcher > summary > span').evaluate(node => {
+            const text = node.getBoundingClientRect(), summary = node.parentElement.getBoundingClientRect();
+            const header = node.closest('.calendar-switcher').parentElement.getBoundingClientRect();
+            return { text: node.textContent.trim(), clientWidth: node.clientWidth, scrollWidth: node.scrollWidth, textLeft: text.left, textRight: text.right, summaryLeft: summary.left, summaryRight: summary.right, headerLeft: header.left, headerRight: header.right };
+          });
+          assert.equal(title.text, "Synthetic studio work calendar");
+          assert(title.clientWidth > 0 && title.scrollWidth <= title.clientWidth + 1, `Calendar title text is clipped: ${JSON.stringify(title)}`);
+          assert(title.textLeft >= title.summaryLeft - 1 && title.textRight <= title.summaryRight + 1, `Calendar title escapes its summary: ${JSON.stringify(title)}`);
+          assert(title.summaryLeft >= title.headerLeft - 1 && title.summaryRight <= title.headerRight + 1 && title.headerLeft >= -1 && title.headerRight <= width + 1, `Calendar header escapes the viewport: ${JSON.stringify(title)}`);
           const selected = await page.locator(`[data-timesheets-date="${date}"]`).boundingBox();
           assert(selected.y < height - 70, `Selected day is hidden below the mobile navigation: ${JSON.stringify(selected)}`);
           await capture("initial-day");
