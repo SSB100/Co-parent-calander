@@ -25,3 +25,9 @@ The planner uses the complete selected-day occupancy, not the capped upcoming li
 Clock-change gaps, repeated local times and intervals crossing a timezone offset change are omitted because the current API accepts local times without an offset selector. This is explained beside the slots. Keyboard arrow keys move through days, mobile stacks the calendar above two-column time choices, and the existing cancellation and approval rules remain in force.
 
 The aggregate suite includes `tests/facility-slots.test.ts` for stale selection, overlap/gap boundaries, booking rules, timezone/DST and same-tick submission protection. No schema or API change is required for this refinement.
+
+## Owner setup guidance
+
+The owner calendar keeps a setup checklist in its selected-day sidebar. It confirms that active resources exist from the current authorized snapshot. Booking rules and member/resource-manager roles remain manual review steps; default or saved rule values do not prove a review was completed. Checklist actions open the existing Resources, Booking rules and Members panels.
+
+The checklist is derived again after refresh and withdraws its facts and actions when revalidation fails. It does not add saved completion flags, publication state or invitations. Managers, members and viewers retain their existing workspace. Expanded guidance scrolls inside the owner sidebar so the timetable keeps its desktop height.

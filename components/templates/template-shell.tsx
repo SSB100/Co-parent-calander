@@ -221,11 +221,13 @@ export function TemplateShell({
         <CalendarIdentity mobileOnly />
         {compactStaffRosterCalendar ? null : (
           <div
-            className={
+            data-owner-calendar-header={workspaceRole === "owner" || staffAccessRole === "owner" ? "true" : undefined}
+            className={[
+              workspaceRole === "owner" || staffAccessRole === "owner" ? ownerWorkspaceStyles.ownerHeader : "",
               ownerCalendarWorkspace ? ownerWorkspaceStyles.calendarHeader : section === "calendar"
                 ? "mb-5"
                 : "mb-3"
-            }
+            ].join(" ")}
           >
             <CalendarSwitcher
               calendars={calendars}

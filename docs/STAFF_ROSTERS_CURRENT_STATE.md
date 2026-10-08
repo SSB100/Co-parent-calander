@@ -151,3 +151,7 @@ Until hosted Actions jobs can actually start, Stage qualification must report Gi
 ## Publication email invariant
 
 Roster publication and Send updates commit their database snapshot/update records before email delivery is attempted. Email is best-effort and cannot roll back a successful publication. Intermediate Manager edits stay silent. Only affected linked Staff accounts are eligible for roster email, and shift details remain inside authenticated Covie rather than being copied into email.
+
+## Owner readiness refinement (8 October 2026)
+
+Team is the live setup destination. Its owner summary separates active staff/manager roster profiles from linked accounts, pending invitation acceptance, and profile-only people; the owner is excluded from team totals. Profile creation supports planning shifts without implying Covie access. Expired invitations are not shown as pending, and linked accounts do not imply a roster has been published. Focus/visibility refresh updates the snapshot, late requests are ignored, and denied access clears stale team data. Locations and leave remain optional. No API, schema or invitation behavior changes.

@@ -9,3 +9,9 @@ Owners and explicitly appointed group admins organise events, manage group setti
 The calendar uses real persisted events, optional capacity, location and notes. Overlapping events are allowed; a member who chooses Going receives a non-blocking warning about their other Going events. Capacity is serialized against a row lock, preventing overbooking. Event edits use a revision and cancellation is retained in history. Lightweight availability is one shared available/unavailable response per member/date, without polls or roster controls.
 
 Migration 0034 adds only Social settings, events, RSVPs, availability and updates, plus event/RSVP guards. It builds on 0033 purpose-specific role storage. Qualify on a development branch first and obtain explicit production migration approval. No existing memberships or co-parenting/staff data are rewritten.
+
+## Owner setup guidance
+
+The owner calendar keeps a setup checklist in its selected-day sidebar. Active events are confirmed only for the loaded month; an empty month does not mean the group has never created an event. Event permissions and member roles remain manual review steps because their review is not recorded. Checklist actions reuse the event editor and history-backed Group settings, Members and Availability panels.
+
+The checklist is derived again from each authorized snapshot and withdraws its facts and actions when revalidation fails. It does not mark the calendar published, save a separate completion flag or send invitations. Admins, members and viewers retain their existing workspace. Expanding the checklist uses the sidebar’s scroll area rather than reducing the desktop month canvas.

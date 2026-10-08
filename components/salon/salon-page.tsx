@@ -41,6 +41,9 @@ import { salonDateLabel, salonPrice, salonTime, salonToday, shiftSalonDate } fro
 import { SalonOwnerSchedule } from "./salon-owner-schedule";
 import { salonOwnerScheduleModel } from "./salon-owner-schedule-model";
 import { OwnerCalendarWorkspace } from "@/components/workspace/owner-calendar-workspace";
+import { OwnerSetupReadiness } from "@/components/onboarding/owner-setup-readiness";
+import { salonSetupModel } from "./salon-setup-model";
+import { SalonBookingSharing } from "./salon-booking-sharing";
 import { useOwnerWorkspacePanel } from "@/lib/client/use-owner-workspace-panel";
 import { workspaceOrganiserTools } from "@/lib/templates/workspace-navigation";
 import styles from "./salon.module.css";
@@ -192,6 +195,7 @@ export function SalonPage({
     );
   const activeProfiles = data.practitioners.filter((person) => person.active),
     own = data.practitioners.find((person) => person.own);
+  const setup = salonSetupModel(data);
   const entries = data.appointments.filter(
     (appointment) =>
       (showCancelled || appointment.status !== "cancelled") &&
@@ -453,7 +457,7 @@ export function SalonPage({
           )}
         </>;
   const settingsPanel = <>
-          {data.settings.publicEnabled ? (
+          {data.role === "owner" ? !disabled ? <SalonBookingSharing data={data} disabled={false} /> : <p role="status">Checking saved booking details…</p> : data.settings.publicEnabled ? (
             <CovieNotice tone="teal">
               <Link
                 className={styles.link}
@@ -678,6 +682,18 @@ export function SalonPage({
     {ownerProfiles.map(person => <option key={person.id} value={person.id}>{person.displayName}{person.active === false ? " · inactive" : person.active === null ? " · profile not listed" : ""}</option>)}
   </CovieSelect></label>;
   const ownerDayPanel = <div className={styles.stack}>
+    {ownerReady ? <OwnerSetupReadiness title="Salon setup" disabled={disabled}
+      summary={!setup.canCheckTimes ? "Finish the booking basics to check available times." : data.settings.publicEnabled ? "Client booking is enabled. Check live availability before sharing." : "Booking basics are configured. Client booking is still private."}
+      actionLabel={setup.next.label} onAction={() => openOwnerPanel(setup.next.panel)}
+      steps={[
+        { id: "team", label: "Practitioners", complete: setup.practitioners.length > 0, detail: `${setup.practitioners.length} active practitioner profiles. An invitation alone is not a configured practitioner.` },
+        { id: "services", label: "Services and assignments", complete: setup.assigned.length > 0, detail: setup.assigned.length ? `${setup.services.length} active services; ${setup.assigned.length} practitioners have an active service assigned.` : "Add a service and assign it to an active practitioner." },
+        { id: "hours", label: "Working hours", complete: setup.canCheckTimes, detail: setup.canCheckTimes ? "At least one practitioner with an assigned service has working hours. Availability still depends on the selected day, blocks, buffers and booking rules." : "Set working hours for a practitioner with an assigned service." },
+        { id: "online", label: "Online service configuration", complete: setup.publiclyConfigured, detail: setup.publiclyConfigured ? "An online service and practitioner have working hours. Use Booking settings to preview saved details and review the client page." : "For website bookings, mark a service and its practitioner for online booking and set working hours." },
+        { id: "sharing", label: "Client booking page", complete: data.settings.publicEnabled, detail: data.settings.publicEnabled ? "Enabled. Copy the booking link from Booking settings for your website’s Book now button. Clients sign in to confirm." : "Private. Preview saved details in Booking settings, then enable client booking when you choose." },
+      ]}>
+        <CovieButton tone="neutral" disabled={disabled} aria-haspopup="dialog" onClick={() => openOwnerPanel("booking-settings")}>Booking settings</CovieButton>
+      </OwnerSetupReadiness> : null}
     <CovieSectionHeader title={ownerAppointmentId ? ownerAppointmentId === initialRecord ? "Appointment from Personal" : "Appointment details" : "Appointments this day"} />
     {!ownerReady ? <p role="status">Loading this day’s appointments…</p> : ownerAppointmentId ? <>
       {selectedOwnerAppointment ? appointmentCard(selectedOwnerAppointment) : <CovieNotice>This appointment is no longer available here. Refresh Personal for the latest items.</CovieNotice>}
@@ -854,7 +870,7 @@ export function SalonPage({
         size="lg" busy={mutation.busy} onClose={ownerPanel.close}
         footer={<CovieButton tone="neutral" disabled={mutation.busy} onClick={ownerPanel.close}>Back to calendar</CovieButton>}
       >
-        <div className={styles.stack}>
+        <div className={styles.stack} onKeyDown={event => { if (event.key === "Escape" && event.target instanceof HTMLElement && event.target.closest('[role="dialog"]') !== event.currentTarget.closest('[role="dialog"]')) event.stopPropagation(); }}>
           {mutation.error ? <CovieNotice tone="danger">{mutation.error}</CovieNotice> : null}
           {notice ? <CovieNotice tone="teal">{notice}</CovieNotice> : null}
           {inviteCode && ownerPanel.panel === "team" ? <CovieNotice tone="violet"><p>Single-use team invitation. Share it with the intended person.</p><p className={styles.code}>{inviteCode}</p><CovieButton tone="neutral" onClick={() => setInviteCode("")}>Dismiss code</CovieButton></CovieNotice> : null}

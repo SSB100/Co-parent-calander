@@ -142,7 +142,8 @@ export function StaffRosterSetupPage({
           title: "Locations",
           description:
             "Add the places where your team works. Locations stay optional on individual shifts.",
-          done: data.locationCount > 0,
+          status: data.locationCount > 0 ? "Added · optional" : "Optional",
+          tone: "neutral" as const,
           detail: data.locationCount + (data.locationCount === 1 ? " location" : " locations"),
           href: "/calendar-types/staff-rosters/organiser/roles-locations",
           icon: MapPin,
@@ -150,9 +151,10 @@ export function StaffRosterSetupPage({
         {
           title: "Team",
           description:
-            "Add the people who will appear on the roster.",
-          done: data.memberCount > 1,
-          detail: data.memberCount + (data.memberCount === 1 ? " person" : " people"),
+            "Add the people who will appear on the roster. A profile can be rostered before its invitation is accepted.",
+          status: data.memberCount > 1 ? "Profiles added" : "Add staff profiles",
+          tone: data.memberCount > 1 ? "teal" as const : "neutral" as const,
+          detail: data.memberCount + (data.memberCount === 1 ? " roster profile, including you. " : " roster profiles, including you. ") + "Review account access in Team.",
           href: "/calendar-types/staff-rosters/organiser/team",
           icon: UsersRound,
         },
@@ -160,7 +162,8 @@ export function StaffRosterSetupPage({
           title: "Leave",
           description:
             "Team members can request leave for review.",
-          done: true,
+          status: "Optional",
+          tone: "neutral" as const,
           detail: "Can be added any time",
           href: "/calendar-types/staff-rosters/organiser/availability",
           icon: CalendarCheck2,
@@ -212,13 +215,13 @@ export function StaffRosterSetupPage({
           <div className="mt-6">
             {data.setupCompletedAt ? (
               <CovieNotice tone="teal" className="mb-5">
-                Setup is complete. You can still change your team and locations,
-                and review leave at any time.
+                Your setup progress is saved. You can still change your team and locations,
+                and review leave at any time. Account access is managed separately in Team.
               </CovieNotice>
             ) : null}
 
             <div className="grid gap-4 lg:grid-cols-3">
-              {steps.map(({ title, description, done, detail, href, icon: Icon }, index) => (
+              {steps.map(({ title, description, status, tone, detail, href, icon: Icon }) => (
                 <article
                   key={title}
                   className="rounded-2xl border border-[#E6DBCF] bg-white p-5"
@@ -227,8 +230,8 @@ export function StaffRosterSetupPage({
                     <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#BFEDE6] bg-[#EAF8F5] text-[#0D7A6D]">
                       <Icon className="h-5 w-5" aria-hidden="true" />
                     </span>
-                    <CovieStatusBadge tone={done ? "teal" : "neutral"}>
-                      {done ? "Ready" : "Step " + (index + 1)}
+                    <CovieStatusBadge tone={tone}>
+                      {status}
                     </CovieStatusBadge>
                   </div>
                   <h2 className="mt-4 text-lg font-extrabold text-[#243139]">

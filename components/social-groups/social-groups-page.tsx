@@ -14,6 +14,8 @@ import { OwnerCalendarWorkspace } from "@/components/workspace/owner-calendar-wo
 import { useOwnerWorkspacePanel } from "@/lib/client/use-owner-workspace-panel";
 import { workspaceOrganiserTools } from "@/lib/templates/workspace-navigation";
 import { TemplateMembersPage } from "@/components/calendar-sharing/members-page";
+import { OwnerSetupReadiness } from "@/components/onboarding/owner-setup-readiness";
+import { socialOwnerSetup } from "./social-owner-setup";
 const ownerPanelKeys = ["members", "availability", "group-settings"] as const;
 import styles from "./social-groups.module.css";
 
@@ -74,6 +76,7 @@ export function SocialGroupsPage({ calendarId, section, tool, initialDate = "", 
       </>}
   </>;
   const ownerWorkspace = section === "calendar" && data.role === "owner";
+  const ownerSetup = socialOwnerSetup(data);
   const ownerTools = workspaceOrganiserTools("social_groups", data.role);
   const ownerToolOpen = ownerWorkspace && Boolean(ownerPanel.panel) && ownerTools.some(item => item.key === ownerPanel.panel);
   const selectedDay = !staleMonth && !loading ? <section className={styles.stack} aria-label="Selected day events"><CovieSectionHeader title={socialDateLabel(activeDate, true)} />{dateEvents.length ? <div className={styles.eventList}>{dateEvents.map((event) => <button key={event.id} type="button" className={styles.eventCard} data-cancelled={event.cancelled} aria-label={socialEventCardLabel(event, data.timezone)} onClick={() => openEvent(event)}><div className={styles.eventCardHeading}><strong>{event.title}</strong>{event.cancelled ? <CovieStatusBadge>Cancelled</CovieStatusBadge> : event.myResponse ? <CovieStatusBadge tone={event.myResponse === "going" ? "teal" : event.myResponse === "maybe" ? "sunshine" : "neutral"}>{socialResponses.find((response) => response.value === event.myResponse)?.label}</CovieStatusBadge> : null}</div><span>{socialEventCardTime(event, data.timezone)}</span>{event.location ? <span className={styles.location}><MapPin size={15} aria-hidden="true" />{event.location}</span> : null}<span className={styles.eventCount}>{event.going} going{event.capacity !== null ? ` · ${event.capacity} places` : ""} · View event</span></button>)}</div> : <CovieEmptyState icon={<CalendarDays aria-hidden="true" />} title="No events on this day" description={data.canCreate ? "Choose another day or create something for the group." : "Choose another day to see what the group has planned."} />}</section> : null;
@@ -89,7 +92,9 @@ export function SocialGroupsPage({ calendarId, section, tool, initialDate = "", 
       toolbar={<><div className={styles.ownerTools} role="group" aria-label="Group organiser tools">{ownerTools.map(item => <CovieButton key={item.key} tone="neutral" aria-haspopup="dialog" disabled={disabled} onClick={() => { clearMessages(); ownerPanel.open(item.key); }}>{item.label}</CovieButton>)}</div>{eventActions}</>}
       navigation={<>{monthControls}{calendarMeta}</>}
       calendar={<SocialMonthCalendar month={data.month} days={days} eventsByDay={byDay} selectedDate={activeDate} today={today} disabled={busy || loading || staleMonth} onSelectDate={chooseDate} fitWorkspace />}
-      day={<>{loading || staleMonth ? <p className={styles.help} role="status">Loading selected day…</p> : selectedDay}</>}
+      day={<>{!loading && !staleMonth && !loadError ? <OwnerSetupReadiness title="Group setup" summary={ownerSetup.summary} steps={ownerSetup.steps} actionLabel={ownerSetup.actionLabel} disabled={disabled} onAction={() => { clearMessages(); if (ownerSetup.nextAction === "create-event") setEditor({}); else ownerPanel.open(ownerSetup.nextAction); }}>
+        <div className={styles.actions}><CovieButton tone="neutral" disabled={disabled} aria-haspopup="dialog" onClick={() => { clearMessages(); ownerPanel.open("members"); }}>Review members</CovieButton><CovieButton tone="neutral" disabled={disabled} aria-haspopup="dialog" onClick={() => { clearMessages(); ownerPanel.open("availability"); }}>Check availability</CovieButton></div>
+      </OwnerSetupReadiness> : <p className={styles.help} role="status">{loadError ? "Refresh the calendar to recheck group setup." : "Checking group setup…"}</p>}{loading || staleMonth ? <p className={styles.help} role="status">Loading selected day…</p> : selectedDay}</>}
     /> : section === "calendar" ? <>
       <div className={styles.toolbar}>{monthControls}{eventActions}</div>
       {calendarMeta}

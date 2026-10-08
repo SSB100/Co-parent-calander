@@ -4,6 +4,7 @@ import { after, afterEach, before, beforeEach, test } from "node:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { SocialData } from "../lib/social-groups/contracts";
+import { socialOwnerSetup } from "../components/social-groups/social-owner-setup";
 import { dom, styleHooks } from "./support/salon-dom-environment";
 
 let Page: typeof import("../components/social-groups/social-groups-page").SocialGroupsPage;
@@ -72,6 +73,7 @@ test("fresh role demotion removes the owner workspace and tool overlay; member c
   await act(async () => window.dispatchEvent(new Event("focus")));
   await settle(() => assert.equal(document.querySelector('[role="dialog"]'), null));
   assert.equal(container.querySelector("[data-owner-workspace]"), null);
+  assert.equal(container.querySelector('[aria-label="Group setup"]'), null);
   assert.equal(new URL(window.location.href).searchParams.has("panel"), false);
   assert.ok(button("Create event"));
   assert.equal([...container.querySelectorAll("button")].some(e => e.textContent?.trim() === "Group settings"), false);
@@ -105,4 +107,75 @@ test("a reloaded source link with an owner panel shows one dialog and returns to
   await settle(() => assert.match(document.querySelector('[role="dialog"]')?.textContent ?? "", /Synthetic outing/));
   assert.equal(document.querySelectorAll('[role="dialog"]').length, 1);
   assert.equal(new URL(window.location.href).searchParams.get("record"), record);
+});
+
+test("group setup derives month-scoped facts without treating settings or membership as reviewed", () => {
+  const data = fixture();
+  const setup = socialOwnerSetup(data);
+  assert.equal(setup.nextAction, "group-settings");
+  assert.deepEqual(setup.steps.map(step => step.complete), [true, false, false]);
+  assert.match(setup.steps[0].detail, /1 active event in 2099-10/);
+  assert.match(setup.steps[1].detail, /Only owners and admins/);
+  const cancelled = socialOwnerSetup({ ...data, membersCanCreate: true, events: data.events.map(event => ({ ...event, cancelled: true })) });
+  assert.equal(cancelled.nextAction, "create-event");
+  assert.deepEqual(cancelled.steps.map(step => step.complete), [false, false, false]);
+  assert.match(cancelled.steps[0].detail, /Other months may have events/);
+  assert.match(cancelled.steps[1].detail, /Members can create events/);
+  assert.match(cancelled.steps[2].detail, /review is not tracked/);
+});
+
+test("group setup stays in the scrollable day panel and uses the existing history-backed settings dialog", async () => {
+  let posts = 0;
+  globalThis.fetch = async (_input, init) => { if (init?.method === "POST") posts++; return json(fixture()); };
+  await render();
+  const setup = container.querySelector<HTMLElement>('[aria-label="Group setup"]')!;
+  assert.ok(setup);
+  assert.ok(setup.closest('[aria-label="Selected day workspace"]'));
+  const calendar = container.querySelector('[aria-label="Choose a calendar day"]');
+  await click(setup.querySelector("summary")!);
+  assert.equal(setup.querySelector("details")?.open, true);
+  assert.match(setup.textContent ?? "", /Review.*This review is not tracked/);
+  await click(button("Review group settings", setup));
+  await settle(() => assert.match(document.querySelector('[role="dialog"]')?.textContent ?? "", /Who can create events/));
+  assert.equal(new URL(window.location.href).searchParams.get("panel"), "group-settings");
+  await click(button("Back to calendar"));
+  await settle(() => assert.equal(document.querySelector('[role="dialog"]'), null));
+  assert.equal(container.querySelector('[aria-label="Choose a calendar day"]'), calendar);
+  assert.equal(container.querySelector('[aria-label="Group setup"]'), setup);
+  assert.equal(setup.querySelector("details")?.open, true);
+  assert.equal(posts, 0);
+});
+
+test("an empty group checklist opens the existing event form and rederives after a fresh snapshot", async () => {
+  let current: SocialData = { ...fixture(), events: [] };
+  globalThis.fetch = async () => json(current);
+  await render();
+  await click(button("Plan an event"));
+  await settle(() => assert.ok(document.querySelector("#social-event-form")));
+  await click(button("Close"));
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.ok(button("Plan an event"));
+  current = fixture();
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  await settle(() => button("Review group settings"));
+  assert.match(container.querySelector('[aria-label="Group setup"]')?.textContent ?? "", /1 active event in 2099-10/);
+});
+
+test("a failed group refresh withdraws checklist facts and cannot leave a stale setup action", async () => {
+  await render();
+  globalThis.fetch = async () => json({ error: "Temporary problem" }, 500);
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  await settle(() => assert.match(container.textContent ?? "", /Refresh the calendar to recheck group setup/));
+  assert.equal(container.querySelector('[aria-label="Group setup"]'), null);
+});
+
+test("admins, members and viewers never receive the owner setup checklist", async () => {
+  for (const role of ["admin", "member", "viewer"] as const) {
+    const current: SocialData = { ...fixture(), role, canCreate: role !== "viewer", canRespond: role !== "viewer", canOrganise: role === "admin" };
+    globalThis.fetch = async () => json(current);
+    await act(async () => root.render(<Page key={role} calendarId={calendarId} section="calendar" initialDate={date} />));
+    await settle(() => assert.ok(container.querySelector('[aria-label="Choose a calendar day"]')));
+    assert.equal(container.querySelector('[aria-label="Group setup"]'), null);
+    assert.equal(container.querySelector('[data-owner-workspace]'), null);
+  }
 });

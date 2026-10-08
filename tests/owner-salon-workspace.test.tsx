@@ -223,3 +223,80 @@ test("an inactive practitioner filter remains labelled when its cancelled record
   assert.equal(filter.value, practitionerId); assert.match(filter.selectedOptions[0].textContent ?? "", /Alice · inactive/);
   assert.match(dayPanel().textContent ?? "", /No appointments on this day/);
 });
+
+test("setup checks remain available after revisit and lead to the missing configuration", async () => {
+  const current = fixture(); current.practitioners = []; current.hours = []; current.appointments = [];
+  globalThis.fetch = async () => json(current); await render();
+  assert.match(dayPanel().textContent ?? "", /Finish the booking basics/);
+  await click(button("Add a practitioner", dayPanel()));
+  assert.match(element('[role="dialog"]').textContent ?? "", /Add myself/);
+  await click(button("Back to calendar")); await settle(() => assert.equal(container.querySelector('[role="dialog"]'), null));
+  assert.ok(dayPanel().querySelector('[aria-label="Salon setup"]'));
+});
+
+test("private saved-booking preview is local, excludes client data and survives only its parent panel", async () => {
+  const requests: string[] = []; globalThis.fetch = async input => { requests.push(String(input)); return json(fixture()); };
+  await render(); await click(button("Booking settings"));
+  assert.equal([...container.querySelectorAll("button")].some(item => item.textContent === "Copy booking link"), false);
+  const count = requests.length;
+  await click(button("Preview saved booking details"));
+  const preview = element('[aria-labelledby="salon-owner-booking-preview"]');
+  assert.match(preview.textContent ?? "", /Synthetic Salon|Synthetic cut|Alice|Clients sign in/);
+  assert.doesNotMatch(preview.textContent ?? "", /Synthetic Client|private@example|Private phone|Private appointment note|Private block reason/);
+  assert.equal(requests.length, count);
+  await click(button("Close preview", preview)); assert.equal(container.querySelector('[aria-labelledby="salon-owner-booking-preview"]'), null);
+  await click(button("Preview saved booking details")); await act(async () => window.history.back());
+  await settle(() => assert.equal(container.querySelector('[role="dialog"]'), null));
+  await act(async () => window.history.forward()); await settle(() => assert.equal(container.querySelectorAll('[role="dialog"]').length, 1));
+  assert.equal(container.querySelector('[aria-labelledby="salon-owner-booking-preview"]'), null);
+});
+
+test("enabled booking page copies only the current calendar URL and clipboard failures remain recoverable", async () => {
+  const current = fixture(); current.settings.publicEnabled = true; globalThis.fetch = async () => json(current);
+  let copied = ""; let denied = false;
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { if (denied) throw new Error("Denied"); copied = value; } } });
+  await render(); await click(button("Booking settings")); await click(button("Copy booking link"));
+  assert.equal(copied, `https://covie.example.invalid/booking/${calendarId}`); assert.match(container.textContent ?? "", /Booking link copied/);
+  const link = element<HTMLAnchorElement>('a[href^="/booking/"]'); assert.equal(link.target, "_blank"); assert.match(link.rel, /noopener/);
+  denied = true; await click(button("Copy booking link")); assert.match(container.textContent ?? "", /Could not copy/);
+  delete (navigator as { clipboard?: unknown }).clipboard;
+});
+
+test("preview closes on refresh and is not resurrected after a fresh snapshot or demotion", async () => {
+  let current = fixture(); globalThis.fetch = async () => json(current);
+  await render(); await click(button("Booking settings")); await click(button("Preview saved booking details"));
+  await focusRefresh(); await settle(() => assert.equal(button("Book an appointment").disabled, false));
+  assert.equal(container.querySelector('[aria-labelledby="salon-owner-booking-preview"]'), null);
+  await click(button("Preview saved booking details")); current = { ...fixture(), role: "manager", canPublish: false }; await focusRefresh();
+  await settle(() => assert.equal(container.querySelector('[role="dialog"]'), null));
+  assert.equal(container.querySelector('[aria-label="Salon setup"]'), null);
+});
+
+test("Escape dismisses only the nested saved-booking preview and restores its trigger", async () => {
+  await render(); await click(button("Booking settings"));
+  assert.equal(container.querySelectorAll('[role="dialog"]').length, 1);
+  const trigger = button("Preview saved booking details"); trigger.focus(); await click(trigger);
+  const preview = element('[aria-labelledby="salon-owner-booking-preview"]');
+  await act(async () => preview.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+  assert.equal(container.querySelector('[aria-labelledby="salon-owner-booking-preview"]'), null);
+  assert.equal(container.querySelectorAll('[role="dialog"]').length, 1);
+  assert.equal(new URL(window.location.href).searchParams.get("panel"), "booking-settings");
+  assert.equal(document.activeElement, trigger);
+  await click(button("Preview saved booking details"));
+  assert.equal(container.querySelectorAll('[role="dialog"]').length, 2);
+});
+
+test("owner shell bounds long calendar names without changing the shared switcher", async () => {
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(new URL("../components/workspace/owner-calendar-workspace.module.css", import.meta.url), "utf8");
+  const shell = readFileSync(new URL("../components/templates/template-shell.tsx", import.meta.url), "utf8");
+  assert.match(css, /\.ownerHeader :global\(\.calendar-switcher > summary\) \{ max-width: 100%; \}/);
+  assert.match(shell, /workspaceRole === "owner" \|\| staffAccessRole === "owner" \? ownerWorkspaceStyles.ownerHeader/);
+});
+
+test("persistent Salon checklist offers booking settings without the desktop toolbar", async () => {
+  await render(); const readiness = element('[aria-label="Salon setup"]', dayPanel());
+  await click(button("Booking settings", readiness));
+  assert.ok(element('[aria-labelledby="salon-owner-tool"]'));
+  assert.match(element('[role="dialog"]').textContent ?? "", /Preview saved booking details/);
+});
