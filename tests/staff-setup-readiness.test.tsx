@@ -176,3 +176,14 @@ test("manager retains Team controls without the owner setup summary", async () =
   await settle(() => assert.ok(button("Add staff member")));
   assert.equal(summary(), null);
 });
+
+test("focus refresh cannot rebind the mounted Team screen to another calendar membership", async () => {
+  let data = fixture(); globalThis.fetch = async () => json(data);
+  await render(); await act(async () => button("Add staff member").click());
+  data = { ...fixture(), currentMemberId: "another-calendar-member" }; data.members[1].displayName = "Other calendar private person";
+  await focus(); await settle(() => assert.equal(summary(), null));
+  assert.match(container.textContent ?? "", /calendar or account changed/);
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.doesNotMatch(container.textContent ?? "", /Other calendar private person/);
+  await focus(); await settle(() => assert.equal(summary(), null));
+});

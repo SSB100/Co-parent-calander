@@ -31,7 +31,7 @@ The runner defines 36 browser cases at 1440×900, 1100×560, 1440×480, 1024×48
 - Salon private/enabled states: only saved enabled state exposes copy/open links; copying uses the current origin and calendar ID; preview uses saved display fields even after an unsaved business-name edit; no client identity, contact, appointment note or block reason enters preview; preview causes no API request; nested Escape leaves Booking settings open; Close/repeated open and Back/Forward drop nested preview state; viewport fit; no public API or mutation calls.
 - Staff Team: three non-owner active profiles are counted separately as one linked account, one pending acceptance and one profile-only; invitation acceptance and optional locations/leave remain explicit; no body overflow or mutations.
 
-The run writes PNGs and `results.json` to `test-results/owner-readiness` or `COVIE_BROWSER_OUTPUT`. Failure writes the completed case list, error and any available failure DOM/screenshot. A failed Chromium launch produces no visual evidence.
+The run writes PNGs and `results.json` to `test-results/owner-readiness` or `COVIE_BROWSER_OUTPUT`. Each failing case writes uniquely named failure JSON, DOM and screenshots, closes its page, then continues the remaining matrix. Horizontal-overflow failure JSON includes offending element bounds, text, computed layout styles and ancestor clipping information. `results.json` is updated after every case; any failure makes the final process exit nonzero. All 36 cases must complete for a passing run. A failed Chromium launch produces no visual evidence.
 
 ## Optional supported-browser review
 
@@ -39,7 +39,7 @@ For a connected cloud browser that can reach the same localhost namespace, `COVI
 
 `COVIE_BROWSER_BUILD_ONLY=1` validates the component/CSS bundle without a browser. Build-only success establishes no layout or interaction results.
 
-## 8 October 2026 execution status
+## 8 October 2026 local execution status
 
 - Passed: bundle generation using actual component/CSS source; JavaScript syntax check; focused ESLint for this directory.
 - Not run: all 36 browser cases and screenshots. Chromium failed before opening a page with `process_singleton_posix.cc:297 socket() failed: Operation not permitted`, including an explicitly reviewed execution attempt. A supported cloud-browser attempt also failed before rendering: tab creation timed out and its next inventory reported `Connection closed`.

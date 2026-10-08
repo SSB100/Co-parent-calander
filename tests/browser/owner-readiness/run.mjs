@@ -84,10 +84,36 @@ function staff() {
 const viewports = [[1440,900],[1100,560],[1440,480],[1024,480],[390,844],[320,568]];
 const results = [];
 async function geometry(page) { return page.evaluate(() => ({body:document.body.scrollWidth,document:document.documentElement.scrollWidth,viewport:innerWidth})); }
-async function noOverflow(page) { const dimensions=await geometry(page); assert(dimensions.body<=dimensions.viewport+1 && dimensions.document<=dimensions.viewport+1,`Horizontal body overflow: ${JSON.stringify(dimensions)}`); return dimensions; }
+async function overflowDiagnostics(page) {
+  return page.evaluate(() => {
+    const label = element => `${element.tagName.toLowerCase()}${element.id ? '#' + element.id : ''}${typeof element.className === 'string' && element.className ? '.' + element.className.trim().split(/\s+/).slice(0,4).join('.') : ''}`;
+    const candidates = [...document.body.querySelectorAll('*')].flatMap(element => {
+      const bounds=element.getBoundingClientRect(), style=getComputedStyle(element);
+      if (!bounds.width || !bounds.height || (bounds.right <= innerWidth + 1 && bounds.left >= -1)) return [];
+      const ancestors=[];
+      for(let parent=element.parentElement;parent && ancestors.length<5;parent=parent.parentElement) {
+        const parentStyle=getComputedStyle(parent), box=parent.getBoundingClientRect();
+        ancestors.push({element:label(parent),left:box.left,right:box.right,width:box.width,overflowX:parentStyle.overflowX,display:parentStyle.display,minWidth:parentStyle.minWidth,maxWidth:parentStyle.maxWidth});
+      }
+      return [{element:label(element),text:(element.textContent??'').trim().replace(/\s+/g,' ').slice(0,120),bounds:{left:bounds.left,right:bounds.right,top:bounds.top,bottom:bounds.bottom,width:bounds.width,height:bounds.height},scrollWidth:element.scrollWidth,clientWidth:element.clientWidth,style:{display:style.display,position:style.position,width:style.width,minWidth:style.minWidth,maxWidth:style.maxWidth,overflowX:style.overflowX,whiteSpace:style.whiteSpace,flexShrink:style.flexShrink},ancestors}];
+    });
+    return {body:document.body.scrollWidth,document:document.documentElement.scrollWidth,viewport:innerWidth,scrollX,offendingElements:candidates.sort((a,b)=>b.bounds.right-a.bounds.right).slice(0,40)};
+  });
+}
+async function noOverflow(page) {
+  const dimensions=await geometry(page);
+  if(dimensions.body>dimensions.viewport+1 || dimensions.document>dimensions.viewport+1) {
+    const error = new assert.AssertionError({message:`Horizontal body overflow: ${JSON.stringify(dimensions)}`,actual:dimensions,expected:{maxWidth:dimensions.viewport+1},operator:'fits viewport'});
+    error.overflowDiagnostics=await overflowDiagnostics(page);
+    throw error;
+  }
+  return dimensions;
+}
 async function screenshot(page,name) { await page.screenshot({path:path.join(out,`${name}.png`),fullPage:false}); }
-async function newFixture(variant,width,height,enabled=false) {
+async function newFixture(variant,width,height,enabled=false,onCreated=()=>{}) {
   const page = await browser.newPage({viewport:{width,height}}); const requests=[]; const errors=[];
+  onCreated({page,requests,errors});
+  page.setDefaultTimeout(10000); page.setDefaultNavigationTimeout(20000);
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(() => { window.__fixtureMutations=[]; window.__fixtureNavigations=[]; window.__fixtureClipboard=[]; Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>window.__fixtureClipboard.push(text)},configurable:true}); });
   await page.route('**/*',async route=> {
@@ -109,11 +135,39 @@ async function newFixture(variant,width,height,enabled=false) {
   await page.goto(`${base}/?fixture=${variant}&date=${date}${enabled?'&enabled=1':''}`);
   return {page,requests,errors};
 }
+function resultSummary(fatalError) {
+  const failed=results.filter(result=>result.status==='failed').length;
+  return {status:failed || fatalError ? 'failed' : results.length===36 ? 'passed' : 'running',cases:results.length,passed:results.length-failed,failed,expectedCases:36,...(fatalError?{fatalError}:{}),output:out,results};
+}
+async function runCase(meta,verify) {
+  const caseId=`${meta.variant}${meta.enabled===undefined?'':meta.enabled?'-enabled':'-private'}-${meta.width}x${meta.height}`;
+  let fixture;
+  try {
+    fixture=await newFixture(meta.variant==='salon-sharing'?'salon':meta.variant,meta.width,meta.height,meta.enabled??false,value=>{fixture=value;});
+    const details=await verify(fixture);
+    results.push({...meta,caseId,status:'passed',...details});
+    console.log(`PASS ${caseId}`);
+  } catch(error) {
+    const failure={...meta,caseId,status:'failed',error:String(error),stack:error.stack,requests:fixture?.requests??[],browserErrors:fixture?.errors??[],overflowDiagnostics:error.overflowDiagnostics};
+    if(fixture?.page && !fixture.page.isClosed()) {
+      const imageName=`failure-${caseId}.png`,htmlName=`failure-${caseId}.html`;
+      try { await screenshot(fixture.page,`failure-${caseId}`); failure.screenshot=imageName; } catch(captureError) {failure.screenshotError=String(captureError);}
+      try { await fs.writeFile(path.join(out,htmlName),await fixture.page.content()); failure.dom=htmlName; } catch(captureError) {failure.domError=String(captureError);}
+      if(!failure.overflowDiagnostics) { try {failure.geometry=await geometry(fixture.page);} catch(geometryError) {failure.geometryError=String(geometryError);} }
+    }
+    results.push(failure);
+    console.error(`FAIL ${caseId}: ${failure.error}`);
+    await fs.writeFile(path.join(out,`failure-${caseId}.json`),JSON.stringify(failure,null,2));
+  } finally {
+    if(fixture?.page && !fixture.page.isClosed()) await fixture.page.close().catch(error=>console.error(`Cleanup ${caseId}: ${error}`));
+    await fs.writeFile(path.join(out,'results.json'),JSON.stringify(resultSummary(),null,2));
+  }
+}
 if(process.env.COVIE_BROWSER_SERVE_ONLY==='1') { console.log(`Synthetic fixture server: ${base}`); await new Promise(()=>{}); }
 try {
   browser = await chromium.launch({ ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}), args: ['--no-sandbox'] });
   for(const variant of ['salon','social','facilities']) for(const [width,height] of viewports) {
-    const {page,requests,errors}=await newFixture(variant,width,height);
+    await runCase({variant,width,height},async ({page,requests,errors})=>{
     const title={salon:'Salon setup',social:'Group setup',facilities:'Facilities setup'}[variant];
     const readiness=page.getByRole('region',{name:title,exact:true}); await readiness.waitFor();
     const calendar=page.locator(variant==='salon'?'[data-salon-owner-schedule]':variant==='social'?'[aria-label="Choose a calendar day"]':'[aria-label="Resource day schedule"]');
@@ -137,11 +191,11 @@ try {
       await noOverflow(page);
     }
     assert.deepEqual(errors,[]); assert.deepEqual(await page.evaluate(()=>window.__fixtureMutations),[]);
-    results.push({variant,width,height,status:'passed',calendarBefore:before,calendarAfter:after,dimensions,requests,checks:['real shell and CSS','expanded checklist in sidebar','calendar geometry unchanged','body overflow','organiser Escape/Back/Forward/no mutations']});
-    await page.close();
+    return {calendarBefore:before,calendarAfter:after,dimensions,requests,checks:['real shell and CSS','expanded checklist in sidebar','calendar geometry unchanged','body overflow','organiser Escape/Back/Forward/no mutations']};
+    });
   }
   for(const enabled of [false,true]) for(const [width,height] of viewports) {
-    const {page,requests,errors}=await newFixture('salon',width,height,enabled);
+    await runCase({variant:'salon-sharing',enabled,width,height},async ({page,requests,errors})=>{
     await page.getByRole('region',{name:'Salon setup',exact:true}).waitFor();
     await page.getByRole('button',{name:'Booking settings',exact:true}).click();
     const parent=page.getByRole('dialog',{name:'Booking settings',exact:true}); await parent.waitFor();
@@ -172,10 +226,11 @@ try {
     await page.getByRole('button',{name:'Booking settings',exact:true}).click(); await parent.waitFor(); assert.equal(await preview.count(),0);
     assert.equal(requests.some(request=>/public|\/booking\//.test(request.url)),false); assert(requests.every(request=>request.method==='GET'));
     assert.deepEqual(errors,[]); assert.deepEqual(await page.evaluate(()=>window.__fixtureMutations),[]);
-    results.push({variant:'salon-sharing',enabled,width,height,status:'passed',requests,checks:['enabled-only link/copy','saved not draft display','no client/contact/private records','local preview no API','nested Escape','close/reopen','Back/Forward drops preview','no public API or mutations','dialog viewport fit']}); await page.close();
+    return {requests,checks:['enabled-only link/copy','saved not draft display','no client/contact/private records','local preview no API','nested Escape','close/reopen','Back/Forward drops preview','no public API or mutations','dialog viewport fit']};
+    });
   }
   for(const [width,height] of viewports) {
-    const {page,requests,errors}=await newFixture('staff',width,height);
+    await runCase({variant:'staff',width,height},async ({page,requests,errors})=>{
     const readiness=page.getByRole('region',{name:'Roster setup and account access',exact:true});await readiness.waitFor();
     const labels=['Roster profiles','Accounts linked','Awaiting acceptance','Profile only'];
     for(const [index,label] of labels.entries()) {const metric=readiness.locator('dl div').filter({has:page.getByText(label,{exact:true})});assert.equal(await metric.locator('dd').innerText(),index===0?'3':'1');}
@@ -184,11 +239,14 @@ try {
     assert.equal(await readiness.getByRole('link',{name:'Open roster',exact:true}).getAttribute('href'),'/calendar-types/staff-rosters');
     const dimensions=await noOverflow(page);await screenshot(page,`staff-readiness-${width}x${height}`);
     assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>window.__fixtureMutations),[]);
-    results.push({variant:'staff',width,height,status:'passed',dimensions,requests,checks:['roster profiles and account access distinct','pending invitation not joined','optional locations/leave','no horizontal overflow','no mutations']});await page.close();
+    return {dimensions,requests,checks:['roster profiles and account access distinct','pending invitation not joined','optional locations/leave','no horizontal overflow','no mutations']};
+    });
   }
-  await fs.writeFile(path.join(out,'results.json'),JSON.stringify(results,null,2));
-  console.log(JSON.stringify({status:'passed',cases:results.length,output:out,results},null,2));
+  const summary=resultSummary();
+  assert.equal(results.length,summary.expectedCases,'Browser matrix did not complete all expected cases');
+  await fs.writeFile(path.join(out,'results.json'),JSON.stringify(summary,null,2));
+  console.log(JSON.stringify(summary,null,2));
+  if(summary.failed) process.exitCode=1;
 } catch(error) {
-  for(const page of browser?.contexts().flatMap(context=>context.pages()) ?? []) { await screenshot(page,'failure').catch(()=>{}); await fs.writeFile(path.join(out,'failure.html'),await page.content()).catch(()=>{}); }
-  await fs.writeFile(path.join(out,'results.json'),JSON.stringify({status:'failed',error:String(error),completed:results},null,2)); throw error;
+  await fs.writeFile(path.join(out,'results.json'),JSON.stringify(resultSummary(String(error)),null,2)); throw error;
 } finally { await browser?.close(); await new Promise(resolve=>server.close(resolve)); }

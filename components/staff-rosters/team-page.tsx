@@ -91,6 +91,7 @@ function roleLabel(role: StaffAccessRole) {
 export function StaffRosterTeamPage() {
   const autoOpenedAddDialog = useRef(false);
   const loadSequence = useRef({ value: 0 });
+  const initialMemberId = useRef<string | null>(null);
   const [data, setData] = useState<TeamPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -128,6 +129,16 @@ export function StaffRosterTeamPage() {
         );
       }
 
+      // Membership IDs are calendar-specific. A background refresh must not
+      // silently rebind this mounted Team view after another tab switches calendars.
+      if (initialMemberId.current && body.currentMemberId !== initialMemberId.current) {
+        setData(null);
+        setDialogOpen(false);
+        setArchiveTarget(null);
+        setInvite(null);
+        throw new Error("Your calendar or account changed. Reload this page to continue.");
+      }
+      initialMemberId.current ??= body.currentMemberId;
       setData(body);
       setError(null);
     } catch (caught) {

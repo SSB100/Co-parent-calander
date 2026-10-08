@@ -118,11 +118,13 @@ npm ci --no-audit --no-fund
 npm run lint
 npm run typecheck
 npm test
-npm audit --audit-level=high
+npm run audit:dependencies
 npm run build
 ```
 
 GitHub Actions runs the same gate. Release candidates are validated from the current combined `main` state before Production promotion.
+
+The dependency gate retains complete audit reports and rejects high/critical findings, with one explicitly approved, expiring development-only exception documented in `docs/SECURITY.md`. Production high/critical findings, audit errors and changes to the exception's safety assumptions still fail the gate.
 
 Feature-branch Git deployments are disabled. Main-branch Git deployments are enabled in `vercel.json`; merge only after the intended commit has passed CI and the release has been explicitly approved.
 

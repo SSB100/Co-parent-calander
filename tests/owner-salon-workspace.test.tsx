@@ -275,12 +275,21 @@ test("preview closes on refresh and is not resurrected after a fresh snapshot or
 test("Escape dismisses only the nested saved-booking preview and restores its trigger", async () => {
   await render(); await click(button("Booking settings"));
   assert.equal(container.querySelectorAll('[role="dialog"]').length, 1);
-  const trigger = button("Preview saved booking details"); await click(trigger);
+  const trigger = button("Preview saved booking details"); trigger.focus(); await click(trigger);
   const preview = element('[aria-labelledby="salon-owner-booking-preview"]');
   await act(async () => preview.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
   assert.equal(container.querySelector('[aria-labelledby="salon-owner-booking-preview"]'), null);
   assert.equal(container.querySelectorAll('[role="dialog"]').length, 1);
   assert.equal(new URL(window.location.href).searchParams.get("panel"), "booking-settings");
+  assert.equal(document.activeElement, trigger);
   await click(button("Preview saved booking details"));
   assert.equal(container.querySelectorAll('[role="dialog"]').length, 2);
+});
+
+test("owner shell bounds long calendar names without changing the shared switcher", async () => {
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(new URL("../components/workspace/owner-calendar-workspace.module.css", import.meta.url), "utf8");
+  const shell = readFileSync(new URL("../components/templates/template-shell.tsx", import.meta.url), "utf8");
+  assert.match(css, /\.ownerHeader :global\(\.calendar-switcher > summary\) \{ max-width: 100%; \}/);
+  assert.match(shell, /workspaceRole === "owner" \|\| staffAccessRole === "owner" \? ownerWorkspaceStyles.ownerHeader/);
 });

@@ -4,6 +4,10 @@
 .calendar { min-width: 0; min-height: 0; }
 .day { display: grid; min-width: 0; align-content: start; gap: 12px; border: 1px solid var(--covie-border); border-radius: 12px; background: white; padding: 16px; }
 .day:focus-visible { outline: 2px solid var(--covie-violet); outline-offset: 2px; }
+/* Bound long owner-calendar names without altering the co-parenting switcher. */
+.ownerHeader { min-width: 0; max-width: 100%; }
+.ownerHeader :global(.calendar-switcher) { min-width: 0; max-width: 100%; }
+.ownerHeader :global(.calendar-switcher > summary) { max-width: 100%; }
 @media (min-width: 1100px) and (min-height: 560px) {
   .page:has([data-owner-workspace]) { display: flex; height: 100dvh; min-height: 0; flex-direction: column; padding-top: 16px; padding-bottom: 16px; }
   .page:has([data-owner-workspace]) .calendarHeader { flex: 0 0 auto; margin-bottom: 12px; }
