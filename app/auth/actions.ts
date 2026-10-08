@@ -24,6 +24,9 @@ function verificationDestination(formData: FormData) {
   const params = new URLSearchParams({ verify: "1" });
   if (invite) params.set("invite", invite);
   const returnTo = safeAuthReturnTo(formData.get("returnTo"));
+  // Code-verification signups may not have a usable session yet. Keep the
+  // person-specific invitation reachable before requiring a verified sign-in.
+  if (returnTo.startsWith("/timesheets/invite/")) return `${returnTo}?verify=1`;
   if (returnTo) params.set("returnTo", returnTo);
   return `/auth/sign-in?${params.toString()}`;
 }
@@ -85,6 +88,11 @@ export async function signUpWithEmail(
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check your details." };
+  }
+
+  if (safeAuthReturnTo(formData.get("returnTo")).startsWith("/timesheets/invite/")) {
+    const { data: existing } = await auth.getSession();
+    if (existing?.user) return { error: "You are already signed in. Return to the invitation and sign out before creating another account." };
   }
 
   const account = {

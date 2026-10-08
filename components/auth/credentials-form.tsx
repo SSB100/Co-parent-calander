@@ -87,6 +87,8 @@ export function CredentialsForm({
           <CovieBrand />
         </Link>
 
+        {safeAuthReturnTo(returnTo).startsWith("/timesheets/invite/") ? <p className="mt-4 text-sm"><Link href={safeAuthReturnTo(returnTo)} className="underline">Return to your Timesheets invitation</Link></p> : null}
+
         <h1 className="covie-display mt-8 text-4xl font-semibold tracking-tight text-slate-950">
           {isSignUp ? "Create your account" : "Welcome back"}
         </h1>

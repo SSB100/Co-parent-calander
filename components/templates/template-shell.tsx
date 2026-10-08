@@ -28,6 +28,7 @@ import {
 import { CalendarSetupGuide } from "@/components/onboarding/calendar-setup-guide";
 import ownerWorkspaceStyles from "@/components/workspace/owner-calendar-workspace.module.css";
 import { CalendarIdentity } from "@/components/workspace/calendar-identity";
+import { TimesheetsPage } from "@/components/timesheets/timesheets-page";
 import { SalonPage } from "@/components/salon/salon-page";
 import { workspaceOrganiserTools, type WorkspaceRole } from "@/lib/templates/workspace-navigation";
 import { SocialGroupsPage } from "@/components/social-groups/social-groups-page";
@@ -65,6 +66,7 @@ const calendarViewByType: Record<
     iconClassName: string;
   }
 > = {
+  timesheets: { emptyTitle: "No work blocks yet", emptyDescription: "Record your first work block to start your timesheet.", icon: BriefcaseBusiness, iconClassName: "text-[#19A897]" },
   staff_rosters: {
     emptyTitle: "No shifts yet",
     emptyDescription: "Shifts will appear here when the roster is built.",
@@ -257,7 +259,9 @@ export function TemplateShell({
               : "mt-6"
           }
         >
-          {template.id === "salon_bookings" ? (
+          {template.id === "timesheets" ? (
+            <TimesheetsPage key={`${currentCalendarId}:${section}:${activeToolKey ?? ""}`} calendarId={currentCalendarId} initialDate={initialDate} section={section} tool={activeToolKey} />
+          ) : template.id === "salon_bookings" ? (
             <SalonPage key={`${currentCalendarId}:${section}:${activeToolKey ?? ""}:${initialDate ?? ""}:${initialRecord ?? ""}`} calendarId={currentCalendarId} initialDate={initialDate} initialRecord={initialRecord} section={section} tool={activeToolKey} />
           ) : template.id === "shared_facilities" ? (
             section === "organiser" && activeToolKey === "members" ? <TemplateMembersPage key={currentCalendarId} calendarId={currentCalendarId} /> :

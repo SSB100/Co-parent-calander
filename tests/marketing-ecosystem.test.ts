@@ -7,7 +7,7 @@ import { calendarTemplateIds, calendarTemplateManifests } from "../lib/templates
 const palette = { coral: "#FF6B5F", teal: "#19A897", sunshine: "#F4C64E", violet: "#765ED6" };
 
 test("marketing covers exactly the supported purposes and authoritative accent pairs", () => {
-  assert.deepEqual(calendarPurposes.map((purpose) => purpose.id), ["staff_rosters", "salon_bookings", "shared_facilities", "social_groups", "co_parenting"]);
+  assert.deepEqual(calendarPurposes.map((purpose) => purpose.id), ["staff_rosters", "timesheets", "salon_bookings", "shared_facilities", "social_groups", "co_parenting"]);
   assert.deepEqual(new Set(calendarPurposes.map((purpose) => purpose.id)), new Set(calendarTemplateIds));
   for (const purpose of calendarPurposes) {
     const manifest = calendarTemplateManifests[purpose.id];
@@ -64,7 +64,7 @@ test("public copy leads with Staff Rosters and keeps Co-parenting last", async (
   ].map((file) => readFile(file, "utf8")));
   assert.match(picker, /useState<CalendarPurpose\["id"\]>\("staff_rosters"\)/);
   assert.match(picker, /purposeIcons\[purpose.id\]/);
-  for (const [id, icon] of Object.entries({ staff_rosters: "Clock3", salon_bookings: "Scissors", shared_facilities: "Building2", social_groups: "UsersRound", co_parenting: "CalendarDays" })) {
+  for (const [id, icon] of Object.entries({ staff_rosters: "Clock3", timesheets: "Timer", salon_bookings: "Scissors", shared_facilities: "Building2", social_groups: "UsersRound", co_parenting: "CalendarDays" })) {
     assert.ok(picker.includes(`${id}: ${icon}`));
   }
   assert.doesNotMatch(picker, /purposeIcons\[index\]/);

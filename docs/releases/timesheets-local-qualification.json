@@ -1,0 +1,74 @@
+{
+  "version": "timesheets-0036-local-qualification-v1",
+  "recordedAt": "2026-10-08T22:32:30.316526+00:00",
+  "productionBaseCommit": "7c90e4a9a15b72ecb6026030e8ca5dfce8a304df",
+  "productionBaseTree": "e4b2c5285120055fa045d7620876c6ab5fadd343",
+  "packageLockSha256": "754b3c8d4f50f8a34e8d18d77f18033e301c6f0a46b1778fd416fb408cc9e576",
+  "installed": {
+    "next": "16.3.8",
+    "react": "19.3.0",
+    "reactDom": "19.3.0",
+    "neonAuth": "0.5.0-beta",
+    "neonServerless": "1.1.0"
+  },
+  "checks": {
+    "fullTypecheck": "pass",
+    "fullLint": {
+      "status": "pass",
+      "existingWarnings": 8,
+      "errors": 0
+    },
+    "fullRegression": {
+      "pass": 760,
+      "fail": 0,
+      "skip": 0,
+      "runner": "node --import tsx --test --test-concurrency=1, exact package.json test file list"
+    },
+    "nativePostgres": {
+      "version": "17.11",
+      "fullMigrationChain": "0000-0036",
+      "semanticsPass": 10,
+      "concurrencyPass": 7,
+      "servicePass": 6,
+      "restrictedRuntimeRole": "covie_app",
+      "permissionBundleApplied": true,
+      "legacyFingerprintsUnchanged": true,
+      "shutdownConfirmed": true
+    },
+    "finalCopyRegression": {
+      "pass": 13,
+      "fail": 0
+    },
+    "dependencyAudit": "pass under unchanged existing approved development-only exception",
+    "productionBuild": "pass, Next16.3.8 Turbopack"
+  },
+  "visual": {
+    "status": "blocked",
+    "passed": 0,
+    "planned": 15,
+    "screenshots": 0,
+    "executorBrowser": "socket EPERM before page creation",
+    "supportedCloudBrowser": "ERR_BLOCKED_BY_CLIENT for synthetic localhost fixture; stopped without workaround"
+  },
+  "review": {
+    "independentStaticReview": true,
+    "fixed": [
+      "Editor-supplied organisation version prevents stale timezone reinterpretation",
+      "Unverified signup returns to invitation verification before sign-in"
+    ],
+    "remaining": "Actual managed Auth delivery/account creation is not live-tested; existing provider configuration unchanged."
+  },
+  "release": {
+    "productionMigrationApplied": false,
+    "productionPermissionsChanged": false,
+    "realStaffInvited": false,
+    "hubspot": "deferred",
+    "weeklyApprovalWorkflow": "separate second slice",
+    "ciAllowanceUsd": 1,
+    "sharedAccountCapUsd": 14,
+    "maximumFullRunsIncludingPostMerge": 4,
+    "localPaidCiRuns": 0
+  },
+  "migrationSha256": "1138280c54c193ff68362a22bdb11d473bc8e3e79ae3bedcf97069bdd2dafb95",
+  "permissionBundleSha256": "9e13381c81b147669d7ef803816cddc1e2b88a6171d980807bf6e62572c384ac"
+}

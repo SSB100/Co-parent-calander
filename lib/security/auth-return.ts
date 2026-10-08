@@ -1,4 +1,4 @@
-/** Only known in-app booking destinations may survive an authentication round trip. */
+/** Only explicit allowlisted in-app destinations survive an authentication round trip. */
 export function safeAuthReturnTo(value: unknown): string {
   if (
     typeof value !== "string" ||
@@ -16,6 +16,7 @@ export function safeAuthReturnTo(value: unknown): string {
     return "";
   }
   if (parsed.origin !== "https://covie.invalid" || parsed.hash) return "";
+  if (/^\/timesheets\/invite\/[A-Za-z0-9_-]{43}$/.test(parsed.pathname) && !parsed.search) return parsed.pathname;
   if (parsed.pathname === "/personal" && !parsed.search) return "/personal";
   if (!new RegExp(`^/booking/(?:manage/)?${uuid}$`, "i").test(parsed.pathname))
     return "";

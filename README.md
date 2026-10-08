@@ -1,6 +1,6 @@
 # Covie
 
-Covie is a mobile-first shared-calendar ecosystem. Choose the optional preset you need: Staff Rosters, Salon Bookings, Shared Facilities, Social Groups or Co-parenting. Each calendar has its own people, permissions and purpose-specific tools. Personal is a private account view of your relevant commitments, linking to their original records.
+Covie is a mobile-first shared-calendar ecosystem. Choose the optional preset you need: Staff Rosters, Timesheets, Salon Bookings, Shared Facilities, Social Groups or Co-parenting. Each calendar has its own people, permissions and purpose-specific tools. Personal is a private account view of your relevant commitments, linking to their original records.
 
 Production uses:
 
@@ -22,7 +22,8 @@ Parent profiles are separate from accounts so a co-parent can be represented in 
 
 Shared preset capabilities:
 
-- Staff Rosters: published shifts, leave, attendance and timesheets with manager/staff views
+- Staff Rosters: published shifts, leave and time & attendance with manager/staff views
+- Timesheets: separate organisation work blocks, verified-email staff invitations, exact billable minutes, clients/projects and assigned-manager oversight (release migration 0036; see `docs/TIMESHEETS.md`)
 - Shared Facilities: resources, booking rules, availability and member bookings
 - Social Groups: events, RSVPs, capacity and shared availability
 - Salon Bookings: services, practitioner hours and appointments, with explicitly enabled client booking pages

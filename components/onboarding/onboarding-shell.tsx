@@ -32,6 +32,8 @@ function calendarNamePlaceholder(type: CalendarTemplateId) {
       return "e.g. Our family";
     case "staff_rosters":
       return "e.g. Harbour Cafe";
+    case "timesheets":
+      return "e.g. Harbour Studio";
     case "shared_facilities":
       return "e.g. Community Courts";
     case "social_groups":

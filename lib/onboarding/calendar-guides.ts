@@ -2,6 +2,12 @@ import type { CalendarTemplateId } from "@/lib/templates/calendar-templates";
 
 type CalendarGuide = { example: string; purpose: string; steps: readonly [string, string, string]; startLabel: string; startPath: string };
 export const calendarGuides: Record<CalendarTemplateId, CalendarGuide> = {
+  timesheets: {
+    example: "For teams tracking work, clients, projects and billable time.",
+    purpose: "Record exact work blocks and give managers oversight of their assigned team.",
+    steps: ["Set your organisation timezone and time increment.", "Add staff, clients and projects. Assign managers when needed.", "Create a work block, then share personal staff invitation links."],
+    startLabel: "Set up timesheets", startPath: "/calendar-types/timesheets/organiser/settings",
+  },
   staff_rosters: {
     example: "For cafe teams, shops and other shift-based work.",
     purpose: "Build a roster, then share published shifts with the people working them.",

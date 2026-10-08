@@ -71,7 +71,7 @@ export function CalendarLifecycleControls({
               <Archive className="h-4 w-4" aria-hidden="true" />
               Archive calendar
             </CovieButton>
-            <CovieButton
+            {current.calendarType === "timesheets" ? <p className="px-3 text-sm text-slate-600">Timesheets keep audited work history. Archive this calendar when you no longer need it.</p> : <CovieButton
               tone="danger"
               className="w-full justify-start"
               onClick={() => {
@@ -81,7 +81,7 @@ export function CalendarLifecycleControls({
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
               Delete permanently
-            </CovieButton>
+            </CovieButton>}
           </div>
         </details>
       ) : null}
