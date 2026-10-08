@@ -121,9 +121,9 @@ test("Stage 5 Team UI exposes account state, new invite and revoke actions", asy
     source("lib/staff-rosters/invitations-service.ts"),
   ]);
 
-  assert.match(team, /Not invited/);
+  assert.match(team, /Profile only/);
   assert.match(team, /Invite active/);
-  assert.match(team, /Connected/);
+  assert.match(team, /Account linked/);
   assert.match(team, /New invite/);
   assert.match(team, /Revoke invite/);
   assert.match(team, /Optional roster details/);

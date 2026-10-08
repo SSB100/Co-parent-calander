@@ -11,6 +11,7 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -43,6 +44,7 @@ jobs:
 
   personal-calendar-browser:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -54,11 +56,16 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Verify My calendars on desktop and mobile
         run: node tests/browser/my-calendars/run.mjs
+      - name: Verify owner setup and booking sharing on desktop and mobile
+        run: node tests/browser/owner-readiness/run.mjs
       - name: Save browser evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: my-calendars-browser-evidence
+          retention-days: 3
           path: |
             test-results/my-calendars/*.png
             test-results/my-calendars/results.json
+            test-results/owner-readiness/*.png
+            test-results/owner-readiness/results.json

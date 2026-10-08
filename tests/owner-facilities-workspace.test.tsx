@@ -4,6 +4,7 @@ import { after, afterEach, before, beforeEach, test } from "node:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { facilityDefaults, type FacilityData } from "../lib/shared-facilities/contracts";
+import { facilityOwnerSetup } from "../components/shared-facilities/facility-owner-setup";
 import { dom, styleHooks } from "./support/salon-dom-environment";
 let Page: typeof import("../components/shared-facilities/facilities-page").FacilitiesPage;
 let root: Root, container: HTMLDivElement;
@@ -58,6 +59,7 @@ test("owner demotion closes a resource editor and returns to the existing member
  await render();await click(button("Resources"));await click(button("Add resource"));assert.equal(document.querySelectorAll('[role="dialog"]').length,2);
  current={...current,owner:false,role:"member"};await act(async()=>window.dispatchEvent(new Event("focus")));
  await settle(()=>assert.equal(document.querySelector('[role="dialog"]'),null));assert.equal(container.querySelector('[data-owner-workspace]'),null);
+ assert.equal(container.querySelector('[aria-label="Facilities setup"]'),null);
  assert.ok(container.querySelector('[aria-label="Facilities view"]'));assert.equal(new URL(window.location.href).searchParams.has("panel"),false);
 });
 
@@ -73,4 +75,66 @@ test("a cancelled source booking on an archived resource retains readable detail
  assert.match(container.querySelector('[aria-label="Selected day workspace"]')?.textContent??"",/Synthetic booking|Cancelled/);
  assert.match(container.querySelector('[aria-label="Resource day schedule"]')?.textContent??"",/archived/i);
  assert.equal([...container.querySelectorAll("button")].some(e=>e.getAttribute("aria-label")?.includes("available 60-minute")),false);
+});
+
+test("facilities setup counts active resources without claiming default rules or membership were reviewed",()=>{
+ const data=fixture();const setup=facilityOwnerSetup(data);
+ assert.equal(setup.nextAction,"booking-rules");
+ assert.deepEqual(setup.steps.map(step=>step.complete),[true,false,false]);
+ assert.match(setup.steps[0].detail,/2 active resources/);
+ assert.match(setup.steps[1].detail,/do not require approval/);
+ assert.match(setup.steps[1].detail,/without booking titles/);
+ const archived=facilityOwnerSetup({...data,resources:data.resources.map(resource=>({...resource,active:false})),rules:{...data.rules,requireApproval:true,shareTitles:true}});
+ assert.equal(archived.nextAction,"resources");
+ assert.deepEqual(archived.steps.map(step=>step.complete),[false,false,false]);
+ assert.match(archived.steps[1].detail,/require approval/);
+ assert.match(archived.steps[1].detail,/titles are shared with members/);
+ assert.match(archived.steps[1].detail,/review is not tracked/);
+});
+
+test("facilities checklist is in the day panel and settings review does not create a saved completion",async()=>{
+ let posts=0;globalThis.fetch=async(_input,init)=>{if(init?.method==="POST")posts++;return json(fixture());};
+ await render();
+ const setup=container.querySelector<HTMLElement>('[aria-label="Facilities setup"]')!;assert.ok(setup);
+ assert.ok(setup.closest('[aria-label="Selected day workspace"]'));
+ const schedule=container.querySelector('[aria-label="Resource day schedule"]');
+ await click(setup.querySelector("summary")!);assert.equal(setup.querySelector("details")?.open,true);
+ await click(button("Review booking rules",setup));
+ await settle(()=>assert.match(document.querySelector('[role="dialog"]')?.textContent??"",/Opening hours use UTC/));
+ assert.equal(new URL(window.location.href).searchParams.get("panel"),"booking-rules");
+ await click(button("Back to calendar"));await settle(()=>assert.equal(document.querySelector('[role="dialog"]'),null));
+ assert.equal(container.querySelector('[aria-label="Facilities setup"]'),setup);
+ assert.equal(setup.querySelector("details")?.open,true);
+ assert.match(setup.textContent??"",/Review.*This review is not tracked/);
+ assert.equal(container.querySelector('[aria-label="Resource day schedule"]'),schedule);
+ assert.equal(posts,0);
+});
+
+test("facilities setup opens Resources for an empty calendar and updates when a resource is added",async()=>{
+ let current:FacilityData={...fixture(),resources:[],bookings:[]};globalThis.fetch=async()=>json(current);
+ await render();
+ const setup=container.querySelector<HTMLElement>('[aria-label="Facilities setup"]')!;
+ await click(button("Add a resource",setup));await settle(()=>button("Add resource"));
+ assert.equal(new URL(window.location.href).searchParams.get("panel"),"resources");
+ await click(button("Back to calendar"));await settle(()=>assert.equal(document.querySelector('[role="dialog"]'),null));
+ current=fixture();await act(async()=>window.dispatchEvent(new Event("focus")));
+ await settle(()=>button("Review booking rules"));
+ assert.match(container.querySelector('[aria-label="Facilities setup"]')?.textContent??"",/2 active resources/);
+});
+
+test("a failed facilities refresh withdraws checklist facts and cannot leave a stale setup action",async()=>{
+ await render();globalThis.fetch=async()=>json({error:"Temporary problem"},500);
+ await act(async()=>window.dispatchEvent(new Event("focus")));
+ await settle(()=>assert.match(container.textContent??"",/Refresh the calendar to recheck facilities setup/));
+ assert.equal(container.querySelector('[aria-label="Facilities setup"]'),null);
+});
+
+test("managers, members and viewers never receive the owner setup checklist",async()=>{
+ for(const role of ["manager","member","viewer"] as const){
+  const current:FacilityData={...fixture(),role,owner:false,canBook:role!=="viewer"};globalThis.fetch=async()=>json(current);
+  await act(async()=>root.render(<Page key={role} calendarId={calendarId} section="calendar" initialDate={date}/>));
+  await settle(()=>assert.ok(container.querySelector('[aria-label="Facilities view"]')));
+  assert.equal(container.querySelector('[aria-label="Facilities setup"]'),null);
+  assert.equal(container.querySelector('[data-owner-workspace]'),null);
+ }
 });

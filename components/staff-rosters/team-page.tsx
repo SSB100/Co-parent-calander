@@ -9,6 +9,8 @@ import {
   UsersRound,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { StaffRosterSetupReadiness } from "@/components/staff-rosters/setup-readiness";
+import { staffSetupAccountState, staffSetupReadiness } from "@/lib/staff-rosters/setup-readiness";
 import {
   CovieButton,
   CovieConfirmDialog,
@@ -88,6 +90,7 @@ function roleLabel(role: StaffAccessRole) {
 
 export function StaffRosterTeamPage() {
   const autoOpenedAddDialog = useRef(false);
+  const loadSequence = useRef({ value: 0 });
   const [data, setData] = useState<TeamPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -102,26 +105,39 @@ export function StaffRosterTeamPage() {
   const [inviteCopied, setInviteCopied] = useState(false);
 
   const refresh = useCallback(async () => {
-    const response = await fetch("/api/staff-roster/team", { cache: "no-store" });
-    const body = (await response.json().catch(() => null)) as
-      | TeamPayload
-      | { error?: string }
-      | null;
+    const sequence = ++loadSequence.current.value;
+    try {
+      const response = await fetch("/api/staff-roster/team", { cache: "no-store" });
+      const body = (await response.json().catch(() => null)) as
+        | TeamPayload
+        | { error?: string }
+        | null;
+      if (sequence !== loadSequence.current.value) return;
 
-    if (!response.ok || !body || !("members" in body)) {
-      throw new Error(
-        body && "error" in body && body.error
-          ? body.error
-          : "The team could not be loaded.",
-      );
+      if (!response.ok || !body || !("members" in body)) {
+        if (response.status === 401 || response.status === 403) {
+          setData(null);
+          setDialogOpen(false);
+          setArchiveTarget(null);
+          setInvite(null);
+        }
+        throw new Error(
+          body && "error" in body && body.error
+            ? body.error
+            : "The team could not be loaded.",
+        );
+      }
+
+      setData(body);
+      setError(null);
+    } catch (caught) {
+      if (sequence === loadSequence.current.value) throw caught;
     }
-
-    setData(body);
-    setError(null);
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    const sequence = loadSequence.current;
+    const reload = () => {
       void refresh().catch((caught) =>
         setError(
           caught instanceof Error
@@ -129,8 +145,17 @@ export function StaffRosterTeamPage() {
             : "The team could not be loaded.",
         ),
       );
-    }, 0);
-    return () => window.clearTimeout(timer);
+    };
+    const onVisible = () => { if (document.visibilityState === "visible") reload(); };
+    const timer = window.setTimeout(reload, 0);
+    window.addEventListener("focus", reload);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", reload);
+      document.removeEventListener("visibilitychange", onVisible);
+      sequence.value++;
+    };
   }, [refresh]);
 
   useEffect(() => {
@@ -380,6 +405,9 @@ export function StaffRosterTeamPage() {
 
       {data ? (
         <>
+          {data.currentAccessRole === "owner" && data.canManageTeam && !error ? (
+            <StaffRosterSetupReadiness readiness={staffSetupReadiness(data.members)} />
+          ) : null}
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-bold text-[#526168]">
               {activeMembers.length} {activeMembers.length === 1 ? "person" : "people"}
@@ -408,6 +436,7 @@ export function StaffRosterTeamPage() {
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {activeMembers.map((member) => {
+                const accountState = staffSetupAccountState(member);
                 const editable =
                   data.canManageTeam &&
                   member.accessRole !== "owner" &&
@@ -434,18 +463,18 @@ export function StaffRosterTeamPage() {
                           </CovieStatusBadge>
                           <CovieStatusBadge
                             tone={
-                              member.accountState === "connected"
+                              accountState === "connected"
                                 ? "teal"
-                                : member.accountState === "invite_active"
+                                : accountState === "invite_active"
                                   ? "sunshine"
                                   : "neutral"
                             }
                           >
-                            {member.accountState === "connected"
-                              ? "Connected"
-                              : member.accountState === "invite_active"
-                                ? "Invite active"
-                                : "Not invited"}
+                            {accountState === "connected"
+                              ? "Account linked"
+                              : accountState === "invite_active"
+                                ? "Awaiting acceptance"
+                                : "Profile only"}
                           </CovieStatusBadge>
                           {member.isCurrentUser ? (
                             <CovieStatusBadge tone="neutral">You</CovieStatusBadge>
@@ -466,12 +495,22 @@ export function StaffRosterTeamPage() {
                       ) : null}
                     </div>
 
+                    <p className="mt-3 text-xs leading-5 text-[#66747A]">
+                      {accountState === "connected"
+                        ? "This profile is linked to a Covie account."
+                        : accountState === "invite_active"
+                          ? "An invite has been created. Share it with them; access starts when they accept."
+                          : member.hadInvite
+                            ? "No active invite. Create a new one when they need Covie access."
+                            : "This roster profile does not give them Covie account access."}
+                    </p>
+
                     {!member.hasAccount && canManageInvite ? (
                       <div className="mt-4 grid gap-2 sm:grid-cols-2">
                         <CovieButton
                           tone="neutral"
                           className={
-                            member.accountState === "invite_active"
+                            accountState === "invite_active"
                               ? "w-full"
                               : "w-full sm:col-span-2"
                           }
@@ -479,12 +518,12 @@ export function StaffRosterTeamPage() {
                           onClick={() => void inviteMember(member)}
                         >
                           <UserPlus className="h-4 w-4" aria-hidden="true" />
-                          {member.accountState === "invite_active" ||
+                          {accountState === "invite_active" ||
                           member.hadInvite
                             ? "New invite"
                             : "Invite to Covie"}
                         </CovieButton>
-                        {member.accountState === "invite_active" ? (
+                        {accountState === "invite_active" ? (
                           <CovieButton
                             tone="neutral"
                             className="w-full"
@@ -497,7 +536,7 @@ export function StaffRosterTeamPage() {
                       </div>
                     ) : null}
 
-                    {member.accountState === "invite_active" &&
+                    {accountState === "invite_active" &&
                     member.inviteExpiresAt ? (
                       <p className="mt-2 text-xs font-bold text-[#8B6714]">
                         Invite active until{" "}
