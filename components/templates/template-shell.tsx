@@ -28,6 +28,7 @@ import {
 import { CalendarSetupGuide } from "@/components/onboarding/calendar-setup-guide";
 import ownerWorkspaceStyles from "@/components/workspace/owner-calendar-workspace.module.css";
 import { CalendarIdentity } from "@/components/workspace/calendar-identity";
+import timesheetsStyles from "@/components/timesheets/timesheets.module.css";
 import { TimesheetsPage } from "@/components/timesheets/timesheets-page";
 import { SalonPage } from "@/components/salon/salon-page";
 import { workspaceOrganiserTools, type WorkspaceRole } from "@/lib/templates/workspace-navigation";
@@ -160,6 +161,7 @@ export function TemplateShell({
   const compactStaffRosterCalendar =
     template.id === "staff_rosters" && section === "calendar" && !staffMode;
   const staffRosterMode = template.id === "staff_rosters";
+  const timesheetsCalendar = template.id === "timesheets" && section === "calendar";
   const ownerCalendarWorkspace = (template.id === "social_groups" || template.id === "shared_facilities" || template.id === "salon_bookings") && section === "calendar" && workspaceRole === "owner";
 
   const organiserItems: readonly TemplateOrganiserNavItem[] =
@@ -220,11 +222,13 @@ export function TemplateShell({
         width="wide"
         className={ownerCalendarWorkspace ? `${ownerWorkspaceStyles.page} pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6` : staffRosterMode && !staffMode ? "pb-[calc(156px+env(safe-area-inset-bottom))] lg:pb-6" : "pb-[calc(104px+env(safe-area-inset-bottom))] lg:pb-6"}
       >
-        <CalendarIdentity mobileOnly />
+        {timesheetsCalendar ? <div className={timesheetsStyles.compactIdentity}><CalendarIdentity mobileOnly /></div> : <CalendarIdentity mobileOnly />}
         {compactStaffRosterCalendar ? null : (
           <div
             data-owner-calendar-header={workspaceRole === "owner" || staffAccessRole === "owner" ? "true" : undefined}
             className={[
+              template.id === "timesheets" ? timesheetsStyles.calendarIdentityHeader : "",
+              timesheetsCalendar ? timesheetsStyles.compactCalendarHeader : "",
               workspaceRole === "owner" || staffAccessRole === "owner" ? ownerWorkspaceStyles.ownerHeader : "",
               ownerCalendarWorkspace ? ownerWorkspaceStyles.calendarHeader : section === "calendar"
                 ? "mb-5"
@@ -252,7 +256,7 @@ export function TemplateShell({
 
         <section
           className={
-            ownerCalendarWorkspace ? ownerWorkspaceStyles.calendarSection : section === "calendar"
+            timesheetsCalendar ? timesheetsStyles.calendarSection : ownerCalendarWorkspace ? ownerWorkspaceStyles.calendarSection : section === "calendar"
               ? compactStaffRosterCalendar
                 ? "mt-1"
                 : "mt-3"

@@ -1,6 +1,6 @@
 # Timesheets 0036: proposed release and permission approval
 
-Status: exact-lock local implementation and qualification passed, with visual verification still blocked locally. **Not approved for Production schema/access execution.** Production migration, access grants, real staff invitations and deployment remain untouched. Hosted CI is separately authorized within the bounded allowance below.
+Status: exact-lock local implementation and qualification passed, with first hosted visual qualification passed and a mobile-only refinement awaiting its second hosted run. **The exact schema/access bundle is approved, conditional on final hosted checks passing.** Production migration, access grants, real staff invitations and deployment remain untouched. Hosted CI is separately authorized within the bounded allowance below.
 
 ## Exact target and scope
 
@@ -33,8 +33,12 @@ Existing Covie CI has two Linux jobs with 15-minute timeouts: 30 configured runn
 
 ## Remaining gates
 
-See `timesheets-local-qualification.json` for exact dependency, migration and permission hashes and passed local gates. All 760 regression tests, 23 native SQL checks, full typecheck/lint, dependency gate and production build pass on the locked Next16.3.8/React19.3.0 dependencies. A final 13-case copy/template check and rebuilt production bundle cover the last wording change. The initial memory failures were resolved after approved cleanup; they are not the final test result.
+See `timesheets-local-qualification.json` for exact dependency, migration and permission hashes and passed local gates. All 764 regression tests, 23 native SQL checks, full typecheck/lint, dependency gate and production build pass on the locked Next16.3.8/React19.3.0 dependencies. The restored five-file mobile refinement passed 29 focused checks, all 764 regression tests and a fresh production build. The initial memory failures were resolved after approved cleanup; they are not the final test result.
 
 Local visual execution remains blocked before any page renders: executor Chromium reports a socket-permission denial, and the supported cloud browser reports ERR_BLOCKED_BY_CLIENT for the synthetic localhost fixture. No visual passes or screenshots are claimed. The 15-case desktop/mobile harness is included in the existing hosted browser job. Actual managed Auth email delivery/new-account flow has not been exercised against a live provider; the installed SDK contracts and authoritative verified-email SQL are qualified without changing Auth configuration.
 
-Do not apply the production schema/access bundle before the hosted visual result and the specific approval are clear.
+The owner approved this exact schema/access bundle conditionally on the final hosted pass. Apply only after run 2 qualifies the mobile refinement and only while both approved hashes match. No real organisation, staff invitation, Auth change or HubSpot connection is included.
+
+## Recovery and mobile refinement
+
+After a local workspace replacement, all 565 source blobs and the complete published PR tree were recovered by Git hashes. Only the previously completed five-file mobile refinement was restored. The qualified feature was not rebuilt. Hosted run 37854606852 passed both jobs and all 15 Timesheets browser cases; screenshot review motivated narrow-screen Day defaults, selected-day positioning, compact controls and a full-width calendar title. The second hosted run must qualify that refinement before release.

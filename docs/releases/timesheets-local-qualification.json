@@ -1,6 +1,6 @@
 {
   "version": "timesheets-0036-local-qualification-v1",
-  "recordedAt": "2026-10-08T22:32:30.316526+00:00",
+  "recordedAt": "2026-10-08T23:47:00.689690+00:00",
   "productionBaseCommit": "7c90e4a9a15b72ecb6026030e8ca5dfce8a304df",
   "productionBaseTree": "e4b2c5285120055fa045d7620876c6ab5fadd343",
   "packageLockSha256": "754b3c8d4f50f8a34e8d18d77f18033e301c6f0a46b1778fd416fb408cc9e576",
@@ -19,7 +19,7 @@
       "errors": 0
     },
     "fullRegression": {
-      "pass": 760,
+      "pass": 764,
       "fail": 0,
       "skip": 0,
       "runner": "node --import tsx --test --test-concurrency=1, exact package.json test file list"
@@ -40,7 +40,11 @@
       "fail": 0
     },
     "dependencyAudit": "pass under unchanged existing approved development-only exception",
-    "productionBuild": "pass, Next16.3.8 Turbopack"
+    "productionBuild": "pass, Next16.3.8 Turbopack",
+    "mobilePolishFocused": {
+      "pass": 29,
+      "fail": 0
+    }
   },
   "visual": {
     "status": "blocked",
@@ -67,8 +71,31 @@
     "ciAllowanceUsd": 1,
     "sharedAccountCapUsd": 14,
     "maximumFullRunsIncludingPostMerge": 4,
-    "localPaidCiRuns": 0
+    "localPaidCiRuns": 1,
+    "productionApproval": "Exact schema and permission bundle approved by owner, conditional on final hosted checks passing; no wider security/data changes."
   },
   "migrationSha256": "1138280c54c193ff68362a22bdb11d473bc8e3e79ae3bedcf97069bdd2dafb95",
-  "permissionBundleSha256": "9e13381c81b147669d7ef803816cddc1e2b88a6171d980807bf6e62572c384ac"
+  "permissionBundleSha256": "9e13381c81b147669d7ef803816cddc1e2b88a6171d980807bf6e62572c384ac",
+  "previousHostedQualification": {
+    "head": "28aa5d32c2fa9fd6c5e2529f273efd11cf36e74c",
+    "runId": 37854606852,
+    "status": "passed",
+    "timesheetsBrowserCases": 15,
+    "unmockedRequests": 0,
+    "visualReview": "No critical visual or privacy defect; mobile compactness and title-width improvements were identified."
+  },
+  "mobilePolish": {
+    "defaultNarrowView": "day",
+    "explicitViewPreserved": true,
+    "selectedWeekDayCentered": true,
+    "compactHeaderAndControls": true,
+    "fullWidthCalendarIdentity": true,
+    "hostedValidation": "pending run 2"
+  },
+  "recovery": {
+    "publishedTree": "cfeccf407d7713e31ce13a5b514e11f8a1202bd1",
+    "verifiedBlobs": 565,
+    "featureRebuilt": false,
+    "restoredDelta": "Five previously completed mobile-polish files only"
+  }
 }

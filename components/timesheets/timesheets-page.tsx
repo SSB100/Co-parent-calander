@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Clock3, Plus, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { CovieButton, CovieEmptyState, CovieIconButton, CovieInput, CovieNotice, CovieSelect, CovieStatusBadge } from "@/components/ui/covie";
@@ -19,7 +19,9 @@ function shiftDate(date: string, amount: number) { const value = new Date(`${dat
 export function TimesheetsPage(props: Props) { return <TimesheetsResourcePage key={`${props.calendarId}:${props.section}:${props.tool ?? ""}:${props.initialDate ?? ""}`} {...props} />; }
 function TimesheetsResourcePage({ calendarId, section, tool, initialDate = "" }: Props) {
   const [date, setDate] = useState(/^\d{4}-\d{2}-\d{2}$/.test(initialDate) ? initialDate : "");
-  const [view, setView] = useState<"day" | "week">("week");
+  // The initial UI is a loading state on server and client. Choose once before the
+  // first browser request; later resizing must not change the view or discard drafts.
+  const [view, setView] = useState<"day" | "week">(() => typeof window !== "undefined" && window.innerWidth <= 640 ? "day" : "week");
   const [staffFilter, setStaffFilter] = useState("");
   const resource = useTimesheetsResource(calendarId, date, view);
   const data = resource.data;
@@ -76,15 +78,15 @@ function TimesheetsWorkspace({ data, section, tool, busy, save, refresh, setDate
   } else if (section === "updates") {
     content = <CovieNotice>Timesheets show saved work immediately. Open the calendar to review recorded hours and billable totals. A reason is required when someone changes another staff member’s work.<div className={styles.actions}><Link href="/calendar-types/timesheets" className={styles.link}>Open timesheet calendar</Link></div></CovieNotice>;
   } else {
-    content = <div className={styles.stack}>
-      <div className={styles.toolbar}><div><h1 className={styles.title}>Work calendar</h1><p className={styles.muted}>{data.organisation.name} · {data.organisation.timezone} · {timesheetsRoleLabel(data.role)}</p></div><div className={styles.actions}><CovieIconButton aria-label="Refresh timesheets" disabled={actionsDisabled} onClick={refresh}><RefreshCw size={18} /></CovieIconButton><CovieButton tone="teal" disabled={actionsDisabled || !canAdd} onClick={() => add()}><Plus size={18} aria-hidden="true" />Add work block</CovieButton></div></div>
-      <div className={styles.toolbar}>
-        <div className={styles.actions}><CovieIconButton aria-label={`Previous ${data.view}`} disabled={actionsDisabled} onClick={() => setDate(shiftDate(data.date, data.view === "day" ? -1 : -7))}><ChevronLeft size={18} /></CovieIconButton><TimesheetsField label="Selected date"><CovieInput type="date" aria-label="Selected date" value={data.date} disabled={actionsDisabled} onChange={event => { if (event.target.value) setDate(event.target.value); }} /></TimesheetsField><CovieIconButton aria-label={`Next ${data.view}`} disabled={actionsDisabled} onClick={() => setDate(shiftDate(data.date, data.view === "day" ? 1 : 7))}><ChevronRight size={18} /></CovieIconButton><CovieButton tone="neutral" disabled={actionsDisabled} onClick={() => setDate(localDateInTimeZone(data.organisation.timezone))}>Today</CovieButton></div>
-        <div className={styles.actions} role="group" aria-label="Calendar view"><CovieButton tone={data.view === "day" ? "teal" : "neutral"} aria-pressed={data.view === "day"} disabled={actionsDisabled} onClick={() => setView("day")}>Day</CovieButton><CovieButton tone={data.view === "week" ? "teal" : "neutral"} aria-pressed={data.view === "week"} disabled={actionsDisabled} onClick={() => setView("week")}>Week</CovieButton></div>
+    content = <div className={`${styles.stack} ${styles.calendarStack}`}>
+      <div className={`${styles.toolbar} ${styles.calendarHeading}`}><div><h1 className={styles.title}>Work calendar</h1><p className={styles.muted}><span className={styles.organisationName}>{data.organisation.name} · </span>{data.organisation.timezone} · {timesheetsRoleLabel(data.role)}</p></div><CovieButton className={styles.createButton} aria-label="Add work block" tone="teal" disabled={actionsDisabled || !canAdd} onClick={() => add()}><Plus size={18} aria-hidden="true" /><span>Add work<span className={styles.desktopWord}> block</span></span></CovieButton></div>
+      <div className={`${styles.toolbar} ${styles.calendarControls}`}>
+        <div className={styles.dateNavigation}><CovieIconButton aria-label={`Previous ${data.view}`} disabled={actionsDisabled} onClick={() => setDate(shiftDate(data.date, data.view === "day" ? -1 : -7))}><ChevronLeft size={18} /></CovieIconButton><label className={styles.dateField}><span className={styles.dateLabel}>Selected date</span><CovieInput type="date" aria-label="Selected date" value={data.date} disabled={actionsDisabled} onChange={event => { if (event.target.value) setDate(event.target.value); }} /></label><CovieIconButton aria-label={`Next ${data.view}`} disabled={actionsDisabled} onClick={() => setDate(shiftDate(data.date, data.view === "day" ? 1 : 7))}><ChevronRight size={18} /></CovieIconButton></div>
+        <div className={styles.periodTools}><CovieButton tone="neutral" disabled={actionsDisabled} onClick={() => setDate(localDateInTimeZone(data.organisation.timezone))}>Today</CovieButton><div className={styles.actions} role="group" aria-label="Calendar view"><CovieButton tone={data.view === "day" ? "teal" : "neutral"} aria-pressed={data.view === "day"} disabled={actionsDisabled} onClick={() => setView("day")}>Day</CovieButton><CovieButton tone={data.view === "week" ? "teal" : "neutral"} aria-pressed={data.view === "week"} disabled={actionsDisabled} onClick={() => setView("week")}>Week</CovieButton></div><CovieIconButton aria-label="Refresh timesheets" disabled={actionsDisabled} onClick={refresh}><RefreshCw size={18} /></CovieIconButton></div>
       </div>
-      {owner || manager ? <TimesheetsField label="Show work for"><CovieSelect value={staffFilter} disabled={actionsDisabled} onChange={event => setStaffFilter(event.target.value)}><option value="all">{owner ? "All staff" : "My assigned team and me"}</option>{data.staff.map(person => <option key={person.id} value={person.id}>{person.displayName}{person.own ? " (you)" : ""}{person.active ? "" : " (inactive)"}</option>)}</CovieSelect></TimesheetsField> : <p className={styles.muted}>{own?.displayName ?? "Your timesheet"} · Your own work only</p>}
+      {owner || manager ? <div className={styles.staffFilter}><TimesheetsField label="Show work for"><CovieSelect value={staffFilter} disabled={actionsDisabled} onChange={event => setStaffFilter(event.target.value)}><option value="all">{owner ? "All staff" : "My assigned team and me"}</option>{data.staff.map(person => <option key={person.id} value={person.id}>{person.displayName}{person.own ? " (you)" : ""}{person.active ? "" : " (inactive)"}</option>)}</CovieSelect></TimesheetsField></div> : <p className={`${styles.muted} ${styles.memberScope}`}>{own?.displayName ?? "Your timesheet"} · Your own work only</p>}
       <section className={styles.metrics} aria-label="Selected period totals"><div className={styles.metric}><strong>{minutesLabel(total.total)}</strong><span>Total recorded</span></div><div className={styles.metric}><strong>{minutesLabel(total.billable)}</strong><span>Billable</span></div><div className={styles.metric}><strong>{minutesLabel(total.total - total.billable)}</strong><span>Non-billable</span></div></section>
-      <p className={styles.muted}>{data.organisation.incrementMinutes}-minute increments · exact elapsed time, no rounding. {data.view === "week" ? "Scroll across the week on smaller screens, or choose Day." : "Choose a work block to see its details or make a correction."}</p>
+      <p className={`${styles.muted} ${styles.periodHint}`}>{data.organisation.incrementMinutes}-minute increments · no rounding.<span className={styles.desktopHelp}> {data.view === "week" ? "Scroll across the week on smaller screens, or choose Day." : "Choose a work block to see its details or make a correction."}</span></p>
       <TimesheetsCalendar data={data} entries={entries} disabled={actionsDisabled} edit={edit} add={canAdd ? add : undefined} />
       {owner || manager ? <table className={styles.summaryTable}><caption>{owner ? "Team totals" : "Assigned team totals"} · {data.view}</caption><thead><tr><th scope="col">Staff member</th><th scope="col">Recorded</th><th scope="col">Billable</th></tr></thead><tbody>{staff.map(person => { const item = data.totals.find(total => total.staffId === person.id); return <tr key={person.id}><th scope="row">{person.displayName}</th><td>{minutesLabel(item?.totalMinutes ?? 0)}</td><td>{minutesLabel(item?.billableMinutes ?? 0)}</td></tr>; })}</tbody></table> : null}
       <TimesheetsExport data={data} disabled={actionsDisabled} />
@@ -94,13 +96,26 @@ function TimesheetsWorkspace({ data, section, tool, busy, save, refresh, setDate
 }
 
 function TimesheetsCalendar({ data, entries, disabled, edit, add }: { data: TimesheetsData; entries: TimesheetsEntry[]; disabled: boolean; edit: (entry: TimesheetsEntry) => void; add?: (date: string) => void }) {
+  const scrollRegion = useRef<HTMLDivElement>(null), selectedDay = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const revealSelectedDay = () => {
+      const region = scrollRegion.current, selected = selectedDay.current;
+      if (data.view !== "week" || !region || !selected || region.scrollWidth <= region.clientWidth) return;
+      const outer = region.getBoundingClientRect(), inner = selected.getBoundingClientRect();
+      // Move only the calendar's horizontal scroll. Never move the page or keyboard focus.
+      region.scrollLeft = Math.max(0, region.scrollLeft + inner.left - outer.left - (region.clientWidth - inner.width) / 2);
+    };
+    revealSelectedDay();
+    window.addEventListener("resize", revealSelectedDay);
+    return () => window.removeEventListener("resize", revealSelectedDay);
+  }, [data.date, data.view]);
   const dates = timesheetsDateRange(data.date, data.view).dates;
   const today = localDateInTimeZone(data.organisation.timezone);
-  return <div className={styles.boardScroll} role="region" aria-label={`${data.view === "week" ? "Week" : "Day"} work calendar`} tabIndex={0}><div className={`${styles.board} ${data.view === "day" ? styles.dayBoard : ""}`}>
+  return <div ref={scrollRegion} className={styles.boardScroll} role="region" aria-label={`${data.view === "week" ? "Week" : "Day"} work calendar`} tabIndex={0}><div className={`${styles.board} ${data.view === "day" ? styles.dayBoard : ""}`}>
     {dates.map(date => {
       const blocks = entries.map(entry => ({ entry, segment: splitTimesheetsEntryByDay(entry, data.organisation.timezone).find(segment => segment.date === date) })).filter(value => value.segment).sort((a, b) => a.entry.start.localeCompare(b.entry.start));
       const total = blocks.reduce((sum, block) => sum + (block.segment?.totalMinutes ?? 0), 0);
-      return <section className={styles.day} key={date} aria-label={dateLabel(date, { weekday: "long", day: "numeric", month: "long" })}><header className={styles.dayHeader} data-today={date === today}><strong>{dateLabel(date)}</strong><span>{minutesLabel(total)} recorded{date === today ? " · Today" : ""}</span></header><div className={styles.dayEntries}>
+      return <section ref={date === data.date ? selectedDay : undefined} data-timesheets-date={date} aria-current={date === data.date ? "date" : undefined} className={styles.day} key={date} aria-label={dateLabel(date, { weekday: "long", day: "numeric", month: "long" })}><header className={styles.dayHeader} data-today={date === today}><strong>{dateLabel(date)}</strong><span>{minutesLabel(total)} recorded{date === today ? " · Today" : ""}</span></header><div className={styles.dayEntries}>
         {blocks.map(({ entry, segment }) => {
           const startLocal = timesheetsLocalTime(entry.start, data.organisation.timezone), endLocal = timesheetsLocalTime(entry.end, data.organisation.timezone);
           const time = `${startLocal.slice(0, 10) < date ? "00:00" : startLocal.slice(11)}–${endLocal.slice(0, 10) > date ? "24:00" : endLocal.slice(11)}`;

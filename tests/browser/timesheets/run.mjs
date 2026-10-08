@@ -149,7 +149,9 @@ try {
         await dialogFits(page); await capture("project-editor");
         await dialog.getByRole("button", { name: "Close dialog", exact: true }).click(); await dialog.waitFor({ state: "detached" });
       } else {
-        await page.getByRole("region", { name: "Week work calendar", exact: true }).waitFor();
+        const initialView = width <= 640 ? "Day" : "Week";
+        await page.getByRole("region", { name: `${initialView} work calendar`, exact: true }).waitFor();
+        assert.equal(await page.getByRole("button", { name: initialView, exact: true }).getAttribute("aria-pressed"), "true");
         assert.match(await page.getByRole("region", { name: "Selected period totals", exact: true }).innerText(), /2h 15m/);
         if (variant === "manager-calendar") {
           await page.getByLabel("Show work for").selectOption("all");
@@ -157,10 +159,30 @@ try {
           assert.match(await page.locator("main").innerText(), /Assigned team review/);
           assert.doesNotMatch(await page.locator("main").innerText(), /Jamie Patel|Add staff member/);
         } else { assert.equal(await page.getByLabel("Show work for").count(), 0); }
+        if (width <= 640) {
+          const title = await page.locator('.calendar-switcher > summary').boundingBox();
+          assert(title.width > width * .75, `Calendar identity is prematurely truncated: ${JSON.stringify(title)}`);
+          const selected = await page.locator(`[data-timesheets-date="${date}"]`).boundingBox();
+          assert(selected.y < height - 70, `Selected day is hidden below the mobile navigation: ${JSON.stringify(selected)}`);
+          await capture("initial-day");
+          await page.getByRole("button", { name: "Week", exact: true }).click();
+          await page.getByRole("region", { name: "Week work calendar", exact: true }).waitFor();
+          const position = await page.locator(`[data-timesheets-date="${date}"]`).evaluate(node => { const day = node.getBoundingClientRect(), outer = node.closest('[role="region"]').getBoundingClientRect(); return { dayLeft: day.left, dayRight: day.right, outerLeft: outer.left, outerRight: outer.right }; });
+          assert(position.dayLeft >= position.outerLeft - 1 && position.dayRight <= position.outerRight + 1, `Selected week day is horizontally clipped: ${JSON.stringify(position)}`);
+          await page.setViewportSize({ width: 1440, height });
+          assert.equal(await page.getByRole("button", { name: "Week", exact: true }).getAttribute("aria-pressed"), "true");
+          await page.setViewportSize({ width, height });
+          assert.equal(await page.getByRole("button", { name: "Week", exact: true }).getAttribute("aria-pressed"), "true");
+        }
         await capture("week");
         await page.getByRole("button", { name: "Day", exact: true }).click();
         await page.getByRole("region", { name: "Day work calendar", exact: true }).waitFor();
         await capture("day");
+        if (width <= 640) {
+          await page.setViewportSize({ width: 1440, height });
+          assert.equal(await page.getByRole("button", { name: "Day", exact: true }).getAttribute("aria-pressed"), "true");
+          await page.setViewportSize({ width, height });
+        }
         await page.getByRole("button", { name: "Add work block", exact: true }).click();
         const dialog = page.getByRole("dialog", { name: "Add work block", exact: true }); await dialog.waitFor();
         await dialog.getByLabel("End", { exact: true }).fill("2026-10-08T10:07");

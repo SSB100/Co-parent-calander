@@ -35,7 +35,7 @@ function installFetch(data = fixture()) {
   globalThis.fetch = async (input, init) => { requests.push({ url: String(input), init }); if (init?.method === "POST") return json({ ok: true }); const url = new URL(String(input), "https://covie.example.invalid"); return json({ ...data, date: url.searchParams.get("date") ?? data.date, view: url.searchParams.get("view") ?? data.view }); };
 }
 before(async () => { ({ TimesheetsPage } = await import("../components/timesheets/timesheets-page")); });
-beforeEach(() => { container = document.createElement("div"); document.body.append(container); root = createRoot(container); requests.length = 0; installFetch(); });
+beforeEach(() => { Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 1440 }); container = document.createElement("div"); document.body.append(container); root = createRoot(container); requests.length = 0; installFetch(); });
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); globalThis.fetch = originalFetch; });
 after(() => { styleHooks.deregister(); dom.window.close(); });
 
@@ -249,4 +249,64 @@ test("organisation settings conflicts discard the stale editor and reload curren
   await click(element('.block'));
   assert.equal(element<HTMLInputElement>('input[type="datetime-local"]').value, "2026-10-08T22:00");
   assert.equal(element<HTMLTextAreaElement>('textarea[maxlength="4000"]').value, "Private work note");
+});
+
+
+async function viewport(width: number) {
+  await act(async () => { Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: width }); window.dispatchEvent(new Event("resize")); });
+}
+
+test("narrow calendars default to Day and an explicit view survives resizing, dates and refresh", async () => {
+  await viewport(390); await render();
+  await settle(() => assert.equal(button("Day").getAttribute("aria-pressed"), "true"));
+  assert.equal(container.querySelectorAll('.day').length, 1);
+  assert.ok(requests.every(request => new URL(request.url, "https://covie.example.invalid").searchParams.get("view") === "day"));
+  await click(button("Week")); await settle(() => assert.equal(container.querySelectorAll('.day').length, 7));
+  assert.equal(element('[data-timesheets-date="2026-10-08"]').getAttribute("aria-current"), "date");
+  await viewport(1440); await viewport(320);
+  assert.equal(button("Week").getAttribute("aria-pressed"), "true");
+  await click(element('[aria-label="Next week"]'));
+  await settle(() => assert.equal(element<HTMLInputElement>('[aria-label="Selected date"]').value, "2026-10-15"));
+  assert.equal(button("Week").getAttribute("aria-pressed"), "true");
+  await click(button("Day")); await settle(() => assert.equal(container.querySelectorAll('.day').length, 1));
+  await viewport(1440); assert.equal(button("Day").getAttribute("aria-pressed"), "true");
+  await click(element('[aria-label="Refresh timesheets"]'));
+  await settle(() => assert.equal(button("Day").getAttribute("aria-pressed"), "true"));
+});
+
+test("choosing the default Day explicitly keeps it when moving to a wide screen", async () => {
+  await viewport(320); await render(); await settle(() => assert.equal(button("Day").getAttribute("aria-pressed"), "true"));
+  await click(button("Day")); await viewport(1440);
+  assert.equal(button("Day").getAttribute("aria-pressed"), "true");
+  assert.equal(container.querySelectorAll('.day').length, 1);
+});
+
+test("week selection scrolls only its own calendar horizontally toward the selected day", async () => {
+  await viewport(320); await render(); await settle(() => assert.equal(button("Day").getAttribute("aria-pressed"), "true"));
+  const prototype = dom.window.HTMLElement.prototype;
+  const originalRect = prototype.getBoundingClientRect;
+  const originalClient = Object.getOwnPropertyDescriptor(prototype, "clientWidth");
+  const originalScroll = Object.getOwnPropertyDescriptor(prototype, "scrollWidth");
+  Object.defineProperty(prototype, "clientWidth", { configurable: true, get() { return this.getAttribute("aria-label") === "Week work calendar" ? 296 : 0; } });
+  Object.defineProperty(prototype, "scrollWidth", { configurable: true, get() { return this.getAttribute("aria-label") === "Week work calendar" ? 700 : 0; } });
+  prototype.getBoundingClientRect = function () { const selected = this.getAttribute("data-timesheets-date") === "2026-10-08"; const region = this.getAttribute("aria-label") === "Week work calendar"; return { x: selected ? 300 : 0, y: 400, left: selected ? 300 : 0, top: 400, right: selected ? 400 : region ? 296 : 0, bottom: 500, width: selected ? 100 : region ? 296 : 0, height: 100, toJSON() { return {}; } }; };
+  try {
+    await click(button("Week")); await settle(() => assert.equal(container.querySelectorAll('.day').length, 7));
+    assert.equal(element<HTMLElement>('[aria-label="Week work calendar"]').scrollLeft, 202);
+    assert.equal(window.scrollY, 0);
+  } finally {
+    prototype.getBoundingClientRect = originalRect;
+    if (originalClient) Object.defineProperty(prototype, "clientWidth", originalClient); else Reflect.deleteProperty(prototype, "clientWidth");
+    if (originalScroll) Object.defineProperty(prototype, "scrollWidth", originalScroll); else Reflect.deleteProperty(prototype, "scrollWidth");
+  }
+});
+
+
+test("resizing an initial mobile Day view does not discard an open work draft", async () => {
+  await viewport(390); await render(); await settle(() => assert.equal(button("Day").getAttribute("aria-pressed"), "true"));
+  await click(button("Add work block")); await change(element('textarea[maxlength="4000"]'), "Draft survives rotation");
+  const count = requests.length; await viewport(1440);
+  assert.equal(Boolean(container.querySelector('[role="dialog"]')), true);
+  assert.equal(element<HTMLTextAreaElement>('textarea[maxlength="4000"]').value, "Draft survives rotation");
+  assert.equal(requests.length, count);
 });
