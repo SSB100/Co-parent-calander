@@ -293,3 +293,10 @@ test("owner shell bounds long calendar names without changing the shared switche
   assert.match(css, /\.ownerHeader :global\(\.calendar-switcher > summary\) \{ max-width: 100%; \}/);
   assert.match(shell, /workspaceRole === "owner" \|\| staffAccessRole === "owner" \? ownerWorkspaceStyles.ownerHeader/);
 });
+
+test("persistent Salon checklist offers booking settings without the desktop toolbar", async () => {
+  await render(); const readiness = element('[aria-label="Salon setup"]', dayPanel());
+  await click(button("Booking settings", readiness));
+  assert.ok(element('[aria-labelledby="salon-owner-tool"]'));
+  assert.match(element('[role="dialog"]').textContent ?? "", /Preview saved booking details/);
+});

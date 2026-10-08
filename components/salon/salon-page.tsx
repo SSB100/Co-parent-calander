@@ -691,7 +691,9 @@ export function SalonPage({
         { id: "hours", label: "Working hours", complete: setup.canCheckTimes, detail: setup.canCheckTimes ? "At least one practitioner with an assigned service has working hours. Availability still depends on the selected day, blocks, buffers and booking rules." : "Set working hours for a practitioner with an assigned service." },
         { id: "online", label: "Online service configuration", complete: setup.publiclyConfigured, detail: setup.publiclyConfigured ? "An online service and practitioner have working hours. Use Booking settings to preview saved details and review the client page." : "For website bookings, mark a service and its practitioner for online booking and set working hours." },
         { id: "sharing", label: "Client booking page", complete: data.settings.publicEnabled, detail: data.settings.publicEnabled ? "Enabled. Copy the booking link from Booking settings for your website’s Book now button. Clients sign in to confirm." : "Private. Preview saved details in Booking settings, then enable client booking when you choose." },
-      ]} /> : null}
+      ]}>
+        <CovieButton tone="neutral" disabled={disabled} aria-haspopup="dialog" onClick={() => openOwnerPanel("booking-settings")}>Booking settings</CovieButton>
+      </OwnerSetupReadiness> : null}
     <CovieSectionHeader title={ownerAppointmentId ? ownerAppointmentId === initialRecord ? "Appointment from Personal" : "Appointment details" : "Appointments this day"} />
     {!ownerReady ? <p role="status">Loading this day’s appointments…</p> : ownerAppointmentId ? <>
       {selectedOwnerAppointment ? appointmentCard(selectedOwnerAppointment) : <CovieNotice>This appointment is no longer available here. Refresh Personal for the latest items.</CovieNotice>}

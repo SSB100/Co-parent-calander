@@ -110,6 +110,15 @@ async function noOverflow(page) {
   return dimensions;
 }
 async function screenshot(page,name) { await page.screenshot({path:path.join(out,`${name}.png`),fullPage:false}); }
+async function openSalonBookingSettings(page,width) {
+  if(width<1024) {
+    const readiness=page.getByRole('region',{name:'Salon setup',exact:true});
+    if(await readiness.locator('details').getAttribute('open')===null) await readiness.locator('summary').click();
+    await readiness.getByRole('button',{name:'Booking settings',exact:true}).click();
+  } else {
+    await page.getByRole('group',{name:'Salon organiser tools',exact:true}).getByRole('button',{name:'Booking settings',exact:true}).click();
+  }
+}
 async function newFixture(variant,width,height,enabled=false,onCreated=()=>{}) {
   const page = await browser.newPage({viewport:{width,height}}); const requests=[]; const errors=[];
   onCreated({page,requests,errors});
@@ -197,7 +206,7 @@ try {
   for(const enabled of [false,true]) for(const [width,height] of viewports) {
     await runCase({variant:'salon-sharing',enabled,width,height},async ({page,requests,errors})=>{
     await page.getByRole('region',{name:'Salon setup',exact:true}).waitFor();
-    await page.getByRole('button',{name:'Booking settings',exact:true}).click();
+    await openSalonBookingSettings(page,width);
     const parent=page.getByRole('dialog',{name:'Booking settings',exact:true}); await parent.waitFor();
     const sharing=parent.getByRole('region',{name:'Client booking page sharing'}); await sharing.waitFor();
     assert.equal(await sharing.getByRole('button',{name:'Copy booking link',exact:true}).count(),enabled?1:0);
@@ -223,7 +232,7 @@ try {
     await sharing.getByRole('button',{name:'Preview saved booking details',exact:true}).click(); await preview.waitFor();
     await page.keyboard.press('Escape'); await preview.waitFor({state:'detached'});
     await page.keyboard.press('Escape'); await parent.waitFor({state:'detached'});
-    await page.getByRole('button',{name:'Booking settings',exact:true}).click(); await parent.waitFor(); assert.equal(await preview.count(),0);
+    await openSalonBookingSettings(page,width); await parent.waitFor(); assert.equal(await preview.count(),0);
     assert.equal(requests.some(request=>/public|\/booking\//.test(request.url)),false); assert(requests.every(request=>request.method==='GET'));
     assert.deepEqual(errors,[]); assert.deepEqual(await page.evaluate(()=>window.__fixtureMutations),[]);
     return {requests,checks:['enabled-only link/copy','saved not draft display','no client/contact/private records','local preview no API','nested Escape','close/reopen','Back/Forward drops preview','no public API or mutations','dialog viewport fit']};
