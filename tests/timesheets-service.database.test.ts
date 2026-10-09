@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
 import {
@@ -12,23 +13,47 @@ import {
 /** Actual service functions with a parameterized pg tag, never a production URL. */
 const nativeUrl = process.env.COVIE_TIMESHEETS_TEST_DATABASE_URL;
 const tooling = process.env.COVIE_SQL_TOOLING;
+const embedded = process.env.COVIE_TIMESHEETS_EMBEDDED === "1";
 type Row = Record<string, unknown>;
 type Client = { connect(): Promise<void>; end(): Promise<void>; query<T = Row>(sql: string, parameters?: unknown[]): Promise<{ rows: T[] }> };
 type Organisation = { id: string; ownerStaff: string; owner: TimesheetsSession };
 type Person = { staffId: string; session: TimesheetsSession; token: string };
 
-test("Timesheets actual service projections and preprocessing on restricted native runtime", { skip: !nativeUrl || !tooling, timeout: 60_000 }, async t => {
-  const url = new URL(nativeUrl!);
-  assert.ok(url.protocol === "postgresql:" || url.protocol === "postgres:");
-  assert.equal(url.hostname, "127.0.0.1"); assert.equal(url.port, "55436");
-  assert.equal(url.pathname, "/timesheets_test"); assert.equal(url.username, "timesheets_test");
-  assert.equal(url.password, ""); assert.equal(url.search, ""); assert.equal(url.hash, "");
+test(`Timesheets actual service projections and preprocessing on restricted ${embedded ? "embedded PostgreSQL (not native concurrency)" : "native runtime"}`, { skip: !tooling || (!nativeUrl && !embedded), timeout: 60_000 }, async t => {
   assert.equal(process.env.APP_DATABASE_URL, undefined); assert.equal(process.env.DATABASE_URL, undefined);
-  const { Client: PgClient } = createRequire(resolve(tooling!, "package.json"))("pg") as { Client: new (options: { connectionString: string }) => Client };
-  const observer = new PgClient({ connectionString: nativeUrl! }), runtime = new PgClient({ connectionString: nativeUrl! });
-  await observer.connect(); await runtime.connect();
-  t.after(async () => { await runtime.end(); await observer.end(); });
-  await runtime.query("SET ROLE covie_app; SET statement_timeout='10s'");
+  let observer: Client, runtime: Client;
+  if (embedded) {
+    assert.equal(nativeUrl, undefined, "Embedded service checks must not use any network URL.");
+    const { PGlite } = createRequire(resolve(tooling!, "package.json"))("@electric-sql/pglite") as { PGlite: new () => { exec(sql: string): Promise<unknown>; query<T>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>; close(): Promise<void> } };
+    const db = new PGlite();
+    t.after(() => db.close());
+    await db.exec(`CREATE TYPE calendar_type AS ENUM ('co_parenting','staff_rosters');
+      CREATE TABLE calendars(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),name text NOT NULL,calendar_type calendar_type NOT NULL,timezone text NOT NULL DEFAULT 'UTC',share_enabled boolean NOT NULL DEFAULT false,archived_at timestamptz,updated_at timestamptz NOT NULL DEFAULT now());
+      CREATE TABLE calendar_memberships(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),calendar_id uuid NOT NULL REFERENCES calendars(id),user_id uuid NOT NULL,permission text NOT NULL CHECK(permission IN('owner','editor','viewer')),UNIQUE(calendar_id,user_id));
+      CREATE TABLE covie_schema_migrations(migration_id text PRIMARY KEY,description text NOT NULL,baseline boolean NOT NULL);
+      CREATE SCHEMA neon_auth; CREATE TABLE neon_auth."user"(id uuid PRIMARY KEY,name text,email text NOT NULL,"emailVerified" boolean NOT NULL DEFAULT false);`);
+    for (const file of ["drizzle/0036_timesheets.sql", "tests/fixtures/timesheets-pre-work-types.sql", "drizzle/0037_timesheet_work_types.sql"]) await db.exec(await readFile(resolve(file), "utf8"));
+    await db.exec(`CREATE ROLE covie_app NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+      GRANT USAGE ON SCHEMA public,neon_auth TO covie_app;
+      GRANT SELECT,INSERT,UPDATE,DELETE ON calendars,calendar_memberships TO covie_app;
+      GRANT SELECT(id,name,email,"emailVerified") ON neon_auth."user" TO covie_app;`);
+    for (const file of ["docs/releases/timesheets-permissions.sql", "docs/releases/timesheets-work-types-permissions.sql"]) await db.exec(await readFile(resolve(file), "utf8"));
+    // Embedded checks are sequential. Per-query roles model runtime rights; this
+    // deliberately makes no claim about independent-connection transactions.
+    observer = { connect: async () => {}, end: async () => {}, query: async (statement, params) => { await db.exec("RESET ROLE"); return db.query(statement, params); } };
+    runtime = { connect: async () => {}, end: async () => {}, query: async (statement, params) => { await db.exec("SET ROLE covie_app"); try { return await db.query(statement, params); } finally { await db.exec("RESET ROLE"); } } };
+  } else {
+    const url = new URL(nativeUrl!);
+    assert.ok(url.protocol === "postgresql:" || url.protocol === "postgres:");
+    assert.equal(url.hostname, "127.0.0.1"); assert.equal(url.port, "55436");
+    assert.equal(url.pathname, "/timesheets_test"); assert.equal(url.username, "timesheets_test");
+    assert.equal(url.password, ""); assert.equal(url.search, ""); assert.equal(url.hash, "");
+    const { Client: PgClient } = createRequire(resolve(tooling!, "package.json"))("pg") as { Client: new (options: { connectionString: string }) => Client };
+    observer = new PgClient({ connectionString: nativeUrl! }); runtime = new PgClient({ connectionString: nativeUrl! });
+    await observer.connect(); await runtime.connect();
+    t.after(async () => { await runtime.end(); await observer.end(); });
+    await runtime.query("SET ROLE covie_app; SET statement_timeout='10s'");
+  }
   const statements: string[] = [];
   function tag(before?: (statement: string, parameters: unknown[]) => Promise<void>) {
     return (async (strings: TemplateStringsArray, ...parameters: unknown[]) => {
@@ -78,6 +103,51 @@ test("Timesheets actual service projections and preprocessing on restricted nati
     assert.doesNotMatch(json, /"(?:token_hash|tokenHash|user_id|userId|actor_user_id|created_by_user_id|updated_by_user_id|membership_id|deleted_at|organisation_id)"/);
     for (const secret of secretValues) assert.ok(!json.includes(secret));
   }
+
+  await t.test("runtime work-type grants exclude deletion, truncation and privilege delegation", async () => {
+    const [permissions] = (await runtime.query<{ selected: boolean; inserted: boolean; updated: boolean; deleted: boolean; truncated: boolean; grantable: boolean }>(`SELECT
+      has_table_privilege('covie_app','timesheet_work_types','SELECT') AS selected,
+      has_table_privilege('covie_app','timesheet_work_types','INSERT') AS inserted,
+      has_table_privilege('covie_app','timesheet_work_types','UPDATE') AS updated,
+      has_table_privilege('covie_app','timesheet_work_types','DELETE') AS deleted,
+      has_table_privilege('covie_app','timesheet_work_types','TRUNCATE') AS truncated,
+      has_table_privilege('covie_app','timesheet_work_types','UPDATE WITH GRANT OPTION') AS grantable`)).rows;
+    assert.deepEqual(permissions, { selected: true, inserted: true, updated: true, deleted: false, truncated: false, grantable: false });
+  });
+
+  await t.test("pre-0037 entries and immutable revision JSON remain readable and editable", async () => {
+    const owner = await session("37000000-0000-4000-8000-000000000002", "37000000-0000-4000-8000-000000000001", "legacy-work-type@example.invalid");
+    const before = await loadTimesheets(owner, "2026-10-12", "day", sql);
+    assert.equal(before.entries.length, 1); assert.deepEqual(before.workTypes, []);
+    assert.equal(before.entries[0].workTypeId, null); assert.equal(before.entries[0].workTypeName, null);
+    const oldJson = (await observer.query<{ after_state: Row }>("SELECT after_state FROM timesheet_entry_revisions WHERE entry_id=$1", [before.entries[0].id])).rows[0].after_state;
+    assert.equal(Object.hasOwn(oldJson, "work_type_id"), false); assert.equal(Object.hasOwn(oldJson, "work_type_name"), false);
+    const history = await loadTimesheetsHistory(owner, before.entries[0].id, sql);
+    assert.equal(history[0].after?.workTypeId, null); assert.equal(history[0].after?.workTypeName, null);
+    assert.ok(exportTimesheetsCsv(before).includes("Saved before custom work types"));
+    await mutateTimesheets(owner, saveEntry(before.ownStaffId!, { id: before.entries[0].id, version: 1, startLocal: "2026-10-12T09:00", endLocal: "2026-10-12T09:15", notes: "Historical edit" }), sql);
+    const after = await loadTimesheets(owner, "2026-10-12", "day", sql);
+    assert.equal(after.entries[0].workTypeId, null); assert.equal(after.entries[0].workTypeName, null);
+    assert.deepEqual((await observer.query<{ after_state: Row }>("SELECT after_state FROM timesheet_entry_revisions WHERE entry_id=$1 AND action='create'", [before.entries[0].id])).rows[0].after_state, oldJson);
+  });
+
+  await t.test("actual work type service preserves historical labels in reads, CSV and revisions", async () => {
+    const org = await organisation(), other = await organisation(), staff = await person(org);
+    const created = await mutateTimesheets(org.owner, { action: "saveWorkType", data: { name: "=Lunch break", active: true } }, sql);
+    await mutateTimesheets(other.owner, { action: "saveWorkType", data: { name: "Private other business", active: true } }, sql);
+    await assert.rejects(mutateTimesheets(staff.session, { action: "saveWorkType", data: { name: "Denied", active: true } }, sql), error => timesheetsErrorResponse(error).status === 403);
+    const saved = await mutateTimesheets(staff.session, saveEntry(staff.staffId, { workTypeId: created.id }), sql);
+    await mutateTimesheets(org.owner, { action: "saveWorkType", data: { id: created.id, version: 1, name: "Meal break", active: false } }, sql);
+    const data = await loadTimesheets(staff.session, "2026-10-12", "day", sql);
+    assert.deepEqual(data.workTypes, [{ id: created.id, name: "Meal break", active: false, version: 2 }]);
+    assert.equal(data.entries[0].workTypeName, "=Lunch break"); assert.equal(data.entries[0].workTypeId, created.id);
+    const csv = exportTimesheetsCsv(data);
+    assert.ok(csv.includes('"Work type"')); assert.ok(csv.includes("'=Lunch break")); assert.ok(!csv.includes("Meal break"));
+    await mutateTimesheets(staff.session, saveEntry(staff.staffId, { id: saved.id, version: 1, notes: "Older browser preserves classification" }), sql);
+    const history = await loadTimesheetsHistory(staff.session, saved.id!, sql);
+    assert.equal(history.length, 2); assert.equal(history[1].after?.workTypeName, "=Lunch break");
+    assertNoInternals(data);
+  });
 
   await t.test("read, invitation, CSV and history projections share exact tenant/staff scope", async () => {
     const org = await organisation(), foreign = await organisation();

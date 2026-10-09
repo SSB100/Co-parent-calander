@@ -44,6 +44,7 @@ function HistorySnapshot({ label, entry, data }: { label: string; entry: Timeshe
     <div><dt className={styles.cardTitle}>Time</dt><dd className={styles.muted}>{timesheetsLocalTime(entry.start, entry.timezone).replace("T", " ")} to {timesheetsLocalTime(entry.end, entry.timezone).replace("T", " ")}<br />{entry.timezone} · {entry.durationMinutes} minutes · {entry.incrementMinutes}-minute increment</dd></div>
     <div><dt className={styles.cardTitle}>Client</dt><dd className={styles.muted}>{entry.clientId ? data.clients.find(client => client.id === entry.clientId)?.name ?? "Client no longer available" : "No client"}</dd></div>
     <div><dt className={styles.cardTitle}>Project</dt><dd className={styles.muted}>{entry.projectId ? data.projects.find(project => project.id === entry.projectId)?.name ?? "Project no longer available" : "No project"}</dd></div>
+    <div><dt className={styles.cardTitle}>Work type</dt><dd className={styles.muted}>{entry.workTypeName ?? "No work type"}</dd></div>
     <div><dt className={styles.cardTitle}>Billing</dt><dd className={styles.muted}>{entry.billable ? "Billable" : "Non-billable"}</dd></div>
     <div><dt className={styles.cardTitle}>Work notes</dt><dd className={`${styles.muted} ${styles.historyNote}`}>{entry.notes || "No work notes"}</dd></div>
   </dl> : <p className={styles.muted}>{label === "Before" ? "No earlier work block." : "Work block removed."}</p>}</section>;

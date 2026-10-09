@@ -63,3 +63,15 @@ test("unverified signup returns directly to the invitation's code verification f
   assert.match(form, /type: "email-verification"/);
   assert.match(form, /emailOtp.verifyEmail\(\{ email: address, otp \}\)/);
 });
+
+
+test("0037 work types are additive, tenant-bound, owner-managed and history preserving", async () => {
+  const [migration, grants] = await Promise.all([read("drizzle/0037_timesheet_work_types.sql"), read("docs/releases/timesheets-work-types-permissions.sql")]);
+  assert.match(migration, /FOREIGN KEY\(work_type_id,organisation_id\) REFERENCES timesheet_work_types\(id,organisation_id\)/);
+  assert.match(migration, /'saveWorkType','assignManager'\) AND actor.role<>'owner'/);
+  assert.match(migration, /PERFORM timesheet_lock\(org.id\)/);
+  assert.match(migration, /selected_work_type=entry.work_type_id THEN entry.work_type_name ELSE work_type.name/);
+  assert.doesNotMatch(migration, /SECURITY DEFINER|UPDATE timesheet_entry_revisions|INSERT INTO staff_roster|UPDATE staff_roster|DELETE FROM staff_roster/);
+  assert.match(grants, /GRANT SELECT,INSERT,UPDATE ON timesheet_work_types TO covie_app/);
+  assert.doesNotMatch(grants, /GRANT[^;]*DELETE|CREATE ROLE|GRANT[^;]*neon_auth/);
+});

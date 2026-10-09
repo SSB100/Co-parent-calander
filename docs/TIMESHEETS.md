@@ -44,3 +44,17 @@ Optional weekly submission, approve/return/recall and locked-week workflow are d
 - PGlite alone does not qualify native multi-connection concurrency. Native PostgreSQL locking, invitation redemption/revocation, overlapping writes and stale-version races require separate real-transaction tests.
 
 Never execute the production migration, permissions bundle or real invitations as part of local verification.
+
+## Custom work types (proposed migration 0037)
+
+Owners manage Work types in Organiser, for example Lunch break, Meeting or General work. Work types are optional, business-specific labels; no default type or billable/payroll rule is applied. Names are case-insensitively unique within an organisation, including archived types, which can be restored.
+
+Staff choose an active work type in the existing work-block editor. The saved label appears in calendar entries, change history and CSV. Renaming or archiving a type preserves past labels. A correction retaining the same type retains its saved label even when adjusting timing. Clearing/changing the type ends that historical selection; an archived type cannot be newly assigned. Older entry clients that omit the field preserve its existing value. Existing unclassified entries remain unclassified.
+
+See docs/releases/TIMESHEETS-0037-APPROVAL.md for the additive schema, exact permission expansion, qualification and release gates. Local embedded service qualification may be run with COVIE_SQL_TOOLING pointing to installed PGlite tooling and COVIE_TIMESHEETS_EMBEDDED=1, with DATABASE_URL and APP_DATABASE_URL unset. Embedded execution never substitutes for native concurrent-transaction qualification.
+
+### Hourly calendar
+
+Day and Week always show 00:00 through 23:00, including empty days. Click or keyboard-activate a blank hour to open the work-block editor at that organisation-local date and start time. The initial end is one configured elapsed increment later; users may adjust it. Clicking a recorded work card edits that entry. Cards are grouped by starting hour and show their exact times and allocated daily minutes; their height does not imply elapsed duration.
+
+The time gutter and day headers stay visible within the independently scrollable calendar. Mobile defaults to Day; Week remains available and positions the selected date beside the gutter. Missing daylight-saving hours are disabled. Repeated local hours require an explicit occurrence in the editor. Midnight and daylight-saving-crossing defaults use elapsed time, preserving the configured duration.

@@ -21,7 +21,7 @@ const otherId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const input = { staffId, clientId: null, projectId: null, startLocal: "2026-10-08T09:07", endLocal: "2026-10-08T09:22", notes: "Work", billable: false, organisationVersion: 1 };
 const timing = { ...input, timezone: "UTC", incrementMinutes: 15 };
 function entry(patch: Partial<TimesheetsEntry> = {}): TimesheetsEntry {
-  return { id: entryId, staffId, clientId: null, projectId: null, start: "2026-10-08T09:07:00Z", end: "2026-10-08T09:22:00Z", timezone: "UTC", notes: "", billable: true, durationMinutes: 15, incrementMinutes: 15, version: 1, ...patch };
+  return { id: entryId, staffId, workTypeId: null, workTypeName: null, clientId: null, projectId: null, start: "2026-10-08T09:07:00Z", end: "2026-10-08T09:22:00Z", timezone: "UTC", notes: "", billable: true, durationMinutes: 15, incrementMinutes: 15, version: 1, ...patch };
 }
 
 test("standalone commands have exact numeric increments and strict field boundaries", () => {
@@ -201,4 +201,14 @@ test("profile administration is narrower than entry scope and owner role cannot 
   assert.equal(canManageTimesheetsProfile(manager, { id: otherId, role: "manager" }), false);
   assert.equal(canManageTimesheetsProfile(manager, { id: staffId, role: "manager" }), false);
   assert.equal(canManageTimesheetsProfile(member, { id: staffId, role: "member" }), false);
+});
+
+
+test("custom work type commands validate labels, versions and trusted snapshots", () => {
+  assert.ok(timesheetsCommandSchema.safeParse({ action: "saveWorkType", data: { name: "Lunch breaks", active: true } }).success);
+  for (const name of ["", "  ", "x".repeat(121)]) assert.equal(timesheetsCommandSchema.safeParse({ action: "saveWorkType", data: { name, active: true } }).success, false);
+  assert.equal(timesheetsCommandSchema.safeParse({ action: "saveWorkType", data: { id: otherId, name: "Meetings", active: true } }).success, false);
+  assert.equal(timesheetsCommandSchema.safeParse({ action: "saveWorkType", data: { name: "Meetings", active: true, organisationId: otherId } }).success, false);
+  for (const workTypeId of [undefined, null, otherId]) assert.ok(timesheetsCommandSchema.safeParse({ action: "saveEntry", data: { ...input, workTypeId } }).success);
+  for (const extra of [{ workTypeId: "invalid" }, { workTypeName: "Forged label" }]) assert.equal(timesheetsCommandSchema.safeParse({ action: "saveEntry", data: { ...input, ...extra } }).success, false);
 });

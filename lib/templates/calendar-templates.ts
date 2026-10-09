@@ -348,6 +348,7 @@ export const calendarTemplateManifests: Record<
     organiserTools: [
       { key: "team", label: "Team", description: "Staff profiles, personal invitations and manager assignments.", icon: "people" },
       { key: "clients-projects", label: "Clients & projects", description: "Organise work by client and project.", icon: "grid" },
+      { key: "work-types", label: "Work types", description: "Custom labels for meetings, breaks and other work.", icon: "grid" },
       { key: "settings", label: "Settings", description: "Organisation name, timezone and time increments.", icon: "settings" },
     ],
     eventCategoryMapping: [{ label: "Billable work", colour: "teal" }, { label: "Non-billable work", colour: "violet" }],
@@ -355,7 +356,7 @@ export const calendarTemplateManifests: Record<
     conflictRule: "Work blocks for one staff member must not overlap. Durations must be exact multiples of the configured increment.",
     approvalModel: "Staff record their own work. Managers oversee assigned staff. The owner controls the organisation.",
     scheduleUnit: "Work block", defaultView: "Weekly work calendar",
-    requiredFields: ["Staff member", "Start", "End"], optionalFields: ["Client", "Project", "Work notes", "Billable"],
+    requiredFields: ["Staff member", "Start", "End"], optionalFields: ["Client", "Project", "Work type", "Work notes", "Billable"],
     sharedComponents: ["CoviePage", "CovieDialog", "CovieInput", "CovieSelect", "CovieNotice"],
     specialResponsiveConsiderations: ["Days remain distinct on smaller screens, with readable work blocks.", "Team filters and billable totals stay visible."],
   },

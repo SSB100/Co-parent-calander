@@ -7,7 +7,7 @@ export function workspaceOrganiserTools(type: CalendarTemplateId, role: Workspac
   const tools = calendarTemplateManifests[type].organiserTools;
   let keys: readonly string[] = [];
   if (type === "timesheets") {
-    keys = role === "owner" ? ["team", "clients-projects", "settings"] : role === "manager" ? ["team"] : [];
+    keys = role === "owner" ? ["team", "clients-projects", "work-types", "settings"] : role === "manager" ? ["team"] : [];
   } else if (type === "staff_rosters") {
     keys = role === "owner" || role === "manager" ? tools.map((tool) => tool.key) : role === "staff" ? ["availability", "timesheets"] : [];
   } else if (type === "shared_facilities") {
