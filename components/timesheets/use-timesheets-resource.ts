@@ -37,7 +37,7 @@ export function useTimesheetsResource(calendarId: string, date: string, view: "d
       });
       const body = await response.json().catch(() => null) as TimesheetsData | null;
       if (!response.ok || !body || body.calendarId !== calendarId || body.view !== view || (date && body.date !== date)) throw new Error(unavailable);
-      if (!Array.isArray(body.entries) || !Array.isArray(body.staff) || !body.organisation || !["owner", "manager", "member"].includes(body.role)) throw new Error(unavailable);
+      if (!Array.isArray(body.workTypes) || !Array.isArray(body.entries) || !Array.isArray(body.staff) || !body.organisation || !["owner", "manager", "member"].includes(body.role)) throw new Error(unavailable);
       if (controller.signal.aborted || sequence !== revision.current || !alive.current || currentKey.current !== key) return false;
       setSnapshot({ key, data: body, revision: sequence });
       setState({ key, loading: false, error: "" });

@@ -112,6 +112,9 @@ for migration in "$repo"/drizzle/[0-9][0-9][0-9][0-9]_*.sql; do
     "${psql[@]}" --single-transaction -f "$run/legacy-fixture.sql" > "$run/logs/legacy-fixture.log"
     "${psql[@]}" -At -f "$run/legacy-fingerprint.sql" > "$run/legacy-before.sha"
   fi
+  if [[ "$name" == 0037_timesheet_work_types ]]; then
+    "${psql[@]}" --single-transaction -f "$repo/tests/fixtures/timesheets-pre-work-types.sql" > "$run/logs/pre-work-types-fixture.log"
+  fi
   "${psql[@]}" --single-transaction -f "$migration" > "$run/logs/migration-$name.log" 2>&1
 done
 "${psql[@]}" -At -f "$run/legacy-fingerprint.sql" > "$run/legacy-after-migration.sha"
@@ -126,6 +129,7 @@ GRANT SELECT,INSERT,UPDATE,DELETE ON calendars,calendar_memberships TO covie_app
 GRANT SELECT(id,name,email,"emailVerified") ON neon_auth."user" TO covie_app;
 SQL
 "${psql[@]}" --single-transaction -f "$repo/docs/releases/timesheets-permissions.sql" > "$run/logs/timesheets-permissions.log" 2>&1
+"${psql[@]}" --single-transaction -f "$repo/docs/releases/timesheets-work-types-permissions.sql" > "$run/logs/work-types-permissions.log" 2>&1
 export COVIE_TIMESHEETS_FULL_SCHEMA=1
 # Same exec/network namespace throughout; no background runner survives EXIT.
 node --import tsx --test --test-concurrency=1 tests/timesheets.database.test.ts 2>&1 | tee "$run/logs/semantics.log"

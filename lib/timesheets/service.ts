@@ -33,6 +33,7 @@ const iso = (value: string | Date) => new Date(value).toISOString();
 // snapshots leak into day/week payloads. Both tenant and staff scope are SQL-bound.
 function entryProjection(row: Record<string, unknown>): TimesheetsEntry {
   return { id: String(row.id), staffId: String(row.staff_id), clientId: row.client_id ? String(row.client_id) : null, projectId: row.project_id ? String(row.project_id) : null,
+    workTypeId: row.work_type_id ? String(row.work_type_id) : null, workTypeName: row.work_type_name ? String(row.work_type_name) : null,
     start: iso(row.start_at as string), end: iso(row.end_at as string), timezone: String(row.timezone), notes: String(row.notes), billable: Boolean(row.billable), durationMinutes: Number(row.duration_minutes), incrementMinutes: Number(row.increment_minutes) as TimesheetsEntry["incrementMinutes"], version: Number(row.version) };
 }
 export async function loadTimesheets(session: TimesheetsSession, date?: string, view: TimesheetsView = "week", sql: TimesheetsSql = getSql()): Promise<TimesheetsData> {
@@ -52,6 +53,7 @@ export async function loadTimesheets(session: TimesheetsSession, date?: string, 
     COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'displayName',p.display_name,'email',p.email,'role',p.role,'active',p.active,'own',COALESCE(p.own,false),'linked',p.membership_id IS NOT NULL,'version',p.version) ORDER BY p.active DESC,p.display_name) FROM permitted p),'[]'::jsonb) AS staff,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('id',c.id,'name',c.name,'active',c.active,'version',c.version) ORDER BY c.active DESC,c.name) FROM timesheet_clients c WHERE c.organisation_id=o.id),'[]'::jsonb) AS clients,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'clientId',p.client_id,'name',p.name,'active',p.active,'version',p.version) ORDER BY p.active DESC,p.name) FROM timesheet_projects p WHERE p.organisation_id=o.id),'[]'::jsonb) AS projects,
+    COALESCE((SELECT jsonb_agg(jsonb_build_object('id',w.id,'name',w.name,'active',w.active,'version',w.version) ORDER BY w.active DESC,w.name,w.id) FROM timesheet_work_types w WHERE w.organisation_id=o.id),'[]'::jsonb) AS work_types,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('managerStaffId',a.manager_staff_id,'staffId',a.staff_id)) FROM timesheet_manager_assignments a WHERE a.organisation_id=o.id AND (m.role='owner' OR a.manager_staff_id=${access.ownStaffId}::uuid)),'[]'::jsonb) AS assignments,
     COALESCE((SELECT jsonb_agg(to_jsonb(e) ORDER BY e.start_at,e.id) FROM selected_entries e),'[]'::jsonb) AS entries,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('id',i.id,'staffId',i.staff_id,'email',i.email,'expiresAt',i.expires_at,'revoked',i.revoked_at IS NOT NULL,'used',i.redeemed_at IS NOT NULL) ORDER BY i.created_at DESC)
@@ -62,7 +64,7 @@ export async function loadTimesheets(session: TimesheetsSession, date?: string, 
   if (!row || row.role !== access.role || row.version !== access.organisation.version) throw new TimesheetsError("Access or settings changed while loading. Refresh the calendar.", 409);
   if (row.entries.length > 5000) throw new TimesheetsError("This reporting window has too many entries. Choose a single day.", 422);
   const entries = (row.entries.map(entryProjection) as TimesheetsEntry[]).filter(entry => splitTimesheetsEntryByDay(entry, access.organisation.timezone).some(day => day.date >= range.first && day.date < range.next && day.totalMinutes > 0));
-  return { calendarId: session.calendarId, ...access, date: selectedDate, view, staff: row.staff, clients: row.clients, projects: row.projects, assignments: row.assignments, entries, invitations: row.invitations,
+  return { calendarId: session.calendarId, ...access, date: selectedDate, view, staff: row.staff, clients: row.clients, projects: row.projects, workTypes: row.work_types, assignments: row.assignments, entries, invitations: row.invitations,
     totals: timesheetsTotals(entries, { date: selectedDate, view, timezone: access.organisation.timezone }) };
 }
 async function existingEntry(session: TimesheetsSession, id: string, sql: TimesheetsSql) {
@@ -111,10 +113,10 @@ export async function loadTimesheetsHistory(session: TimesheetsSession, entryId:
 export function exportTimesheetsCsv(data: TimesheetsData) {
   const range = timesheetsWindow(data.date, data.view, data.organisation.timezone);
   return timesheetsCsv([
-    ["Staff", "Client", "Project", "Start (UTC)", "End (UTC)", "Saved timezone", "Full entry minutes", "Minutes in selected window", "Billable minutes in selected window", "Notes"],
+    ["Staff", "Client", "Project", "Work type", "Start (UTC)", "End (UTC)", "Saved timezone", "Full entry minutes", "Minutes in selected window", "Billable minutes in selected window", "Notes"],
     ...data.entries.map(entry => {
       const minutes = splitTimesheetsEntryByDay(entry, data.organisation.timezone).filter(day => day.date >= range.first && day.date < range.next).reduce((sum, day) => sum + day.totalMinutes, 0);
-      return [data.staff.find(p => p.id === entry.staffId)?.displayName ?? "", data.clients.find(c => c.id === entry.clientId)?.name ?? "", data.projects.find(p => p.id === entry.projectId)?.name ?? "", entry.start, entry.end, entry.timezone, entry.durationMinutes, minutes, entry.billable ? minutes : 0, entry.notes];
+      return [data.staff.find(p => p.id === entry.staffId)?.displayName ?? "", data.clients.find(c => c.id === entry.clientId)?.name ?? "", data.projects.find(p => p.id === entry.projectId)?.name ?? "", entry.workTypeName ?? "", entry.start, entry.end, entry.timezone, entry.durationMinutes, minutes, entry.billable ? minutes : 0, entry.notes];
     }),
   ]);
 }

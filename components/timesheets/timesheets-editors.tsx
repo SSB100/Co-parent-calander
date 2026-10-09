@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { CovieButton, CovieDialog, CovieInput, CovieNotice, CovieSelect, CovieTextarea } from "@/components/ui/covie";
-import { TIMESHEETS_INCREMENTS, type TimesheetsData, type TimesheetsEntry, type TimesheetsStaff, type TimesheetsClient, type TimesheetsProject } from "@/lib/timesheets/contracts";
+import { TIMESHEETS_INCREMENTS, type TimesheetsData, type TimesheetsEntry, type TimesheetsStaff, type TimesheetsClient, type TimesheetsProject, type TimesheetsWorkType } from "@/lib/timesheets/contracts";
 import { timesheetsLocalTime, timesheetsDisambiguationForInstant, resolveTimesheetsLocalTime } from "@/lib/timesheets/model";
 import { TimesheetsHistory } from "./timesheets-history";
 import type { TimesheetsSave } from "./use-timesheets-resource";
@@ -15,15 +15,29 @@ const Field = TimesheetsField;
 export function minutesLabel(minutes: number) { return `${Math.floor(minutes / 60)}h ${minutes % 60}m`; }
 export function timesheetsRoleLabel(role: string) { return role === "member" ? "Staff" : role === "manager" ? "Manager" : "Owner"; }
 
-export function TimesheetsEntryEditor({ data, entry, date, defaultStaffId, busy, save, onClose, onUnavailable }: { onUnavailable: () => void; data: TimesheetsData; entry?: TimesheetsEntry; date: string; defaultStaffId: string; busy: boolean; save: TimesheetsSave; onClose: () => void }) {
+function defaultWorkEnd(date: string, time: string, timezone: string, incrementMinutes: number) {
+  try {
+    const start = resolveTimesheetsLocalTime(`${date}T${time}`, timezone);
+    const end = new Date(Date.parse(start) + incrementMinutes * 60000).toISOString();
+    return { local: timesheetsLocalTime(end, timezone), disambiguation: timesheetsDisambiguationForInstant(end, timezone) ?? "" };
+  } catch {
+    // A missing or repeated local hour still opens a draft. The normal timing
+    // validation requires the user to choose a valid time or occurrence to save.
+    return { local: new Date(Date.parse(`${date}T${time}:00Z`) + incrementMinutes * 60000).toISOString().slice(0, 16), disambiguation: "" };
+  }
+}
+
+export function TimesheetsEntryEditor({ data, entry, date, startTime = "09:00", defaultStaffId, busy, save, onClose, onUnavailable }: { onUnavailable: () => void; data: TimesheetsData; entry?: TimesheetsEntry; date: string; startTime?: string; defaultStaffId: string; busy: boolean; save: TimesheetsSave; onClose: () => void }) {
   const zone = data.organisation.timezone;
   const [staffId, setStaffId] = useState(entry?.staffId ?? defaultStaffId);
   const [clientId, setClientId] = useState(entry?.clientId ?? "");
   const [projectId, setProjectId] = useState(entry?.projectId ?? "");
-  const [startLocal, setStart] = useState(entry ? timesheetsLocalTime(entry.start, zone) : `${date}T09:00`);
-  const [endLocal, setEnd] = useState(entry ? timesheetsLocalTime(entry.end, zone) : `${date}T10:00`);
+  const [workTypeId, setWorkTypeId] = useState(entry?.workTypeId ?? "");
+  const [initialEnd] = useState(() => entry ? null : defaultWorkEnd(date, startTime, zone, data.organisation.incrementMinutes));
+  const [startLocal, setStart] = useState(entry ? timesheetsLocalTime(entry.start, zone) : `${date}T${startTime}`);
+  const [endLocal, setEnd] = useState(entry ? timesheetsLocalTime(entry.end, zone) : initialEnd!.local);
   const [startDisambiguation, setStartDisambiguation] = useState(entry ? timesheetsDisambiguationForInstant(entry.start, zone) ?? "" : "");
-  const [endDisambiguation, setEndDisambiguation] = useState(entry ? timesheetsDisambiguationForInstant(entry.end, zone) ?? "" : "");
+  const [endDisambiguation, setEndDisambiguation] = useState(entry ? timesheetsDisambiguationForInstant(entry.end, zone) ?? "" : initialEnd!.disambiguation);
   const [notes, setNotes] = useState(entry?.notes ?? "");
   const [billable, setBillable] = useState(entry?.billable ?? false);
   const [reason, setReason] = useState("");
@@ -43,6 +57,14 @@ export function TimesheetsEntryEditor({ data, entry, date, defaultStaffId, busy,
   } catch (caught) { timingError = caught instanceof RangeError ? caught.message : "Choose valid whole-minute start and end times."; }
   const availableStaff = data.staff.filter(person => person.active || person.id === entry?.staffId);
   const activeClients = data.clients.filter(client => client.active || client.id === clientId);
+  const savedWorkType = data.workTypes.find(workType => workType.id === entry?.workTypeId);
+  const retainedWorkType = Boolean(entry?.workTypeId && workTypeId === entry.workTypeId);
+  // Keep the original archived choice available so a draft can be changed and reverted.
+  // Archived types never become choices on new work blocks or unrelated existing entries.
+  const workTypes = data.workTypes.filter(workType => workType.active || workType.id === entry?.workTypeId);
+  const workTypeHint = retainedWorkType && (!savedWorkType?.active || savedWorkType.name !== entry?.workTypeName)
+    ? `Saved as “${entry?.workTypeName ?? "Work type no longer available"}”. ${!savedWorkType?.active ? "This work type is archived; you can keep it on this work block, but it cannot be chosen for new work." : `Now named “${savedWorkType.name}”. Keeping this choice preserves the saved name.`}`
+    : "Optional. Choose a work type set up by your organisation. Billing is set separately below.";
   const projects = data.projects.filter(project => project.clientId === clientId && (project.active || project.id === projectId));
   return <CovieDialog id="timesheets-entry" title={deleting ? "Delete this work block?" : entry ? "Edit work block" : "Add work block"} description={`Times are in ${zone}.`} busy={busy} onClose={onClose}>
     <form className={styles.form} onSubmit={async event => {
@@ -51,7 +73,7 @@ export function TimesheetsEntryEditor({ data, entry, date, defaultStaffId, busy,
       if (others && reason.trim().length < 3) { setError("Add a reason of at least 3 characters when recording or changing another person’s work."); return; }
       if (deleting && entry) { await save("deleteEntry", { id: entry.id, version: entry.version, ...(reason.trim() ? { reason: reason.trim() } : {}) }); return; }
       if (timingError) { setError(timingError); return; }
-      await save("saveEntry", { organisationVersion: data.organisation.version, ...(entry ? { id: entry.id, version: entry.version } : {}), staffId, clientId: clientId || null, projectId: projectId || null, startLocal, endLocal, ...(startDisambiguation ? { startDisambiguation } : {}), ...(endDisambiguation ? { endDisambiguation } : {}), notes, billable, ...(reason.trim() ? { reason: reason.trim() } : {}) });
+      await save("saveEntry", { organisationVersion: data.organisation.version, ...(entry ? { id: entry.id, version: entry.version } : {}), staffId, clientId: clientId || null, projectId: projectId || null, workTypeId: workTypeId || null, startLocal, endLocal, ...(startDisambiguation ? { startDisambiguation } : {}), ...(endDisambiguation ? { endDisambiguation } : {}), notes, billable, ...(reason.trim() ? { reason: reason.trim() } : {}) });
     }}>
       <fieldset disabled={busy} className={styles.form}>
         {deleting ? <p className={styles.muted}>This removes the work block from the timesheet and totals. A record of the correction is retained.</p> : <>
@@ -69,6 +91,11 @@ export function TimesheetsEntryEditor({ data, entry, date, defaultStaffId, busy,
             <Field label="Client"><CovieSelect value={clientId} onChange={event => { setClientId(event.target.value); setProjectId(""); }}><option value="">No client</option>{activeClients.map(client => <option key={client.id} value={client.id}>{client.name}{client.active ? "" : " (inactive)"}</option>)}</CovieSelect></Field>
             <Field label="Project"><CovieSelect value={projectId} disabled={!clientId} onChange={event => setProjectId(event.target.value)}><option value="">No project</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}{project.active ? "" : " (inactive)"}</option>)}</CovieSelect></Field>
           </div>
+          <Field label="Work type" hint={workTypeHint}><CovieSelect value={workTypeId} onChange={event => setWorkTypeId(event.target.value)}>
+            <option value="">No work type</option>
+            {entry?.workTypeId && !savedWorkType ? <option value={entry.workTypeId}>{entry?.workTypeName ?? "Saved work type"} (archived)</option> : null}
+            {workTypes.map(workType => <option key={workType.id} value={workType.id}>{workType.id === entry?.workTypeId ? entry.workTypeName ?? workType.name : workType.name}{!workType.active ? " (archived)" : workType.id === entry?.workTypeId && workType.name !== entry.workTypeName ? ` (saved name; now ${workType.name})` : ""}</option>)}
+          </CovieSelect></Field>
           <Field label="Work notes"><CovieTextarea value={notes} rows={4} maxLength={4000} onChange={event => setNotes(event.target.value)} placeholder="What did you work on?" /></Field>
           <label className={styles.check}><input type="checkbox" checked={billable} onChange={event => setBillable(event.target.checked)} />Billable work</label>
           <p className={styles.muted}>Use whole-minute times with an exact elapsed duration in {increment}-minute multiples. Existing entries keep their recorded timezone and increment unless their timing changes.</p>
@@ -108,6 +135,21 @@ export function TimesheetsClassificationEditor({ kind, record, data, busy, save,
     <p className={styles.muted}>Making this {kind} inactive preserves existing work records.</p>
     <div className={styles.actions}><CovieButton type="submit" tone="teal" disabled={busy}>{busy ? "Saving…" : `Save ${kind}`}</CovieButton><CovieButton tone="neutral" disabled={busy} onClick={onClose}>Cancel</CovieButton></div>
   </fieldset></form></CovieDialog>;
+}
+
+export function TimesheetsWorkTypeEditor({ workType, busy, save, onClose }: { workType?: TimesheetsWorkType; busy: boolean; save: TimesheetsSave; onClose: () => void }) {
+  const [name, setName] = useState(workType?.name ?? "");
+  return <CovieDialog id="timesheets-work-type" title={workType ? "Rename work type" : "Add work type"} busy={busy} onClose={onClose} description="Create labels such as Lunch break, Meeting or General work.">
+    <form className={styles.form} onSubmit={async event => {
+      event.preventDefault();
+      if (busy || !name.trim()) return;
+      await save("saveWorkType", { ...(workType ? { id: workType.id, version: workType.version } : {}), name: name.trim(), active: workType?.active ?? true });
+    }}><fieldset disabled={busy} className={styles.form}>
+      <Field label="Work type name"><CovieInput value={name} maxLength={120} required onChange={event => setName(event.target.value)} placeholder="For example, Lunch break" /></Field>
+      <p className={styles.muted}>Renaming a work type preserves the labels on saved work blocks and their change history. Work types do not change billable status or payroll.</p>
+      <div className={styles.actions}><CovieButton type="submit" tone="teal" disabled={busy || !name.trim()}>{busy ? "Saving…" : "Save work type"}</CovieButton><CovieButton tone="neutral" disabled={busy} onClick={onClose}>Cancel</CovieButton></div>
+    </fieldset></form>
+  </CovieDialog>;
 }
 
 export function TimesheetsSettings({ data, busy, save }: { data: TimesheetsData; busy: boolean; save: TimesheetsSave }) {

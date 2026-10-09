@@ -70,6 +70,7 @@ test(nativeUrl ? "Timesheets migration: isolated native PostgreSQL semantics" : 
   } else {
     await db.exec(baseline);
     await db.exec(await readFile(new URL("../drizzle/0036_timesheets.sql", import.meta.url), "utf8"));
+    await db.exec(await readFile(new URL("../drizzle/0037_timesheet_work_types.sql", import.meta.url), "utf8"));
   }
   const query = async <T = Row>(sql: string, parameters: unknown[] = []) => (await db.query<T>(sql, parameters)).rows;
   async function asRuntime<T>(operation: () => Promise<T>) {
@@ -255,6 +256,45 @@ test(nativeUrl ? "Timesheets migration: isolated native PostgreSQL semantics" : 
     await reject(mutate(org, org.owner, "saveEntry", { ...data, id: saved.id, version: 2, start: "2026-10-08T10:00:00Z", end: "2026-10-08T10:15:00Z" }), "23514");
     await reject(mutate(org, org.owner, "saveEntry", { ...data, start: "2026-10-08T10:00:00Z", end: "2026-10-08T10:15:00Z" }), "23514");
     await reject(mutate(org, org.owner, "saveClient", { id: client.id, version: 1, name: "Stale", active: true }), "40001");
+  });
+
+  await t.test("custom work types enforce owner/tenant scope, versions and stable historical labels", async () => {
+    const org = await organisation(), other = await organisation(), member = await person(org), manager = await person(org, "manager");
+    for (const actor of [member.userId, manager.userId]) await reject(mutate(org, actor, "saveWorkType", { name: "Forbidden", active: true }), "42501");
+    const type = await mutate(org, org.owner, "saveWorkType", { name: "Lunch break", active: true });
+    const foreign = await mutate(other, other.owner, "saveWorkType", { name: "Lunch break", active: true });
+    await reject(mutate(org, org.owner, "saveWorkType", { name: " lunch BREAK ", active: true }), "23505");
+    await reject(mutate(org, org.owner, "saveWorkType", { name: " ", active: true }), "23514");
+    await reject(mutate(org, org.owner, "saveWorkType", { id: foreign.id, version: 1, name: "Cross tenant", active: true }), "42501");
+    const data = await entryData(org, member.staffId, { workTypeId: type.id, billable: false });
+    await reject(mutate(org, member.userId, "saveEntry", { ...data, workTypeId: foreign.id }), "23514");
+    const saved = await mutate(org, member.userId, "saveEntry", { ...data, workTypeName: "Forged snapshot" });
+    await reject(query("UPDATE timesheet_entries SET work_type_id=$1 WHERE id=$2", [foreign.id, saved.id]), "23503");
+    await reject(query("UPDATE timesheet_entries SET work_type_name=NULL WHERE id=$1", [saved.id]), "23514");
+    assert.equal((await query<{ work_type_name: string }>("SELECT work_type_name FROM timesheet_entries WHERE id=$1", [saved.id]))[0].work_type_name, "Lunch break");
+    await mutate(org, org.owner, "saveWorkType", { id: type.id, version: 1, name: "Meal break", active: true });
+    await reject(mutate(org, org.owner, "saveWorkType", { id: type.id, version: 1, name: "Stale", active: true }), "40001");
+    await mutate(org, member.userId, "saveEntry", { ...data, id: saved.id, version: 1, notes: "Retains historical label" });
+    const freshData = { ...data, start: "2026-10-08T10:00:00Z", end: "2026-10-08T10:15:00Z" };
+    const fresh = await mutate(org, member.userId, "saveEntry", freshData);
+    assert.equal((await query<{ work_type_name: string }>("SELECT work_type_name FROM timesheet_entries WHERE id=$1", [fresh.id]))[0].work_type_name, "Meal break");
+    await mutate(org, org.owner, "saveWorkType", { id: type.id, version: 2, name: "Meal break", active: false });
+    await reject(mutate(org, member.userId, "saveEntry", { ...freshData, start: "2026-10-08T11:00:00Z", end: "2026-10-08T11:15:00Z" }), "23514");
+    // A correction may retain the existing archived classification and saved label.
+    await mutate(org, member.userId, "saveEntry", { ...data, id: saved.id, version: 2, start: "2026-10-08T09:00:00Z", end: "2026-10-08T09:15:00Z" });
+    const oldClient: Row = { ...data }; delete oldClient.workTypeId;
+    await mutate(org, member.userId, "saveEntry", { ...oldClient, id: saved.id, version: 3, notes: "Older client keeps type" });
+    const snapshot = (await query<{ work_type_id: string; work_type_name: string; billable: boolean }>("SELECT work_type_id,work_type_name,billable FROM timesheet_entries WHERE id=$1", [saved.id]))[0];
+    assert.deepEqual(snapshot, { work_type_id: type.id, work_type_name: "Lunch break", billable: false });
+    await mutate(org, member.userId, "saveEntry", { ...data, workTypeId: null, id: saved.id, version: 4 });
+    await reject(mutate(org, member.userId, "saveEntry", { ...data, id: saved.id, version: 5 }), "23514");
+    await mutate(org, org.owner, "saveWorkType", { id: type.id, version: 3, name: "Meal break", active: true });
+    await mutate(org, member.userId, "saveEntry", { ...data, id: saved.id, version: 5 });
+    assert.equal((await query<{ work_type_name: string }>("SELECT work_type_name FROM timesheet_entries WHERE id=$1", [saved.id]))[0].work_type_name, "Meal break");
+    const revisions = await query<{ after_state: Row }>("SELECT after_state FROM timesheet_entry_revisions WHERE entry_id=$1 ORDER BY (after_state->>'version')::integer", [saved.id]);
+    assert.deepEqual(revisions.map(row => row.after_state.work_type_name), ["Lunch break", "Lunch break", "Lunch break", "Lunch break", null, "Meal break"]);
+    if (fullSchema) await reject(asRuntime(() => query("DELETE FROM timesheet_work_types WHERE id=$1", [type.id])), "42501");
+    assert.equal((await query("SELECT * FROM timesheet_audit WHERE organisation_id=$1 AND action='saveWorkType'", [org.id])).length, 4);
   });
 
   await t.test("invitations require the exact verified Auth email; revoked/replaced/expired tokens fail and redemption is idempotent", async () => {

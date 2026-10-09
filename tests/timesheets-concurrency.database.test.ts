@@ -92,6 +92,27 @@ test("Timesheets native PostgreSQL concurrency and revocation ordering", { skip:
       timezone: "UTC", notes: "Synthetic race", billable: false, expectedOrganisationVersion: 1, ...patch };
   }
 
+  await t.test("work type rename and archival serialize with entry saves and stale owner updates", async () => {
+    const org = await organisation();
+    const type = await mutate(observer, org, org.owner, "saveWorkType", { name: "Meetings", active: true });
+    await first.query("BEGIN");
+    await mutate(first, org, org.owner, "saveWorkType", { id: type.id, version: 1, name: "Team meetings", active: true });
+    const create = outcome(mutate(second, org, org.owner, "saveEntry", entry(org, { workTypeId: type.id })));
+    await blockedByFirst(); await first.query("COMMIT");
+    const created = await create; assert.equal(created.error, null);
+    assert.equal((await observer.query<{ work_type_name: string }>("SELECT work_type_name FROM timesheet_entries WHERE id=$1", [created.value!.id])).rows[0].work_type_name, "Team meetings");
+    await first.query("BEGIN");
+    await mutate(first, org, org.owner, "saveWorkType", { id: type.id, version: 2, name: "Team meetings", active: false });
+    const pending = outcome(mutate(second, org, org.owner, "saveEntry", entry(org, { workTypeId: type.id, start: "2026-10-08T10:00:00Z", end: "2026-10-08T10:15:00Z" })));
+    await blockedByFirst(); await first.query("COMMIT");
+    assert.equal((await pending).error?.code, "23514");
+    await first.query("BEGIN");
+    await mutate(first, org, org.owner, "saveWorkType", { id: type.id, version: 3, name: "Meetings", active: true });
+    const stale = outcome(mutate(second, org, org.owner, "saveWorkType", { id: type.id, version: 3, name: "Lost update", active: false }));
+    await blockedByFirst(); await first.query("COMMIT");
+    assert.equal((await stale).error?.code, "40001");
+  });
+
   await t.test("same-token simultaneous redemption has one membership and an idempotent same-account retry", async () => {
     const org = await organisation(), invited = await invite(org);
     await first.query("BEGIN");

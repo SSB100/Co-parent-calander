@@ -43,9 +43,10 @@ export const timesheetsStaffSchema = z.object({
 export const timesheetsAssignmentSchema = z.object({ managerStaffId: uuid, staffId: uuid, assigned: z.boolean() }).strict()
   .refine(value => value.managerStaffId !== value.staffId, "A manager already has access to their own entries.");
 export const timesheetsClientSchema = z.object({ id: uuid.optional(), name, active: z.boolean(), version: version.optional() }).strict().refine(versionedUpdate, updateMessage);
+export const timesheetsWorkTypeSchema = z.object({ id: uuid.optional(), name, active: z.boolean(), version: version.optional() }).strict().refine(versionedUpdate, updateMessage);
 export const timesheetsProjectSchema = z.object({ id: uuid.optional(), clientId: uuid, name, active: z.boolean(), version: version.optional() }).strict().refine(versionedUpdate, updateMessage);
 export const timesheetsSaveEntrySchema = z.object({
-  id: uuid.optional(), staffId: uuid, clientId: uuid.nullable(), projectId: uuid.nullable(),
+  id: uuid.optional(), staffId: uuid, clientId: uuid.nullable(), projectId: uuid.nullable(), workTypeId: uuid.nullable().optional(),
   startLocal: timesheetsLocalTimeSchema, endLocal: timesheetsLocalTimeSchema,
   startDisambiguation: timesheetsDisambiguationSchema.optional(), endDisambiguation: timesheetsDisambiguationSchema.optional(),
   notes: z.string().trim().max(4000), billable: z.boolean(), organisationVersion: version, version: version.optional(), reason,
@@ -58,6 +59,7 @@ export const timesheetsCommandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("saveStaff"), data: timesheetsStaffSchema }).strict(),
   z.object({ action: z.literal("assignManager"), data: timesheetsAssignmentSchema }).strict(),
   z.object({ action: z.literal("saveClient"), data: timesheetsClientSchema }).strict(),
+  z.object({ action: z.literal("saveWorkType"), data: timesheetsWorkTypeSchema }).strict(),
   z.object({ action: z.literal("saveProject"), data: timesheetsProjectSchema }).strict(),
   z.object({ action: z.literal("createInvite"), data: z.object({ staffId: uuid }).strict() }).strict(),
   z.object({ action: z.literal("revokeInvite"), data: z.object({ id: uuid }).strict() }).strict(),
@@ -69,10 +71,11 @@ export type TimesheetsSaveEntry = z.infer<typeof timesheetsSaveEntrySchema>;
 export type TimesheetsOrganisation = { id: string; name: string; timezone: string; incrementMinutes: TimesheetsIncrement; version: number };
 export type TimesheetsStaff = { id: string; displayName: string; email: string; role: TimesheetsRole; active: boolean; own: boolean; linked: boolean; version: number };
 export type TimesheetsClient = { id: string; name: string; active: boolean; version: number };
+export type TimesheetsWorkType = { id: string; name: string; active: boolean; version: number };
 export type TimesheetsProject = { id: string; clientId: string; name: string; active: boolean; version: number };
 export type TimesheetsAssignment = { managerStaffId: string; staffId: string };
 export type TimesheetsEntry = {
-  id: string; staffId: string; clientId: string | null; projectId: string | null;
+  id: string; staffId: string; clientId: string | null; projectId: string | null; workTypeId: string | null; workTypeName: string | null;
   start: string; end: string; timezone: string; notes: string; billable: boolean;
   durationMinutes: number; incrementMinutes: TimesheetsIncrement; version: number;
 };
@@ -80,7 +83,7 @@ export type TimesheetsInvitation = { id: string; staffId: string; email: string;
 export type TimesheetsTotal = { staffId: string; totalMinutes: number; billableMinutes: number };
 export type TimesheetsData = {
   calendarId: string; organisation: TimesheetsOrganisation; role: TimesheetsRole; ownStaffId: string | null;
-  date: string; view: TimesheetsView; staff: TimesheetsStaff[]; clients: TimesheetsClient[]; projects: TimesheetsProject[];
+  date: string; view: TimesheetsView; staff: TimesheetsStaff[]; clients: TimesheetsClient[]; projects: TimesheetsProject[]; workTypes: TimesheetsWorkType[];
   assignments: TimesheetsAssignment[]; entries: TimesheetsEntry[]; invitations: TimesheetsInvitation[]; totals: TimesheetsTotal[];
 };
 export type TimesheetsMutationResult = { ok: true; id?: string; version?: number; invitationUrl?: string; expiresAt?: string };

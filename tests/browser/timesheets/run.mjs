@@ -74,8 +74,9 @@ const date = "2026-10-08";
 function snapshot(variant, query) {
   const role = variant.startsWith("owner-") ? "owner" : variant.startsWith("manager-") ? "manager" : "member";
   const people = [{ id: self, displayName: "Morgan Chen", email: "morgan@example.invalid", role, active: true, own: true, linked: true, version: 1 }, { id: employee, displayName: "Taylor with a longer display name", email: "taylor@example.invalid", role: "member", active: true, own: false, linked: false, version: 1 }, { id: manager, displayName: "Jamie Patel", email: "jamie@example.invalid", role: "manager", active: true, own: false, linked: true, version: 1 }];
-  const entries = [{ id: "entry-one", staffId: self, clientId: "client", projectId: "project", start: `${date}T09:00:00Z`, end: `${date}T10:30:00Z`, timezone: "UTC", notes: "Research and draft design options", billable: true, durationMinutes: 90, incrementMinutes: 15, version: 1 }, { id: "entry-two", staffId: self, clientId: null, projectId: null, start: `${date}T11:00:00Z`, end: `${date}T11:45:00Z`, timezone: "UTC", notes: "Internal team planning", billable: false, durationMinutes: 45, incrementMinutes: 15, version: 1 }, { id: "entry-team", staffId: employee, clientId: "client", projectId: "project", start: `${date}T13:00:00Z`, end: `${date}T15:00:00Z`, timezone: "UTC", notes: "Assigned team review", billable: true, durationMinutes: 120, incrementMinutes: 15, version: 1 }];
-  return { calendarId, role, ownStaffId: self, date: query.get("date") || date, view: query.get("view") || "week", organisation: { id: "org", name: "Synthetic studio", timezone: "UTC", incrementMinutes: 15, version: 1 }, staff: role === "member" ? people.slice(0, 1) : role === "manager" ? people.slice(0, 2) : people, clients: [{ id: "client", name: "Harbour client", active: true, version: 1 }], projects: [{ id: "project", clientId: "client", name: "Studio launch", active: true, version: 1 }], assignments: [{ managerStaffId: role === "manager" ? self : manager, staffId: employee }], invitations: [], entries: role === "member" ? entries.slice(0, 2) : entries, totals: [{ staffId: self, totalMinutes: 135, billableMinutes: 90 }, ...(role === "member" ? [] : [{ staffId: employee, totalMinutes: 120, billableMinutes: 120 }])] };
+  const entries = [{ id: "entry-one", staffId: self, clientId: "client", projectId: "project", workTypeId: "general", workTypeName: "General work", start: `${date}T09:00:00Z`, end: `${date}T10:30:00Z`, timezone: "UTC", notes: "Research and draft design options", billable: true, durationMinutes: 90, incrementMinutes: 15, version: 1 }, { id: "entry-two", staffId: self, clientId: null, projectId: null, workTypeId: "break", workTypeName: "Lunch break", start: `${date}T11:00:00Z`, end: `${date}T11:45:00Z`, timezone: "UTC", notes: "Internal team planning", billable: false, durationMinutes: 45, incrementMinutes: 15, version: 1 }, { id: "entry-team", staffId: employee, clientId: "client", projectId: "project", workTypeId: "general", workTypeName: "General work", start: `${date}T13:00:00Z`, end: `${date}T15:00:00Z`, timezone: "UTC", notes: "Assigned team review", billable: true, durationMinutes: 120, incrementMinutes: 15, version: 1 }];
+  if (variant === "staff-hour-grid") entries.length = 0;
+  return { calendarId, role, ownStaffId: self, date: query.get("date") || date, view: query.get("view") || "week", organisation: { id: "org", name: "Synthetic studio", timezone: "UTC", incrementMinutes: 15, version: 1 }, workTypes: [{ id: "general", name: "General duties", active: true, version: 2 }, { id: "meeting", name: "Meeting", active: true, version: 1 }, { id: "break", name: "Lunch break", active: false, version: 2 }, ...(variant === "owner-work-types" ? [{ id: "long-label", name: "W".repeat(120), active: true, version: 1 }] : [])], staff: role === "member" ? people.slice(0, 1) : role === "manager" ? people.slice(0, 2) : people, clients: [{ id: "client", name: "Harbour client", active: true, version: 1 }], projects: [{ id: "project", clientId: "client", name: "Studio launch", active: true, version: 1 }], assignments: [{ managerStaffId: role === "manager" ? self : manager, staffId: employee }], invitations: [], entries: role === "member" ? entries.slice(0, 2) : entries, totals: [{ staffId: self, totalMinutes: variant === "staff-hour-grid" ? 0 : 135, billableMinutes: variant === "staff-hour-grid" ? 0 : 90 }, ...(role === "member" ? [] : [{ staffId: employee, totalMinutes: 120, billableMinutes: 120 }])] };
 }
 async function noOverflow(page) {
   const dimensions = await page.evaluate(() => ({ body: document.body.scrollWidth, document: document.documentElement.scrollWidth, viewport: innerWidth }));
@@ -88,7 +89,7 @@ async function dialogFits(page) {
   assert(bounds && bounds.x >= -1 && bounds.y >= -1 && bounds.x + bounds.width <= viewport.width + 1 && bounds.y + bounds.height <= viewport.height + 1, `Dialog outside viewport: ${JSON.stringify(bounds)}`);
 }
 const results = [], screenshots = [];
-const variants = ["owner-settings", "owner-team", "owner-clients", "staff-calendar", "manager-calendar"];
+const variants = ["owner-settings", "owner-team", "owner-clients", "owner-work-types", "staff-calendar", "staff-work-types", "staff-hour-grid", "manager-calendar"];
 const viewports = [[1440, 900], [390, 844], [320, 568]];
 const expectedCases = variants.length * viewports.length;
 let browser;
@@ -107,6 +108,10 @@ try {
     const caseId = `${variant}-${width}x${height}`;
     const page = await browser.newPage({ viewport: { width, height } });
     const requests = [], errors = []; let stale = false;
+    const workTypeJourney = variant === "owner-work-types" || variant === "staff-work-types";
+    const state = snapshot(variant, new URLSearchParams({ date }));
+    const savedHistory = [];
+    const currentSnapshot = query => ({ ...snapshot(variant, query), workTypes: state.workTypes, entries: state.entries });
     page.setDefaultTimeout(8000); page.on("pageerror", error => errors.push(error.message));
     const capture = async suffix => { await noOverflow(page); const filename = `${caseId}-${suffix}.png`; await page.screenshot({ path: path.join(out, filename), fullPage: false }); screenshots.push(filename); };
     await page.route("**/*", async route => {
@@ -114,8 +119,39 @@ try {
       if (target.origin !== base) { errors.push(`External request blocked: ${target.href}`); return route.abort(); }
       if (!target.pathname.startsWith("/api/")) return route.continue();
       requests.push({ url: target.pathname + target.search, method: request.method(), calendarId: request.headers()["x-covie-calendar-id"] });
-      if (request.method() !== "GET" || target.pathname !== "/api/timesheets" || request.headers()["x-covie-calendar-id"] !== calendarId || [...target.searchParams.keys()].some(key => !["date", "view"].includes(key))) { errors.push(`Unexpected API: ${request.method()} ${target.href}`); return route.fulfill({ status: 405, contentType: "application/json", body: JSON.stringify({ error: "Unexpected fixture transport" }) }); }
-      await route.fulfill({ status: stale ? 409 : 200, contentType: "application/json", body: JSON.stringify(stale ? { error: "Your selected calendar changed." } : snapshot(variant, target.searchParams)) });
+      const respond = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+      if (target.pathname !== "/api/timesheets" || request.headers()["x-covie-calendar-id"] !== calendarId || [...target.searchParams.keys()].some(key => !["date", "view", ...(workTypeJourney ? ["entryId"] : [])].includes(key))) { errors.push(`Unexpected API: ${request.method()} ${target.href}`); return respond({ error: "Unexpected fixture transport" }, 405); }
+      if (workTypeJourney && request.method() === "POST") {
+        const command = request.postDataJSON();
+        requests.at(-1).command = command;
+        const payload = command.data;
+        if (variant === "owner-work-types" && command.action === "saveWorkType") {
+          assert.equal(typeof payload.name, "string"); assert.equal(typeof payload.active, "boolean");
+          const current = state.workTypes.find(workType => workType.id === payload.id);
+          if (payload.id) {
+            assert.ok(current); assert.equal(payload.version, current.version);
+            Object.assign(current, { name: payload.name, active: payload.active, version: current.version + 1 });
+          } else state.workTypes.push({ id: "created-work-type", name: payload.name, active: payload.active, version: 1 });
+          return respond({ ok: true });
+        }
+        if (variant === "staff-work-types" && command.action === "saveEntry") {
+          assert.equal(payload.staffId, self);
+          const current = state.entries.find(entry => entry.id === payload.id);
+          if (payload.id) { assert.ok(current); assert.equal(payload.version, current.version); }
+          const selected = state.workTypes.find(workType => workType.id === payload.workTypeId);
+          assert.ok(!payload.workTypeId || selected?.active || current?.workTypeId === payload.workTypeId);
+          const next = { id: current?.id ?? "created-entry", staffId: self, clientId: payload.clientId, projectId: payload.projectId, workTypeId: payload.workTypeId,
+            workTypeName: payload.workTypeId ? current?.workTypeId === payload.workTypeId ? current.workTypeName : selected.name : null,
+            start: `${payload.startLocal}:00Z`, end: `${payload.endLocal}:00Z`, timezone: "UTC", notes: payload.notes, billable: payload.billable,
+            durationMinutes: (Date.parse(`${payload.endLocal}:00Z`) - Date.parse(`${payload.startLocal}:00Z`)) / 60000, incrementMinutes: 15, version: (current?.version ?? 0) + 1 };
+          savedHistory.push({ id: `history-${savedHistory.length}`, action: current ? "update" : "create", reason: null, createdAt: `${date}T16:00:00Z`, ownActor: true, before: current ? { ...current } : null, after: next });
+          if (current) state.entries[state.entries.indexOf(current)] = next; else state.entries.push(next);
+          return respond({ ok: true });
+        }
+      }
+      if (request.method() !== "GET") { errors.push(`Unexpected mutation: ${request.method()} ${target.href}`); return respond({ error: "Unexpected fixture mutation" }, 405); }
+      if (target.searchParams.has("entryId")) return respond({ calendarId, history: savedHistory.filter(record => record.after.id === target.searchParams.get("entryId")) });
+      await respond(stale ? { error: "Your selected calendar changed." } : currentSnapshot(target.searchParams), stale ? 409 : 200);
     });
     try {
       await page.goto(`${base}/?fixture=${variant}`);
@@ -148,6 +184,109 @@ try {
         assert.equal(await dialog.getByLabel(/^Client/).isDisabled(), true);
         await dialogFits(page); await capture("project-editor");
         await dialog.getByRole("button", { name: "Close dialog", exact: true }).click(); await dialog.waitFor({ state: "detached" });
+      } else if (variant === "owner-work-types") {
+        await page.getByRole("button", { name: "Add work type", exact: true }).waitFor();
+        const longTitle = page.getByRole("heading", { name: "W".repeat(120), exact: true });
+        const titleBounds = await longTitle.boundingBox();
+        assert(titleBounds && titleBounds.x >= 0 && titleBounds.x + titleBounds.width <= width + 1, "A valid 120-character work type must wrap inside the viewport");
+        await capture("work-types");
+        await page.getByRole("button", { name: "Add work type", exact: true }).click();
+        let dialog = page.getByRole("dialog", { name: "Add work type", exact: true }); await dialog.waitFor();
+        await dialog.getByLabel("Work type name", { exact: true }).fill("Unsaved type");
+        await dialogFits(page); await capture("work-type-editor");
+        await page.keyboard.press("Escape"); await dialog.waitFor({ state: "detached" });
+        assert.equal(requests.filter(request => request.method === "POST").length, 0);
+        await page.getByRole("button", { name: "Add work type", exact: true }).click(); await dialog.waitFor();
+        assert.equal(await dialog.getByLabel("Work type name", { exact: true }).inputValue(), "");
+        await dialog.getByLabel("Work type name", { exact: true }).fill("Travel time");
+        await dialog.getByRole("button", { name: "Save work type", exact: true }).click(); await dialog.waitFor({ state: "detached" });
+        await page.getByRole("button", { name: "Rename Travel time", exact: true }).click();
+        dialog = page.getByRole("dialog", { name: "Rename work type", exact: true }); await dialog.waitFor();
+        await dialog.getByLabel("Work type name", { exact: true }).fill("Travel to client");
+        await dialog.getByRole("button", { name: "Save work type", exact: true }).click(); await dialog.waitFor({ state: "detached" });
+        await page.getByRole("button", { name: "Archive Travel to client", exact: true }).click();
+        await page.getByRole("button", { name: "Restore Travel to client", exact: true }).waitFor();
+        await capture("work-type-archived");
+        await page.getByRole("button", { name: "Restore Travel to client", exact: true }).click();
+        await page.getByRole("button", { name: "Archive Travel to client", exact: true }).waitFor();
+        const commands = requests.filter(request => request.method === "POST").map(request => request.command);
+        assert.deepEqual(commands, [
+          { action: "saveWorkType", data: { name: "Travel time", active: true } },
+          { action: "saveWorkType", data: { id: "created-work-type", version: 1, name: "Travel to client", active: true } },
+          { action: "saveWorkType", data: { id: "created-work-type", name: "Travel to client", active: false, version: 2 } },
+          { action: "saveWorkType", data: { id: "created-work-type", name: "Travel to client", active: true, version: 3 } },
+        ]);
+      } else if (variant === "staff-hour-grid") {
+        const initialView = width <= 640 ? "Day" : "Week";
+        let region = page.getByRole("region", { name: `${initialView} work calendar`, exact: true }); await region.waitFor();
+        assert.equal(await region.getByText("00:00", { exact: true }).count(), 1);
+        assert.equal(await region.getByText("23:00", { exact: true }).count(), 1);
+        assert.equal(await region.getByRole("button", { name: /^Add work on/ }).count(), initialView === "Day" ? 24 : 168);
+        assert.match(await region.innerText(), /No work recorded/);
+        const scroll = await region.evaluate(node => ({ height: node.clientHeight, content: node.scrollHeight, top: node.scrollTop, width: node.clientWidth, contentWidth: node.scrollWidth }));
+        assert(scroll.content > scroll.height && scroll.top > 0, `Hourly grid is not independently scrolled to morning: ${JSON.stringify(scroll)}`);
+        await capture("empty-hour-grid");
+        const slot = page.getByRole("button", { name: "Add work on Thu, 8 Oct at 14:00", exact: true });
+        await slot.focus(); await page.keyboard.press("Enter");
+        const dialog = page.getByRole("dialog", { name: "Add work block", exact: true }); await dialog.waitFor();
+        assert.equal(await dialog.getByLabel("Start", { exact: true }).inputValue(), "2026-10-08T14:00");
+        assert.equal(await dialog.getByLabel("End", { exact: true }).inputValue(), "2026-10-08T14:15");
+        await dialogFits(page); await capture("hour-prefilled-editor");
+        await page.keyboard.press("Escape"); await dialog.waitFor({ state: "detached" });
+        assert.equal(await slot.evaluate(node => node === document.activeElement), true);
+        await page.getByRole("button", { name: "Week", exact: true }).click();
+        region = page.getByRole("region", { name: "Week work calendar", exact: true }); await region.waitFor();
+        assert.equal(await region.getByRole("button", { name: /^Add work on/ }).count(), 168);
+        await page.getByRole("button", { name: "Add work on Fri, 9 Oct at 23:00", exact: true }).click(); await dialog.waitFor();
+        assert.equal(await dialog.getByLabel("Start", { exact: true }).inputValue(), "2026-10-09T23:00");
+        assert.equal(await dialog.getByLabel("End", { exact: true }).inputValue(), "2026-10-09T23:15");
+        await dialog.getByRole("button", { name: "Cancel", exact: true }).click(); await dialog.waitFor({ state: "detached" });
+        assert.equal(requests.filter(request => request.method === "POST").length, 0);
+      } else if (variant === "staff-work-types") {
+        const initialView = width <= 640 ? "Day" : "Week";
+        await page.getByRole("region", { name: `${initialView} work calendar`, exact: true }).waitFor();
+        assert.equal(await page.getByRole("button", { name: "Add work type", exact: true }).count(), 0);
+        await page.getByRole("button", { name: /Research and draft design options/ }).click();
+        let dialog = page.getByRole("dialog", { name: "Edit work block", exact: true }); await dialog.waitFor();
+        assert.equal(await dialog.getByLabel(/^Work type/).inputValue(), "general");
+        assert.match(await dialog.getByLabel(/^Work type/).locator('option:checked').innerText(), /General work.*now General duties/);
+        await dialog.getByLabel("Work notes", { exact: true }).fill("Updated notes keep the original work type label");
+        await dialog.getByRole("button", { name: "Save work block", exact: true }).click(); await dialog.waitFor({ state: "detached" });
+        const renamedBlock = page.getByRole("button", { name: /Updated notes keep the original work type label/ }); await renamedBlock.waitFor();
+        assert.match(await renamedBlock.innerText(), /General work/); assert.doesNotMatch(await renamedBlock.innerText(), /General duties/);
+        await renamedBlock.click(); await dialog.waitFor();
+        await dialog.getByRole("button", { name: "View change history", exact: true }).click();
+        const history = dialog.getByRole("region", { name: "Work block change history", exact: true });
+        await history.getByText("Updated by you", { exact: true }).waitFor();
+        await history.getByText("Compare before and after", { exact: true }).click();
+        assert.match(await history.innerText(), /General work/); assert.doesNotMatch(await history.innerText(), /General duties/);
+        await dialogFits(page); await capture("saved-work-type-history");
+        await dialog.getByRole("button", { name: "Cancel", exact: true }).click(); await dialog.waitFor({ state: "detached" });
+        await page.getByRole("button", { name: /Internal team planning/ }).click(); await dialog.waitFor();
+        assert.equal(await dialog.getByLabel(/^Work type/).inputValue(), "break");
+        assert.match(await dialog.getByLabel(/^Work type/).locator('option:checked').innerText(), /Lunch break.*archived/);
+        await dialog.getByLabel(/^Work type/).selectOption("meeting");
+        await dialog.getByLabel(/^Work type/).selectOption("break");
+        await dialog.getByLabel("End", { exact: true }).fill("2026-10-08T12:00");
+        await dialogFits(page); await capture("archived-work-type-retained");
+        await dialog.getByRole("button", { name: "Save work block", exact: true }).click(); await dialog.waitFor({ state: "detached" });
+        await page.getByRole("button", { name: "Add work block", exact: true }).click();
+        dialog = page.getByRole("dialog", { name: "Add work block", exact: true }); await dialog.waitFor();
+        assert.deepEqual(await dialog.getByLabel(/^Work type/).locator("option").allTextContents(), ["No work type", "General duties", "Meeting"]);
+        assert.equal(await dialog.getByLabel("Billable work", { exact: true }).isChecked(), false);
+        await dialog.getByLabel(/^Work type/).selectOption("meeting");
+        assert.equal(await dialog.getByLabel("Billable work", { exact: true }).isChecked(), false);
+        await dialog.getByLabel("Start", { exact: true }).fill("2026-10-08T14:00");
+        await dialog.getByLabel("End", { exact: true }).fill("2026-10-08T14:30");
+        await dialog.getByLabel("Work notes", { exact: true }).fill("New meeting work block");
+        await dialog.getByRole("button", { name: "Save work block", exact: true }).click(); await dialog.waitFor({ state: "detached" });
+        const newBlock = page.getByRole("button", { name: /New meeting work block/ }); await newBlock.waitFor();
+        assert.match(await newBlock.innerText(), /Meeting/); assert.match(await newBlock.innerText(), /Non-billable/);
+        await capture("new-work-type-entry");
+        const commands = requests.filter(request => request.method === "POST").map(request => request.command);
+        assert.equal(commands.length, 3);
+        assert.deepEqual(commands.map(command => command.data.workTypeId), ["general", "break", "meeting"]);
+        assert.ok(commands.every(command => command.action === "saveEntry" && !("workTypeName" in command.data)));
       } else {
         const initialView = width <= 640 ? "Day" : "Week";
         await page.getByRole("region", { name: `${initialView} work calendar`, exact: true }).waitFor();
@@ -169,12 +308,14 @@ try {
           assert(title.clientWidth > 0 && title.scrollWidth <= title.clientWidth + 1, `Calendar title text is clipped: ${JSON.stringify(title)}`);
           assert(title.textLeft >= title.summaryLeft - 1 && title.textRight <= title.summaryRight + 1, `Calendar title escapes its summary: ${JSON.stringify(title)}`);
           assert(title.summaryLeft >= title.headerLeft - 1 && title.summaryRight <= title.headerRight + 1 && title.headerLeft >= -1 && title.headerRight <= width + 1, `Calendar header escapes the viewport: ${JSON.stringify(title)}`);
-          const selected = await page.locator(`[data-timesheets-date="${date}"]`).boundingBox();
-          assert(selected.y < height - 70, `Selected day is hidden below the mobile navigation: ${JSON.stringify(selected)}`);
+          const selectedHeader = await page.locator(`[data-timesheets-date="${date}"] > header`).boundingBox();
+          const calendarBounds = await page.getByRole("region", { name: "Day work calendar", exact: true }).boundingBox();
+          assert(selectedHeader && selectedHeader.y >= -1 && selectedHeader.y + selectedHeader.height <= height - 70, `Sticky day header is hidden or clipped by mobile navigation: ${JSON.stringify(selectedHeader)}`);
+          assert(calendarBounds && calendarBounds.y < height - 100 && calendarBounds.y + calendarBounds.height > selectedHeader.y + selectedHeader.height, `Hourly calendar is not visibly available: ${JSON.stringify(calendarBounds)}`);
           await capture("initial-day");
           await page.getByRole("button", { name: "Week", exact: true }).click();
           await page.getByRole("region", { name: "Week work calendar", exact: true }).waitFor();
-          const position = await page.locator(`[data-timesheets-date="${date}"]`).evaluate(node => { const day = node.getBoundingClientRect(), outer = node.closest('[role="region"]').getBoundingClientRect(); return { dayLeft: day.left, dayRight: day.right, outerLeft: outer.left, outerRight: outer.right }; });
+          const position = await page.locator(`[data-timesheets-date="${date}"]`).evaluate(node => { const day = node.getBoundingClientRect(), region = node.closest('[role="region"]'), outer = region.getBoundingClientRect(), gutter = region.querySelector('[aria-label^="Hours in"]').getBoundingClientRect(); return { dayLeft: day.left, dayRight: day.right, outerLeft: gutter.right, outerRight: outer.right }; });
           assert(position.dayLeft >= position.outerLeft - 1 && position.dayRight <= position.outerRight + 1, `Selected week day is horizontally clipped: ${JSON.stringify(position)}`);
           await page.setViewportSize({ width: 1440, height });
           assert.equal(await page.getByRole("button", { name: "Week", exact: true }).getAttribute("aria-pressed"), "true");
@@ -210,11 +351,11 @@ try {
       }
       const dimensions = await noOverflow(page);
       assert.deepEqual(errors, []); assert.deepEqual(await page.evaluate(() => window.__fixtureMutations), []);
-      assert(requests.length > 0 && requests.every(request => request.method === "GET"));
+      assert(requests.length > 0 && requests.every(request => request.method === "GET" || (workTypeJourney && request.method === "POST" && request.command)));
       results.push({ caseId, status: "passed", dimensions, requests }); console.log(`PASS ${caseId}`);
     } catch (error) {
       await capture("failure").catch(() => {});
-      await fs.writeFile(path.join(out, `${caseId}-failure.html`), await page.content());
+      await fs.writeFile(path.join(out, `failure-${caseId}.html`), await page.content());
       results.push({ caseId, status: "failed", error: String(error), stack: error.stack, errors, requests }); console.error(`FAIL ${caseId}: ${String(error)}`);
     } finally { await page.close(); await fs.writeFile(path.join(out, "results.json"), JSON.stringify(summary(), null, 2)); }
   }

@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-09",
+  "status": "local-qualified-awaiting-native-browser-approval-and-budget",
+  "repository": "SSB100/Co-parent-calander",
+  "baselineCommit": "d3ada5917c7d97e95e72001bc7b8156f6c5d1075",
+  "baselineTree": "e23113df611a55310af2309bf9596555be45cf8d",
+  "features": [
+    "Owner-created optional work types with rename/archive/restore",
+    "Stable saved labels in entries, history and CSV",
+    "Empty hourly day/week grid with keyboard/click creation and DST-safe increment defaults"
+  ],
+  "noSeededTypes": true,
+  "existingEntriesRetainNullClassification": true,
+  "billableAndPayrollPoliciesUnchanged": true,
+  "passed": {
+    "aggregateTests": 784,
+    "componentTests": 40,
+    "embeddedSqlSemantics": {
+      "passed": 10,
+      "nativeOnlySkipped": 1
+    },
+    "embeddedRestrictedServiceTests": 9,
+    "typecheck": true,
+    "lint": {
+      "errors": 0,
+      "existingWarnings": 8
+    },
+    "productionBuild": true,
+    "browserComponentCssBundle": true,
+    "browserRunnerSyntax": true,
+    "diffWhitespace": true,
+    "independentBackendReview": true,
+    "independentUiStaticReview": true,
+    "focusedTests": 65
+  },
+  "pending": [
+    "Fresh native PostgreSQL full-schema/runtime/concurrency qualification",
+    "24-case desktop/mobile rendered browser matrix and screenshot review",
+    "Fresh dependency audit in allocated CI",
+    "Specific production migration/runtime grants approval",
+    "CI budget allocation before publication or triggers"
+  ],
+  "proposedCi": {
+    "currency": "USD",
+    "ceiling": 0.75,
+    "maxWorkflowsIncludingPostMerge": 3,
+    "configuredMaxLinuxRunnerMinutes": 90,
+    "configuredComputeExposure": 0.54,
+    "withinSharedCap": 18,
+    "authorized": false
+  },
+  "production": {
+    "project": "delicate-sunset-36051658",
+    "branch": "br-quiet-sea-a7duq4r3",
+    "database": "neondb",
+    "applied": false
+  },
+  "sha256": {
+    "drizzle/0037_timesheet_work_types.sql": "ae2d573ee6cd4f3fa0e2d70bd721874f89fcfbf739d50d37502dbb1bf581276d",
+    "docs/releases/timesheets-work-types-permissions.sql": "02f43ec1fc6a3c573538ed90b49e67481e7c8619198dbe443c58cc60367a4648",
+    "package-lock.json": "754b3c8d4f50f8a34e8d18d77f18033e301c6f0a46b1778fd416fb408cc9e576"
+  },
+  "logs": [
+    "build/work-types-tests.log",
+    "build/work-types-typecheck.log",
+    "build/work-types-lint.log",
+    "build/work-types-build.log",
+    "build/work-types-pglite.log",
+    "build/work-types-service-pglite.log",
+    "build/work-types-browser.log"
+  ]
+}

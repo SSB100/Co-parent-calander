@@ -16,8 +16,9 @@ const requests: { url: string; init?: RequestInit }[] = [];
 function fixture(calendarId = "calendar-a", role: "owner" | "manager" | "member" = "owner"): TimesheetsData {
   return { calendarId, date: "2026-10-08", view: "week", role, ownStaffId: "self", organisation: { id: "org", name: "Sample organisation", timezone: "UTC", incrementMinutes: 15, version: 3 },
     staff: [{ id: "self", displayName: "Morgan", email: "morgan@example.test", role, active: true, own: true, linked: true, version: 1 }, { id: "staff", displayName: "Taylor", email: "taylor@example.test", role: "member", active: true, own: false, linked: false, version: 2 }, { id: "manager", displayName: "Jamie", email: "jamie@example.test", role: "manager", active: true, own: false, linked: true, version: 1 }],
+    workTypes: [{ id: "general", name: "General work", active: true, version: 1 }, { id: "meeting", name: "Meeting", active: true, version: 2 }, { id: "old-break", name: "Old break", active: false, version: 3 }],
     clients: [{ id: "client", name: "Sample client", active: true, version: 1 }], projects: [{ id: "project", clientId: "client", name: "Sample project", active: true, version: 1 }], assignments: [{ managerStaffId: role === "manager" ? "self" : "manager", staffId: "staff" }], invitations: [],
-    entries: [{ id: "entry", staffId: "self", clientId: "client", projectId: "project", start: "2026-10-08T09:00:00Z", end: "2026-10-08T10:00:00Z", timezone: "UTC", notes: "Private work note", billable: true, durationMinutes: 60, incrementMinutes: 15, version: 1 }, { id: "other-entry", staffId: "staff", clientId: null, projectId: null, start: "2026-10-08T10:00:00Z", end: "2026-10-08T10:30:00Z", timezone: "UTC", notes: "Team work note", billable: false, durationMinutes: 30, incrementMinutes: 15, version: 2 }], totals: [{ staffId: "self", totalMinutes: 60, billableMinutes: 60 }, { staffId: "staff", totalMinutes: 30, billableMinutes: 0 }] };
+    entries: [{ id: "entry", staffId: "self", clientId: "client", projectId: "project", workTypeId: "general", workTypeName: "General work", start: "2026-10-08T09:00:00Z", end: "2026-10-08T10:00:00Z", timezone: "UTC", notes: "Private work note", billable: true, durationMinutes: 60, incrementMinutes: 15, version: 1 }, { id: "other-entry", staffId: "staff", clientId: null, projectId: null, workTypeId: null, workTypeName: null, start: "2026-10-08T10:00:00Z", end: "2026-10-08T10:30:00Z", timezone: "UTC", notes: "Team work note", billable: false, durationMinutes: 30, incrementMinutes: 15, version: 2 }], totals: [{ staffId: "self", totalMinutes: 60, billableMinutes: 60 }, { staffId: "staff", totalMinutes: 30, billableMinutes: 0 }] };
 }
 function element<T extends Element = HTMLElement>(selector: string, scope: ParentNode = container): T { const node = scope.querySelector<T>(selector); assert.ok(node, `Missing ${selector}`); return node; }
 function button(text: string, scope: ParentNode = container) { const node = [...scope.querySelectorAll("button")].find(node => node.textContent?.trim() === text); assert.ok(node, `Missing button ${text}`); return node; }
@@ -43,7 +44,7 @@ test("Timesheets has its own type, route and role-scoped organisation tools", ()
   assert.equal(getCalendarTemplateBySlug("timesheets").id, "timesheets");
   assert.equal(calendarPathForType("timesheets"), "/calendar-types/timesheets");
   assert.equal(calendarTemplateManifests.timesheets.primaryScheduledEntity, "Work block");
-  assert.deepEqual(workspaceOrganiserTools("timesheets", "owner").map(tool => tool.key), ["team", "clients-projects", "settings"]);
+  assert.deepEqual(workspaceOrganiserTools("timesheets", "owner").map(tool => tool.key), ["team", "clients-projects", "work-types", "settings"]);
   assert.deepEqual(workspaceOrganiserTools("timesheets", "manager").map(tool => tool.key), ["team"]);
   assert.deepEqual(workspaceOrganiserTools("timesheets", "member"), []);
   assert.equal(calendarTemplateManifests.staff_rosters.organiserTools.find(tool => tool.key === "timesheets")?.label, "Time & attendance");
@@ -289,10 +290,10 @@ test("week selection scrolls only its own calendar horizontally toward the selec
   const originalScroll = Object.getOwnPropertyDescriptor(prototype, "scrollWidth");
   Object.defineProperty(prototype, "clientWidth", { configurable: true, get() { return this.getAttribute("aria-label") === "Week work calendar" ? 296 : 0; } });
   Object.defineProperty(prototype, "scrollWidth", { configurable: true, get() { return this.getAttribute("aria-label") === "Week work calendar" ? 700 : 0; } });
-  prototype.getBoundingClientRect = function () { const selected = this.getAttribute("data-timesheets-date") === "2026-10-08"; const region = this.getAttribute("aria-label") === "Week work calendar"; return { x: selected ? 300 : 0, y: 400, left: selected ? 300 : 0, top: 400, right: selected ? 400 : region ? 296 : 0, bottom: 500, width: selected ? 100 : region ? 296 : 0, height: 100, toJSON() { return {}; } }; };
+  prototype.getBoundingClientRect = function () { const selected = this.getAttribute("data-timesheets-date") === "2026-10-08"; const region = this.getAttribute("aria-label") === "Week work calendar"; return { x: selected ? 300 : 0, y: 400, left: selected ? 300 : 0, top: 400, right: selected ? 400 : region ? 296 : 0, bottom: 500, width: selected ? 100 : region ? 296 : this.classList.contains("hourGutter") ? 48 : 0, height: 100, toJSON() { return {}; } }; };
   try {
     await click(button("Week")); await settle(() => assert.equal(container.querySelectorAll('.day').length, 7));
-    assert.equal(element<HTMLElement>('[aria-label="Week work calendar"]').scrollLeft, 202);
+    assert.equal(element<HTMLElement>('[aria-label="Week work calendar"]').scrollLeft, 178);
     assert.equal(window.scrollY, 0);
   } finally {
     prototype.getBoundingClientRect = originalRect;
@@ -309,4 +310,329 @@ test("resizing an initial mobile Day view does not discard an open work draft", 
   assert.equal(Boolean(container.querySelector('[role="dialog"]')), true);
   assert.equal(element<HTMLTextAreaElement>('textarea[maxlength="4000"]').value, "Draft survives rotation");
   assert.equal(requests.length, count);
+});
+
+function field<T extends HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(label: string): T {
+  const wrapper = [...container.querySelectorAll("label")].find(node => node.querySelector("span")?.textContent === label);
+  assert.ok(wrapper, `Missing field ${label}`);
+  return element<T>("input, select, textarea", wrapper);
+}
+function mutations() { return requests.filter(request => request.init?.method === "POST").map(request => JSON.parse(request.init!.body as string)); }
+
+test("only owners can access work type controls, including a direct Organiser route", async () => {
+  await render("calendar-a", "organiser", "work-types");
+  await settle(() => assert.ok(button("Add work type")));
+  assert.match(container.textContent!, /General work|Meeting|Old break/);
+  assert.ok(element('[aria-label="Rename General work"]'));
+  assert.ok(element('[aria-label="Archive General work"]'));
+  assert.ok(element('[aria-label="Restore Old break"]'));
+  for (const role of ["manager", "member"] as const) {
+    const calendarId = `calendar-${role}`;
+    installFetch(fixture(calendarId, role));
+    await render(calendarId, "organiser", "work-types");
+    await settle(() => assert.match(container.textContent!, /Only the organisation owner can manage work types/));
+    assert.equal(container.querySelector("button"), null);
+    assert.equal(container.querySelector("form"), null);
+  }
+  assert.equal(mutations().length, 0);
+});
+
+test("an owner can create a trimmed work type once and see the saved result", async () => {
+  const data = fixture(); data.workTypes = [];
+  installFetch(data); await render("calendar-a", "organiser", "work-types");
+  await settle(() => assert.match(container.textContent!, /Add your first work type/));
+  await click(button("Add work type"));
+  assert.equal(button("Save work type").disabled, true);
+  await change(field("Work type name"), "   ");
+  assert.equal(button("Save work type").disabled, true);
+  await change(field("Work type name"), "  Lunch break  ");
+  let finish!: (response: Response) => void;
+  globalThis.fetch = async (input, init) => {
+    requests.push({ url: String(input), init });
+    if (init?.method === "POST") return new Promise(resolve => { finish = resolve; });
+    return json(data);
+  };
+  const save = button("Save work type");
+  await act(async () => { save.click(); save.click(); });
+  assert.deepEqual(mutations(), [{ action: "saveWorkType", data: { name: "Lunch break", active: true } }]);
+  assert.equal(field("Work type name").closest("fieldset")!.disabled, true);
+  assert.equal(button("Cancel").disabled, true);
+  data.workTypes.push({ id: "lunch", name: "Lunch break", active: true, version: 1 });
+  await act(async () => finish(json({ ok: true })));
+  await settle(() => assert.equal(container.querySelector('[role="dialog"]'), null));
+  assert.match(container.textContent!, /Saved\./);
+  assert.ok(element('[aria-label="Archive Lunch break"]'));
+});
+
+test("renaming sends the work type version and cancellation or Escape discards drafts", async () => {
+  const data = fixture(); installFetch(data);
+  await render("calendar-a", "organiser", "work-types");
+  await settle(() => assert.ok(element('[aria-label="Rename Meeting"]')));
+  const opener = element<HTMLButtonElement>('[aria-label="Rename Meeting"]');
+  await act(async () => opener.focus()); await click(opener);
+  assert.equal(field<HTMLInputElement>("Work type name").value, "Meeting");
+  await change(field("Work type name"), "Discard this name"); await click(button("Cancel"));
+  assert.equal(container.querySelector('[role="dialog"]'), null);
+  assert.equal(document.activeElement, opener);
+  assert.equal(mutations().length, 0);
+  await click(opener); assert.equal(field<HTMLInputElement>("Work type name").value, "Meeting");
+  await change(field("Work type name"), "Discard with Escape");
+  await act(async () => element('[role="dialog"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  assert.equal(container.querySelector('[role="dialog"]'), null);
+  assert.equal(document.activeElement, opener);
+  assert.equal(mutations().length, 0);
+  await click(opener); await change(field("Work type name"), "Team meeting");
+  globalThis.fetch = async (input, init) => {
+    requests.push({ url: String(input), init });
+    if (init?.method === "POST") { data.workTypes[1] = { ...data.workTypes[1], name: "Team meeting", version: 3 }; return json({ ok: true }); }
+    return json(data);
+  };
+  await click(button("Save work type"));
+  await settle(() => assert.ok(element('[aria-label="Rename Team meeting"]')));
+  assert.deepEqual(mutations(), [{ action: "saveWorkType", data: { id: "meeting", version: 2, name: "Team meeting", active: true } }]);
+});
+
+test("owners archive and restore work types with the latest version", async () => {
+  const data = fixture(); installFetch(data);
+  await render("calendar-a", "organiser", "work-types");
+  await settle(() => assert.ok(element('[aria-label="Archive Meeting"]')));
+  globalThis.fetch = async (input, init) => {
+    requests.push({ url: String(input), init });
+    if (init?.method === "POST") {
+      const command = JSON.parse(init.body as string);
+      data.workTypes[1] = { ...data.workTypes[1], active: command.data.active, version: data.workTypes[1].version + 1 };
+      return json({ ok: true });
+    }
+    return json(data);
+  };
+  await click(element('[aria-label="Archive Meeting"]'));
+  await settle(() => assert.ok(element('[aria-label="Restore Meeting"]')));
+  assert.match(element('[aria-label="Restore Meeting"]').closest("article")!.textContent!, /Archived/);
+  await click(element('[aria-label="Restore Meeting"]'));
+  await settle(() => assert.ok(element('[aria-label="Archive Meeting"]')));
+  assert.deepEqual(mutations(), [
+    { action: "saveWorkType", data: { id: "meeting", name: "Meeting", active: false, version: 2 } },
+    { action: "saveWorkType", data: { id: "meeting", name: "Meeting", active: true, version: 3 } },
+  ]);
+});
+
+test("a conflicting work type edit refreshes the current name and discards its stale draft", async () => {
+  const data = fixture(); installFetch(data);
+  await render("calendar-a", "organiser", "work-types");
+  await settle(() => assert.ok(element('[aria-label="Rename Meeting"]')));
+  await click(element('[aria-label="Rename Meeting"]')); await change(field("Work type name"), "Stale meeting name");
+  data.workTypes[1] = { ...data.workTypes[1], name: "Current meeting name", version: 3 };
+  globalThis.fetch = async (input, init) => {
+    requests.push({ url: String(input), init });
+    return init?.method === "POST" ? json({ error: "Work type changed. Reload before saving." }, 409) : json(data);
+  };
+  await click(button("Save work type"));
+  await settle(() => assert.match(container.textContent!, /Work type changed/));
+  assert.equal(container.querySelector('[role="dialog"]'), null);
+  assert.doesNotMatch(container.textContent!, /Stale meeting name/);
+  await click(element('[aria-label="Rename Current meeting name"]'));
+  assert.equal(field<HTMLInputElement>("Work type name").value, "Current meeting name");
+});
+
+test("staff can select an active work type without changing billing or client defaults", async () => {
+  const data = fixture("calendar-a", "member"); installFetch(data);
+  await render(); await settle(() => assert.match(container.textContent!, /Your own work only/));
+  await click(button("Add work block"));
+  const select = field<HTMLSelectElement>("Work type");
+  assert.equal(select.value, ""); assert.equal(select.required, false);
+  assert.deepEqual([...select.options].map(option => option.textContent), ["No work type", "General work", "Meeting"]);
+  assert.equal(element<HTMLInputElement>('input[type="checkbox"]').checked, false);
+  await change(select, "meeting");
+  assert.equal(element<HTMLInputElement>('input[type="checkbox"]').checked, false);
+  await click(button("Save work block"));
+  await settle(() => assert.equal(mutations().length, 1));
+  assert.equal(mutations()[0].data.workTypeId, "meeting");
+  assert.equal(mutations()[0].data.billable, false);
+  assert.equal(mutations()[0].data.clientId, null);
+  assert.equal(mutations()[0].data.projectId, null);
+  assert.equal("workTypeName" in mutations()[0].data, false);
+});
+
+test("staff may save work with no type, and cancel leaves their saved choice untouched", async () => {
+  installFetch(fixture("calendar-a", "member")); await render();
+  await settle(() => assert.match(container.textContent!, /Private work note/));
+  await click(element('.block'));
+  assert.equal(field<HTMLSelectElement>("Work type").value, "general");
+  await change(field("Work type"), "meeting"); await click(button("Cancel"));
+  assert.equal(mutations().length, 0);
+  await click(element('.block'));
+  assert.equal(field<HTMLSelectElement>("Work type").value, "general");
+  await click(button("Cancel")); await click(button("Add work block")); await click(button("Save work block"));
+  await settle(() => assert.equal(mutations().length, 1));
+  assert.equal(mutations()[0].data.workTypeId, null);
+});
+
+test("renamed work types keep the saved calendar and editor label, including notes-only saves", async () => {
+  const data = fixture(); data.workTypes[0].name = "General duties";
+  installFetch(data); await render(); await settle(() => assert.match(container.textContent!, /Private work note/));
+  const block = element('.block');
+  assert.match(block.textContent!, /General work/); assert.doesNotMatch(block.textContent!, /General duties/);
+  assert.match(block.getAttribute("aria-label")!, /General work/);
+  await click(block);
+  const select = field<HTMLSelectElement>("Work type");
+  assert.equal(select.value, "general");
+  assert.equal(select.selectedOptions[0].textContent, "General work (saved name; now General duties)");
+  assert.match(container.textContent!, /Keeping this choice preserves the saved name/);
+  await change(field("Work notes"), "Notes changed after rename");
+  await click(button("Save work block"));
+  await settle(() => assert.equal(mutations().length, 1));
+  assert.equal(mutations()[0].data.workTypeId, "general");
+  assert.equal(mutations()[0].data.billable, true);
+  assert.equal("workTypeName" in mutations()[0].data, false);
+});
+
+test("an archived saved work type can be retained during a timing correction but cannot be newly chosen", async () => {
+  const data = fixture(); data.workTypes[0].active = false;
+  installFetch(data); await render(); await settle(() => assert.match(container.textContent!, /Private work note/));
+  await click(element('.block'));
+  const select = field<HTMLSelectElement>("Work type");
+  assert.equal(select.value, "general");
+  assert.equal(select.selectedOptions[0].textContent, "General work (archived)");
+  assert.equal(select.selectedOptions[0].disabled, false);
+  assert.match(container.textContent!, /you can keep it on this work block/);
+  await change(field("End"), "2026-10-08T10:15"); await click(button("Save work block"));
+  await settle(() => assert.equal(container.querySelector('[role="dialog"]'), null));
+  assert.equal(mutations()[0].data.workTypeId, "general");
+  assert.equal(mutations()[0].data.endLocal, "2026-10-08T10:15");
+  await click(element('.block'));
+  await change(field("Work type"), "meeting");
+  assert.equal([...field<HTMLSelectElement>("Work type").options].some(option => option.value === "general"), true);
+  await change(field("Work type"), "general");
+  assert.equal(field<HTMLSelectElement>("Work type").selectedOptions[0].textContent, "General work (archived)");
+  await change(field("Work type"), ""); await click(button("Save work block"));
+  await settle(() => assert.equal(container.querySelector('[role="dialog"]'), null));
+  assert.equal(mutations()[1].data.workTypeId, null);
+  await click(button("Add work block"));
+  assert.deepEqual([...field<HTMLSelectElement>("Work type").options].map(option => option.value), ["", "meeting"]);
+});
+
+test("change history displays each saved work type name rather than the renamed catalogue label", async () => {
+  const data = fixture(); data.workTypes[0].name = "General duties";
+  installFetch(data); await render(); await settle(() => assert.match(container.textContent!, /Private work note/));
+  await click(element('.block'));
+  globalThis.fetch = async () => json({ calendarId: "calendar-a", history: [
+    { id: "change-type", action: "update", reason: null, createdAt: "2026-10-08T11:00:00Z", ownActor: true, before: { ...data.entries[0], workTypeName: "Original general work" }, after: { ...data.entries[0], workTypeId: "meeting", workTypeName: "Original meeting" } },
+    { id: "unclassified", action: "create", reason: null, createdAt: "2026-10-08T09:00:00Z", ownActor: true, before: null, after: { ...data.entries[0], workTypeId: null, workTypeName: null } },
+  ] });
+  await click(button("View change history"));
+  await settle(() => assert.match(element('[aria-label="Work block change history"]').textContent!, /Original general work/));
+  const history = element('[aria-label="Work block change history"]');
+  assert.match(history.textContent!, /Original meeting/);
+  assert.match(history.textContent!, /No work type/);
+  assert.doesNotMatch(history.textContent!, /General duties/);
+});
+
+test("an invalid response without work types clears the workspace instead of rendering a partial editor", async () => {
+  const data = fixture(); const { workTypes: omitted, ...incomplete } = data;
+  assert.ok(omitted.length);
+  globalThis.fetch = async () => json(incomplete);
+  await render(); await settle(() => assert.match(container.textContent!, /timesheets are unavailable/));
+  assert.equal(container.querySelector('.block'), null);
+  assert.equal(container.querySelector('[role="dialog"]'), null);
+});
+
+function hourSlot(hour: string, date = "2026-10-08") {
+  return element<HTMLButtonElement>(`[data-timesheets-date="${date}"] [data-timesheets-hour="${hour}"] button`);
+}
+async function emptyCalendar(options: { date?: string; timezone?: string; increment?: 5 | 10 | 15 | 30 | 60 } = {}) {
+  const data = fixture("calendar-a", "member");
+  data.entries = []; data.totals = []; data.date = options.date ?? data.date;
+  data.organisation = { ...data.organisation, timezone: options.timezone ?? "UTC", incrementMinutes: options.increment ?? 15 };
+  installFetch(data);
+  await act(async () => root.render(<TimesheetsPage calendarId="calendar-a" section="calendar" initialDate={data.date} />));
+  await settle(() => assert.ok(container.querySelector('.hourGutter')));
+  return data;
+}
+
+test("empty week and day calendars always show all 24 hours and labelled creation slots", async () => {
+  await emptyCalendar();
+  assert.equal(container.querySelectorAll('.hourLabel').length, 24);
+  assert.deepEqual([...container.querySelectorAll('.hourLabel')].map(label => label.textContent), Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, "0")}:00`));
+  assert.equal(container.querySelectorAll('.hourSlot').length, 168);
+  assert.equal(container.querySelectorAll('.hourAdd').length, 168);
+  assert.match(hourSlot("14:00").getAttribute("aria-label")!, /Add work on Thu, 8 Oct at 14:00/);
+  await click(button("Day"));
+  await settle(() => assert.equal(container.querySelectorAll('.hourSlot').length, 24));
+  assert.equal(container.querySelectorAll('.hourLabel').length, 24);
+  assert.match(container.textContent!, /No work recorded/);
+});
+
+test("an empty hour opens the selected date and configured increment, then Cancel restores focus", async () => {
+  await emptyCalendar({ increment: 30 });
+  const slot = hourSlot("14:00", "2026-10-09");
+  await act(async () => slot.focus()); await click(slot);
+  assert.equal(field<HTMLInputElement>("Start").value, "2026-10-09T14:00");
+  assert.equal(field<HTMLInputElement>("End").value, "2026-10-09T14:30");
+  assert.equal(field<HTMLSelectElement>("Work type").value, "");
+  assert.equal(element<HTMLInputElement>('input[type="checkbox"]').checked, false);
+  await click(button("Cancel"));
+  assert.equal(container.querySelector('[role="dialog"]'), null);
+  assert.equal(document.activeElement, slot);
+  assert.equal(mutations().length, 0);
+  await click(hourSlot("23:00"));
+  assert.equal(field<HTMLInputElement>("Start").value, "2026-10-08T23:00");
+  assert.equal(field<HTMLInputElement>("End").value, "2026-10-08T23:30");
+});
+
+test("clicking an existing hourly card edits it and never opens an unclassified new entry", async () => {
+  await render(); await settle(() => assert.ok(container.querySelector('.block')));
+  const block = element<HTMLButtonElement>('.block');
+  assert.equal(block.closest('[data-timesheets-hour]')!.getAttribute('data-timesheets-hour'), "09:00");
+  await click(block);
+  assert.match(element('[role="dialog"]').textContent!, /Edit work block/);
+  assert.equal(field<HTMLSelectElement>("Work type").value, "general");
+  assert.equal(field<HTMLTextAreaElement>("Work notes").value, "Private work note");
+  assert.equal(field<HTMLInputElement>("End").value, "2026-10-08T10:00");
+});
+
+test("hour slot saving uses organisation-local times and rolls a one-hour default over midnight", async () => {
+  await emptyCalendar({ timezone: "Pacific/Auckland", increment: 60 });
+  await click(hourSlot("23:00"));
+  assert.equal(field<HTMLInputElement>("Start").value, "2026-10-08T23:00");
+  assert.equal(field<HTMLInputElement>("End").value, "2026-10-09T00:00");
+  assert.equal(button("Save work block").disabled, false);
+  await click(button("Save work block"));
+  await settle(() => assert.equal(mutations().length, 1));
+  assert.equal(mutations()[0].data.startLocal, "2026-10-08T23:00");
+  assert.equal(mutations()[0].data.endLocal, "2026-10-09T00:00");
+});
+
+test("spring-forward missing hour is disabled and elapsed default duration skips the gap", async () => {
+  await emptyCalendar({ date: "2026-03-08", timezone: "America/New_York", increment: 60 });
+  const absent = hourSlot("02:00", "2026-03-08");
+  assert.equal(absent.disabled, true);
+  assert.match(absent.getAttribute("aria-label")!, /02:00 unavailable.*does not exist/);
+  await click(absent); assert.equal(container.querySelector('[role="dialog"]'), null);
+  await click(hourSlot("01:00", "2026-03-08"));
+  assert.equal(field<HTMLInputElement>("Start").value, "2026-03-08T01:00");
+  assert.equal(field<HTMLInputElement>("End").value, "2026-03-08T03:00");
+  assert.match(element('[role="dialog"]').textContent!, /1h 0m elapsed/);
+  assert.equal(button("Save work block").disabled, false);
+});
+
+test("a repeated fall-back hour opens unresolved and requires an explicit occurrence", async () => {
+  await emptyCalendar({ date: "2026-11-01", timezone: "America/New_York", increment: 15 });
+  const repeated = hourSlot("01:00", "2026-11-01");
+  assert.equal(repeated.disabled, false); await click(repeated);
+  assert.equal(field<HTMLSelectElement>("Start occurrence").value, "");
+  assert.equal(field<HTMLSelectElement>("End occurrence").value, "");
+  assert.match(element('[role="dialog"]').textContent!, /occurs twice/);
+  assert.equal(button("Save work block").disabled, true);
+  await change(field("Start occurrence"), "later"); await change(field("End occurrence"), "later");
+  assert.equal(button("Save work block").disabled, false);
+  assert.match(element('[role="dialog"]').textContent!, /0h 15m elapsed/);
+});
+
+test("an unambiguous slot ending in a repeated hour preserves the resolved end occurrence", async () => {
+  await emptyCalendar({ date: "2026-11-01", timezone: "America/New_York", increment: 60 });
+  await click(hourSlot("00:00", "2026-11-01"));
+  assert.equal(field<HTMLInputElement>("End").value, "2026-11-01T01:00");
+  assert.equal(field<HTMLSelectElement>("End occurrence").value, "earlier");
+  assert.equal(button("Save work block").disabled, false);
+  assert.match(element('[role="dialog"]').textContent!, /1h 0m elapsed/);
 });
