@@ -4,6 +4,7 @@ export const calendarTemplateIds = [
   "shared_facilities",
   "social_groups",
   "salon_bookings",
+  "timesheets",
 ] as const;
 
 export type CalendarTemplateId = (typeof calendarTemplateIds)[number];
@@ -13,7 +14,8 @@ export type CalendarTemplateSlug =
   | "staff-rosters"
   | "shared-facilities"
   | "social-groups"
-  | "salon-bookings";
+  | "salon-bookings"
+  | "timesheets";
 
 export type CovieAccent = "coral" | "teal" | "sunshine" | "violet";
 export type TemplateIconKey = "people" | "calendar" | "settings" | "grid";
@@ -337,6 +339,26 @@ export const calendarTemplateManifests: Record<
     sharedComponents: ["CoviePage", "CoviePageHeader", "CovieDialog", "CovieInput", "CovieSelect", "CovieNotice"],
     specialResponsiveConsiderations: ["Choose service, practitioner, day and time before confirming.", "Clients see available slots and their own bookings only."],
   },
+  timesheets: {
+    id: "timesheets", slug: "timesheets", name: "Timesheets", accentPair: ["teal", "sunshine"],
+    purpose: "Record work in a clear day or week calendar, with clients, projects and billable totals.",
+    coreQuestion: "What did I work on, and how much time did it take?",
+    primaryScheduledEntity: "Work block", identityTypes: ["Staff member", "Manager", "Client", "Project"],
+    primaryCreateAction: "Add work block",
+    organiserTools: [
+      { key: "team", label: "Team", description: "Staff profiles, personal invitations and manager assignments.", icon: "people" },
+      { key: "clients-projects", label: "Clients & projects", description: "Organise work by client and project.", icon: "grid" },
+      { key: "settings", label: "Settings", description: "Organisation name, timezone and time increments.", icon: "settings" },
+    ],
+    eventCategoryMapping: [{ label: "Billable work", colour: "teal" }, { label: "Non-billable work", colour: "violet" }],
+    positiveStateMeaning: "Work recorded with exact elapsed time.", attentionStateMeaning: "A work block needs correction.",
+    conflictRule: "Work blocks for one staff member must not overlap. Durations must be exact multiples of the configured increment.",
+    approvalModel: "Staff record their own work. Managers oversee assigned staff. The owner controls the organisation.",
+    scheduleUnit: "Work block", defaultView: "Weekly work calendar",
+    requiredFields: ["Staff member", "Start", "End"], optionalFields: ["Client", "Project", "Work notes", "Billable"],
+    sharedComponents: ["CoviePage", "CovieDialog", "CovieInput", "CovieSelect", "CovieNotice"],
+    specialResponsiveConsiderations: ["Days remain distinct on smaller screens, with readable work blocks.", "Team filters and billable totals stay visible."],
+  },
 };
 
 export const additionalCalendarTemplateSlugs = [
@@ -344,6 +366,7 @@ export const additionalCalendarTemplateSlugs = [
   "shared-facilities",
   "social-groups",
   "salon-bookings",
+  "timesheets",
 ] as const;
 
 export type AdditionalCalendarTemplateSlug =

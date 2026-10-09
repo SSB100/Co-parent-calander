@@ -6,7 +6,9 @@ export type WorkspaceRole = "owner" | "manager" | "staff" | "admin" | "member" |
 export function workspaceOrganiserTools(type: CalendarTemplateId, role: WorkspaceRole) {
   const tools = calendarTemplateManifests[type].organiserTools;
   let keys: readonly string[] = [];
-  if (type === "staff_rosters") {
+  if (type === "timesheets") {
+    keys = role === "owner" ? ["team", "clients-projects", "settings"] : role === "manager" ? ["team"] : [];
+  } else if (type === "staff_rosters") {
     keys = role === "owner" || role === "manager" ? tools.map((tool) => tool.key) : role === "staff" ? ["availability", "timesheets"] : [];
   } else if (type === "shared_facilities") {
     keys = role === "owner" ? ["resources", "booking-rules", "members"] : role === "manager" ? ["resources"] : [];

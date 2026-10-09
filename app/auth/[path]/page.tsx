@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { CredentialsForm } from "@/components/auth/credentials-form";
 import { normalizeInviteCode } from "@/lib/security/invites";
 
-export const metadata: Metadata = { title: "Account" };
+export const metadata: Metadata = { title: "Account", referrer: "no-referrer", robots: { index: false, follow: false } };
 
 export default async function AuthPage({
   params,

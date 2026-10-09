@@ -1,0 +1,82 @@
+.stack { display: grid; gap: 1rem; min-width: 0; }
+.toolbar, .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; }
+.toolbar { justify-content: space-between; }
+.title { font-size: clamp(1.35rem, 3vw, 1.85rem); font-weight: 850; color: #243139; }
+.muted { color: #526168; font-size: .875rem; line-height: 1.6; }
+.field { display: grid; gap: .4rem; font-size: .875rem; font-weight: 750; min-width: 0; }
+.fieldHint { color: #526168; font-size: .8rem; font-weight: 450; line-height: 1.5; }
+.formGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
+.form { display: grid; gap: 1rem; }
+.form fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.form fieldset:disabled { opacity: .7; }
+.check { display: flex; align-items: center; gap: .6rem; min-height: 44px; font-size: .9rem; }
+.check input { width: 1.1rem; height: 1.1rem; accent-color: #138e81; }
+.metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .75rem; }
+.metric { background: #fffdf9; border: 1.5px solid #e6dbcf; border-radius: 14px; padding: 1rem; }
+.metric strong { display: block; font-size: 1.45rem; color: #243139; }
+.metric span { color: #526168; font-size: .8rem; }
+.boardScroll { max-width: 100%; overflow-x: auto; border: 1.5px solid #d6d1c7; border-radius: 16px; background: #fffdf9; }
+.board { display: grid; min-width: 720px; grid-template-columns: repeat(7,minmax(0,1fr)); }
+.dayBoard { grid-template-columns: minmax(0,1fr); min-width: 0; }
+.day { min-width: 0; border-right: 1px solid #e6dbcf; }
+.day:last-child { border-right: 0; }
+.dayHeader { display: grid; gap: .25rem; padding: .9rem .7rem; min-height: 82px; border-bottom: 1px solid #e6dbcf; background: #f7f1e8; }
+.dayHeader strong { color: #243139; font-size: .9rem; }
+.dayHeader span { font-size: .75rem; color: #526168; }
+.dayHeader[data-today=true] { background: #d9f0e9; }
+.dayEntries { padding: .5rem; display: grid; align-content: start; gap: .6rem; min-height: 260px; }
+.block { display: grid; gap: .25rem; width: 100%; border: 1px solid #99cfc4; border-left: 4px solid #19a897; border-radius: 10px; background: #e3f3ee; padding: .7rem .6rem; text-align: left; color: #243139; overflow-wrap: anywhere; cursor: pointer; min-height: 90px; }
+.block[data-billable=false] { background: #eee9fa; border-color: #cbbcec; border-left-color: #765ed6; }
+.block:focus-visible, .boardScroll:focus-visible { outline: 3px solid #765ed6; outline-offset: 3px; }
+.block:disabled { cursor: wait; opacity: .65; }
+.blockTime { font-weight: 850; font-size: .8rem; }
+.blockDetail { font-size: .76rem; line-height: 1.45; }
+.blockNote { font-size: .8rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.emptyDay { font-size: .8rem; color: #66747a; padding: .6rem .2rem; }
+.card { border: 1.5px solid #e6dbcf; border-radius: 14px; padding: 1rem; background: #fffdf9; display: grid; gap: .75rem; }
+.cardTitle { font-weight: 850; color: #243139; }
+.cardGrid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,280px),1fr)); gap: .75rem; }
+.summaryTable { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.summaryTable th, .summaryTable td { text-align: left; padding: .7rem; border-bottom: 1px solid #e6dbcf; }
+.summaryTable th { font-size: .8rem; color: #526168; }
+.summaryTable caption { text-align: left; font-weight: 850; padding: .5rem .7rem; }
+.link { color: #526168; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width:640px) { .metrics { gap: .45rem; } .metric { padding: .75rem .6rem; } .metric strong { font-size: 1.15rem; } .formGrid { grid-template-columns: minmax(0,1fr); } .toolbar { align-items: stretch; } .summaryTable th,.summaryTable td { padding: .6rem .35rem; } }
+@media (prefers-reduced-motion:reduce) { .block { transition: none; } }
+
+.historyNote { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Timesheets-only layout: shared calendar types keep their existing headers. */
+.calendarIdentityHeader :global(.calendar-switcher) { min-width: 0; width: 100%; max-width: 100%; }
+.calendarIdentityHeader :global(.calendar-switcher > summary) { max-width: 100%; }
+.calendarSection { margin-top: .75rem; }
+.dateNavigation, .periodTools { display: flex; align-items: center; gap: .65rem; min-width: 0; }
+.dateField { display: grid; gap: .4rem; min-width: 0; font-size: .875rem; font-weight: 750; }
+.periodTools { flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .compactIdentity > div { padding: 0; }
+  .compactCalendarHeader { margin-bottom: .25rem; }
+  .compactCalendarHeader :global(.calendar-switcher > summary > span) { font-size: 1.125rem; }
+  .calendarSection { margin-top: .5rem; }
+  .calendarStack { gap: .5rem; }
+  .calendarHeading { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: .5rem; }
+  .calendarHeading .title { font-size: 1.2rem; line-height: 1.25; }
+  .calendarHeading .muted { font-size: .8rem; }
+  .createButton { padding-inline: .65rem; gap: .35rem; }
+  .organisationName, .desktopWord, .desktopHelp { display: none; }
+  .calendarControls { display: grid; gap: .5rem; }
+  .dateNavigation { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px; gap: .5rem; }
+  .dateField input { width: 100%; min-width: 0; }
+  .periodTools { justify-content: space-between; gap: .5rem; }
+  .periodTools .actions { gap: .35rem; }
+  .dateLabel, .staffFilter .field > span:first-child, .memberScope { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  .staffFilter .field { gap: 0; }
+  .calendarStack .metric { padding: .5rem .6rem; }
+  .periodHint { font-size: .8rem; }
+  .calendarStack .dayHeader { min-height: 62px; padding: .65rem .7rem; }
+}
+@media (max-width: 640px) {
+  .calendarStack .metric strong { line-height: 1.15; }
+  .calendarStack .metric span { display: block; margin-top: 2px; line-height: 1.25; }
+  .calendarStack .dayHeader { min-height: 54px; padding-block: .5rem; line-height: 1.25; }
+}

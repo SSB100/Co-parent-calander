@@ -184,6 +184,12 @@ export async function createCalendar(
     `,
   ];
 
+  if (parsed.data.calendarType === "timesheets") {
+    // Calendar, organisation, owner membership and profile share one transaction.
+    statements.push(sql`SELECT timesheet_create_organisation(${calendarId}::uuid,${user.id}::uuid,
+      ${parsed.data.calendarName},${parsed.data.displayName},${user.email},${DEFAULT_CALENDAR_TIMEZONE})`);
+  }
+
   if (normalizedInviteCode && inviteExpiresAt) {
     statements.push(sql`
       INSERT INTO calendar_invites (
@@ -677,18 +683,21 @@ export async function deleteCalendar(
 
   const sql = getSql();
   const owned = (await sql`
-    SELECT calendar.id, calendar.name
+    SELECT calendar.id, calendar.name, calendar.calendar_type
     FROM calendars calendar
     JOIN calendar_memberships membership ON membership.calendar_id = calendar.id
     WHERE calendar.id = ${parsed.data.calendarId}
       AND membership.user_id = ${user.id}
       AND membership.permission = 'owner'
     LIMIT 1
-  `) as Array<{ id: string; name: string }>;
+  `) as Array<{ id: string; name: string; calendar_type: CalendarTemplateId }>;
 
   const calendar = owned[0];
   if (!calendar) {
     return { error: "Only the calendar owner can delete this calendar." };
+  }
+  if (calendar.calendar_type === "timesheets") {
+    return { error: "Timesheets retain audited work history. Archive this calendar instead." };
   }
   if (parsed.data.calendarName !== calendar.name) {
     return { error: "The calendar name does not match." };

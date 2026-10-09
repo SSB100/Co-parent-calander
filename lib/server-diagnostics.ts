@@ -29,6 +29,6 @@ export function safeServerDiagnostic(error: unknown, env: Record<string, string 
   };
 }
 
-export function reportServerFailure(area: "sign-in" | "salon", error: unknown) {
+export function reportServerFailure(area: "sign-in" | "salon" | "timesheets", error: unknown) {
   console.error(`[covie:${area}] request failed`, safeServerDiagnostic(error));
 }

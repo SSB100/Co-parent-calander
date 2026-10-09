@@ -31,7 +31,7 @@ export const calendarPurposes: readonly CalendarPurpose[] = [
     question: "When am I working?",
     description:
       "Bring the roster and the team together. Owners and managers plan coverage; staff get a focused view of their own working week.",
-    uses: ["Published shifts and locations", "Availability and leave", "Clocking, breaks and timesheets"],
+    uses: ["Published shifts and locations", "Availability and leave", "Clocking, breaks and attendance"],
     primary: "#19A897",
     secondary: "#F4C64E",
     primaryText: "#243139",
@@ -40,6 +40,18 @@ export const calendarPurposes: readonly CalendarPurpose[] = [
       { day: "Mon", date: "12", title: "Opening shift", detail: "Alex · 7:00 am to 1:00 pm", accent: "primary" },
       { day: "Wed", date: "14", title: "Afternoon shift", detail: "Sam · 12:00 pm to 6:00 pm", accent: "secondary" },
       { day: "Sat", date: "17", title: "Weekend shift", detail: "Alex · 9:00 am to 3:00 pm", accent: "primary" },
+    ],
+  },
+  {
+    id: "timesheets", name: "Timesheets", audience: "For people recording work and managers overseeing their team",
+    question: "What did I work on, and how much time did it take?",
+    description: "See recorded work in a day or week calendar. Add clients, projects and work notes, then review exact hours and billable totals with the right people.",
+    uses: ["Work blocks with exact time increments", "Clients, projects and billable work", "Assigned managers and personal invitations"],
+    primary: "#19A897", secondary: "#F4C64E", primaryText: "#243139", exampleName: "Our working week",
+    exampleEntries: [
+      { day: "Mon", date: "12", title: "Project research", detail: "Alex · 9:00 am to 10:30 am · Billable", accent: "primary" },
+      { day: "Wed", date: "14", title: "Team planning", detail: "Sam · 11:00 am to 11:45 am", accent: "secondary" },
+      { day: "Fri", date: "16", title: "Client review", detail: "Alex · 2:00 pm to 3:00 pm · Billable", accent: "primary" },
     ],
   },
   {

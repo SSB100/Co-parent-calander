@@ -33,6 +33,26 @@ jobs:
       - name: Tests
         run: npm test
 
+      - name: Verify standalone Timesheets migrations, permissions and concurrency
+        run: |
+          mkdir -p build/timesheets-sql-tooling
+          printf '{"private":true}' > build/timesheets-sql-tooling/package.json
+          npm install --prefix build/timesheets-sql-tooling --no-audit --no-fund --package-lock=false pg@8.23.1
+          PG_BIN="$(find /usr/lib/postgresql -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)/bin"
+          test -x "$PG_BIN/initdb"
+          COVIE_TIMESHEETS_PG_BIN="$PG_BIN" COVIE_TIMESHEETS_PG_LIB=/usr/lib/x86_64-linux-gnu COVIE_SQL_TOOLING="$PWD/build/timesheets-sql-tooling" npm run test:timesheets-native
+
+      - name: Save Timesheets SQL qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: timesheets-sql-evidence
+          retention-days: 3
+          path: |
+            build/pg-run.*/run.txt
+            build/pg-run.*/logs/*.log
+            build/pg-run.*/legacy-*.sha
+
       - name: Dependency audit
         run: node scripts/dependency-audit.mjs
 
@@ -66,6 +86,8 @@ jobs:
         run: node tests/browser/my-calendars/run.mjs
       - name: Verify owner setup and booking sharing on desktop and mobile
         run: node tests/browser/owner-readiness/run.mjs
+      - name: Verify standalone Timesheets on desktop and mobile
+        run: node tests/browser/timesheets/run.mjs
       - name: Save browser evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -78,3 +100,6 @@ jobs:
             test-results/owner-readiness/*.png
             test-results/owner-readiness/*.json
             test-results/owner-readiness/failure-*.html
+            test-results/timesheets/*.png
+            test-results/timesheets/*.json
+            test-results/timesheets/failure-*.html
