@@ -25,7 +25,7 @@ function TimesheetsResourcePage({ calendarId, section, tool, initialDate = "" }:
   const [staffFilter, setStaffFilter] = useState("");
   const resource = useTimesheetsResource(calendarId, date, view);
   const data = resource.data;
-  return <div className={styles.stack}>
+  return <div className={`${styles.stack} ${section === "organiser" ? styles.organiserContent : ""}`}>
     {resource.error ? <CovieNotice tone="danger" role="alert">{resource.error}<div className={styles.actions}><CovieButton tone="neutral" onClick={() => void resource.refresh()}>Try again</CovieButton></div></CovieNotice> : null}
     {resource.feedback?.error ? <CovieNotice tone="danger" role="alert">{resource.feedback.error}</CovieNotice> : null}
     {resource.loading ? <p className={styles.muted} role="status">Loading timesheets…</p> : null}

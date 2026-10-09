@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { cloneElement, isValidElement, useId, useState, type ReactNode, type ReactElement } from "react";
 import { CovieButton, CovieDialog, CovieInput, CovieNotice, CovieSelect, CovieTextarea } from "@/components/ui/covie";
 import { TIMESHEETS_INCREMENTS, type TimesheetsData, type TimesheetsEntry, type TimesheetsStaff, type TimesheetsClient, type TimesheetsProject, type TimesheetsWorkType } from "@/lib/timesheets/contracts";
 import { timesheetsLocalTime, timesheetsDisambiguationForInstant, resolveTimesheetsLocalTime } from "@/lib/timesheets/model";
@@ -9,7 +9,12 @@ import type { TimesheetsSave } from "./use-timesheets-resource";
 import styles from "./timesheets.module.css";
 
 export function TimesheetsField({ label, children, hint }: { label: string; children: ReactNode; hint?: ReactNode }) {
-  return <label className={styles.field}><span>{label}</span>{children}{hint ? <span className={styles.fieldHint}>{hint}</span> : null}</label>;
+  const id = useId();
+  const control = isValidElement(children) ? cloneElement(children as ReactElement<{ "aria-labelledby"?: string; "aria-describedby"?: string }>, {
+    "aria-labelledby": `${id}-label`, ...(hint ? { "aria-describedby": `${id}-hint` } : {}),
+  }) : children;
+  // Keep existing textarea contents and helper text out of the control's name.
+  return <label className={styles.field}><span id={`${id}-label`}>{label}</span>{control}{hint ? <span id={`${id}-hint`} className={styles.fieldHint}>{hint}</span> : null}</label>;
 }
 const Field = TimesheetsField;
 export function minutesLabel(minutes: number) { return `${Math.floor(minutes / 60)}h ${minutes % 60}m`; }

@@ -111,7 +111,19 @@ try {
     const workTypeJourney = variant === "owner-work-types" || variant === "staff-work-types";
     const state = snapshot(variant, new URLSearchParams({ date }));
     const savedHistory = [];
-    const currentSnapshot = query => ({ ...snapshot(variant, query), workTypes: state.workTypes, entries: state.entries });
+    const currentSnapshot = query => {
+      const base = snapshot(variant, query), start = new Date(`${base.date}T00:00:00Z`);
+      if (base.view === "week") start.setUTCDate(start.getUTCDate() - (start.getUTCDay() + 6) % 7);
+      const from = start.getTime(), to = from + (base.view === "week" ? 7 : 1) * 86400000;
+      const entries = state.entries.filter(entry => Date.parse(entry.start) < to && Date.parse(entry.end) > from);
+      const totals = new Map();
+      for (const entry of entries) {
+        const minutes = (Math.min(Date.parse(entry.end), to) - Math.max(Date.parse(entry.start), from)) / 60000;
+        const total = totals.get(entry.staffId) ?? { staffId: entry.staffId, totalMinutes: 0, billableMinutes: 0 };
+        total.totalMinutes += minutes; total.billableMinutes += entry.billable ? minutes : 0; totals.set(entry.staffId, total);
+      }
+      return { ...base, workTypes: state.workTypes, entries, totals: [...totals.values()] };
+    };
     page.setDefaultTimeout(8000); page.on("pageerror", error => errors.push(error.message));
     const capture = async suffix => { await noOverflow(page); const filename = `${caseId}-${suffix}.png`; await page.screenshot({ path: path.join(out, filename), fullPage: false }); screenshots.push(filename); };
     await page.route("**/*", async route => {
@@ -200,6 +212,14 @@ try {
         assert.equal(await dialog.getByLabel("Work type name", { exact: true }).inputValue(), "");
         await dialog.getByLabel("Work type name", { exact: true }).fill("Travel time");
         await dialog.getByRole("button", { name: "Save work type", exact: true }).click(); await dialog.waitFor({ state: "detached" });
+        await page.getByRole("button", { name: "Rename Travel time", exact: true }).waitFor({ state: "visible" });
+        if (width < 1024) {
+          await page.evaluate(async () => { window.scrollTo(0, document.documentElement.scrollHeight); await new Promise(resolve => requestAnimationFrame(resolve)); });
+          const renameBounds = await page.getByRole("button", { name: "Rename Travel time", exact: true }).boundingBox();
+          const navBounds = await page.getByRole("navigation", { name: "Main navigation", exact: true }).boundingBox();
+          assert(renameBounds && navBounds && renameBounds.y + renameBounds.height <= navBounds.y, "Last work-type actions must remain reachable above fixed mobile navigation");
+          await capture("last-work-type-actions");
+        }
         await page.getByRole("button", { name: "Rename Travel time", exact: true }).click();
         dialog = page.getByRole("dialog", { name: "Rename work type", exact: true }); await dialog.waitFor();
         await dialog.getByLabel("Work type name", { exact: true }).fill("Travel to client");
@@ -282,6 +302,8 @@ try {
         await dialog.getByRole("button", { name: "Save work block", exact: true }).click(); await dialog.waitFor({ state: "detached" });
         const newBlock = page.getByRole("button", { name: /New meeting work block/ }); await newBlock.waitFor();
         assert.match(await newBlock.innerText(), /Meeting/); assert.match(await newBlock.innerText(), /Non-billable/);
+        const totals = page.getByRole("region", { name: "Selected period totals", exact: true });
+        assert.deepEqual(await totals.locator("strong").allTextContents(), ["3h 0m", "1h 30m", "1h 30m"]);
         await capture("new-work-type-entry");
         const commands = requests.filter(request => request.method === "POST").map(request => request.command);
         assert.equal(commands.length, 3);

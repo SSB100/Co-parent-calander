@@ -636,3 +636,16 @@ test("an unambiguous slot ending in a repeated hour preserves the resolved end o
   assert.equal(button("Save work block").disabled, false);
   assert.match(element('[role="dialog"]').textContent!, /1h 0m elapsed/);
 });
+
+
+test("field labels remain explicit when notes already contain text, and helper text stays descriptive", async () => {
+  await render(); await settle(() => assert.ok(container.querySelector('.block')));
+  await click(element<HTMLButtonElement>('.block'));
+  const notes = field<HTMLTextAreaElement>("Work notes");
+  const label = document.getElementById(notes.getAttribute("aria-labelledby")!);
+  assert.equal(label?.textContent, "Work notes");
+  assert.equal(notes.value, "Private work note");
+  const type = field<HTMLSelectElement>("Work type");
+  assert.equal(document.getElementById(type.getAttribute("aria-labelledby")!)?.textContent, "Work type");
+  assert.match(document.getElementById(type.getAttribute("aria-describedby")!)?.textContent ?? "", /Optional/);
+});
